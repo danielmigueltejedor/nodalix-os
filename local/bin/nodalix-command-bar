@@ -3,10 +3,11 @@
 import gi
 import json
 import subprocess
+import shlex
 from pathlib import Path
 
 gi.require_version("Gtk", "3.0")
-from gi.repository import Gtk, Gdk, GLib
+from gi.repository import Gtk, Gdk, GLib, GdkPixbuf
 
 
 APP_TITLE = "Nodalix Command Bar"
@@ -127,11 +128,105 @@ def setup_css():
     )
 
 
+
+def clean_exec_command(exec_cmd):
+    for token in ["%f", "%F", "%u", "%U", "%i", "%c", "%k"]:
+        exec_cmd = exec_cmd.replace(token, "")
+
+    return exec_cmd.strip()
+
+
+def exec_basename(exec_cmd):
+    try:
+        parts = shlex.split(exec_cmd)
+    except Exception:
+        parts = exec_cmd.split()
+
+    if not parts:
+        return ""
+
+    return Path(parts[0]).name.lower()
+
+
+def focus_existing_app(item):
+    raw = sh(["hyprctl", "clients", "-j"])
+
+    if not raw:
+        return False
+
+    try:
+        clients = json.loads(raw)
+    except Exception:
+        return False
+
+    title = item.get("title", "").lower()
+    wmclass = item.get("wmclass", "").lower()
+    base = item.get("exec_base", "").lower()
+
+    strong_tokens = [x for x in [wmclass, base] if x]
+    soft_tokens = [title] if title else []
+
+    for c in clients:
+        address = c.get("address")
+        if not address:
+            continue
+
+        values = [
+            str(c.get("class") or "").lower(),
+            str(c.get("initialClass") or "").lower(),
+            str(c.get("title") or "").lower(),
+            str(c.get("initialTitle") or "").lower(),
+        ]
+
+        # Match fuerte: clase de ventana / binario.
+        for token in strong_tokens:
+            for value in values[:2]:
+                if token == value or token in value or value in token:
+                    run_cmd(f"hyprctl dispatch focuswindow address:{address}")
+                    return True
+
+        # Match suave: nombre de app dentro del título.
+        # Útil para apps sin StartupWMClass correcto.
+        for token in soft_tokens:
+            if len(token) >= 4:
+                for value in values[2:]:
+                    if token in value:
+                        run_cmd(f"hyprctl dispatch focuswindow address:{address}")
+                        return True
+
+    return False
+
+
+def make_icon_widget(item):
+    icon_name = item.get("icon_name") or ""
+    image = Gtk.Image()
+    image.set_name("item_icon")
+
+    try:
+        if icon_name and Path(icon_name).exists():
+            pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(icon_name, 24, 24, True)
+            image.set_from_pixbuf(pix)
+        elif icon_name:
+            image.set_from_icon_name(icon_name, Gtk.IconSize.DIALOG)
+            image.set_pixel_size(24)
+        else:
+            image.set_from_icon_name("application-x-executable", Gtk.IconSize.DIALOG)
+            image.set_pixel_size(24)
+    except Exception:
+        image.set_from_icon_name("application-x-executable", Gtk.IconSize.DIALOG)
+        image.set_pixel_size(24)
+
+    return image
+
+
 def parse_desktop_file(path):
     name = None
     exec_cmd = None
+    icon_name = None
+    wmclass = None
     hidden = False
     nodisplay = False
+    terminal = False
     in_desktop_entry = False
 
     try:
@@ -152,29 +247,40 @@ def parse_desktop_file(path):
                 name = line.split("=", 1)[1].strip()
             elif line.startswith("Exec=") and exec_cmd is None:
                 exec_cmd = line.split("=", 1)[1].strip()
+            elif line.startswith("Icon=") and icon_name is None:
+                icon_name = line.split("=", 1)[1].strip()
+            elif line.startswith("StartupWMClass=") and wmclass is None:
+                wmclass = line.split("=", 1)[1].strip()
             elif line.startswith("NoDisplay="):
                 nodisplay = line.split("=", 1)[1].strip().lower() == "true"
             elif line.startswith("Hidden="):
                 hidden = line.split("=", 1)[1].strip().lower() == "true"
+            elif line.startswith("Terminal="):
+                terminal = line.split("=", 1)[1].strip().lower() == "true"
     except Exception:
         return None
 
     if hidden or nodisplay or not name or not exec_cmd:
         return None
 
-    for token in ["%f", "%F", "%u", "%U", "%i", "%c", "%k"]:
-        exec_cmd = exec_cmd.replace(token, "")
+    exec_cmd = clean_exec_command(exec_cmd)
+    base = exec_basename(exec_cmd)
 
-    exec_cmd = exec_cmd.strip()
+    if terminal and exec_cmd:
+        exec_cmd = f"alacritty -e {exec_cmd}"
 
     return {
         "kind": "app",
         "icon": "󰣆",
+        "icon_name": icon_name or "application-x-executable",
         "title": name,
         "subtitle": f"App · {exec_cmd}",
-        "search": f"{name} {exec_cmd}".lower(),
+        "search": f"{name} {exec_cmd} {wmclass or ''} {base}".lower(),
         "command": exec_cmd,
+        "wmclass": wmclass or "",
+        "exec_base": base,
     }
+
 
 
 def load_apps():
@@ -536,8 +642,7 @@ class CommandBar(Gtk.Window):
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         row.add(box)
 
-        icon = Gtk.Label(label=item.get("icon", "󰀻"))
-        icon.set_name("item_icon")
+        icon = make_icon_widget(item)
         box.pack_start(icon, False, False, 0)
 
         text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
@@ -561,10 +666,16 @@ class CommandBar(Gtk.Window):
         if not row:
             return
 
-        cmd = row.item.get("command")
+        item = row.item
+        cmd = item.get("command")
 
         if not cmd:
             return
+
+        if item.get("kind") == "app":
+            if focus_existing_app(item):
+                Gtk.main_quit()
+                return
 
         run_cmd(cmd)
         Gtk.main_quit()
