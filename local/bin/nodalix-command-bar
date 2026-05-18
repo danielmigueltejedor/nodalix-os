@@ -218,25 +218,38 @@ def focus_existing_app(item):
 
 
 def make_icon_widget(item):
+    kind = item.get("kind", "")
+    icon_text = item.get("icon") or "󰀻"
     icon_name = item.get("icon_name") or ""
-    image = Gtk.Image()
-    image.set_name("item_icon")
 
-    try:
-        if icon_name and Path(icon_name).exists():
-            pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(icon_name, 24, 24, True)
-            image.set_from_pixbuf(pix)
-        elif icon_name:
-            image.set_from_icon_name(icon_name, Gtk.IconSize.DIALOG)
-            image.set_pixel_size(24)
-        else:
+    # Las apps usan iconos reales del sistema.
+    if kind == "app":
+        image = Gtk.Image()
+        image.set_name("item_icon")
+
+        try:
+            if icon_name and Path(icon_name).exists():
+                pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(icon_name, 24, 24, True)
+                image.set_from_pixbuf(pix)
+            elif icon_name:
+                image.set_from_icon_name(icon_name, Gtk.IconSize.DIALOG)
+                image.set_pixel_size(24)
+            else:
+                image.set_from_icon_name("application-x-executable", Gtk.IconSize.DIALOG)
+                image.set_pixel_size(24)
+        except Exception:
             image.set_from_icon_name("application-x-executable", Gtk.IconSize.DIALOG)
             image.set_pixel_size(24)
-    except Exception:
-        image.set_from_icon_name("application-x-executable", Gtk.IconSize.DIALOG)
-        image.set_pixel_size(24)
 
-    return image
+        return image
+
+    # Acciones, ventanas y workspaces usan Nerd Font como texto.
+    label = Gtk.Label(label=icon_text)
+    label.set_name("item_icon")
+    label.set_width_chars(2)
+    label.set_xalign(0.5)
+    return label
+
 
 
 def parse_desktop_file(path):
@@ -335,6 +348,24 @@ def load_apps():
     return apps
 
 
+
+def ellipsize(text, max_len=72):
+    text = str(text or "").strip()
+
+    if len(text) <= max_len:
+        return text
+
+    return text[: max_len - 1].rstrip() + "…"
+
+
+def compact_window_title(title):
+    return ellipsize(title, 58)
+
+
+def compact_subtitle(text):
+    return ellipsize(text, 86)
+
+
 def load_windows():
     raw = sh(["hyprctl", "clients", "-j"])
 
@@ -349,7 +380,7 @@ def load_windows():
     items = []
 
     for c in clients:
-        title = c.get("title") or c.get("class") or "Window"
+        raw_title = c.get("title") or c.get("class") or "Window"
         klass = c.get("class") or "unknown"
         address = c.get("address")
         workspace = c.get("workspace", {}).get("name", "?")
@@ -357,16 +388,20 @@ def load_windows():
         if not address:
             continue
 
+        title = compact_window_title(raw_title)
+        subtitle = compact_subtitle(f"Ventana · {klass} · workspace {workspace}")
+
         items.append({
             "kind": "window",
             "icon": "󰖲",
             "title": title,
-            "subtitle": f"Ventana · {klass} · workspace {workspace}",
-            "search": f"{title} {klass} {workspace}".lower(),
+            "subtitle": subtitle,
+            "search": f"{raw_title} {klass} {workspace}".lower(),
             "command": f"hyprctl dispatch focuswindow address:{address}",
         })
 
     return items
+
 
 
 def load_workspaces():
@@ -406,58 +441,292 @@ def load_actions():
             "icon": "󰒓",
             "title": "Abrir ajustes de Nodalix",
             "subtitle": "Sistema · Próximamente",
-            "search": "settings ajustes nodalix sistema",
+            "search": "settings ajustes nodalix sistema configuracion",
             "command": "notify-send \"Nodalix\" \"Nodalix Settings todavía no está implementado\"",
-        },
-        {
-            "kind": "action",
-            "icon": "󰍹",
-            "title": "Abrir WPE Menu",
-            "subtitle": "Wallpapers · Wallpaper Engine",
-            "search": "wallpaper wpe fondos workshop",
-            "command": "wpe-menu",
-        },
-        {
-            "kind": "action",
-            "icon": "󰕾",
-            "title": "Abrir audio",
-            "subtitle": "Audio · Pavucontrol",
-            "search": "audio sonido volumen pavucontrol",
-            "command": "pavucontrol",
-        },
-        {
-            "kind": "action",
-            "icon": "󰌾",
-            "title": "Bloquear sesión",
-            "subtitle": "Sistema · Lock",
-            "search": "bloquear lock pantalla seguridad",
-            "command": "hyprlock",
-        },
-        {
-            "kind": "action",
-            "icon": "󰓅",
-            "title": "Modo Gaming",
-            "subtitle": "Gaming · Próximamente",
-            "search": "gaming juegos gamemode steam mangohud",
-            "command": "notify-send \"Nodalix Gaming\" \"Modo Gaming todavía no está implementado\"",
         },
         {
             "kind": "action",
             "icon": "󰒡",
             "title": "Nodalix Doctor",
             "subtitle": "Diagnóstico del sistema",
-            "search": "doctor diagnostico sistema logs errores",
+            "search": "doctor diagnostico sistema logs errores salud",
             "command": "alacritty -e nodalix-doctor",
+        },
+        {
+            "kind": "action",
+            "icon": "󰜉",
+            "title": "Recargar Hyprland",
+            "subtitle": "Sistema · hyprctl reload",
+            "search": "reload recargar hyprland compositor config",
+            "command": "hyprctl reload && notify-send \"Nodalix\" \"Hyprland recargado\"",
+        },
+        {
+            "kind": "action",
+            "icon": "󰜉",
+            "title": "Recargar Waybar",
+            "subtitle": "Sistema · reiniciar barra superior",
+            "search": "reload recargar waybar barra topbar panel",
+            "command": "pkill waybar; waybar >/tmp/waybar.log 2>&1 &",
+        },
+        {
+            "kind": "action",
+            "icon": "󰌾",
+            "title": "Bloquear sesión",
+            "subtitle": "Seguridad · Hyprlock",
+            "search": "bloquear lock pantalla seguridad hyprlock",
+            "command": "hyprlock",
+        },
+        {
+            "kind": "action",
+            "icon": "󰤄",
+            "title": "Suspender equipo",
+            "subtitle": "Energía · systemctl suspend",
+            "search": "suspender sleep dormir energia suspension",
+            "command": "systemctl suspend",
+        },
+        {
+            "kind": "action",
+            "icon": "󰜉",
+            "title": "Reiniciar equipo",
+            "subtitle": "Energía · systemctl reboot",
+            "search": "reiniciar reboot energia sistema",
+            "command": "systemctl reboot",
+        },
+        {
+            "kind": "action",
+            "icon": "󰐥",
+            "title": "Apagar equipo",
+            "subtitle": "Energía · systemctl poweroff",
+            "search": "apagar shutdown poweroff energia sistema",
+            "command": "systemctl poweroff",
+        },
+        {
+            "kind": "action",
+            "icon": "󰍹",
+            "title": "Abrir WPE Menu",
+            "subtitle": "Wallpapers · Wallpaper Engine",
+            "search": "wallpaper wpe fondos workshop steam",
+            "command": "wpe-menu",
+        },
+        {
+            "kind": "action",
+            "icon": "󰉋",
+            "title": "Abrir archivos",
+            "subtitle": "Archivos · Nautilus",
+            "search": "archivos files nautilus explorador carpetas",
+            "command": "nautilus",
+        },
+        {
+            "kind": "action",
+            "icon": "󰆍",
+            "title": "Abrir terminal",
+            "subtitle": "Terminal · Alacritty",
+            "search": "terminal consola shell alacritty fish",
+            "command": "alacritty",
+        },
+        {
+            "kind": "action",
+            "icon": "󰈹",
+            "title": "Abrir navegador",
+            "subtitle": "Web · navegador por defecto",
+            "search": "browser navegador web internet",
+            "command": "xdg-open https://www.google.com",
+        },
+        {
+            "kind": "action",
+            "icon": "󰕾",
+            "title": "Abrir control de audio",
+            "subtitle": "Audio · Pavucontrol",
+            "search": "audio sonido volumen pavucontrol pipewire",
+            "command": "pavucontrol",
+        },
+        {
+            "kind": "action",
+            "icon": "󰝟",
+            "title": "Play / Pause",
+            "subtitle": "Media · playerctl",
+            "search": "media musica play pause reproducir pausar",
+            "command": "playerctl play-pause",
+        },
+        {
+            "kind": "action",
+            "icon": "󰒮",
+            "title": "Canción anterior",
+            "subtitle": "Media · playerctl previous",
+            "search": "media musica anterior previous",
+            "command": "playerctl previous",
+        },
+        {
+            "kind": "action",
+            "icon": "󰒭",
+            "title": "Canción siguiente",
+            "subtitle": "Media · playerctl next",
+            "search": "media musica siguiente next",
+            "command": "playerctl next",
+        },
+        {
+            "kind": "action",
+            "icon": "󰝝",
+            "title": "Silenciar audio",
+            "subtitle": "Audio · toggle mute",
+            "search": "audio mute silenciar sonido volumen",
+            "command": "pamixer -t",
+        },
+        {
+            "kind": "action",
+            "icon": "󰕾",
+            "title": "Subir volumen",
+            "subtitle": "Audio · +5%",
+            "search": "audio subir volumen mas",
+            "command": "pamixer -i 5",
+        },
+        {
+            "kind": "action",
+            "icon": "󰖀",
+            "title": "Bajar volumen",
+            "subtitle": "Audio · -5%",
+            "search": "audio bajar volumen menos",
+            "command": "pamixer -d 5",
+        },
+        {
+            "kind": "action",
+            "icon": "󰄀",
+            "title": "Capturar zona",
+            "subtitle": "Captura · grim + slurp + satty",
+            "search": "screenshot captura zona recorte satty grim slurp",
+            "command": "grim -g \"$(slurp)\" - | satty --filename -",
+        },
+        {
+            "kind": "action",
+            "icon": "󰹑",
+            "title": "Capturar pantalla completa",
+            "subtitle": "Captura · guardar en Imágenes",
+            "search": "screenshot captura pantalla completa grim",
+            "command": "mkdir -p ~/Pictures/Screenshots && grim ~/Pictures/Screenshots/screenshot-$(date +%Y%m%d-%H%M%S).png",
+        },
+        {
+            "kind": "action",
+            "icon": "󰅌",
+            "title": "Historial del portapapeles",
+            "subtitle": "Clipboard · cliphist",
+            "search": "clipboard portapapeles historial copiar cliphist",
+            "command": "cliphist list | rofi -dmenu | cliphist decode | wl-copy",
+        },
+        {
+            "kind": "action",
+            "icon": "󰖩",
+            "title": "Abrir redes Wi-Fi",
+            "subtitle": "Red · Impala si está instalado",
+            "search": "wifi red redes network internet impala",
+            "command": "alacritty -e impala",
+        },
+        {
+            "kind": "action",
+            "icon": "󰂯",
+            "title": "Abrir Bluetooth",
+            "subtitle": "Bluetooth · Bluetui si está instalado",
+            "search": "bluetooth dispositivos auriculares mando bluetui",
+            "command": "alacritty -e bluetui",
+        },
+        {
+            "kind": "action",
+            "icon": "󰖟",
+            "title": "Mostrar IP local",
+            "subtitle": "Red · notificación",
+            "search": "ip local red network direccion",
+            "command": "notify-send \"IP local\" \"$(hostname -I | xargs)\"",
+        },
+        {
+            "kind": "action",
+            "icon": "󰖲",
+            "title": "Cerrar ventana activa",
+            "subtitle": "Ventanas · hyprctl killactive",
+            "search": "cerrar ventana activa close window killactive",
+            "command": "hyprctl dispatch killactive",
+        },
+        {
+            "kind": "action",
+            "icon": "󰹑",
+            "title": "Pantalla completa",
+            "subtitle": "Ventanas · toggle fullscreen",
+            "search": "fullscreen pantalla completa ventana",
+            "command": "hyprctl dispatch fullscreen 1",
+        },
+        {
+            "kind": "action",
+            "icon": "󰉈",
+            "title": "Ventana flotante",
+            "subtitle": "Ventanas · toggle floating",
+            "search": "floating flotante ventana toggle",
+            "command": "hyprctl dispatch togglefloating",
+        },
+        {
+            "kind": "action",
+            "icon": "󰏘",
+            "title": "Centrar ventana activa",
+            "subtitle": "Ventanas · centerwindow",
+            "search": "centrar ventana center window",
+            "command": "hyprctl dispatch centerwindow",
+        },
+        {
+            "kind": "action",
+            "icon": "󰓓",
+            "title": "Abrir Steam",
+            "subtitle": "Gaming · Steam",
+            "search": "steam gaming juegos biblioteca",
+            "command": "steam",
+        },
+        {
+            "kind": "action",
+            "icon": "󰓅",
+            "title": "Modo Gaming",
+            "subtitle": "Gaming · Próximamente",
+            "search": "gaming juegos gamemode mangohud rendimiento",
+            "command": "notify-send \"Nodalix Gaming\" \"Modo Gaming todavía no está implementado\"",
+        },
+        {
+            "kind": "action",
+            "icon": "󰨞",
+            "title": "Abrir VS Code",
+            "subtitle": "Dev · Visual Studio Code",
+            "search": "dev code vscode visual studio programar",
+            "command": "code",
+        },
+        {
+            "kind": "action",
+            "icon": "󰊤",
+            "title": "Abrir GitHub",
+            "subtitle": "Dev · GitHub web",
+            "search": "github git repos repositorios dev",
+            "command": "xdg-open https://github.com",
         },
         {
             "kind": "action",
             "icon": "󰚩",
             "title": "IA / OpenCode",
             "subtitle": "IA · Próximamente",
-            "search": "ia ai opencode asistente voz",
+            "search": "ia ai opencode asistente voz pantalla",
             "command": "notify-send \"Nodalix AI\" \"IA todavía no está implementada\"",
         },
+        {
+            "kind": "action",
+            "icon": "󰟐",
+            "title": "Abrir Home Assistant",
+            "subtitle": "Domótica · URL local por configurar",
+            "search": "home assistant domotica hass casa nodalia",
+            "command": "xdg-open http://homeassistant.local:8123",
+        },
+        {
+            "kind": "action",
+            "icon": "󰌾",
+            "title": "Centro de privacidad",
+            "subtitle": "Privacidad · Próximamente",
+            "search": "privacidad privacy micro camara pantalla permisos",
+            "command": "notify-send \"Nodalix Privacy\" \"Centro de privacidad todavía no está implementado\"",
+        },
     ]
+
+
 
 
 class CommandBar(Gtk.Window):
@@ -670,11 +939,15 @@ class CommandBar(Gtk.Window):
 
         title = Gtk.Label(xalign=0)
         title.set_name("item_title")
+        title.set_ellipsize(3)
+        title.set_max_width_chars(64)
         title.set_text(item.get("title", "Item"))
         text.pack_start(title, False, False, 0)
 
         subtitle = Gtk.Label(xalign=0)
         subtitle.set_name("item_subtitle")
+        subtitle.set_ellipsize(3)
+        subtitle.set_max_width_chars(88)
         subtitle.set_text(item.get("subtitle", ""))
         text.pack_start(subtitle, False, False, 0)
 
