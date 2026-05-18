@@ -15,9 +15,29 @@ from gi.repository import Gtk, Gdk, GLib, GdkPixbuf
 
 APP_TITLE = "Nodalix Command Bar"
 
+LOCK_FILE_HANDLE = None
+
+
+def acquire_single_instance_lock():
+    global LOCK_FILE_HANDLE
+
+    lock_path = Path("/tmp/nodalix-command-bar.lock")
+    LOCK_FILE_HANDLE = lock_path.open("w")
+
+    try:
+        fcntl.flock(LOCK_FILE_HANDLE, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        LOCK_FILE_HANDLE.write(str(os.getpid()))
+        LOCK_FILE_HANDLE.flush()
+        return True
+    except BlockingIOError:
+        return False
+
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 USER_ACTIONS_FILE = Path.home() / ".config/nodalix/actions.json"
 REPO_ACTIONS_FILE = REPO_ROOT / "config/nodalix/actions.json"
+SHOW_DISABLED_ACTIONS_FILE = Path.home() / ".config/nodalix/show-disabled-actions"
+
 
 
 def load_actions_from_json():
@@ -39,6 +59,7 @@ def load_actions_from_json():
             continue
 
         actions = []
+        show_disabled = show_disabled_actions()
 
         for raw in data:
             if not isinstance(raw, dict):
@@ -50,26 +71,44 @@ def load_actions_from_json():
             if not title or not command:
                 continue
 
+            missing = missing_requirements(raw)
+            is_available = len(missing) == 0
             hide_if_missing = bool(raw.get("hide_if_missing", False))
 
-            if hide_if_missing and not action_requirements_available(raw):
+            if hide_if_missing and missing and not show_disabled:
                 continue
 
             category = str(raw.get("category") or "General").strip()
             subtitle = str(raw.get("subtitle") or "Acción").strip()
 
-            if category and category.lower() not in subtitle.lower():
-                subtitle = f"{category} · {subtitle}"
+            if missing:
+                subtitle = "No disponible · falta: " + ", ".join(missing)
+            elif category and category.lower() not in subtitle.lower():
+                subtitle = category + " · " + subtitle
+
+            aliases = raw.get("aliases") or []
+            if not isinstance(aliases, list):
+                aliases = []
+
+            search_text = " ".join([
+                str(raw.get("search") or title),
+                category,
+                " ".join(str(a) for a in aliases),
+                "disabled missing no disponible" if missing else "",
+            ])
 
             actions.append({
                 "kind": "action",
                 "icon": str(raw.get("icon") or "󰒓"),
                 "title": title,
                 "subtitle": subtitle,
-                "search": f"{raw.get("search") or title} {category}".lower(),
+                "search": search_text.lower(),
                 "command": command,
                 "category": category,
                 "requires": raw.get("requires") or [],
+                "missing_requires": missing,
+                "available": is_available,
+                "disabled": not is_available,
                 "danger": bool(raw.get("danger", False)),
                 "confirm_message": str(raw.get("confirm_message") or ""),
             })
@@ -78,25 +117,6 @@ def load_actions_from_json():
             return actions
 
     return None
-
-
-LOCK_FILE_HANDLE = None
-
-
-def acquire_single_instance_lock():
-    global LOCK_FILE_HANDLE
-
-    lock_path = Path('/tmp/nodalix-command-bar.lock')
-    LOCK_FILE_HANDLE = lock_path.open('w')
-
-    try:
-        fcntl.flock(LOCK_FILE_HANDLE, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        LOCK_FILE_HANDLE.write(str(os.getpid()) if 'os' in globals() else 'locked')
-        LOCK_FILE_HANDLE.flush()
-        return True
-    except BlockingIOError:
-        return False
-
 
 
 def sh(args):
@@ -115,17 +135,21 @@ def command_exists(binary):
     return shutil.which(str(binary)) is not None
 
 
-def action_requirements_available(raw):
+def show_disabled_actions():
+    return SHOW_DISABLED_ACTIONS_FILE.exists()
+
+
+def missing_requirements(raw):
     requires = raw.get("requires") or []
 
     if not isinstance(requires, list):
-        return True
+        return []
 
-    for binary in requires:
-        if not command_exists(binary):
-            return False
+    return [str(binary) for binary in requires if not command_exists(binary)]
 
-    return True
+
+def action_requirements_available(raw):
+    return len(missing_requirements(raw)) == 0
 
 
 def confirm_dangerous_action(item):
@@ -236,6 +260,37 @@ def setup_css():
     #item_icon {
       font-size: 20px;
       min-width: 28px;
+    }
+
+
+    #badge {
+      background: rgba(137, 180, 250, 0.16);
+      border: 1px solid rgba(137, 180, 250, 0.26);
+      border-radius: 999px;
+      padding: 3px 8px;
+      color: #cdd6f4;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    #badge_danger {
+      background: rgba(243, 139, 168, 0.18);
+      border: 1px solid rgba(243, 139, 168, 0.34);
+      border-radius: 999px;
+      padding: 3px 8px;
+      color: #f5c2e7;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    #badge_disabled {
+      background: rgba(108, 112, 134, 0.16);
+      border: 1px solid rgba(108, 112, 134, 0.28);
+      border-radius: 999px;
+      padding: 3px 8px;
+      color: #9399b2;
+      font-size: 11px;
+      font-weight: 700;
     }
 
     #footer {
@@ -956,9 +1011,12 @@ class CommandBar(Gtk.Window):
     def item_matches_filter(self, item):
         f = self.active_filter
         kind = item.get("kind")
+        category = str(item.get("category") or "").strip().lower()
 
         if f == "Todo":
             return True
+
+        # Filtros estructurales
         if f == "Apps":
             return kind == "app"
         if f == "Acciones":
@@ -967,16 +1025,20 @@ class CommandBar(Gtk.Window):
             return kind == "window"
         if f == "Workspaces":
             return kind == "workspace"
-        if f == "Wallpapers":
-            return "wallpaper" in item.get("search", "") or "wpe" in item.get("search", "")
-        if f == "Gaming":
-            return "gaming" in item.get("search", "") or "steam" in item.get("search", "") or "game" in item.get("search", "")
-        if f == "IA":
-            return "ia" in item.get("search", "") or "ai" in item.get("search", "") or "opencode" in item.get("search", "")
-        if f == "Sistema":
-            return "sistema" in item.get("search", "") or "system" in item.get("search", "") or kind == "workspace"
+
+        # Filtros por categoría real, no por texto libre.
+        category_map = {
+            "Wallpapers": ["wallpapers"],
+            "Gaming": ["gaming"],
+            "IA": ["ia"],
+            "Sistema": ["sistema", "energía", "energia", "nodalix"],
+        }
+
+        if f in category_map:
+            return kind == "action" and category in category_map[f]
 
         return True
+
 
     def score_item(self, item, query):
         title = item.get("title", "").lower()
@@ -1034,6 +1096,7 @@ class CommandBar(Gtk.Window):
         if rows:
             self.listbox.select_row(rows[0])
 
+
     def make_row(self, item):
         row = Gtk.ListBoxRow()
         row.item = item
@@ -1061,7 +1124,34 @@ class CommandBar(Gtk.Window):
         subtitle.set_text(item.get("subtitle", ""))
         text.pack_start(subtitle, False, False, 0)
 
+        category = item.get("category")
+
+        if not category:
+            kind = item.get("kind", "item")
+            category = {
+                "app": "App",
+                "window": "Ventana",
+                "workspace": "Workspace",
+                "action": "Acción",
+            }.get(kind, "Item")
+
+        if item.get("disabled"):
+            badge_text = "No disponible"
+            badge_name = "badge_disabled"
+        elif item.get("danger"):
+            badge_text = "Peligro"
+            badge_name = "badge_danger"
+        else:
+            badge_text = str(category)
+            badge_name = "badge"
+
+        badge = Gtk.Label(label=badge_text)
+        badge.set_name(badge_name)
+        badge.set_valign(Gtk.Align.CENTER)
+        box.pack_end(badge, False, False, 0)
+
         return row
+
 
     def activate_selected(self):
         row = self.listbox.get_selected_row()
@@ -1076,6 +1166,11 @@ class CommandBar(Gtk.Window):
             return
 
         if item.get("kind") == "action":
+            if item.get("disabled"):
+                missing = ", ".join(item.get("missing_requires") or [])
+                run_cmd('notify-send "Nodalix" "Acción no disponible. Falta: ' + missing + '"')
+                return
+
             if not confirm_dangerous_action(item):
                 return
 
