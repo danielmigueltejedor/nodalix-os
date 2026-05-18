@@ -4,251 +4,412 @@
     "title": "Abrir Nodalix Settings",
     "subtitle": "Sistema · Próximamente",
     "search": "settings ajustes nodalix sistema configuracion",
-    "command": "notify-send \"Nodalix\" \"Nodalix Settings todavía no está implementado\""
+    "command": "notify-send \"Nodalix\" \"Nodalix Settings todavía no está implementado\"",
+    "category": "Sistema",
+    "danger": false
   },
   {
     "icon": "󰒡",
     "title": "Nodalix Doctor",
     "subtitle": "Diagnóstico del sistema",
     "search": "doctor diagnostico sistema logs errores salud",
-    "command": "alacritty -e nodalix-doctor"
+    "command": "alacritty -e nodalix-doctor",
+    "category": "IA",
+    "requires": [
+      "alacritty"
+    ],
+    "hide_if_missing": true,
+    "danger": false
   },
   {
     "icon": "󰜉",
     "title": "Recargar Hyprland",
     "subtitle": "Sistema · hyprctl reload",
     "search": "reload recargar hyprland compositor config",
-    "command": "hyprctl reload && notify-send \"Nodalix\" \"Hyprland recargado\""
+    "command": "hyprctl reload && notify-send \"Nodalix\" \"Hyprland recargado\"",
+    "category": "Sistema",
+    "danger": false
   },
   {
     "icon": "󰜉",
     "title": "Recargar Waybar",
     "subtitle": "Sistema · reiniciar barra superior",
     "search": "reload recargar waybar barra topbar panel",
-    "command": "pkill waybar; waybar >/tmp/waybar.log 2>&1 &"
+    "command": "pkill waybar; waybar >/tmp/waybar.log 2>&1 &",
+    "category": "IA",
+    "danger": false
   },
   {
     "icon": "󰌾",
     "title": "Bloquear sesión",
     "subtitle": "Seguridad · Hyprlock",
     "search": "bloquear lock pantalla seguridad hyprlock",
-    "command": "hyprlock"
+    "command": "hyprlock",
+    "category": "Sistema",
+    "requires": [
+      "hyprlock"
+    ],
+    "hide_if_missing": true,
+    "danger": false
   },
   {
     "icon": "󰤄",
     "title": "Suspender equipo",
     "subtitle": "Energía · systemctl suspend",
     "search": "suspender sleep dormir energia suspension",
-    "command": "systemctl suspend"
+    "command": "systemctl suspend",
+    "category": "IA",
+    "danger": true,
+    "confirm_message": "Vas a suspender el equipo ahora."
   },
   {
     "icon": "󰜉",
     "title": "Reiniciar equipo",
     "subtitle": "Energía · systemctl reboot",
     "search": "reiniciar reboot energia sistema",
-    "command": "systemctl reboot"
+    "command": "systemctl reboot",
+    "category": "IA",
+    "danger": true,
+    "confirm_message": "Vas a reiniciar el equipo ahora."
   },
   {
     "icon": "󰐥",
     "title": "Apagar equipo",
     "subtitle": "Energía · systemctl poweroff",
     "search": "apagar shutdown poweroff energia sistema",
-    "command": "systemctl poweroff"
+    "command": "systemctl poweroff",
+    "category": "IA",
+    "danger": true,
+    "confirm_message": "Vas a apagar el equipo ahora."
   },
   {
     "icon": "󰍹",
     "title": "Abrir WPE Menu",
     "subtitle": "Wallpapers · Wallpaper Engine",
     "search": "wallpaper wpe fondos workshop steam",
-    "command": "wpe-menu"
+    "command": "wpe-menu",
+    "category": "Gaming",
+    "requires": [
+      "wpe-menu"
+    ],
+    "hide_if_missing": true,
+    "danger": false
   },
   {
     "icon": "󰉋",
     "title": "Abrir archivos",
     "subtitle": "Archivos · Nautilus",
     "search": "archivos files nautilus explorador carpetas",
-    "command": "nautilus"
+    "command": "nautilus",
+    "category": "General",
+    "requires": [
+      "nautilus"
+    ],
+    "hide_if_missing": true,
+    "danger": false
   },
   {
     "icon": "󰆍",
     "title": "Abrir terminal",
     "subtitle": "Terminal · Alacritty",
     "search": "terminal consola shell alacritty fish",
-    "command": "alacritty"
+    "command": "alacritty",
+    "category": "General",
+    "requires": [
+      "alacritty"
+    ],
+    "hide_if_missing": true,
+    "danger": false
   },
   {
     "icon": "󰈹",
     "title": "Abrir navegador",
     "subtitle": "Web · navegador por defecto",
     "search": "browser navegador web internet",
-    "command": "xdg-open https://www.google.com"
+    "command": "xdg-open https://www.google.com",
+    "category": "General",
+    "danger": false
   },
   {
     "icon": "󰕾",
     "title": "Abrir control de audio",
     "subtitle": "Audio · Pavucontrol",
     "search": "audio sonido volumen pavucontrol pipewire",
-    "command": "pavucontrol"
+    "command": "pavucontrol",
+    "category": "Audio",
+    "requires": [
+      "pavucontrol"
+    ],
+    "hide_if_missing": true,
+    "danger": false
   },
   {
     "icon": "󰝟",
     "title": "Play / Pause",
     "subtitle": "Media · playerctl",
     "search": "media musica play pause reproducir pausar",
-    "command": "playerctl play-pause"
+    "command": "playerctl play-pause",
+    "category": "Audio",
+    "requires": [
+      "playerctl"
+    ],
+    "hide_if_missing": true,
+    "danger": false
   },
   {
     "icon": "󰒮",
     "title": "Canción anterior",
     "subtitle": "Media · playerctl previous",
     "search": "media musica anterior previous",
-    "command": "playerctl previous"
+    "command": "playerctl previous",
+    "category": "Audio",
+    "requires": [
+      "playerctl"
+    ],
+    "hide_if_missing": true,
+    "danger": false
   },
   {
     "icon": "󰒭",
     "title": "Canción siguiente",
     "subtitle": "Media · playerctl next",
     "search": "media musica siguiente next",
-    "command": "playerctl next"
+    "command": "playerctl next",
+    "category": "Audio",
+    "requires": [
+      "playerctl"
+    ],
+    "hide_if_missing": true,
+    "danger": false
   },
   {
     "icon": "󰝝",
     "title": "Silenciar audio",
     "subtitle": "Audio · toggle mute",
     "search": "audio mute silenciar sonido volumen",
-    "command": "pamixer -t"
+    "command": "pamixer -t",
+    "category": "Audio",
+    "requires": [
+      "pamixer"
+    ],
+    "hide_if_missing": true,
+    "danger": false
   },
   {
     "icon": "󰕾",
     "title": "Subir volumen",
     "subtitle": "Audio · +5%",
     "search": "audio subir volumen mas",
-    "command": "pamixer -i 5"
+    "command": "pamixer -i 5",
+    "category": "Audio",
+    "requires": [
+      "pamixer"
+    ],
+    "hide_if_missing": true,
+    "danger": false
   },
   {
     "icon": "󰖀",
     "title": "Bajar volumen",
     "subtitle": "Audio · -5%",
     "search": "audio bajar volumen menos",
-    "command": "pamixer -d 5"
+    "command": "pamixer -d 5",
+    "category": "Audio",
+    "requires": [
+      "pamixer"
+    ],
+    "hide_if_missing": true,
+    "danger": false
   },
   {
     "icon": "󰄀",
     "title": "Capturar zona",
     "subtitle": "Captura · grim + slurp + satty",
     "search": "screenshot captura zona recorte satty grim slurp",
-    "command": "grim -g \"$(slurp)\" - | satty --filename -"
+    "command": "grim -g \"$(slurp)\" - | satty --filename -",
+    "category": "Capturas",
+    "requires": [
+      "grim",
+      "slurp",
+      "satty"
+    ],
+    "hide_if_missing": true,
+    "danger": false
   },
   {
     "icon": "󰹑",
     "title": "Capturar pantalla completa",
     "subtitle": "Captura · guardar en Imágenes",
     "search": "screenshot captura pantalla completa grim",
-    "command": "mkdir -p ~/Pictures/Screenshots && grim ~/Pictures/Screenshots/screenshot-$(date +%Y%m%d-%H%M%S).png"
+    "command": "mkdir -p ~/Pictures/Screenshots && grim ~/Pictures/Screenshots/screenshot-$(date +%Y%m%d-%H%M%S).png",
+    "category": "Capturas",
+    "requires": [
+      "grim",
+      "slurp",
+      "satty"
+    ],
+    "hide_if_missing": true,
+    "danger": false
   },
   {
     "icon": "󰅌",
     "title": "Historial del portapapeles",
     "subtitle": "Clipboard · cliphist",
     "search": "clipboard portapapeles historial copiar cliphist",
-    "command": "cliphist list | rofi -dmenu | cliphist decode | wl-copy"
+    "command": "cliphist list | rofi -dmenu | cliphist decode | wl-copy",
+    "category": "Capturas",
+    "requires": [
+      "cliphist",
+      "rofi",
+      "wl-copy",
+      "code"
+    ],
+    "hide_if_missing": true,
+    "danger": false
   },
   {
     "icon": "󰖩",
     "title": "Abrir redes Wi-Fi",
     "subtitle": "Red · Impala si está instalado",
     "search": "wifi red redes network internet impala",
-    "command": "alacritty -e impala"
+    "command": "alacritty -e impala",
+    "category": "Red",
+    "requires": [
+      "alacritty",
+      "impala"
+    ],
+    "hide_if_missing": true,
+    "danger": false
   },
   {
     "icon": "󰂯",
     "title": "Abrir Bluetooth",
     "subtitle": "Bluetooth · Bluetui si está instalado",
     "search": "bluetooth dispositivos auriculares mando bluetui",
-    "command": "alacritty -e bluetui"
+    "command": "alacritty -e bluetui",
+    "category": "Red",
+    "requires": [
+      "alacritty",
+      "bluetui"
+    ],
+    "hide_if_missing": true,
+    "danger": false
   },
   {
     "icon": "󰖟",
     "title": "Mostrar IP local",
     "subtitle": "Red · notificación",
     "search": "ip local red network direccion",
-    "command": "notify-send \"IP local\" \"$(hostname -I | xargs)\""
+    "command": "notify-send \"IP local\" \"$(hostname -I | xargs)\"",
+    "category": "Red",
+    "danger": false
   },
   {
     "icon": "󰖲",
     "title": "Cerrar ventana activa",
     "subtitle": "Ventanas · hyprctl killactive",
     "search": "cerrar ventana activa close window killactive",
-    "command": "hyprctl dispatch killactive"
+    "command": "hyprctl dispatch killactive",
+    "category": "Ventanas",
+    "danger": true,
+    "confirm_message": "Vas a cerrar la ventana activa."
   },
   {
     "icon": "󰹑",
     "title": "Pantalla completa",
     "subtitle": "Ventanas · toggle fullscreen",
     "search": "fullscreen pantalla completa ventana",
-    "command": "hyprctl dispatch fullscreen 1"
+    "command": "hyprctl dispatch fullscreen 1",
+    "category": "Ventanas",
+    "danger": false
   },
   {
     "icon": "󰉈",
     "title": "Ventana flotante",
     "subtitle": "Ventanas · toggle floating",
     "search": "floating flotante ventana toggle",
-    "command": "hyprctl dispatch togglefloating"
+    "command": "hyprctl dispatch togglefloating",
+    "category": "Ventanas",
+    "danger": false
   },
   {
     "icon": "󰏘",
     "title": "Centrar ventana activa",
     "subtitle": "Ventanas · centerwindow",
     "search": "centrar ventana center window",
-    "command": "hyprctl dispatch centerwindow"
+    "command": "hyprctl dispatch centerwindow",
+    "category": "Ventanas",
+    "danger": false
   },
   {
     "icon": "󰓓",
     "title": "Abrir Steam",
     "subtitle": "Gaming · Steam",
     "search": "steam gaming juegos biblioteca",
-    "command": "steam"
+    "command": "steam",
+    "category": "Gaming",
+    "requires": [
+      "steam"
+    ],
+    "hide_if_missing": true,
+    "danger": false
   },
   {
     "icon": "󰓅",
     "title": "Modo Gaming",
     "subtitle": "Gaming · Próximamente",
     "search": "gaming juegos gamemode mangohud rendimiento",
-    "command": "notify-send \"Nodalix Gaming\" \"Modo Gaming todavía no está implementado\""
+    "command": "notify-send \"Nodalix Gaming\" \"Modo Gaming todavía no está implementado\"",
+    "category": "Gaming",
+    "danger": false
   },
   {
     "icon": "󰨞",
     "title": "Abrir VS Code",
     "subtitle": "Dev · Visual Studio Code",
     "search": "dev code vscode visual studio programar",
-    "command": "code"
+    "command": "code",
+    "category": "Dev",
+    "requires": [
+      "code"
+    ],
+    "hide_if_missing": true,
+    "danger": false
   },
   {
     "icon": "󰊤",
     "title": "Abrir GitHub",
     "subtitle": "Dev · GitHub web",
     "search": "github git repos repositorios dev",
-    "command": "xdg-open https://github.com"
+    "command": "xdg-open https://github.com",
+    "category": "Dev",
+    "danger": false
   },
   {
     "icon": "󰚩",
     "title": "IA / OpenCode",
     "subtitle": "IA · Próximamente",
     "search": "ia ai opencode asistente voz pantalla",
-    "command": "notify-send \"Nodalix AI\" \"IA todavía no está implementada\""
+    "command": "notify-send \"Nodalix AI\" \"IA todavía no está implementada\"",
+    "category": "Dev",
+    "danger": false
   },
   {
     "icon": "󰟐",
     "title": "Abrir Home Assistant",
     "subtitle": "Domótica · URL local por configurar",
     "search": "home assistant domotica hass casa nodalia",
-    "command": "xdg-open http://homeassistant.local:8123"
+    "command": "xdg-open http://homeassistant.local:8123",
+    "category": "IA",
+    "danger": false
   },
   {
     "icon": "󰌾",
     "title": "Centro de privacidad",
     "subtitle": "Privacidad · Próximamente",
     "search": "privacidad privacy micro camara pantalla permisos",
-    "command": "notify-send \"Nodalix Privacy\" \"Centro de privacidad todavía no está implementado\""
+    "command": "notify-send \"Nodalix Privacy\" \"Centro de privacidad todavía no está implementado\"",
+    "category": "Privacidad",
+    "danger": false
   }
 ]

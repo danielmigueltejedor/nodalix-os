@@ -5,6 +5,7 @@ import json
 import os
 import subprocess
 import shlex
+import shutil
 import fcntl
 from pathlib import Path
 
@@ -49,13 +50,28 @@ def load_actions_from_json():
             if not title or not command:
                 continue
 
+            hide_if_missing = bool(raw.get("hide_if_missing", False))
+
+            if hide_if_missing and not action_requirements_available(raw):
+                continue
+
+            category = str(raw.get("category") or "General").strip()
+            subtitle = str(raw.get("subtitle") or "Acción").strip()
+
+            if category and category.lower() not in subtitle.lower():
+                subtitle = f"{category} · {subtitle}"
+
             actions.append({
                 "kind": "action",
                 "icon": str(raw.get("icon") or "󰒓"),
                 "title": title,
-                "subtitle": str(raw.get("subtitle") or "Acción"),
-                "search": str(raw.get("search") or title).lower(),
+                "subtitle": subtitle,
+                "search": f"{raw.get("search") or title} {category}".lower(),
                 "command": command,
+                "category": category,
+                "requires": raw.get("requires") or [],
+                "danger": bool(raw.get("danger", False)),
+                "confirm_message": str(raw.get("confirm_message") or ""),
             })
 
         if actions:
@@ -92,6 +108,46 @@ def sh(args):
 
 def run_cmd(cmd):
     subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+
+def command_exists(binary):
+    return shutil.which(str(binary)) is not None
+
+
+def action_requirements_available(raw):
+    requires = raw.get("requires") or []
+
+    if not isinstance(requires, list):
+        return True
+
+    for binary in requires:
+        if not command_exists(binary):
+            return False
+
+    return True
+
+
+def confirm_dangerous_action(item):
+    if not item.get("danger"):
+        return True
+
+    dialog = Gtk.MessageDialog(
+        transient_for=None,
+        flags=0,
+        message_type=Gtk.MessageType.WARNING,
+        buttons=Gtk.ButtonsType.OK_CANCEL,
+        text=item.get("title", "Confirmar acción"),
+    )
+
+    dialog.format_secondary_text(
+        item.get("confirm_message") or "Esta acción puede afectar al sistema."
+    )
+
+    response = dialog.run()
+    dialog.destroy()
+
+    return response == Gtk.ResponseType.OK
 
 
 def setup_css():
@@ -1018,6 +1074,10 @@ class CommandBar(Gtk.Window):
 
         if not cmd:
             return
+
+        if item.get("kind") == "action":
+            if not confirm_dangerous_action(item):
+                return
 
         if item.get("kind") == "app":
             if focus_existing_app(item):
