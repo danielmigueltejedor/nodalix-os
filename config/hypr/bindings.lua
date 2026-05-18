@@ -46,3 +46,6 @@ o.bind("CTRL + ALT + 2", "Type @", "wtype @")
 -- o.bind("SUPER + SHIFT + S", nil, "omarchy-capture-screenshot")
 -- o.bind("SUPER + H", nil, "voxtype record toggle")
 -- o.bind("SUPER + PERIOD", nil, { omarchy = "walker -m symbols" })
+
+-- Nodalix
+o.bind("SUPER + SPACE", "Nodalix Command Bar", { launch = "nodalix-command-bar" })

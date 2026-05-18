@@ -1,0 +1,577 @@
+#!/usr/bin/env python3
+
+import gi
+import json
+import subprocess
+from pathlib import Path
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gdk, GLib
+
+
+APP_TITLE = "Nodalix Command Bar"
+
+
+def sh(args):
+    try:
+        return subprocess.check_output(args, text=True, stderr=subprocess.DEVNULL).strip()
+    except Exception:
+        return ""
+
+
+def run_cmd(cmd):
+    subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def setup_css():
+    css = b"""
+    * {
+      font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", monospace;
+      font-size: 13px;
+      color: #cdd6f4;
+    }
+
+    window {
+      background: transparent;
+    }
+
+    #root {
+      background: rgba(17, 17, 27, 0.94);
+      border: 1px solid rgba(137, 180, 250, 0.28);
+      border-radius: 22px;
+      padding: 16px;
+      box-shadow: 0 18px 55px rgba(0, 0, 0, 0.48);
+    }
+
+    #search {
+      background: rgba(255, 255, 255, 0.065);
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      border-radius: 999px;
+      padding: 10px 16px;
+      color: #ffffff;
+      font-size: 15px;
+      box-shadow: none;
+    }
+
+    #chip {
+      background: rgba(255, 255, 255, 0.055);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      padding: 6px 11px;
+      color: #a6adc8;
+      box-shadow: none;
+    }
+
+    #chip:hover {
+      background: rgba(137, 180, 250, 0.18);
+      color: #ffffff;
+    }
+
+    #chip_active {
+      background: rgba(137, 180, 250, 0.28);
+      border-color: rgba(137, 180, 250, 0.42);
+      border-radius: 999px;
+      padding: 6px 11px;
+      color: #ffffff;
+      box-shadow: none;
+    }
+
+    list {
+      background: transparent;
+      border: 0;
+    }
+
+    row {
+      background: transparent;
+      border-radius: 14px;
+      padding: 8px 10px;
+      margin: 2px 0;
+    }
+
+    row:hover {
+      background: rgba(137, 180, 250, 0.14);
+    }
+
+    row:selected {
+      background: rgba(137, 180, 250, 0.24);
+    }
+
+    #item_title {
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    #item_subtitle {
+      color: #a6adc8;
+      font-size: 12px;
+    }
+
+    #item_icon {
+      font-size: 20px;
+      min-width: 28px;
+    }
+
+    #footer {
+      color: #6c7086;
+      font-size: 12px;
+      padding-top: 4px;
+    }
+    """
+
+    provider = Gtk.CssProvider()
+    provider.load_from_data(css)
+    Gtk.StyleContext.add_provider_for_screen(
+        Gdk.Screen.get_default(),
+        provider,
+        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+    )
+
+
+def parse_desktop_file(path):
+    name = None
+    exec_cmd = None
+    hidden = False
+    nodisplay = False
+    in_desktop_entry = False
+
+    try:
+        for raw in Path(path).read_text(errors="ignore").splitlines():
+            line = raw.strip()
+
+            if line == "[Desktop Entry]":
+                in_desktop_entry = True
+                continue
+
+            if line.startswith("[") and line != "[Desktop Entry]":
+                in_desktop_entry = False
+
+            if not in_desktop_entry or not line or line.startswith("#"):
+                continue
+
+            if line.startswith("Name=") and name is None:
+                name = line.split("=", 1)[1].strip()
+            elif line.startswith("Exec=") and exec_cmd is None:
+                exec_cmd = line.split("=", 1)[1].strip()
+            elif line.startswith("NoDisplay="):
+                nodisplay = line.split("=", 1)[1].strip().lower() == "true"
+            elif line.startswith("Hidden="):
+                hidden = line.split("=", 1)[1].strip().lower() == "true"
+    except Exception:
+        return None
+
+    if hidden or nodisplay or not name or not exec_cmd:
+        return None
+
+    for token in ["%f", "%F", "%u", "%U", "%i", "%c", "%k"]:
+        exec_cmd = exec_cmd.replace(token, "")
+
+    exec_cmd = exec_cmd.strip()
+
+    return {
+        "kind": "app",
+        "icon": "󰣆",
+        "title": name,
+        "subtitle": f"App · {exec_cmd}",
+        "search": f"{name} {exec_cmd}".lower(),
+        "command": exec_cmd,
+    }
+
+
+def load_apps():
+    dirs = [
+        Path.home() / ".local/share/applications",
+        Path("/usr/local/share/applications"),
+        Path("/usr/share/applications"),
+    ]
+
+    apps = []
+    seen = set()
+
+    for d in dirs:
+        if not d.exists():
+            continue
+
+        for file in d.glob("*.desktop"):
+            item = parse_desktop_file(file)
+
+            if not item:
+                continue
+
+            key = item["title"].lower()
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+            apps.append(item)
+
+    apps.sort(key=lambda x: x["title"].lower())
+    return apps
+
+
+def load_windows():
+    raw = sh(["hyprctl", "clients", "-j"])
+
+    if not raw:
+        return []
+
+    try:
+        clients = json.loads(raw)
+    except Exception:
+        return []
+
+    items = []
+
+    for c in clients:
+        title = c.get("title") or c.get("class") or "Window"
+        klass = c.get("class") or "unknown"
+        address = c.get("address")
+        workspace = c.get("workspace", {}).get("name", "?")
+
+        if not address:
+            continue
+
+        items.append({
+            "kind": "window",
+            "icon": "󰖲",
+            "title": title,
+            "subtitle": f"Ventana · {klass} · workspace {workspace}",
+            "search": f"{title} {klass} {workspace}".lower(),
+            "command": f"hyprctl dispatch focuswindow address:{address}",
+        })
+
+    return items
+
+
+def load_workspaces():
+    raw = sh(["hyprctl", "workspaces", "-j"])
+
+    if not raw:
+        return []
+
+    try:
+        workspaces = json.loads(raw)
+    except Exception:
+        return []
+
+    items = []
+
+    for w in sorted(workspaces, key=lambda x: x.get("id", 0)):
+        wid = w.get("id")
+        name = w.get("name", str(wid))
+        windows = w.get("windows", 0)
+
+        items.append({
+            "kind": "workspace",
+            "icon": "󰈹",
+            "title": f"Workspace {name}",
+            "subtitle": f"{windows} ventanas",
+            "search": f"workspace {name} {wid}".lower(),
+            "command": f"hyprctl dispatch workspace {wid}",
+        })
+
+    return items
+
+
+def load_actions():
+    return [
+        {
+            "kind": "action",
+            "icon": "󰒓",
+            "title": "Abrir ajustes de Nodalix",
+            "subtitle": "Sistema · Próximamente",
+            "search": "settings ajustes nodalix sistema",
+            "command": "notify-send \"Nodalix\" \"Nodalix Settings todavía no está implementado\"",
+        },
+        {
+            "kind": "action",
+            "icon": "󰍹",
+            "title": "Abrir WPE Menu",
+            "subtitle": "Wallpapers · Wallpaper Engine",
+            "search": "wallpaper wpe fondos workshop",
+            "command": "wpe-menu",
+        },
+        {
+            "kind": "action",
+            "icon": "󰕾",
+            "title": "Abrir audio",
+            "subtitle": "Audio · Pavucontrol",
+            "search": "audio sonido volumen pavucontrol",
+            "command": "pavucontrol",
+        },
+        {
+            "kind": "action",
+            "icon": "󰌾",
+            "title": "Bloquear sesión",
+            "subtitle": "Sistema · Lock",
+            "search": "bloquear lock pantalla seguridad",
+            "command": "hyprlock",
+        },
+        {
+            "kind": "action",
+            "icon": "󰓅",
+            "title": "Modo Gaming",
+            "subtitle": "Gaming · Próximamente",
+            "search": "gaming juegos gamemode steam mangohud",
+            "command": "notify-send \"Nodalix Gaming\" \"Modo Gaming todavía no está implementado\"",
+        },
+        {
+            "kind": "action",
+            "icon": "󰒡",
+            "title": "Nodalix Doctor",
+            "subtitle": "Diagnóstico del sistema",
+            "search": "doctor diagnostico sistema logs errores",
+            "command": "alacritty -e nodalix-doctor",
+        },
+        {
+            "kind": "action",
+            "icon": "󰚩",
+            "title": "IA / OpenCode",
+            "subtitle": "IA · Próximamente",
+            "search": "ia ai opencode asistente voz",
+            "command": "notify-send \"Nodalix AI\" \"IA todavía no está implementada\"",
+        },
+    ]
+
+
+class CommandBar(Gtk.Window):
+    def __init__(self):
+        super().__init__(title=APP_TITLE)
+
+        self.set_default_size(820, 560)
+        self.set_resizable(False)
+        self.set_decorated(False)
+        self.set_app_paintable(True)
+        self.set_position(Gtk.WindowPosition.CENTER)
+        self.connect("destroy", Gtk.main_quit)
+        self.connect("key-press-event", self.on_key)
+
+        screen = self.get_screen()
+        visual = screen.get_rgba_visual()
+
+        if visual is not None and screen.is_composited():
+            self.set_visual(visual)
+
+        self.active_filter = "Todo"
+        self.all_items = []
+        self.filtered_items = []
+
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        root.set_name("root")
+        self.add(root)
+
+        self.search = Gtk.SearchEntry()
+        self.search.set_name("search")
+        self.search.set_placeholder_text("Buscar apps, ventanas, acciones, workspaces…")
+        self.search.connect("search-changed", lambda _e: self.refresh())
+        self.search.connect("activate", lambda _e: self.activate_selected())
+        root.pack_start(self.search, False, False, 0)
+
+        chips = Gtk.Box(spacing=7)
+        root.pack_start(chips, False, False, 0)
+
+        self.chip_buttons = {}
+
+        for label in ["Todo", "Apps", "Acciones", "Ventanas", "Workspaces", "Wallpapers", "Gaming", "IA", "Sistema"]:
+            btn = Gtk.Button(label=label)
+            btn.set_name("chip_active" if label == "Todo" else "chip")
+            btn.connect("clicked", lambda _b, l=label: self.set_filter(l))
+            chips.pack_start(btn, False, False, 0)
+            self.chip_buttons[label] = btn
+
+        scroller = Gtk.ScrolledWindow()
+        scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        root.pack_start(scroller, True, True, 0)
+
+        self.listbox = Gtk.ListBox()
+        self.listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.listbox.connect("row-activated", lambda _lb, _row: self.activate_selected())
+        scroller.add(self.listbox)
+
+        footer = Gtk.Label(xalign=0)
+        footer.set_name("footer")
+        footer.set_text("Enter: ejecutar · Esc: cerrar · ↑/↓ mover · filtros por cápsula")
+        root.pack_end(footer, False, False, 0)
+
+        self.load_items()
+        self.refresh()
+        GLib.idle_add(self.focus_search)
+
+    def focus_search(self):
+        self.search.grab_focus()
+        return False
+
+    def on_key(self, _w, event):
+        if event.keyval == Gdk.KEY_Escape:
+            Gtk.main_quit()
+            return True
+
+        if event.keyval == Gdk.KEY_Down:
+            self.move_selection(1)
+            return True
+
+        if event.keyval == Gdk.KEY_Up:
+            self.move_selection(-1)
+            return True
+
+        return False
+
+    def move_selection(self, delta):
+        rows = self.listbox.get_children()
+
+        if not rows:
+            return
+
+        selected = self.listbox.get_selected_row()
+
+        if selected:
+            index = selected.get_index() + delta
+        else:
+            index = 0
+
+        index = max(0, min(len(rows) - 1, index))
+        self.listbox.select_row(rows[index])
+        rows[index].grab_focus()
+
+    def set_filter(self, label):
+        self.active_filter = label
+
+        for name, btn in self.chip_buttons.items():
+            btn.set_name("chip_active" if name == label else "chip")
+
+        self.refresh()
+
+    def load_items(self):
+        self.all_items = []
+        self.all_items.extend(load_actions())
+        self.all_items.extend(load_apps())
+        self.all_items.extend(load_windows())
+        self.all_items.extend(load_workspaces())
+
+    def item_matches_filter(self, item):
+        f = self.active_filter
+        kind = item.get("kind")
+
+        if f == "Todo":
+            return True
+        if f == "Apps":
+            return kind == "app"
+        if f == "Acciones":
+            return kind == "action"
+        if f == "Ventanas":
+            return kind == "window"
+        if f == "Workspaces":
+            return kind == "workspace"
+        if f == "Wallpapers":
+            return "wallpaper" in item.get("search", "") or "wpe" in item.get("search", "")
+        if f == "Gaming":
+            return "gaming" in item.get("search", "") or "steam" in item.get("search", "") or "game" in item.get("search", "")
+        if f == "IA":
+            return "ia" in item.get("search", "") or "ai" in item.get("search", "") or "opencode" in item.get("search", "")
+        if f == "Sistema":
+            return "sistema" in item.get("search", "") or "system" in item.get("search", "") or kind == "workspace"
+
+        return True
+
+    def score_item(self, item, query):
+        title = item.get("title", "").lower()
+        search = item.get("search", "")
+
+        if not query:
+            base = 0
+        elif title.startswith(query):
+            base = 100
+        elif query in title:
+            base = 80
+        elif query in search:
+            base = 60
+        else:
+            base = -1
+
+        kind_bonus = {
+            "action": 10,
+            "app": 8,
+            "window": 6,
+            "workspace": 4,
+        }.get(item.get("kind"), 0)
+
+        return base + kind_bonus
+
+    def refresh(self):
+        query = self.search.get_text().strip().lower()
+
+        for row in self.listbox.get_children():
+            self.listbox.remove(row)
+
+        scored = []
+
+        for item in self.all_items:
+            if not self.item_matches_filter(item):
+                continue
+
+            score = self.score_item(item, query)
+
+            if query and score < 0:
+                continue
+
+            scored.append((score, item))
+
+        scored.sort(key=lambda x: (-x[0], x[1].get("title", "").lower()))
+        self.filtered_items = [item for _score, item in scored[:40]]
+
+        for item in self.filtered_items:
+            self.listbox.add(self.make_row(item))
+
+        self.listbox.show_all()
+
+        rows = self.listbox.get_children()
+
+        if rows:
+            self.listbox.select_row(rows[0])
+
+    def make_row(self, item):
+        row = Gtk.ListBoxRow()
+        row.item = item
+
+        box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        row.add(box)
+
+        icon = Gtk.Label(label=item.get("icon", "󰀻"))
+        icon.set_name("item_icon")
+        box.pack_start(icon, False, False, 0)
+
+        text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        box.pack_start(text, True, True, 0)
+
+        title = Gtk.Label(xalign=0)
+        title.set_name("item_title")
+        title.set_text(item.get("title", "Item"))
+        text.pack_start(title, False, False, 0)
+
+        subtitle = Gtk.Label(xalign=0)
+        subtitle.set_name("item_subtitle")
+        subtitle.set_text(item.get("subtitle", ""))
+        text.pack_start(subtitle, False, False, 0)
+
+        return row
+
+    def activate_selected(self):
+        row = self.listbox.get_selected_row()
+
+        if not row:
+            return
+
+        cmd = row.item.get("command")
+
+        if not cmd:
+            return
+
+        run_cmd(cmd)
+        Gtk.main_quit()
+
+
+if __name__ == "__main__":
+    setup_css()
+    win = CommandBar()
+    win.show_all()
+    Gtk.main()
