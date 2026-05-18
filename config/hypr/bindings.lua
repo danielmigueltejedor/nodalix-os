@@ -46,4 +46,7 @@ o.bind("CTRL + ALT + 2", "Type @", "wtype @")
 -- o.bind("SUPER + PERIOD", nil, { omarchy = "walker -m symbols" })
 
 -- Nodalix
+
+-- Nodalix Command Bar
+hl.unbind("SUPER + SPACE")
 o.bind("SUPER + SPACE", "Nodalix Command Bar", { launch = "nodalix-command-bar" })
