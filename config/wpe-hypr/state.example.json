@@ -1,0 +1,10 @@
+{
+  "settings": {
+    "fps": 60,
+    "scaling": "fill",
+    "disable_mouse": true,
+    "disable_parallax": true,
+    "silent": true
+  },
+  "monitors": {}
+}

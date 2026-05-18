@@ -17,3 +17,4 @@ logs/
 *.secret
 *.key
 *.token
+config/wpe-hypr/state.json
