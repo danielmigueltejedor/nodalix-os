@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+
+import json
+import subprocess
+from datetime import datetime
+
+
+def sh(cmd):
+    try:
+        return subprocess.check_output(
+            cmd,
+            shell=True,
+            text=True,
+            stderr=subprocess.DEVNULL,
+            timeout=2,
+        ).strip()
+    except Exception:
+        return ""
+
+
+def get_weather():
+    # Fallback rápido. Más adelante lo sustituimos por OpenWeather/Home Assistant.
+    weather = sh("curl -fsS --max-time 1 'https://wttr.in/Palencia?format=%t+%C'")
+
+    if weather:
+        return weather.replace("+", " ")
+
+    return "tiempo --"
+
+
+def get_media():
+    status = sh("playerctl status")
+
+    if status not in ["Playing", "Paused"]:
+        return ""
+
+    title = sh("playerctl metadata title")
+    artist = sh("playerctl metadata artist")
+
+    if not title:
+        return ""
+
+    icon = "󰝚" if status == "Playing" else "󰏤"
+
+    text = title
+
+    if artist:
+        text = f"{title} — {artist}"
+
+    if len(text) > 42:
+        text = text[:41].rstrip() + "…"
+
+    return f"{icon} {text}"
+
+
+now = datetime.now()
+date_text = now.strftime("%a %d").replace(".", "")
+time_text = now.strftime("%H:%M")
+weather = get_weather()
+media = get_media()
+
+text = f"󰃭 {date_text} · 󰥔 {time_text} · {weather}"
+
+if media:
+    text += f"  |  {media}"
+
+print(json.dumps({
+    "text": text,
+    "tooltip": "Nodalix Center · día, hora, tiempo y media",
+    "class": "with-media" if media else "normal",
+}))

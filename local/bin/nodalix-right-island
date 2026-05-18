@@ -1,0 +1,115 @@
+#!/usr/bin/env python3
+
+import json
+import subprocess
+
+
+def sh(cmd):
+    try:
+        return subprocess.check_output(
+            cmd,
+            shell=True,
+            text=True,
+            stderr=subprocess.DEVNULL,
+            timeout=1,
+        ).strip()
+    except Exception:
+        return ""
+
+
+def has_cmd(name):
+    return bool(sh(f"command -v {name}"))
+
+
+def mic_active():
+    out = sh("pactl list source-outputs short")
+    return bool(out.strip())
+
+
+def camera_active():
+    # fuser devuelve algo si algún proceso usa /dev/video*
+    out = sh("fuser /dev/video* 2>/dev/null")
+    return bool(out.strip())
+
+
+def screen_active():
+    # Primera aproximación. Luego lo refinamos con portals.
+    out = sh("pgrep -af 'wf-recorder|obs|kooha|grimblast'")
+    return bool(out.strip())
+
+
+def bluetooth_status():
+    if not has_cmd("bluetoothctl"):
+        return "󰂲"
+
+    powered = sh("bluetoothctl show | grep -i 'Powered: yes'")
+
+    if powered:
+        return "󰂯"
+
+    return "󰂲"
+
+
+def wifi_status():
+    if not has_cmd("nmcli"):
+        return "󰖪"
+
+    out = sh("nmcli -t -f active,ssid dev wifi")
+
+    for line in out.splitlines():
+        parts = line.split(":", 1)
+
+        if len(parts) == 2 and parts[0] == "yes":
+            return "󰖩"
+
+    return "󰖪"
+
+
+def volume_status():
+    if has_cmd("pamixer"):
+        muted = sh("pamixer --get-mute")
+
+        if muted == "true":
+            return "󰝟"
+
+        vol = sh("pamixer --get-volume")
+
+        if vol:
+            return f"󰕾 {vol}%"
+
+    return "󰕾"
+
+
+privacy_icons = []
+privacy_class = "normal"
+
+if screen_active():
+    privacy_icons.append("󰹑")
+    privacy_class = "screen"
+
+if camera_active():
+    privacy_icons.append("󰖠")
+    privacy_class = "camera"
+
+if mic_active():
+    privacy_icons.append("󰍬")
+    if privacy_class == "normal":
+        privacy_class = "mic"
+
+privacy_text = " ".join(privacy_icons)
+
+if not privacy_text:
+    privacy_text = "󰌾"
+
+text = f"{privacy_text}   󰒓  {bluetooth_status()}  {wifi_status()}  {volume_status()}  󰍜"
+
+tooltip = "Nodalix Right Island"
+
+if privacy_class != "normal":
+    tooltip += f" · privacidad activa: {privacy_class}"
+
+print(json.dumps({
+    "text": text,
+    "tooltip": tooltip,
+    "class": privacy_class,
+}))
