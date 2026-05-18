@@ -1,0 +1,729 @@
+#!/usr/bin/env python3
+
+import gi
+import json
+import os
+import re
+import subprocess
+import urllib.parse
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, GdkPixbuf, GLib, Gdk
+
+
+APPLE_MUSIC_CLASS = "chrome-music.apple.com__-Default"
+MAX_ART_W = 190
+MAX_ART_H = 145
+
+
+def cmd(args):
+    try:
+        return subprocess.check_output(args, text=True, stderr=subprocess.DEVNULL).strip()
+    except Exception:
+        return ""
+
+
+def run(args):
+    subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def players():
+    raw = cmd(["playerctl", "-l"])
+    found = [p.strip() for p in raw.splitlines() if p.strip()]
+
+    if not found:
+        return []
+
+    cleaned = []
+
+    for player in found:
+        st = status_of(player)
+        title = meta(player, "title", "")
+        artist = meta(player, "artist", "")
+        art = player_cmd(player, ["metadata", "mpris:artUrl"])
+
+        # Quitar solo sesiones fantasma reales:
+        # Stopped + sin título + sin artista + sin carátula.
+        if st == "Stopped" and not title and not artist and not art:
+            continue
+
+        cleaned.append(player)
+
+    found = cleaned
+
+    if not found:
+        return []
+
+    # Deduplicar Apple Music solo si varias sesiones tienen metadata Apple explícita
+    # o si su título coincide claramente con la ventana de music.apple.com.
+    try:
+        clients_raw = cmd(["hyprctl", "clients", "-j"])
+        clients = json.loads(clients_raw) if clients_raw else []
+    except Exception:
+        clients = []
+
+    apple_window_titles = []
+    for c in clients:
+        klass = (c.get("class") or "").lower()
+        win_title = (c.get("title") or "").lower()
+        if "music.apple.com" in klass:
+            apple_window_titles.append(win_title)
+
+    apple_players = []
+    other_players = []
+
+    for player in found:
+        title = meta(player, "title", "").lower()
+        artist = meta(player, "artist", "").lower()
+        raw_meta = player_cmd(player, ["metadata"]).lower()
+
+        is_apple = False
+
+        if "music.apple.com" in raw_meta or "apple music" in raw_meta:
+            is_apple = True
+
+        for wt in apple_window_titles:
+            if title and title in wt:
+                is_apple = True
+            elif artist and title and artist in wt:
+                is_apple = True
+
+        if is_apple:
+            apple_players.append(player)
+        else:
+            other_players.append(player)
+
+    if apple_players:
+        playing = [p for p in apple_players if status_of(p) == "Playing"]
+        paused = [p for p in apple_players if status_of(p) == "Paused"]
+
+        if playing:
+            selected_apple = playing[0]
+        elif paused:
+            selected_apple = paused[0]
+        else:
+            selected_apple = apple_players[0]
+
+        return [selected_apple] + other_players
+
+    return found
+
+
+def player_cmd(player, args):
+    if player:
+        return cmd(["playerctl", "-p", player] + args)
+    return cmd(["playerctl"] + args)
+
+
+def player_run(player, args):
+    if player:
+        run(["playerctl", "-p", player] + args)
+    else:
+        run(["playerctl"] + args)
+
+
+def meta(player, key, default=""):
+    value = player_cmd(player, ["metadata", "--format", "{{" + key + "}}"])
+    return value if value else default
+
+
+def status_of(player):
+    return player_cmd(player, ["status"]) or "Stopped"
+
+
+def pick_initial_player():
+    ps = players()
+    if not ps:
+        return ""
+
+    for p in ps:
+        if status_of(p) == "Playing":
+            return p
+
+    return ps[0]
+
+
+def ellipsize(text, max_len=32):
+    text = text or ""
+    return text if len(text) <= max_len else text[: max_len - 1] + "…"
+
+
+def pretty_player_name(player):
+    if not player:
+        return "Sin reproductor"
+
+    p = player.lower()
+    title = meta(player, "title", "").lower()
+    artist = meta(player, "artist", "").lower()
+    raw_meta = player_cmd(player, ["metadata"]).lower()
+
+    try:
+        clients_raw = cmd(["hyprctl", "clients", "-j"])
+        clients = json.loads(clients_raw) if clients_raw else []
+    except Exception:
+        clients = []
+
+    apple_windows = []
+    youtube_windows = []
+
+    for c in clients:
+        klass = (c.get("class") or "").lower()
+        win_title = (c.get("title") or "").lower()
+
+        if "music.apple.com" in klass:
+            apple_windows.append(win_title)
+
+        if "youtube" in win_title or "youtu" in klass:
+            youtube_windows.append(win_title)
+
+    # Apple Music: metadata directa.
+    if "music.apple.com" in raw_meta or "apple music" in raw_meta:
+        return "Apple Music"
+
+    # Apple Music: Chromium MPRIS + ventana webapp music.apple.com.
+    for wt in apple_windows:
+        if title and title in wt:
+            return "Apple Music"
+        if artist and artist in wt:
+            return "Apple Music"
+        # Fallback útil: si solo hay una ventana de Apple Music y este player es chromium/chrome.
+        if ("chromium" in p or "chrome" in p) and len(apple_windows) == 1:
+            return "Apple Music"
+
+    # YouTube.
+    if "youtube" in raw_meta or "youtu.be" in raw_meta:
+        return "YouTube"
+
+    for wt in youtube_windows:
+        if title and title in wt:
+            return "YouTube"
+
+    if "spotify" in p:
+        return "Spotify"
+    if "vlc" in p:
+        return "VLC"
+    if "firefox" in p:
+        return "Firefox"
+    if "brave" in p:
+        return "Brave"
+    if "chromium" in p or "chrome" in p:
+        return "Navegador"
+
+    return ellipsize(player.split(".")[0].replace("-", " ").title(), 24)
+
+
+def get_sink_inputs():
+    raw = cmd(["pactl", "list", "sink-inputs"])
+    blocks = re.split(r"\nSink Input #", raw)
+    out = []
+
+    for block in blocks:
+        if not block.strip():
+            continue
+
+        first = block.splitlines()[0].strip()
+        sid_match = re.match(r"(\d+)", first)
+        sid = sid_match.group(1) if sid_match else None
+        vol_match = re.search(r"Volume:.*?(\d+)%", block, re.S)
+
+        if sid:
+            out.append({
+                "id": sid,
+                "raw": block,
+                "props": block.lower(),
+                "volume": int(vol_match.group(1)) if vol_match else 100,
+            })
+
+    return out
+
+
+def find_media_sink(player):
+    title = meta(player, "title", "").lower()
+    artist = meta(player, "artist", "").lower()
+    raw_meta = player_cmd(player, ["metadata"]).lower()
+    player_l = (player or "").lower()
+    pretty = pretty_player_name(player).lower()
+
+    best = None
+    best_score = 0
+
+    # Saber qué tipo de player estamos controlando.
+    is_apple_selected = (
+        "apple music" in pretty
+        or "music.apple.com" in raw_meta
+        or "apple music" in raw_meta
+    )
+
+    is_youtube_selected = (
+        "youtube" in pretty
+        or "youtube" in raw_meta
+        or "youtu.be" in raw_meta
+    )
+
+    for s in get_sink_inputs():
+        props = s["props"]
+        score = 0
+
+        # Coincidencias fuertes por título/artista del player seleccionado.
+        if title and title in props:
+            score += 120
+
+        if artist and artist in props:
+            score += 60
+
+        # Coincidencia por aplicación/navegador.
+        if player_l and player_l in props:
+            score += 40
+
+        if "brave" in player_l and "brave" in props:
+            score += 35
+
+        if ("chromium" in player_l or "chrome" in player_l) and ("chromium" in props or "chrome" in props):
+            score += 35
+
+        # Apple Music solo suma si el player seleccionado ES Apple Music.
+        if is_apple_selected and ("apple" in props or "music.apple" in props):
+            score += 100
+
+        # YouTube solo suma si el player seleccionado ES YouTube.
+        if is_youtube_selected and ("youtube" in props or "youtu" in props):
+            score += 100
+
+        # Penalizaciones para evitar tocar Apple Music cuando estás en YouTube.
+        if is_youtube_selected and ("apple" in props or "music.apple" in props):
+            score -= 200
+
+        # Penalización inversa: evitar tocar YouTube cuando estás en Apple Music.
+        if is_apple_selected and ("youtube" in props or "youtu" in props):
+            score -= 200
+
+        if score > best_score:
+            best = s
+            best_score = score
+
+    # Si no hay coincidencia clara, no devolvemos nada para no cambiar el volumen equivocado.
+    if best_score < 40:
+        return None
+
+    return best
+
+def sink_matches_player(sink, player):
+    props = sink["props"]
+    pretty = pretty_player_name(player).lower()
+    player_l = (player or "").lower()
+
+    if "apple music" in pretty:
+        return "application.name = \"chromium\"" in props
+
+    if "youtube" in pretty:
+        return "application.name = \"brave\"" in props
+
+    if "brave" in player_l:
+        return "application.name = \"brave\"" in props
+
+    if "chromium" in player_l or "chrome" in player_l:
+        return "application.name = \"chromium\"" in props
+
+    return False
+
+
+def sinks_for_player(player):
+    return [s for s in get_sink_inputs() if sink_matches_player(s, player)]
+
+
+def get_stream_volume(player):
+    sinks = sinks_for_player(player)
+    if sinks:
+        return sinks[0]["volume"]
+
+    vol = player_cmd(player, ["volume"])
+    try:
+        return int(float(vol) * 100)
+    except Exception:
+        return 100
+
+
+def set_stream_volume(player, value):
+    sinks = sinks_for_player(player)
+
+    if sinks:
+        for sink in sinks:
+            run(["pactl", "set-sink-input-volume", sink["id"], f"{int(value)}%"])
+        return
+
+    player_run(player, ["volume", str(int(value) / 100)])
+
+
+def friendly_status(status):
+    if status == "Playing":
+        return "Reproduciendo"
+    if status == "Paused":
+        return "Pausado"
+    if status == "Stopped":
+        return "Detenido"
+    return status or "Desconocido"
+
+
+def focus_or_open_apple_music():
+    run([
+        "omarchy-launch-or-focus",
+        APPLE_MUSIC_CLASS,
+        "gtk-launch apple-music",
+    ])
+
+
+def setup_css():
+    css = b"""
+    * {
+      font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", monospace;
+      font-size: 13px;
+      color: #cdd6f4;
+    }
+
+    window {
+      background: transparent;
+    }
+
+    #root {
+      background: rgba(17, 17, 27, 0.90);
+      border: 1px solid rgba(137, 180, 250, 0.24);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+    }
+
+    #art_frame {
+      background: rgba(255, 255, 255, 0.055);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 0px;
+    }
+
+    #title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    #artist {
+      color: #a6adc8;
+      font-size: 12px;
+    }
+
+    #player_combo {
+      background: rgba(255, 255, 255, 0.055);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 999px;
+      padding: 3px 10px;
+      color: #a6adc8;
+      font-size: 12px;
+    }
+
+    #player_combo button {
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      padding: 2px 8px;
+      color: #a6adc8;
+    }
+
+    #player_combo button:hover {
+      background: rgba(137, 180, 250, 0.12);
+    }
+
+    #player_combo arrow {
+      color: #89b4fa;
+    }
+
+    button {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.10);
+      border-radius: 12px;
+      padding: 8px 12px;
+      color: #cdd6f4;
+      box-shadow: none;
+    }
+
+    button:hover {
+      background: rgba(137, 180, 250, 0.22);
+      border-color: rgba(137, 180, 250, 0.35);
+    }
+
+    #play_button {
+      background: rgba(137, 180, 250, 0.28);
+      border-color: rgba(137, 180, 250, 0.45);
+      font-size: 18px;
+      padding: 8px 16px;
+    }
+
+    scale trough {
+      background: rgba(255, 255, 255, 0.10);
+      border-radius: 999px;
+      min-height: 8px;
+    }
+
+    scale highlight {
+      background: rgba(137, 180, 250, 0.95);
+      border-radius: 999px;
+    }
+
+    scale slider {
+      background: #cdd6f4;
+      border-radius: 999px;
+      min-width: 16px;
+      min-height: 16px;
+    }
+
+    #volume_label {
+      color: #a6adc8;
+      font-size: 12px;
+    }
+    """
+
+    provider = Gtk.CssProvider()
+    provider.load_from_data(css)
+    Gtk.StyleContext.add_provider_for_screen(
+        Gdk.Screen.get_default(),
+        provider,
+        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+    )
+
+
+def load_art_pixbuf(path):
+    if not path or not os.path.exists(path):
+        return None
+
+    src = GdkPixbuf.Pixbuf.new_from_file(path)
+    src_w = src.get_width()
+    src_h = src.get_height()
+
+    if src_w <= 0 or src_h <= 0:
+        return None
+
+    # object-fit: contain, no crop. The widget itself uses the resulting size,
+    # so 16:9 stays 16:9 and square art stays square.
+    scale = min(MAX_ART_W / src_w, MAX_ART_H / src_h)
+    scale = min(scale, 1.0) if max(src_w, src_h) <= max(MAX_ART_W, MAX_ART_H) else scale
+
+    new_w = max(1, int(src_w * scale))
+    new_h = max(1, int(src_h * scale))
+
+    return src.scale_simple(new_w, new_h, GdkPixbuf.InterpType.BILINEAR)
+
+
+class MediaPopup(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="Nodalia Media Popup")
+        self.set_default_size(560, 280)
+        self.set_resizable(False)
+        self.set_decorated(False)
+        self.set_app_paintable(True)
+        self.connect("destroy", Gtk.main_quit)
+        self.connect("key-press-event", self.on_key)
+
+        self.selected_player = pick_initial_player()
+        self.known_players = []
+
+        screen = self.get_screen()
+        visual = screen.get_rgba_visual()
+        if visual is not None and screen.is_composited():
+            self.set_visual(visual)
+
+        root = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=18)
+        root.set_name("root")
+        self.add(root)
+
+        self.art_frame = Gtk.Box()
+        self.art_frame.set_name("art_frame")
+        self.art_frame.set_halign(Gtk.Align.CENTER)
+        self.art_frame.set_valign(Gtk.Align.CENTER)
+        root.pack_start(self.art_frame, False, False, 0)
+
+        self.cover = Gtk.Image()
+        self.art_frame.pack_start(self.cover, False, False, 0)
+
+        right = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=11)
+        root.pack_start(right, True, True, 0)
+
+        self.combo = Gtk.ComboBoxText()
+        self.combo.set_name("player_combo")
+        self.combo.set_size_request(190, -1)
+        self.combo.connect("changed", self.on_player_changed)
+        right.pack_start(self.combo, False, False, 0)
+        self.combo.show()
+
+        self.title = Gtk.Label(xalign=0)
+        self.title.set_name("title")
+        self.title.set_markup("<b>Sin reproducción</b>")
+        self.title.set_line_wrap(True)
+        self.title.set_max_width_chars(42)
+        right.pack_start(self.title, False, False, 0)
+
+        self.artist = Gtk.Label(xalign=0)
+        self.artist.set_name("artist")
+        right.pack_start(self.artist, False, False, 0)
+
+        controls = Gtk.Box(spacing=10)
+        right.pack_start(controls, False, False, 0)
+
+        prev_btn = Gtk.Button(label="󰒮")
+        prev_btn.connect("clicked", lambda _b: self.action("previous"))
+        controls.pack_start(prev_btn, False, False, 0)
+
+        self.play_btn = Gtk.Button(label="")
+        self.play_btn.set_name("play_button")
+        self.play_btn.connect("clicked", lambda _b: self.action("play-pause"))
+        controls.pack_start(self.play_btn, False, False, 0)
+
+        next_btn = Gtk.Button(label="󰒭")
+        next_btn.connect("clicked", lambda _b: self.action("next"))
+        controls.pack_start(next_btn, False, False, 0)
+
+        volrow = Gtk.Box(spacing=10)
+        right.pack_start(volrow, False, False, 0)
+
+        volrow.pack_start(Gtk.Label(label=""), False, False, 0)
+
+        self.vol = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 150, 1)
+        self.vol.set_draw_value(False)
+        self.vol.set_hexpand(True)
+        self.vol.connect("value-changed", self.set_volume)
+        volrow.pack_start(self.vol, True, True, 0)
+
+        self.vol_label = Gtk.Label(label="100%")
+        self.vol_label.set_name("volume_label")
+        volrow.pack_start(self.vol_label, False, False, 0)
+
+        bottom = Gtk.Box(spacing=10)
+        right.pack_end(bottom, False, False, 0)
+
+        open_btn = Gtk.Button(label="Abrir Apple Music")
+        open_btn.connect("clicked", lambda _b: focus_or_open_apple_music())
+        bottom.pack_start(open_btn, False, False, 0)
+
+        close_btn = Gtk.Button(label="Cerrar")
+        close_btn.connect("clicked", lambda _b: Gtk.main_quit())
+        bottom.pack_end(close_btn, False, False, 0)
+
+        self.refresh_players()
+        self.refresh()
+        GLib.timeout_add_seconds(1, self.refresh)
+        GLib.timeout_add_seconds(3, self.refresh_players)
+
+    def on_key(self, _w, event):
+        if event.keyval == 65307:
+            Gtk.main_quit()
+
+    def refresh_players(self):
+        ps = players()
+        current = self.selected_player
+
+        self.known_players = ps
+
+        self.combo.handler_block_by_func(self.on_player_changed)
+        self.combo.remove_all()
+
+        if not ps:
+            self.combo.append_text("Sin reproductores activos")
+            self.combo.set_active(0)
+            self.selected_player = ""
+            self.combo.show()
+        else:
+            if current not in ps:
+                current = pick_initial_player()
+
+            self.selected_player = current
+
+            for p in ps:
+                self.combo.append_text(pretty_player_name(p))
+
+            try:
+                self.combo.set_active(ps.index(current))
+            except ValueError:
+                self.combo.set_active(0)
+                self.selected_player = ps[0]
+
+            # Mostrar siempre el selector para evitar parpadeos/ocultación rara.
+            self.combo.show()
+
+        self.combo.handler_unblock_by_func(self.on_player_changed)
+        self.queue_resize()
+        return True
+
+    def on_player_changed(self, combo):
+        idx = combo.get_active()
+        ps = self.known_players
+
+        if 0 <= idx < len(ps):
+            self.selected_player = ps[idx]
+            self.refresh()
+
+    def action(self, action_name):
+        if not self.selected_player:
+            return
+
+        # Primero intentamos control MPRIS directo sobre el player seleccionado.
+        player_run(self.selected_player, [action_name])
+
+        # Fallback para webapps/navegadores que ignoran next/previous por MPRIS.
+        if action_name == "next":
+            GLib.timeout_add(180, lambda: run(["playerctl", "next"]) or False)
+        elif action_name == "previous":
+            GLib.timeout_add(180, lambda: run(["playerctl", "previous"]) or False)
+
+        GLib.timeout_add(250, self.refresh)
+
+    def set_volume(self, scale):
+        if not self.selected_player:
+            return
+
+        value = int(scale.get_value())
+        self.vol_label.set_text(f"{value}%")
+        set_stream_volume(self.selected_player, value)
+
+    def refresh(self):
+        player = self.selected_player
+
+        if not player:
+            self.title.set_markup("<b>Sin reproducción</b>")
+            self.artist.set_text("No hay reproductores MPRIS activos")
+            self.play_btn.set_label("")
+            self.cover.set_from_icon_name("multimedia-player", Gtk.IconSize.DIALOG)
+            return True
+
+        title = meta(player, "title", "Sin título")
+        artist = meta(player, "artist", "Desconocido")
+        status = status_of(player)
+        art = player_cmd(player, ["metadata", "mpris:artUrl"])
+
+        self.title.set_markup(f"<b>{GLib.markup_escape_text(title)}</b>")
+        self.artist.set_text(f"{artist} · {friendly_status(status)}")
+
+        if status == "Playing":
+            self.play_btn.set_label("")
+        else:
+            self.play_btn.set_label("")
+
+        volume = get_stream_volume(player)
+        self.vol.handler_block_by_func(self.set_volume)
+        self.vol.set_value(volume)
+        self.vol_label.set_text(f"{volume}%")
+        self.vol.handler_unblock_by_func(self.set_volume)
+
+        path = ""
+        if art.startswith("file://"):
+            path = urllib.parse.unquote(art.replace("file://", "", 1))
+
+        pix = load_art_pixbuf(path)
+        if pix:
+            self.cover.set_from_pixbuf(pix)
+        else:
+            self.cover.set_from_icon_name("multimedia-player", Gtk.IconSize.DIALOG)
+
+        return True
+
+
+setup_css()
+win = MediaPopup()
+win.show_all()
+Gtk.main()

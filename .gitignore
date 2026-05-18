@@ -1,0 +1,19 @@
+# Backups temporales
+*.backup.*
+*.bak.*
+*.bak
+
+# Cachés generadas
+config/wpe-hypr/workshop-cache/
+**/__pycache__/
+*.pyc
+
+# Logs
+*.log
+logs/
+
+# Secretos / entorno local
+.env
+*.secret
+*.key
+*.token

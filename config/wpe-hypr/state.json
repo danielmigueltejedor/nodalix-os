@@ -1,0 +1,19 @@
+{
+  "settings": {
+    "fps": 60,
+    "scaling": "fill",
+    "disable_mouse": true,
+    "disable_parallax": true,
+    "silent": true
+  },
+  "monitors": {
+    "DP-3": {
+      "path": "/data/SteamLibrary/steamapps/workshop/content/431960/3726414565",
+      "scaling": "fill"
+    },
+    "DP-2": {
+      "path": "/data/SteamLibrary/steamapps/workshop/content/431960/3549235003",
+      "scaling": "fill"
+    }
+  }
+}

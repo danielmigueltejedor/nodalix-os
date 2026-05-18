@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+LOG="$HOME/.cache/wpe-hypr/autostart.log"
+mkdir -p "$(dirname "$LOG")"
+
+{
+  echo "=== wpe-autostart $(date) ==="
+
+  # Esperar a que Hyprland esté listo
+  for i in {1..40}; do
+    if hyprctl monitors -j >/dev/null 2>&1; then
+      echo "Hyprland listo"
+      break
+    fi
+    sleep 0.5
+  done
+
+  # Esperar a que /data esté montado
+  for i in {1..40}; do
+    if mountpoint -q /data; then
+      echo "/data montado"
+      break
+    fi
+    sleep 0.5
+  done
+
+  sleep 2
+
+  "$HOME/.local/bin/wpe-refresh"
+
+  echo "OK"
+} >> "$LOG" 2>&1

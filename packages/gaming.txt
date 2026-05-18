@@ -1,0 +1,8 @@
+steam
+mangohud
+gamemode
+vulkan-tools
+mesa
+vulkan-radeon
+lib32-vulkan-radeon
+lib32-mesa

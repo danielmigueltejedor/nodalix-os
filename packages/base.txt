@@ -1,0 +1,11 @@
+git
+base-devel
+jq
+curl
+wget
+unzip
+rsync
+fish
+fastfetch
+btop
+nano
