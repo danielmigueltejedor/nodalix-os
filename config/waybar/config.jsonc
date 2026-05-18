@@ -11,10 +11,17 @@
     "hyprland/workspaces"
   ],
   "modules-center": [
-    "custom/nodalix-center"
+    "custom/nodalix-date",
+    "custom/nodalix-time",
+    "custom/nodalix-weather",
+    "custom/nodalix-media"
   ],
   "modules-right": [
-    "custom/nodalix-right"
+    "custom/nodalix-privacy",
+    "custom/nodalix-settings",
+    "bluetooth",
+    "network",
+    "pulseaudio"
   ],
   "custom/nodalix-menu": {
     "format": "󱄅",
@@ -40,21 +47,77 @@
     "on-click": "activate",
     "sort-by-number": true
   },
-  "custom/nodalix-center": {
-    "exec": "nodalix-center-island",
-    "return-type": "json",
-    "interval": 5,
-    "tooltip": true,
-    "on-click": "playerctl play-pause",
-    "on-scroll-up": "playerctl next",
-    "on-scroll-down": "playerctl previous"
-  },
-  "custom/nodalix-right": {
+  "custom/nodalix-privacy": {
     "exec": "nodalix-right-island",
     "return-type": "json",
     "interval": 2,
     "tooltip": true,
-    "on-click": "nodalix-command-bar-toggle",
-    "on-click-right": "pavucontrol"
+    "on-click": "nodalix-privacy-menu"
+  },
+  "custom/nodalix-settings": {
+    "format": "󰒓",
+    "tooltip": true,
+    "tooltip-format": "Ajustes Nodalix",
+    "on-click": "nodalix-settings-menu"
+  },
+  "bluetooth": {
+    "format": "󰂯",
+    "format-disabled": "󰂲",
+    "format-off": "󰂲",
+    "format-on": "󰂯",
+    "format-connected": "󰂱",
+    "tooltip-format": "Bluetooth",
+    "on-click": "nodalix-bt-menu",
+    "on-click-right": "bluetoothctl power toggle"
+  },
+  "network": {
+    "format-wifi": "󰖩",
+    "format-ethernet": "󰈀",
+    "format-disconnected": "󰖪",
+    "tooltip-format-wifi": "{essid} · {signalStrength}%",
+    "tooltip-format-ethernet": "Ethernet",
+    "tooltip-format-disconnected": "Sin conexión",
+    "on-click": "nodalix-wifi-menu",
+    "on-click-right": "nm-connection-editor"
+  },
+  "pulseaudio": {
+    "format": "󰕾 {volume}%",
+    "format-muted": "󰝟",
+    "tooltip-format": "Volumen: {volume}%",
+    "on-click": "nodalix-volume-menu",
+    "on-click-right": "pamixer -t",
+    "on-scroll-up": "pamixer -i 5",
+    "on-scroll-down": "pamixer -d 5"
+  },
+  "custom/nodalix-date": {
+    "exec": "nodalix-date-module",
+    "return-type": "json",
+    "interval": 60,
+    "tooltip": true,
+    "on-click": "nodalix-calendar-menu"
+  },
+  "custom/nodalix-time": {
+    "exec": "nodalix-time-module",
+    "return-type": "json",
+    "interval": 5,
+    "tooltip": true,
+    "on-click": "nodalix-time-settings"
+  },
+  "custom/nodalix-weather": {
+    "exec": "nodalix-weather-module",
+    "return-type": "json",
+    "interval": 300,
+    "tooltip": true,
+    "on-click": "nodalix-weather-menu"
+  },
+  "custom/nodalix-media": {
+    "exec": "nodalix-media-module",
+    "return-type": "json",
+    "interval": 2,
+    "tooltip": true,
+    "on-click": "nodalix-media-menu",
+    "on-click-right": "playerctl play-pause",
+    "on-scroll-up": "playerctl next",
+    "on-scroll-down": "playerctl previous"
   }
 }

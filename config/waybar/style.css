@@ -12,34 +12,50 @@ window#waybar {
   color: #cdd6f4;
 }
 
+
 /* ==============================
    Isla izquierda
    ============================== */
 
-#custom-nodalix-menu {
+.modules-left {
   background: rgba(17, 17, 27, 0.78);
-  color: #89b4fa;
   border: 1px solid rgba(137, 180, 250, 0.22);
-  border-right: 0;
-  border-radius: 999px 0 0 999px;
-  padding: 0 13px 0 15px;
+  border-radius: 999px;
+  padding: 4px 8px;
   margin: 0;
   min-height: 34px;
 }
 
-#custom-nodalix-menu:hover {
-  background: rgba(137, 180, 250, 0.20);
+#custom-nodalix-menu,
+#custom-nodalix-more {
+  background: transparent;
+  color: #cdd6f4;
+  border: 0;
+  border-radius: 999px;
+  margin: 0 1px;
+  padding: 2px 9px;
+  min-height: 24px;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+#custom-nodalix-menu {
+  color: #89b4fa;
+}
+
+#custom-nodalix-menu:hover,
+#custom-nodalix-more:hover {
+  background: rgba(137, 180, 250, 0.16);
   color: #ffffff;
 }
 
 #workspaces {
-  background: rgba(17, 17, 27, 0.78);
-  border: 1px solid rgba(137, 180, 250, 0.22);
-  border-left: 0;
-  border-radius: 0 999px 999px 0;
-  padding: 4px 8px 4px 2px;
-  margin: 0;
-  min-height: 34px;
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 2px;
+  margin: 0 2px;
+  min-height: 24px;
 }
 
 #workspaces button {
@@ -76,61 +92,121 @@ window#waybar {
    Isla central
    ============================== */
 
-#custom-nodalix-center {
+.modules-center {
   background: rgba(17, 17, 27, 0.78);
-  color: #cdd6f4;
   border: 1px solid rgba(137, 180, 250, 0.22);
   border-radius: 999px;
-  padding: 0 18px;
+  padding: 4px 10px;
   margin: 0;
   min-height: 34px;
 }
 
-#custom-nodalix-center.with-media {
-  color: #ffffff;
-  border-color: rgba(166, 227, 161, 0.34);
-  background: rgba(17, 17, 27, 0.84);
+#custom-nodalix-date,
+#custom-nodalix-time,
+#custom-nodalix-weather,
+#custom-nodalix-media {
+  background: transparent;
+  color: #cdd6f4;
+  border: 0;
+  border-radius: 999px;
+  margin: 0 1px;
+  padding: 2px 9px;
+  min-height: 24px;
+  box-shadow: none;
+  text-shadow: none;
 }
 
-#custom-nodalix-center:hover {
-  background: rgba(137, 180, 250, 0.14);
+#custom-nodalix-date:hover,
+#custom-nodalix-time:hover,
+#custom-nodalix-weather:hover,
+#custom-nodalix-media:hover {
+  background: rgba(137, 180, 250, 0.16);
+  color: #ffffff;
 }
+
+#custom-nodalix-media.playing {
+  color: #ffffff;
+}
+
+#custom-nodalix-media.paused {
+  color: #a6adc8;
+}
+
+#custom-nodalix-media.hidden {
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  color: transparent;
+}
+
 
 /* ==============================
-   Isla derecha
+   Isla derecha modular
    ============================== */
 
-#custom-nodalix-right {
+/* Fondo de la isla real: el contenedor derecho completo */
+.modules-right {
   background: rgba(17, 17, 27, 0.78);
-  color: #cdd6f4;
   border: 1px solid rgba(137, 180, 250, 0.22);
   border-radius: 999px;
-  padding: 0 16px;
+  padding: 4px 8px;
   margin: 0;
   min-height: 34px;
 }
 
-#custom-nodalix-right:hover {
-  background: rgba(137, 180, 250, 0.14);
+/* Los módulos ya NO son la isla: son botones transparentes dentro */
+#custom-nodalix-privacy,
+#custom-nodalix-settings,
+#bluetooth,
+#network,
+#pulseaudio {
+  background: transparent;
+  color: #cdd6f4;
+  border: 0;
+  border-radius: 999px;
+  margin: 0 1px;
+  padding: 2px 8px;
+  min-height: 24px;
+  box-shadow: none;
+  text-shadow: none;
 }
 
-#custom-nodalix-right.mic {
-  background: rgba(245, 194, 93, 0.22);
-  border-color: rgba(245, 194, 93, 0.48);
+/* Hover igual al lenguaje de los workspaces: chip pequeño interno */
+#custom-nodalix-privacy:hover,
+#custom-nodalix-settings:hover,
+#bluetooth:hover,
+#network:hover,
+#pulseaudio:hover {
+  background: rgba(137, 180, 250, 0.16);
+  color: #ffffff;
+  border-radius: 999px;
+}
+
+/* Estados de privacidad como chip interno, no como isla completa */
+#custom-nodalix-privacy.mic {
+  background: rgba(245, 194, 93, 0.28);
   color: #fff2bf;
+  border-radius: 999px;
 }
 
-#custom-nodalix-right.camera {
-  background: rgba(166, 227, 161, 0.22);
-  border-color: rgba(166, 227, 161, 0.50);
+#custom-nodalix-privacy.camera {
+  background: rgba(166, 227, 161, 0.28);
   color: #e4ffe1;
+  border-radius: 999px;
 }
 
-#custom-nodalix-right.screen {
-  background: rgba(203, 166, 247, 0.22);
-  border-color: rgba(203, 166, 247, 0.50);
+#custom-nodalix-privacy.screen {
+  background: rgba(203, 166, 247, 0.28);
   color: #f1ddff;
+  border-radius: 999px;
 }
+
+#network.disconnected,
+#bluetooth.disabled,
+#pulseaudio.muted {
+  color: #7f849c;
+}
+
 
 /* ==============================
    Tooltips
