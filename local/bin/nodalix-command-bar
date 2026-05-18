@@ -2,8 +2,10 @@
 
 import gi
 import json
+import os
 import subprocess
 import shlex
+import fcntl
 from pathlib import Path
 
 gi.require_version("Gtk", "3.0")
@@ -11,6 +13,24 @@ from gi.repository import Gtk, Gdk, GLib, GdkPixbuf
 
 
 APP_TITLE = "Nodalix Command Bar"
+
+LOCK_FILE_HANDLE = None
+
+
+def acquire_single_instance_lock():
+    global LOCK_FILE_HANDLE
+
+    lock_path = Path('/tmp/nodalix-command-bar.lock')
+    LOCK_FILE_HANDLE = lock_path.open('w')
+
+    try:
+        fcntl.flock(LOCK_FILE_HANDLE, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        LOCK_FILE_HANDLE.write(str(os.getpid()) if 'os' in globals() else 'locked')
+        LOCK_FILE_HANDLE.flush()
+        return True
+    except BlockingIOError:
+        return False
+
 
 
 def sh(args):
@@ -682,6 +702,9 @@ class CommandBar(Gtk.Window):
 
 
 if __name__ == "__main__":
+    if not acquire_single_instance_lock():
+        raise SystemExit(0)
+
     setup_css()
     win = CommandBar()
     win.show_all()
