@@ -227,6 +227,49 @@ def setup_css():
       box-shadow: none;
     }
 
+
+    #chips {
+      background: transparent;
+      padding: 2px 0;
+    }
+
+
+    scrollbar {
+      background: transparent;
+      border: 0;
+      min-height: 8px;
+      min-width: 8px;
+    }
+
+    scrollbar trough {
+      background: rgba(255, 255, 255, 0.035);
+      border: 0;
+      border-radius: 999px;
+      min-height: 8px;
+      min-width: 8px;
+    }
+
+    scrollbar slider {
+      background: rgba(137, 180, 250, 0.32);
+      border: 0;
+      border-radius: 999px;
+      min-height: 8px;
+      min-width: 8px;
+    }
+
+    scrollbar slider:hover {
+      background: rgba(137, 180, 250, 0.48);
+    }
+
+    scrollbar button {
+      background: transparent;
+      border: 0;
+      min-height: 0;
+      min-width: 0;
+      padding: 0;
+      margin: 0;
+    }
+
     list {
       background: transparent;
       border: 0;
@@ -894,6 +937,52 @@ def load_actions():
 
 
 
+
+def command_bar_filters(items):
+    base = ["Todo", "Apps", "Acciones", "Ventanas", "Workspaces"]
+    preferred = [
+        "Nodalix",
+        "Sistema",
+        "Energía",
+        "Audio",
+        "Red",
+        "Capturas",
+        "Wallpapers",
+        "Gaming",
+        "Dev",
+        "IA",
+        "Home Assistant",
+        "Privacidad",
+    ]
+
+    categories = []
+    seen = set()
+
+    for item in items:
+        if item.get("kind") != "action":
+            continue
+
+        category = str(item.get("category") or "").strip()
+
+        if not category or category in seen:
+            continue
+
+        seen.add(category)
+        categories.append(category)
+
+    ordered = []
+
+    for category in preferred:
+        if category in seen:
+            ordered.append(category)
+
+    for category in sorted(categories):
+        if category not in ordered:
+            ordered.append(category)
+
+    return base + ordered
+
+
 class CommandBar(Gtk.Window):
     def __init__(self):
         super().__init__(title=APP_TITLE)
@@ -916,6 +1005,8 @@ class CommandBar(Gtk.Window):
         self.all_items = []
         self.filtered_items = []
 
+        self.load_items()
+
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         root.set_name("root")
         self.add(root)
@@ -927,12 +1018,20 @@ class CommandBar(Gtk.Window):
         self.search.connect("activate", lambda _e: self.activate_selected())
         root.pack_start(self.search, False, False, 0)
 
-        chips = Gtk.Box(spacing=7)
-        root.pack_start(chips, False, False, 0)
+        chips_scroller = Gtk.ScrolledWindow()
+        chips_scroller.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
+        chips_scroller.set_size_request(-1, 58)
+        chips_scroller.set_overlay_scrolling(False)
+        root.pack_start(chips_scroller, False, False, 0)
+
+        chips = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=7)
+        chips.set_name("chips")
+        chips.set_margin_bottom(12)
+        chips_scroller.add(chips)
 
         self.chip_buttons = {}
 
-        for label in ["Todo", "Apps", "Acciones", "Ventanas", "Workspaces", "Wallpapers", "Gaming", "IA", "Sistema"]:
+        for label in command_bar_filters(self.all_items):
             btn = Gtk.Button(label=label)
             btn.set_name("chip_active" if label == "Todo" else "chip")
             btn.connect("clicked", lambda _b, l=label: self.set_filter(l))
@@ -953,7 +1052,6 @@ class CommandBar(Gtk.Window):
         footer.set_text("Enter: ejecutar · Esc: cerrar · ↑/↓ mover · filtros por cápsula")
         root.pack_end(footer, False, False, 0)
 
-        self.load_items()
         self.refresh()
         GLib.idle_add(self.focus_search)
 
@@ -1011,12 +1109,11 @@ class CommandBar(Gtk.Window):
     def item_matches_filter(self, item):
         f = self.active_filter
         kind = item.get("kind")
-        category = str(item.get("category") or "").strip().lower()
+        category = str(item.get("category") or "").strip()
 
         if f == "Todo":
             return True
 
-        # Filtros estructurales
         if f == "Apps":
             return kind == "app"
         if f == "Acciones":
@@ -1026,18 +1123,8 @@ class CommandBar(Gtk.Window):
         if f == "Workspaces":
             return kind == "workspace"
 
-        # Filtros por categoría real, no por texto libre.
-        category_map = {
-            "Wallpapers": ["wallpapers"],
-            "Gaming": ["gaming"],
-            "IA": ["ia"],
-            "Sistema": ["sistema", "energía", "energia", "nodalix"],
-        }
-
-        if f in category_map:
-            return kind == "action" and category in category_map[f]
-
-        return True
+        # Categorías dinámicas desde actions.json.
+        return kind == "action" and category == f
 
 
     def score_item(self, item, query):
