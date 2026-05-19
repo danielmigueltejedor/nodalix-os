@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
-if command -v media-popup >/dev/null 2>&1; then
-  media-popup
-elif command -v media-popup-window >/dev/null 2>&1; then
-  media-popup-window
-else
-  notify-send "Nodalix Media" "No encuentro media-popup ni media-popup-window"
+set -euo pipefail
+
+APP="$HOME/Projects/nodalix-os/local/bin/media-popup-window"
+LOG="/tmp/nodalix-media-popup.log"
+
+if pgrep -f "$APP" >/dev/null; then
+  pkill -f "$APP" || true
+  exit 0
 fi
+
+nohup "$APP" >"$LOG" 2>&1 &

@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+
+import json
+import shutil
+import subprocess
+import time
+
+HYPRCTL = "/usr/bin/hyprctl"
+
+
+def sh(args):
+    try:
+        return subprocess.check_output(args, text=True, stderr=subprocess.DEVNULL).strip()
+    except Exception:
+        return ""
+
+
+def run(args):
+    subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def dispatch(expr):
+    subprocess.run([HYPRCTL, "dispatch", expr], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def clients():
+    raw = sh([HYPRCTL, "clients", "-j"])
+    if not raw:
+        return []
+    try:
+        return json.loads(raw)
+    except Exception:
+        return []
+
+
+def find_menu_address():
+    for c in clients():
+        title = str(c.get("title") or "").lower()
+        klass = str(c.get("class") or "").lower()
+        initial_class = str(c.get("initialClass") or "").lower()
+        address = str(c.get("address") or "")
+
+        if address and (
+            "nodalia menu" in title
+            or "nodalix-menu-window" in klass
+            or "nodalix-menu-window" in initial_class
+        ):
+            return address
+
+    return ""
+
+
+def wait_for_menu(timeout=2.0):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        address = find_menu_address()
+        if address:
+            return address
+        time.sleep(0.05)
+    return ""
+
+
+def focus_and_tile(address):
+    if not address:
+        return
+
+    # Hyprland 0.55 / Omarchy Lua dispatch syntax.
+    dispatch('hl.dsp.focus({ window = "address:' + address + '" })')
+    time.sleep(0.05)
+    dispatch('hl.dsp.window.float({ action = "unset" })')
+
+
+def main():
+    address = find_menu_address()
+    if address:
+        focus_and_tile(address)
+        return 0
+
+    binary = shutil.which("nodalix-menu-window")
+    if not binary:
+        subprocess.run(["notify-send", "Nodalia Menu", "No encuentro nodalix-menu-window"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return 1
+
+    run([binary])
+    address = wait_for_menu()
+    focus_and_tile(address)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

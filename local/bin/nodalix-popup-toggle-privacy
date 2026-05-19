@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if command -v nodalix-privacy-menu >/dev/null 2>&1; then
+  exec nodalix-privacy-menu
+fi
+
+if [ -x "$HOME/Projects/nodalix-os/local/bin/nodalix-privacy-menu" ]; then
+  exec "$HOME/Projects/nodalix-os/local/bin/nodalix-privacy-menu"
+fi
+
+notify-send "Nodalix" "No encuentro nodalix-privacy-menu"

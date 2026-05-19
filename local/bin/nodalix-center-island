@@ -19,13 +19,21 @@ def sh(cmd):
 
 
 def get_weather():
-    # Fallback rápido. Más adelante lo sustituimos por OpenWeather/Home Assistant.
-    weather = sh("curl -fsS --max-time 1 'https://wttr.in/Palencia?format=%t+%C'")
+    # Icono + temperatura, sin texto tipo Clear/Sunny y sin separación excesiva.
+    weather = sh("curl -fsS --max-time 1 'https://wttr.in/Palencia?format=%c|%t'")
 
-    if weather:
-        return weather.replace("+", " ")
+    if weather and "|" in weather:
+        icon, temp = weather.split("|", 1)
+        icon = icon.strip()
+        temp = temp.strip().replace("+", "")
 
-    return "tiempo --"
+        # Algunos iconos emoji ocupan ancho raro; dejamos un único espacio controlado.
+        if icon:
+            return f"{icon} {temp}"
+
+        return temp
+
+    return " --"
 
 
 def get_media():

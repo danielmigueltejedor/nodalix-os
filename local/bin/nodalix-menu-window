@@ -1,0 +1,399 @@
+#!/usr/bin/env python3
+
+import gi
+import subprocess
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gdk
+
+APP_TITLE = "Nodalia Menu"
+
+
+def run(cmd):
+    subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def has_cmd(cmd):
+    try:
+        subprocess.check_output("command -v " + cmd, shell=True, text=True, stderr=subprocess.DEVNULL)
+        return True
+    except Exception:
+        return False
+
+
+def notify(title, message):
+    run("notify-send " + repr(title) + " " + repr(message))
+
+
+def setup_css():
+    css = b"""
+* {
+  font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", monospace;
+  font-size: 13px;
+  color: #cdd6f4;
+}
+
+window {
+  background: transparent;
+}
+
+#root {
+  background: rgba(17, 17, 27, 0.96);
+  border: 1px solid rgba(137, 180, 250, 0.28);
+  border-radius: 24px;
+  padding: 18px;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.52);
+}
+
+#header_title {
+  color: #ffffff;
+  font-size: 21px;
+  font-weight: 900;
+}
+
+#header_subtitle {
+  color: #a6adc8;
+  font-size: 12px;
+}
+
+#search {
+  background: rgba(255, 255, 255, 0.060);
+  border: 1px solid rgba(137, 180, 250, 0.22);
+  border-radius: 999px;
+  padding: 9px 14px;
+  color: #ffffff;
+  box-shadow: none;
+}
+
+#content_card {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 20px;
+  padding: 14px;
+}
+
+#section_button {
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 18px;
+  padding: 12px;
+  box-shadow: none;
+}
+
+#section_button:hover {
+  background: rgba(137, 180, 250, 0.15);
+  border-color: rgba(137, 180, 250, 0.28);
+}
+
+#section_button_active {
+  background: rgba(137, 180, 250, 0.22);
+  border: 1px solid rgba(137, 180, 250, 0.38);
+  border-radius: 18px;
+  padding: 12px;
+  box-shadow: none;
+}
+
+#section_icon {
+  font-size: 24px;
+  color: #89b4fa;
+}
+
+#section_title {
+  color: #ffffff;
+  font-weight: 900;
+}
+
+#section_subtitle {
+  color: #a6adc8;
+  font-size: 11px;
+}
+
+#page_title {
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+#page_subtitle {
+  color: #a6adc8;
+  font-size: 12px;
+}
+
+#setting_row {
+  background: rgba(255, 255, 255, 0.040);
+  border: 1px solid rgba(255, 255, 255, 0.065);
+  border-radius: 16px;
+  padding: 11px 12px;
+}
+
+#setting_row:hover {
+  background: rgba(137, 180, 250, 0.10);
+}
+
+#setting_title {
+  color: #ffffff;
+  font-weight: 800;
+}
+
+#setting_subtitle {
+  color: #a6adc8;
+  font-size: 12px;
+}
+
+button {
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 7px 12px;
+  box-shadow: none;
+}
+
+button:hover {
+  background: rgba(137, 180, 250, 0.18);
+  color: #ffffff;
+}
+
+#primary_button {
+  background: rgba(137, 180, 250, 0.22);
+  border: 1px solid rgba(137, 180, 250, 0.36);
+  color: #ffffff;
+}
+
+#danger_button {
+  background: rgba(243, 139, 168, 0.14);
+  border: 1px solid rgba(243, 139, 168, 0.28);
+}
+"""
+    provider = Gtk.CssProvider()
+    provider.load_from_data(css)
+    Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+
+class NodaliaMenu(Gtk.Window):
+    def __init__(self):
+        super().__init__(title=APP_TITLE)
+        self.set_default_size(1100, 760)
+        self.set_resizable(True)
+        self.set_decorated(True)
+        # Ventana normal: Hyprland decide tiling/focus.
+        self.connect("destroy", Gtk.main_quit)
+        self.connect("key-press-event", self.on_key)
+
+        screen = self.get_screen()
+        visual = screen.get_rgba_visual()
+        if visual is not None and screen.is_composited():
+            self.set_visual(visual)
+
+        self.sections = [
+            {"id": "appearance", "icon": "󰉼", "title": "Estilo", "subtitle": "Tema, color, fuentes", "actions": [
+                ("Abrir estilos de Nodalix", "Personalización visual del sistema", "notify-send \"Nodalia Menu\" \"Editor de estilos próximamente\""),
+                ("Cambiar tema Omarchy", "Abre el menú de temas si existe", "omarchy-theme-menu || notify-send \"Nodalia Menu\" \"Menú de temas no disponible\""),
+                ("Editar configuración visual", "Abre looknfeel.lua en VS Code", "code ~/.config/hypr/looknfeel.lua"),
+            ]},
+            {"id": "wallpaper", "icon": "󰸉", "title": "Wallpaper", "subtitle": "Fondos y WPE", "actions": [
+                ("Abrir WPE Menu", "Wallpaper Engine / fondos animados", "wpe-menu"),
+                ("Abrir selector de fondos", "Menú de fondo de Omarchy", "omarchy-menu background || notify-send \"Nodalia Menu\" \"Selector de fondos no disponible\""),
+                ("Abrir carpeta de fondos", "Carpeta de configuración WPE", "xdg-open ~/.config/wpe-hypr"),
+            ]},
+            {"id": "displays", "icon": "󰍹", "title": "Pantallas", "subtitle": "Monitores y escala", "actions": [
+                ("Ver monitores Hyprland", "Muestra la configuración actual", "alacritty -e hyprctl monitors"),
+                ("Editar monitores", "Abre monitors.lua", "code ~/.config/hypr/monitors.lua"),
+                ("Recargar Hyprland", "Aplica cambios de compositor", "hyprctl reload && notify-send \"Nodalix\" \"Hyprland recargado\""),
+            ]},
+            {"id": "network", "icon": "󰖩", "title": "Red", "subtitle": "Wi-Fi avanzado", "actions": [
+                ("Abrir Nodalix Network", "Popup rápido de red", "nodalix-wifi-menu"),
+                ("Editor de conexiones", "NetworkManager avanzado", "nm-connection-editor"),
+                ("Terminal Wi-Fi", "Impala si está instalado", "alacritty -e impala || alacritty -e nmtui"),
+            ]},
+            {"id": "bluetooth", "icon": "󰂯", "title": "Bluetooth", "subtitle": "Dispositivos BT", "actions": [
+                ("Abrir Nodalix Bluetooth", "Popup rápido de Bluetooth", "nodalix-bt-menu"),
+                ("Bluetooth avanzado", "Bluetui / Blueman", "alacritty -e bluetui || blueman-manager"),
+                ("Alternar Bluetooth", "Activa/desactiva el adaptador", "bluetoothctl power toggle"),
+            ]},
+            {"id": "security", "icon": "󰌾", "title": "Seguridad", "subtitle": "Firewall, privacidad", "actions": [
+                ("Centro de privacidad", "Micro, cámara y pantalla", "notify-send \"Nodalia Privacy\" \"Centro de privacidad próximamente\""),
+                ("Estado firewall", "Comprueba UFW/firewalld", "alacritty -e sh -c \"systemctl status firewalld ufw --no-pager; read\""),
+                ("Bloquear sesión", "Bloqueo rápido", "hyprlock"),
+            ]},
+            {"id": "updates", "icon": "󰚰", "title": "Actualizaciones", "subtitle": "Sistema y paquetes", "actions": [
+                ("Actualizar sistema", "CachyOS/Arch con yay", "alacritty -e sh -c \"yay -Syu; read\""),
+                ("Ver paquetes pendientes", "Pacman checkupdates", "alacritty -e sh -c \"checkupdates; read\""),
+                ("Limpiar caché pacman", "Mantenimiento básico", "alacritty -e sh -c \"sudo paccache -r; read\""),
+            ]},
+            {"id": "toggles", "icon": "󰨙", "title": "Toggles", "subtitle": "Activar/desactivar", "actions": [
+                ("Alternar Waybar", "Reinicia o levanta barra", "pkill waybar; waybar >/tmp/waybar.log 2>&1 &"),
+                ("Alternar Wi-Fi", "Radio Wi-Fi", "nmcli radio wifi off || nmcli radio wifi on"),
+                ("Silenciar audio", "Mute del sistema", "pamixer -t"),
+            ]},
+            {"id": "storage", "icon": "󰋊", "title": "Almacenamiento", "subtitle": "Discos y limpieza", "actions": [
+                ("Ver discos", "Uso de almacenamiento", "alacritty -e sh -c \"df -h; echo; lsblk; read\""),
+                ("Analizador de disco", "Baobab si está instalado", "baobab || notify-send \"Nodalia Storage\" \"Instala baobab para análisis visual\""),
+                ("Limpiar cachés usuario", "Mantenimiento no destructivo", "alacritty -e sh -c \"du -sh ~/.cache/* 2>/dev/null | sort -h | tail -30; read\""),
+            ]},
+            {"id": "protection", "icon": "󰒃", "title": "Protección", "subtitle": "Antivirus / salud", "actions": [
+                ("Nodalix Doctor", "Diagnóstico del sistema", "alacritty -e nodalix-doctor"),
+                ("ClamAV scan home", "Antivirus si está instalado", "alacritty -e sh -c \"clamscan -r ~/ --bell -i; read\""),
+                ("Procesos sospechosos", "Vista rápida del sistema", "alacritty -e btop"),
+            ]},
+        ]
+
+        self.active_section = self.sections[0]["id"]
+        self.section_buttons = {}
+
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        root.set_name("root")
+        self.add(root)
+
+        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        root.pack_start(header, False, False, 0)
+
+        title_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        header.pack_start(title_box, True, True, 0)
+
+        title = Gtk.Label(xalign=0)
+        title.set_name("header_title")
+        title.set_text("󱄅 Nodalia Menu")
+        title_box.pack_start(title, False, False, 0)
+
+        subtitle = Gtk.Label(xalign=0)
+        subtitle.set_name("header_subtitle")
+        subtitle.set_text("Preferencias del sistema, privacidad, red, pantallas y herramientas Nodalix")
+        title_box.pack_start(subtitle, False, False, 0)
+
+
+        close = Gtk.Button(label="Cerrar")
+        close.connect("clicked", lambda _b: Gtk.main_quit())
+        header.pack_start(close, False, False, 0)
+
+        self.search = Gtk.SearchEntry()
+        self.search.set_name("search")
+        self.search.set_placeholder_text("Buscar ajustes, red, seguridad, pantallas, wallpaper…")
+        self.search.connect("search-changed", lambda _e: self.render_sections())
+        root.pack_start(self.search, False, False, 0)
+
+        body = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
+        root.pack_start(body, True, True, 0)
+
+        sidebar_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        sidebar_card.set_name("content_card")
+        body.pack_start(sidebar_card, False, False, 0)
+
+        self.sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        sidebar_card.pack_start(self.sidebar, True, True, 0)
+
+        page_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        page_card.set_name("content_card")
+        body.pack_start(page_card, True, True, 0)
+
+        self.page = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        page_card.pack_start(self.page, True, True, 0)
+
+        self.render_sections()
+        self.render_page()
+
+    def on_key(self, _w, event):
+        if event.keyval == Gdk.KEY_Escape:
+            Gtk.main_quit()
+            return True
+        return False
+
+    def clear_box(self, box):
+        for child in box.get_children():
+            box.remove(child)
+
+    def render_sections(self):
+        self.clear_box(self.sidebar)
+        query = self.search.get_text().strip().lower()
+        self.section_buttons = {}
+
+        for section in self.sections:
+            haystack = (section["title"] + " " + section["subtitle"] + " " + " ".join(a[0] + " " + a[1] for a in section["actions"])).lower()
+            if query and query not in haystack:
+                continue
+
+            btn = Gtk.Button()
+            btn.set_name("section_button_active" if section["id"] == self.active_section else "section_button")
+            btn.connect("clicked", lambda _b, sid=section["id"]: self.set_section(sid))
+
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+            btn.add(row)
+
+            icon = Gtk.Label(label=section["icon"])
+            icon.set_name("section_icon")
+            row.pack_start(icon, False, False, 0)
+
+            text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            row.pack_start(text, True, True, 0)
+
+            title = Gtk.Label(xalign=0)
+            title.set_name("section_title")
+            title.set_text(section["title"])
+            text.pack_start(title, False, False, 0)
+
+            subtitle = Gtk.Label(xalign=0)
+            subtitle.set_name("section_subtitle")
+            subtitle.set_text(section["subtitle"])
+            text.pack_start(subtitle, False, False, 0)
+
+            self.sidebar.pack_start(btn, False, False, 0)
+            self.section_buttons[section["id"]] = btn
+
+        self.sidebar.show_all()
+
+    def set_section(self, sid):
+        self.active_section = sid
+        self.render_sections()
+        self.render_page()
+
+    def current_section(self):
+        for section in self.sections:
+            if section["id"] == self.active_section:
+                return section
+        return self.sections[0]
+
+    def render_page(self):
+        self.clear_box(self.page)
+        section = self.current_section()
+
+        title = Gtk.Label(xalign=0)
+        title.set_name("page_title")
+        title.set_text(section["icon"] + "  " + section["title"])
+        self.page.pack_start(title, False, False, 0)
+
+        subtitle = Gtk.Label(xalign=0)
+        subtitle.set_name("page_subtitle")
+        subtitle.set_text(section["subtitle"])
+        self.page.pack_start(subtitle, False, False, 0)
+
+        for name, desc, command in section["actions"]:
+            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+            row.set_name("setting_row")
+
+            text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            row.pack_start(text, True, True, 0)
+
+            label = Gtk.Label(xalign=0)
+            label.set_name("setting_title")
+            label.set_text(name)
+            text.pack_start(label, False, False, 0)
+
+            sub = Gtk.Label(xalign=0)
+            sub.set_name("setting_subtitle")
+            sub.set_text(desc)
+            text.pack_start(sub, False, False, 0)
+
+            btn = Gtk.Button(label="Abrir")
+            btn.set_name("primary_button")
+            btn.connect("clicked", lambda _b, cmd=command: run(cmd))
+            row.pack_start(btn, False, False, 0)
+
+            self.page.pack_start(row, False, False, 0)
+
+        self.page.show_all()
+
+
+if __name__ == "__main__":
+    setup_css()
+    win = NodaliaMenu()
+    win.show_all()
+    Gtk.main()

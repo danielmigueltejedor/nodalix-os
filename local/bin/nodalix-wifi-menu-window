@@ -1,0 +1,758 @@
+#!/usr/bin/env python3
+
+import gi
+import json
+import os
+import re
+import subprocess
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gdk, GLib
+
+APP_TITLE = "Nodalix Network"
+WIDTH = 460
+HEIGHT = 480
+
+
+def sh(cmd):
+    try:
+        return subprocess.check_output(cmd, text=True, stderr=subprocess.DEVNULL).strip()
+    except Exception:
+        return ""
+
+
+def run(cmd):
+    subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def notify(title, body):
+    run(["notify-send", title, body])
+
+
+def load_css():
+    css = """
+window {
+  background: transparent;
+}
+#root {
+  background: rgba(24, 24, 37, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 22px;
+  padding: 16px;
+  box-shadow: 0 18px 55px rgba(0, 0, 0, 0.48);
+}
+#title {
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 800;
+}
+#subtitle {
+  color: #a6adc8;
+  font-size: 12px;
+}
+#card {
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 12px;
+}
+#device_row {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  padding: 9px 10px;
+}
+#device_row_connected {
+  background: rgba(137, 180, 250, 0.13);
+  border: 1px solid rgba(137, 180, 250, 0.24);
+  border-radius: 14px;
+  padding: 9px 10px;
+}
+#row_title {
+  color: #ffffff;
+  font-weight: 800;
+}
+#row_subtitle {
+  color: #a6adc8;
+  font-size: 12px;
+}
+button {
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 7px 12px;
+  box-shadow: none;
+}
+button:hover {
+  background: rgba(137, 180, 250, 0.18);
+  color: #ffffff;
+}
+#primary_button {
+  background: rgba(137, 180, 250, 0.22);
+  border: 1px solid rgba(137, 180, 250, 0.36);
+  color: #ffffff;
+}
+#danger_button {
+  background: rgba(243, 139, 168, 0.14);
+  border: 1px solid rgba(243, 139, 168, 0.28);
+}
+#close_button {
+  background: rgba(243, 139, 168, 0.18);
+  border: 1px solid rgba(243, 139, 168, 0.32);
+  color: #ffffff;
+}
+#success_badge {
+  background: rgba(166, 227, 161, 0.16);
+  border: 1px solid rgba(166, 227, 161, 0.28);
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: #d9ffcf;
+}
+"""
+    provider = Gtk.CssProvider()
+    provider.load_from_data(css.encode())
+    Gtk.StyleContext.add_provider_for_screen(
+        Gdk.Screen.get_default(),
+        provider,
+        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+    )
+
+
+def position_near_waybar_click(window, width, height):
+    raw = sh(["hyprctl", "cursorpos", "-j"])
+    monitors_raw = sh(["hyprctl", "monitors", "-j"])
+
+    if not raw:
+        window.set_position(Gtk.WindowPosition.CENTER)
+        return
+
+    try:
+        pos = json.loads(raw)
+        x = int(pos.get("x", 0))
+        y = int(pos.get("y", 0))
+    except Exception:
+        window.set_position(Gtk.WindowPosition.CENTER)
+        return
+
+    mon_x = 0
+    mon_y = 0
+    mon_w = 1920
+    mon_h = 1080
+
+    try:
+        monitors = json.loads(monitors_raw)
+        for mon in monitors:
+            mx = int(mon.get("x", 0))
+            my = int(mon.get("y", 0))
+            mw = int(mon.get("width", 1920))
+            mh = int(mon.get("height", 1080))
+
+            if x >= mx and x <= mx + mw and y >= my and y <= my + mh:
+                mon_x = mx
+                mon_y = my
+                mon_w = mw
+                mon_h = mh
+                break
+    except Exception:
+        pass
+
+    margin = 12
+    target_x = x - width // 2
+    target_y = y + 36
+
+    if target_x < mon_x + margin:
+        target_x = mon_x + margin
+
+    if target_x + width > mon_x + mon_w - margin:
+        target_x = mon_x + mon_w - width - margin
+
+    if target_y + height > mon_y + mon_h - margin:
+        target_y = y - height - 36
+
+    if target_y < mon_y + margin:
+        target_y = mon_y + margin
+
+    window.move(target_x, target_y)
+
+
+def parse_nmcli_escaped_line(line):
+    parts = []
+    current = ""
+    escape = False
+
+    for ch in line:
+        if escape:
+            current += ch
+            escape = False
+        elif ch == "\\":
+            escape = True
+        elif ch == ":":
+            parts.append(current)
+            current = ""
+        else:
+            current += ch
+
+    parts.append(current)
+    return parts
+
+
+def wifi_iface():
+    raw = sh(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE", "dev", "status"])
+    for line in raw.splitlines():
+        parts = line.split(":")
+        if len(parts) >= 3 and parts[1] == "wifi":
+            return parts[0]
+    return ""
+
+
+def wifi_enabled():
+    return sh(["nmcli", "radio", "wifi"]).lower() == "enabled"
+
+
+def active_connection():
+    raw = sh(["nmcli", "-t", "-f", "ACTIVE,SSID", "dev", "wifi", "list", "--escape", "yes"])
+    for line in raw.splitlines():
+        parts = parse_nmcli_escaped_line(line)
+        if len(parts) >= 2 and parts[0] == "yes":
+            return parts[1]
+    return ""
+
+
+def known_connections():
+    raw = sh(["nmcli", "-t", "-f", "NAME,TYPE", "connection", "show"])
+    out = set()
+
+    for line in raw.splitlines():
+        parts = line.split(":")
+        if len(parts) >= 2 and parts[-1] == "802-11-wireless":
+            out.add(":".join(parts[:-1]))
+
+    return out
+
+
+def networks():
+    # Rescan suave cada vez que abrimos/refrescamos.
+    iface = wifi_iface()
+    if iface:
+        subprocess.run(["nmcli", "dev", "wifi", "rescan", "ifname", iface], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    raw = sh(["nmcli", "-t", "-f", "ACTIVE,SSID,SIGNAL,SECURITY", "dev", "wifi", "list", "--escape", "yes"])
+    result = []
+    seen = set()
+
+    for line in raw.splitlines():
+        parts = parse_nmcli_escaped_line(line)
+
+        if len(parts) < 4:
+            continue
+
+        active, ssid, signal, security = parts[0], parts[1], parts[2], parts[3]
+
+        if not ssid or ssid in seen:
+            continue
+
+        seen.add(ssid)
+
+        try:
+            signal_int = int(signal)
+        except Exception:
+            signal_int = 0
+
+        result.append({
+            "active": active == "yes",
+            "ssid": ssid,
+            "signal": signal_int,
+            "security": security or "Abierta",
+        })
+
+    result.sort(key=lambda n: (not n["active"], -n["signal"], n["ssid"].lower()))
+    return result
+
+
+def signal_icon(signal):
+    if signal >= 80:
+        return "󰤨"
+    if signal >= 60:
+        return "󰤥"
+    if signal >= 40:
+        return "󰤢"
+    if signal >= 20:
+        return "󰤟"
+    return "󰤯"
+
+
+def ethernet_devices():
+    raw = sh(["nmcli", "-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "dev", "status"])
+    out = []
+
+    for line in raw.splitlines():
+        parts = line.split(":")
+        if len(parts) >= 4 and parts[1] == "ethernet":
+            out.append({
+                "device": parts[0],
+                "type": parts[1],
+                "state": parts[2],
+                "connection": ":".join(parts[3:]) or "Sin perfil",
+            })
+
+    return out
+
+
+def primary_ethernet():
+    devs = ethernet_devices()
+
+    if not devs:
+        return None
+
+    connected = [d for d in devs if d["state"] == "connected"]
+    if connected:
+        return connected[0]
+
+    return devs[0]
+
+
+class PasswordDialog(Gtk.Dialog):
+    def __init__(self, parent, ssid):
+        super().__init__(title=f"Conectar a {ssid}", transient_for=parent, flags=0)
+        self.set_modal(True)
+        self.set_default_size(360, 120)
+
+        self.add_button("Cancelar", Gtk.ResponseType.CANCEL)
+        self.add_button("Conectar", Gtk.ResponseType.OK)
+
+        box = self.get_content_area()
+        box.set_spacing(10)
+        box.set_border_width(14)
+
+        label = Gtk.Label(label=f"Introduce la contraseña de “{ssid}”")
+        label.set_xalign(0)
+        box.add(label)
+
+        self.entry = Gtk.Entry()
+        self.entry.set_visibility(False)
+        self.entry.set_invisible_char("•")
+        self.entry.set_activates_default(True)
+        box.add(self.entry)
+
+        self.set_default_response(Gtk.ResponseType.OK)
+        self.show_all()
+
+    def password(self):
+        return self.entry.get_text()
+
+
+class ManualNetworkDialog(Gtk.Dialog):
+    def __init__(self, parent):
+        super().__init__(title="Añadir red Wi-Fi", transient_for=parent, flags=0)
+        self.set_modal(True)
+        self.set_default_size(380, 180)
+
+        self.add_button("Cancelar", Gtk.ResponseType.CANCEL)
+        self.add_button("Conectar", Gtk.ResponseType.OK)
+
+        box = self.get_content_area()
+        box.set_spacing(10)
+        box.set_border_width(14)
+
+        ssid_label = Gtk.Label(label="Nombre de la red Wi-Fi / SSID")
+        ssid_label.set_xalign(0)
+        box.add(ssid_label)
+
+        self.ssid_entry = Gtk.Entry()
+        self.ssid_entry.set_placeholder_text("Ejemplo: Mi WiFi")
+        box.add(self.ssid_entry)
+
+        pass_label = Gtk.Label(label="Contraseña")
+        pass_label.set_xalign(0)
+        box.add(pass_label)
+
+        self.password_entry = Gtk.Entry()
+        self.password_entry.set_visibility(False)
+        self.password_entry.set_invisible_char("•")
+        self.password_entry.set_placeholder_text("Déjalo vacío si es una red abierta")
+        self.password_entry.set_activates_default(True)
+        box.add(self.password_entry)
+
+        self.set_default_response(Gtk.ResponseType.OK)
+        self.show_all()
+
+    def values(self):
+        return self.ssid_entry.get_text().strip(), self.password_entry.get_text()
+
+
+class WifiMenu(Gtk.Window):
+    def __init__(self):
+        super().__init__(title=APP_TITLE)
+        self.set_default_size(WIDTH, HEIGHT)
+        self.set_decorated(False)
+        self.set_resizable(False)
+        self.set_keep_above(True)
+        self.set_skip_taskbar_hint(True)
+        self.set_skip_pager_hint(True)
+        self.set_type_hint(Gdk.WindowTypeHint.DIALOG)
+
+        self.root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        self.root.set_name("root")
+        self.add(self.root)
+
+        self.build_header()
+        self.build_status_card()
+        self.build_ethernet_card()
+        self.build_network_list()
+
+        # No cerramos en focus-out: Waybar/Hyprland puede robar el foco al lanzar el popup.
+        self.connect("key-press-event", self.on_key_press)
+
+        self.refresh()
+
+    def build_header(self):
+        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+
+        text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+
+        title = Gtk.Label(label="󰤨 Wi-Fi")
+        title.set_name("title")
+        title.set_xalign(0)
+
+        subtitle = Gtk.Label(label="Redes disponibles")
+        subtitle.set_name("subtitle")
+        subtitle.set_xalign(0)
+
+        text_box.pack_start(title, False, False, 0)
+        text_box.pack_start(subtitle, False, False, 0)
+
+        header.pack_start(text_box, True, True, 0)
+
+        self.toggle_btn = Gtk.Button(label="Apagar")
+        self.toggle_btn.set_name("danger_button")
+        self.toggle_btn.connect("clicked", self.toggle_wifi)
+        header.pack_start(self.toggle_btn, False, False, 0)
+
+        manual_btn = Gtk.Button(label="Añadir red")
+        manual_btn.set_name("primary_button")
+        manual_btn.connect("clicked", self.open_manual_network_dialog)
+        header.pack_start(manual_btn, False, False, 0)
+
+        refresh_btn = Gtk.Button(label="Actualizar")
+        refresh_btn.set_name("primary_button")
+        refresh_btn.connect("clicked", lambda *_: self.refresh())
+        header.pack_start(refresh_btn, False, False, 0)
+
+        close_btn = Gtk.Button(label="Cerrar")
+        close_btn.set_name("close_button")
+        close_btn.connect("clicked", lambda *_: self.destroy())
+        header.pack_start(close_btn, False, False, 0)
+
+        self.root.pack_start(header, False, False, 0)
+
+    def build_status_card(self):
+        self.status_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.status_card.set_name("card")
+
+        self.status_title = Gtk.Label()
+        self.status_title.set_name("row_title")
+        self.status_title.set_xalign(0)
+
+        self.status_subtitle = Gtk.Label()
+        self.status_subtitle.set_name("row_subtitle")
+        self.status_subtitle.set_xalign(0)
+
+        self.status_card.pack_start(self.status_title, False, False, 0)
+        self.status_card.pack_start(self.status_subtitle, False, False, 0)
+
+        self.root.pack_start(self.status_card, False, False, 0)
+
+    def build_ethernet_card(self):
+        self.eth_card = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        self.eth_card.set_name("card")
+
+        icon = Gtk.Label(label="󰈀")
+        icon.set_name("row_title")
+        self.eth_card.pack_start(icon, False, False, 0)
+
+        text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+
+        self.eth_title = Gtk.Label(label="Ethernet")
+        self.eth_title.set_name("row_title")
+        self.eth_title.set_xalign(0)
+
+        self.eth_subtitle = Gtk.Label(label="Sin datos")
+        self.eth_subtitle.set_name("row_subtitle")
+        self.eth_subtitle.set_xalign(0)
+
+        text_box.pack_start(self.eth_title, False, False, 0)
+        text_box.pack_start(self.eth_subtitle, False, False, 0)
+
+        self.eth_card.pack_start(text_box, True, True, 0)
+
+        self.eth_button = Gtk.Button(label="Conectar")
+        self.eth_button.set_name("primary_button")
+        self.eth_button.connect("clicked", self.toggle_ethernet)
+        self.eth_card.pack_start(self.eth_button, False, False, 0)
+
+        self.root.pack_start(self.eth_card, False, False, 0)
+
+    def refresh_ethernet(self):
+        eth = primary_ethernet()
+
+        if not eth:
+            self.eth_card.hide()
+            return
+
+        self.eth_card.show_all()
+
+        device = eth["device"]
+        state = eth["state"]
+        connection = eth["connection"]
+
+        if state == "connected":
+            self.eth_title.set_text("Ethernet conectado")
+            self.eth_subtitle.set_text(f"{device} · {connection}")
+            self.eth_button.set_label("Desconectar")
+            self.eth_button.set_name("danger_button")
+        elif state in ["unavailable", "disconnected"]:
+            self.eth_title.set_text("Ethernet disponible")
+            self.eth_subtitle.set_text(f"{device} · {state}")
+            self.eth_button.set_label("Conectar")
+            self.eth_button.set_name("primary_button")
+        else:
+            self.eth_title.set_text("Ethernet")
+            self.eth_subtitle.set_text(f"{device} · {state}")
+            self.eth_button.set_label("Reconectar")
+            self.eth_button.set_name("primary_button")
+
+    def toggle_ethernet(self, *_):
+        eth = primary_ethernet()
+
+        if not eth:
+            notify("Nodalix Network", "No hay interfaz Ethernet disponible")
+            return
+
+        device = eth["device"]
+        state = eth["state"]
+
+        if state == "connected":
+            run(["nmcli", "dev", "disconnect", device])
+            notify("Nodalix Network", f"Ethernet desconectado: {device}")
+        else:
+            run(["nmcli", "dev", "connect", device])
+            notify("Nodalix Network", f"Conectando Ethernet: {device}")
+
+        GLib.timeout_add(1000, self.refresh_once)
+
+    def build_network_list(self):
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_min_content_height(320)
+
+        self.list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        scroll.add(self.list_box)
+
+        self.root.pack_start(scroll, True, True, 0)
+
+    def clear_list(self):
+        for child in self.list_box.get_children():
+            self.list_box.remove(child)
+
+    def refresh(self):
+        self.clear_list()
+
+        iface = wifi_iface()
+        enabled = wifi_enabled()
+        active = active_connection()
+
+        self.toggle_btn.set_label("Apagar" if enabled else "Encender")
+        self.toggle_btn.set_name("danger_button" if enabled else "primary_button")
+        self.refresh_ethernet()
+
+        if not iface:
+            self.status_title.set_text("No hay interfaz Wi-Fi")
+            self.status_subtitle.set_text("NetworkManager no detecta ningún adaptador inalámbrico.")
+            self.show_all()
+            return
+
+        if not enabled:
+            self.status_title.set_text("Wi-Fi apagado")
+            self.status_subtitle.set_text(f"Interfaz: {iface}")
+            self.show_all()
+            return
+
+        if active:
+            self.status_title.set_text(f"Conectado a {active}")
+            self.status_subtitle.set_text(f"Interfaz: {iface}")
+        else:
+            self.status_title.set_text("Wi-Fi activo")
+            self.status_subtitle.set_text(f"Interfaz: {iface} · Sin conexión activa")
+
+        nets = networks()
+
+        if not nets:
+            empty = Gtk.Label(label="No se han encontrado redes Wi-Fi.")
+            empty.set_name("subtitle")
+            empty.set_xalign(0)
+            self.list_box.pack_start(empty, False, False, 6)
+            self.show_all()
+            return
+
+        known = known_connections()
+
+        for net in nets:
+            self.add_network_row(net, known)
+
+        self.show_all()
+
+    def add_network_row(self, net, known):
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        row.set_name("device_row_connected" if net["active"] else "device_row")
+
+        icon = Gtk.Label(label=signal_icon(net["signal"]))
+        icon.set_name("row_title")
+        row.pack_start(icon, False, False, 0)
+
+        text_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+
+        name = Gtk.Label(label=net["ssid"])
+        name.set_name("row_title")
+        name.set_xalign(0)
+        name.set_ellipsize(3)
+
+        sec = net["security"]
+        known_txt = " · guardada" if net["ssid"] in known else ""
+        active_txt = " · conectada" if net["active"] else ""
+        sub = Gtk.Label(label=f"{net['signal']}% · {sec}{known_txt}{active_txt}")
+        sub.set_name("row_subtitle")
+        sub.set_xalign(0)
+        sub.set_ellipsize(3)
+
+        text_box.pack_start(name, False, False, 0)
+        text_box.pack_start(sub, False, False, 0)
+
+        row.pack_start(text_box, True, True, 0)
+
+        if net["active"]:
+            badge = Gtk.Label(label="Activa")
+            badge.set_name("success_badge")
+            row.pack_start(badge, False, False, 0)
+
+            btn = Gtk.Button(label="Desconectar")
+            btn.set_name("danger_button")
+            btn.connect("clicked", lambda *_: self.disconnect_wifi())
+        else:
+            btn = Gtk.Button(label="Conectar")
+            btn.set_name("primary_button")
+            btn.connect("clicked", lambda *_: self.connect_wifi(net))
+
+        row.pack_start(btn, False, False, 0)
+        self.list_box.pack_start(row, False, False, 0)
+
+    def open_manual_network_dialog(self, *_):
+        dialog = ManualNetworkDialog(self)
+        response = dialog.run()
+        ssid, password = dialog.values()
+        dialog.destroy()
+
+        if response != Gtk.ResponseType.OK or not ssid:
+            return
+
+        iface = wifi_iface()
+
+        cmd = ["nmcli", "dev", "wifi", "connect", ssid]
+
+        if password:
+            cmd += ["password", password]
+
+        if iface:
+            cmd += ["ifname", iface]
+
+        result = subprocess.run(cmd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+        if result.returncode == 0:
+            notify("Nodalix Network", f"Conectado a {ssid}")
+        else:
+            msg = result.stderr.strip() or result.stdout.strip() or "Error desconocido"
+            notify("Nodalix Network", f"No se pudo conectar a {ssid}")
+            print(msg)
+
+        GLib.timeout_add(1000, self.refresh_once)
+
+    def toggle_wifi(self, *_):
+        if wifi_enabled():
+            run(["nmcli", "radio", "wifi", "off"])
+            GLib.timeout_add(650, self.refresh_once)
+        else:
+            run(["nmcli", "radio", "wifi", "on"])
+            GLib.timeout_add(900, self.refresh_once)
+
+    def refresh_once(self):
+        self.refresh()
+        return False
+
+    def disconnect_wifi(self):
+        iface = wifi_iface()
+
+        if not iface:
+            return
+
+        run(["nmcli", "dev", "disconnect", iface])
+        GLib.timeout_add(900, self.refresh_once)
+
+    def connect_wifi(self, net):
+        ssid = net["ssid"]
+
+        # Primer intento: red guardada o abierta.
+        result = subprocess.run(
+            ["nmcli", "dev", "wifi", "connect", ssid],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        if result.returncode == 0:
+            notify("Nodalix Network", f"Conectado a {ssid}")
+            GLib.timeout_add(900, self.refresh_once)
+            return
+
+        # Si falla y tiene seguridad, pedimos contraseña.
+        if net["security"] and net["security"].lower() != "abierta":
+            dialog = PasswordDialog(self, ssid)
+            response = dialog.run()
+            password = dialog.password()
+            dialog.destroy()
+
+            if response == Gtk.ResponseType.OK and password:
+                result = subprocess.run(
+                    ["nmcli", "dev", "wifi", "connect", ssid, "password", password],
+                    text=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                )
+
+                if result.returncode == 0:
+                    notify("Nodalix Network", f"Conectado a {ssid}")
+                else:
+                    notify("Nodalix Network", f"No se pudo conectar a {ssid}")
+
+                GLib.timeout_add(900, self.refresh_once)
+                return
+
+        notify("Nodalix Network", f"No se pudo conectar a {ssid}")
+        GLib.timeout_add(900, self.refresh_once)
+
+    # El popup se cierra con Escape o pulsando de nuevo el botón de Waybar.
+    def on_key_press(self, _widget, event):
+        if event.keyval == Gdk.KEY_Escape:
+            self.destroy()
+            return True
+        return False
+
+
+def main():
+    load_css()
+    win = WifiMenu()
+    position_near_waybar_click(win, WIDTH, HEIGHT)
+    win.show_all()
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    main()

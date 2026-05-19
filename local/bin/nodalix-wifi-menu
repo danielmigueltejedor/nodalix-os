@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP="$HOME/Projects/nodalix-os/local/bin/nodalix-audio-menu-window"
-LOG="/tmp/nodalix-audio-menu.log"
+APP="$HOME/Projects/nodalix-os/local/bin/nodalix-wifi-menu-window"
+LOG="/tmp/nodalix-wifi-menu.log"
 
 if pgrep -f "$APP" >/dev/null; then
   pkill -f "$APP" || true

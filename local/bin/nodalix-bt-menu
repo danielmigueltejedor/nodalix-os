@@ -1,2 +1,12 @@
 #!/usr/bin/env bash
-nodalix-bt-menu-window
+set -euo pipefail
+
+APP="$HOME/Projects/nodalix-os/local/bin/nodalix-bt-menu-window"
+LOG="/tmp/nodalix-bt-menu.log"
+
+if pgrep -f "$APP" >/dev/null; then
+  pkill -f "$APP" || true
+  exit 0
+fi
+
+nohup "$APP" >"$LOG" 2>&1 &
