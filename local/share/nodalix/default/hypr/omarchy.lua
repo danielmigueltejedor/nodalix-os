@@ -1,8 +1,8 @@
--- Omarchy Hyprland setup: helpers, defaults, and current theme overrides.
+-- Nodalix Hyprland setup: helpers, defaults, and current theme overrides.
 
 require("default.hypr.helpers")
 
--- Use Omarchy defaults, but don't edit these directly.
+-- Use Nodalix defaults, but don't edit these directly.
 require("default.hypr.autostart")
 require("default.hypr.bindings.media")
 require("default.hypr.bindings.clipboard")

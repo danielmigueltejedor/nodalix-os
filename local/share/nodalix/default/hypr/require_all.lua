@@ -1,5 +1,5 @@
 -- Require every *.lua file in a directory in sorted order.
--- Used for Omarchy extension-style folders such as default/hypr/apps,
+-- Used for Nodalix extension-style folders such as default/hypr/apps,
 -- default/hypr/bindings, and ~/.local/state/nodalix/toggles/hypr.
 -- Pass a module prefix for normal package.path modules, e.g.
 --   require_all.files(paths.nodalix_path .. "/default/hypr/apps", "default.hypr.apps")
