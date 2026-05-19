@@ -145,13 +145,111 @@ button:hover {
   border: 1px solid rgba(243, 139, 168, 0.28);
 }
 combobox button {
-  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(137, 180, 250, 0.22);
+  border-radius: 999px;
+  padding: 8px 14px;
+  min-height: 34px;
+  box-shadow: none;
+}
+
+combobox button:hover {
+  background: rgba(137, 180, 250, 0.16);
+  border-color: rgba(137, 180, 250, 0.36);
+  color: #ffffff;
+}
+
+combobox arrow {
+  color: #89b4fa;
+  min-width: 14px;
+  min-height: 14px;
+}
+
+combobox popover {
+  background: rgba(17, 17, 27, 0.98);
+  border: 1px solid rgba(137, 180, 250, 0.24);
+  border-radius: 16px;
+  padding: 6px;
+}
+
+combobox popover list {
+  background: transparent;
+}
+
+combobox popover row {
+  background: transparent;
+  border-radius: 12px;
   padding: 8px 10px;
+  color: #cdd6f4;
+}
+
+combobox popover row:hover,
+combobox popover row:selected {
+  background: rgba(137, 180, 250, 0.18);
+  color: #ffffff;
 }
 """
     provider = Gtk.CssProvider()
     provider.load_from_data(css)
     Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+
+def position_near_waybar_click(window, width, height):
+    raw = sh("hyprctl cursorpos -j")
+    monitors_raw = sh("hyprctl monitors -j")
+
+    if not raw:
+        window.set_position(Gtk.WindowPosition.CENTER)
+        return
+
+    try:
+        pos = json.loads(raw)
+        x = int(pos.get("x", 0))
+        y = int(pos.get("y", 0))
+    except Exception:
+        window.set_position(Gtk.WindowPosition.CENTER)
+        return
+
+    mon_x = 0
+    mon_y = 0
+    mon_w = 1920
+    mon_h = 1080
+
+    try:
+        monitors = json.loads(monitors_raw)
+        for mon in monitors:
+            mx = int(mon.get("x", 0))
+            my = int(mon.get("y", 0))
+            mw = int(mon.get("width", 1920))
+            mh = int(mon.get("height", 1080))
+
+            if x >= mx and x <= mx + mw and y >= my and y <= my + mh:
+                mon_x = mx
+                mon_y = my
+                mon_w = mw
+                mon_h = mh
+                break
+    except Exception:
+        pass
+
+    margin = 12
+
+    target_x = x - width // 2
+    target_y = y + 36
+
+    if target_x < mon_x + margin:
+        target_x = mon_x + margin
+
+    if target_x + width > mon_x + mon_w - margin:
+        target_x = mon_x + mon_w - width - margin
+
+    if target_y + height > mon_y + mon_h - margin:
+        target_y = y - height - 36
+
+    if target_y < mon_y + margin:
+        target_y = mon_y + margin
+
+    window.move(target_x, target_y)
+
 
 class AudioMenu(Gtk.Window):
     def __init__(self):
@@ -159,7 +257,7 @@ class AudioMenu(Gtk.Window):
         self.set_default_size(420, 310)
         self.set_resizable(False)
         self.set_decorated(False)
-        self.set_position(Gtk.WindowPosition.CENTER)
+        position_near_waybar_click(self, 420, 310)
         self.connect("destroy", Gtk.main_quit)
         self.connect("key-press-event", self.on_key)
 
