@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Home Assistant
+Comment=Home Assistant Nodalix Web App
+Exec=chromium --class=HomeAssistant --user-data-dir=/home/dani/.local/share/nodalix/webapps/home-assistant --app=https://homeassistant.getnodalia.com
+Terminal=false
+Type=Application
+Icon=home-assistant
+StartupWMClass=HomeAssistant
+Categories=Network;WebBrowser;

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=ChatGPT
+Comment=ChatGPT Nodalix Web App
+Exec=chromium --class=ChatGPT --user-data-dir=/home/dani/.local/share/nodalix/webapps/chatgpt --app=https://chatgpt.com
+Terminal=false
+Type=Application
+Icon=/home/dani/.local/share/icons/nodalix-webapps/chatgpt.svg
+StartupWMClass=ChatGPT
+Categories=Network;WebBrowser;

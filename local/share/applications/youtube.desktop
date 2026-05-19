@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=YouTube
+Comment=YouTube Nodalix Web App
+Exec=chromium --class=YouTube --user-data-dir=/home/dani/.local/share/nodalix/webapps/youtube --app=https://youtube.com/
+Terminal=false
+Type=Application
+Icon=youtube
+StartupWMClass=YouTube
+Categories=Network;WebBrowser;

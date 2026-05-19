@@ -373,6 +373,57 @@ def exec_basename(exec_cmd):
 
 
 def focus_existing_app(item):
+    base = item.get("exec_base", "").lower()
+
+    # Nunca hacer focus automático en Zen ni webapps.
+    # Queremos permitir múltiples ventanas/instancias.
+    if any(x in base for x in ("zen", "zen-browser", "zen-bin")):
+        return False
+
+    raw = sh(["hyprctl", "clients", "-j"])
+
+    if not raw:
+        return False
+
+    try:
+        clients = json.loads(raw)
+    except Exception:
+        return False
+
+    title = item.get("title", "").lower()
+    wmclass = item.get("wmclass", "").lower()
+
+    strong_tokens = [x for x in [wmclass, base] if x]
+    soft_tokens = [title] if title else []
+
+    for c in clients:
+        address = c.get("address")
+
+        if not address:
+            continue
+
+        values = [
+            str(c.get("class") or "").lower(),
+            str(c.get("initialClass") or "").lower(),
+            str(c.get("title") or "").lower(),
+            str(c.get("initialTitle") or "").lower(),
+        ]
+
+        for token in strong_tokens:
+            for value in values[:2]:
+                if token == value or token in value or value in token:
+                    run_cmd(f"hyprctl dispatch focuswindow address:{address}")
+                    return True
+
+        for token in soft_tokens:
+            if len(token) >= 4:
+                for value in values[2:]:
+                    if token in value:
+                        run_cmd(f"hyprctl dispatch focuswindow address:{address}")
+                        return True
+
+    return False
+
     raw = sh(["hyprctl", "clients", "-j"])
 
     if not raw:
@@ -1056,7 +1107,21 @@ class CommandBar(Gtk.Window):
         GLib.idle_add(self.focus_search)
 
     def focus_search(self):
+        self.present()
         self.search.grab_focus()
+
+        from gi.repository import GLib
+
+        def late_focus():
+            try:
+                self.present()
+                self.search.grab_focus()
+                self.search.grab_focus_without_selecting()
+            except Exception:
+                pass
+            return False
+
+        GLib.timeout_add(120, late_focus)
         return False
 
     def on_key(self, _w, event):
@@ -1262,9 +1327,12 @@ class CommandBar(Gtk.Window):
                 return
 
         if item.get("kind") == "app":
-            if focus_existing_app(item):
-                Gtk.main_quit()
-                return
+            base = item.get("exec_base", "").lower()
+
+            if base not in ("zen", "zen-browser", "zen-bin"):
+                if focus_existing_app(item):
+                    Gtk.main_quit()
+                    return
 
         run_cmd(cmd)
         Gtk.main_quit()
@@ -1277,4 +1345,19 @@ if __name__ == "__main__":
     setup_css()
     win = CommandBar()
     win.show_all()
+    win.present()
+
+    from gi.repository import GLib
+
+    def force_focus():
+        try:
+            win.present()
+            win.search.grab_focus()
+        except Exception:
+            pass
+        return False
+
+    GLib.timeout_add(80, force_focus)
+    GLib.timeout_add(180, force_focus)
+
     Gtk.main()

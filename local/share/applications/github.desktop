@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=GitHub
+Comment=GitHub Nodalix Web App
+Exec=chromium --class=GitHub --user-data-dir=/home/dani/.local/share/nodalix/webapps/github --app=https://github.com/
+Terminal=false
+Type=Application
+Icon=/home/dani/.local/share/icons/nodalix-webapps/github.svg
+StartupWMClass=GitHub
+Categories=Network;WebBrowser;
