@@ -1,0 +1,20 @@
+[Unit]
+Description=Nodalix idle manager
+Documentation=man:swayidle(1)
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/swayidle -w \
+  timeout 300 'nodalix-launch-screensaver' \
+    resume 'nodalix-system-wake' \
+  timeout 600 'nodalix-system-lock' \
+    resume 'nodalix-system-wake' \
+  before-sleep 'nodalix-system-lock' \
+  after-resume 'nodalix-system-wake'
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target
