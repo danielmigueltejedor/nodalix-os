@@ -11,12 +11,14 @@ local omarchy_vendor_path = nodalix_path .. "/vendor/omarchy"
 
 package.path = home
   .. "/.config/?.lua;"
+  .. nodalix_path
+  .. "/?.lua;"
   .. omarchy_vendor_path
   .. "/?.lua;"
   .. package.path
 
 -- Temporary vendor compatibility layer.
-require("default.hypr.omarchy")
+require("default.hypr.nodalix")
 
 -- User / Nodalix overrides.
 require("hypr.monitors")
