@@ -171,6 +171,21 @@ window#waybar {
   text-shadow: none;
 }
 
+#custom-nodalix-privacy {
+  min-width: 26px;
+  min-height: 26px;
+  padding: 0 7px;
+  margin: 0 2px;
+  font-size: 15px;
+  font-family: "Symbols Nerd Font Mono", "JetBrainsMono Nerd Font";
+}
+
+#custom-nodalix-privacy {
+  min-width: 26px;
+  padding: 2px 7px;
+  font-size: 14px;
+}
+
 /* Hover igual al lenguaje de los workspaces: chip pequeño interno */
 #custom-nodalix-privacy:hover,
 #custom-nodalix-settings:hover,
@@ -182,23 +197,44 @@ window#waybar {
   border-radius: 999px;
 }
 
-/* Estados de privacidad como chip interno, no como isla completa */
-#custom-nodalix-privacy.mic {
-  background: rgba(245, 194, 93, 0.28);
-  color: #fff2bf;
+/* Estados de privacidad como chip interno, estilo macOS/iOS */
+#custom-nodalix-privacy.privacy {
   border-radius: 999px;
+}
+
+#custom-nodalix-privacy.idle {
+  background: transparent;
+  color: #7f849c;
+}
+
+#custom-nodalix-privacy.active {
+  background: rgba(137, 180, 250, 0.16);
+  color: #ffffff;
+}
+
+#custom-nodalix-privacy.mic {
+  background: rgba(245, 194, 93, 0.32);
+  color: #fff2bf;
 }
 
 #custom-nodalix-privacy.camera {
-  background: rgba(166, 227, 161, 0.28);
+  background: rgba(166, 227, 161, 0.32);
   color: #e4ffe1;
-  border-radius: 999px;
 }
 
 #custom-nodalix-privacy.screen {
-  background: rgba(203, 166, 247, 0.28);
+  background: rgba(203, 166, 247, 0.32);
   color: #f1ddff;
-  border-radius: 999px;
+}
+
+#custom-nodalix-privacy.location {
+  background: rgba(137, 220, 235, 0.32);
+  color: #ddfbff;
+}
+
+#custom-nodalix-privacy.ai {
+  background: rgba(249, 226, 175, 0.32);
+  color: #fff6d6;
 }
 
 #network.disconnected,

@@ -1,25 +1,51 @@
 #!/usr/bin/env python3
 
 import json
+import os
 import subprocess
 
 
-def sh(cmd):
+def sh(cmd, timeout=1.2):
     try:
         return subprocess.check_output(
             cmd,
             shell=True,
             text=True,
             stderr=subprocess.DEVNULL,
-            timeout=1,
+            timeout=timeout,
         ).strip()
     except Exception:
         return ""
 
 
+def pw_dump():
+    out = sh("pw-dump", timeout=1.5)
+    if not out:
+        return []
+    try:
+        return json.loads(out)
+    except Exception:
+        return []
+
+
 def mic_active():
     out = sh("pactl list source-outputs short")
-    return bool(out.strip())
+    if not out:
+        return False
+
+    ignored = (
+        "easyeffects",
+        "easy effects",
+        "pavucontrol",
+        "pulse audio volume control",
+    )
+
+    for line in out.splitlines():
+        low = line.lower()
+        if line.strip() and not any(x in low for x in ignored):
+            return True
+
+    return False
 
 
 def camera_active():
@@ -28,40 +54,88 @@ def camera_active():
 
 
 def screen_active():
-    out = sh("pgrep -af 'wf-recorder|obs|kooha|grimblast'")
-    return bool(out.strip())
+    # 1) Explicit recorder apps only.
+    out = sh("pgrep -af 'wf-recorder|gpu-screen-recorder|kooha|obs'")
+
+    for line in out.splitlines():
+        low = line.lower()
+        if "pgrep" in low or "nodalix-right-island" in low:
+            continue
+
+        # OBS puede estar abierto sin grabar; lo dejamos como activo solo si no es una línea vacía.
+        if any(name in low for name in ("wf-recorder", "gpu-screen-recorder", "kooha")):
+            return True
+
+    # 2) PipeWire: solo streams de entrada de vídeo claramente ligados a screen/screencast.
+    # Evita falsos positivos por vídeo normal, audio, portal residente o navegador abierto.
+    for obj in pw_dump():
+        props = obj.get("info", {}).get("props", {}) or {}
+
+        media_class = str(props.get("media.class", "")).lower()
+        media_type = str(props.get("media.type", "")).lower()
+        node_name = str(props.get("node.name", "")).lower()
+        app_name = str(props.get("application.name", "")).lower()
+        target = str(props.get("target.object", "")).lower()
+
+        joined = " ".join([media_class, media_type, node_name, app_name, target])
+
+        is_video_input_stream = media_class == "stream/input/video"
+        is_screencast_named = any(
+            token in joined
+            for token in (
+                "screencast",
+                "screen-cast",
+                "screen cast",
+                "screen_capture",
+                "screen capture",
+                "desktop capture",
+                "monitor capture",
+            )
+        )
+
+        if is_video_input_stream and is_screencast_named:
+            return True
+
+    return False
 
 
-privacy_icons = []
-privacy_class = "normal"
-tooltip_parts = []
+def location_active():
+    # Conservador: no marcamos ubicación solo porque geoclue esté activo.
+    state_file = os.path.expanduser("~/.local/state/nodalix/privacy/location-active")
+    return os.path.exists(state_file)
 
-if screen_active():
-    privacy_icons.append("󰹑")
-    tooltip_parts.append("pantalla")
-    privacy_class = "screen"
 
-if camera_active():
-    privacy_icons.append("󰖠")
-    tooltip_parts.append("cámara")
-    privacy_class = "camera"
+def ai_active():
+    state_file = os.path.expanduser("~/.local/state/nodalix/privacy/ai-active")
+    return os.path.exists(state_file)
+
+
+items = []
 
 if mic_active():
-    privacy_icons.append("󰍬")
-    tooltip_parts.append("micrófono")
+    items.append(("󰍬", "mic", "micrófono"))
 
-    if privacy_class == "normal":
-        privacy_class = "mic"
+if camera_active():
+    items.append(("󰖠", "camera", "cámara"))
 
-if not privacy_icons:
-    text = "󰌾"
-    tooltip = "Privacidad · sin actividad sensible detectada"
+if screen_active():
+    items.append(("󰹑", "screen", "pantalla compartida / captura"))
+
+if location_active():
+    items.append(("󰋾", "location", "ubicación"))
+
+if ai_active():
+    items.append(("󰚩", "ai", "IA observando contexto"))
+
+if not items:
+    print(json.dumps({
+        "text": "󰌾",
+        "tooltip": "Privacidad · sin actividad sensible detectada",
+        "class": ["privacy", "idle"],
+    }))
 else:
-    text = " ".join(privacy_icons)
-    tooltip = "Privacidad activa · " + ", ".join(tooltip_parts)
-
-print(json.dumps({
-    "text": text,
-    "tooltip": tooltip,
-    "class": privacy_class,
-}))
+    print(json.dumps({
+        "text": " ".join(icon for icon, _, _ in items),
+        "tooltip": "Privacidad activa · " + ", ".join(label for _, _, label in items),
+        "class": ["privacy", "active"] + [cls for _, cls, _ in items],
+    }))
