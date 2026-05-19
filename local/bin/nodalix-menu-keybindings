@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+notify-send "Nodalix" "Keybindings menu pendiente de migrar"
