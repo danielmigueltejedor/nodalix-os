@@ -18,3 +18,8 @@ logs/
 *.key
 *.token
 config/wpe-hypr/state.json
+
+# Local Nodalix/Zen temporary files
+.backup/
+zen-cache/
+build.zen

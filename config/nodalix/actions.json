@@ -1,12 +1,47 @@
 [
   {
+    "icon": "󰈉",
+    "title": "Mostrar/Ocultar acciones no disponibles",
+    "subtitle": "Nodalix · alterna acciones con dependencias faltantes",
+    "category": "Nodalix",
+    "search": "mostrar ocultar acciones no disponibles missing disabled requires nodalix",
+    "aliases": [
+      "disabled",
+      "missing",
+      "ocultas",
+      "acciones ocultas"
+    ],
+    "command": "mkdir -p ~/.config/nodalix && if test -f ~/.config/nodalix/show-disabled-actions; then rm ~/.config/nodalix/show-disabled-actions && notify-send \"Nodalix\" \"Acciones no disponibles ocultas\"; else touch ~/.config/nodalix/show-disabled-actions && notify-send \"Nodalix\" \"Acciones no disponibles visibles\"; fi",
+    "danger": false
+  },
+  {
+    "icon": "󰏫",
+    "title": "Editar acciones de Command Bar",
+    "subtitle": "Nodalix · actions.json",
+    "category": "Nodalix",
+    "search": "editar acciones command bar actions json nodalix configurar launcher",
+    "aliases": [
+      "acciones",
+      "editar acciones",
+      "actions",
+      "command bar config"
+    ],
+    "command": "code ~/.config/nodalix/actions.json",
+    "requires": [
+      "code"
+    ],
+    "hide_if_missing": true,
+    "danger": false
+  },
+  {
     "icon": "󰒓",
     "title": "Abrir Nodalix Settings",
     "subtitle": "Sistema · Próximamente",
     "search": "settings ajustes nodalix sistema configuracion",
     "command": "notify-send \"Nodalix\" \"Nodalix Settings todavía no está implementado\"",
     "category": "Sistema",
-    "danger": false
+    "danger": false,
+    "aliases": []
   },
   {
     "icon": "󰒡",
@@ -19,7 +54,13 @@
       "alacritty"
     ],
     "hide_if_missing": true,
-    "danger": false
+    "danger": false,
+    "aliases": [
+      "diagnostico",
+      "diagnóstico",
+      "doctor",
+      "health"
+    ]
   },
   {
     "icon": "󰜉",
@@ -28,7 +69,8 @@
     "search": "reload recargar hyprland compositor config",
     "command": "hyprctl reload && notify-send \"Nodalix\" \"Hyprland recargado\"",
     "category": "Sistema",
-    "danger": false
+    "danger": false,
+    "aliases": []
   },
   {
     "icon": "󰜉",
@@ -37,7 +79,8 @@
     "search": "reload recargar waybar barra topbar panel",
     "command": "pkill waybar; waybar >/tmp/waybar.log 2>&1 &",
     "category": "IA",
-    "danger": false
+    "danger": false,
+    "aliases": []
   },
   {
     "icon": "󰌾",
@@ -50,7 +93,8 @@
       "hyprlock"
     ],
     "hide_if_missing": true,
-    "danger": false
+    "danger": false,
+    "aliases": []
   },
   {
     "icon": "󰤄",
@@ -60,7 +104,8 @@
     "command": "systemctl suspend",
     "category": "IA",
     "danger": true,
-    "confirm_message": "Vas a suspender el equipo ahora."
+    "confirm_message": "Vas a suspender el equipo ahora.",
+    "aliases": []
   },
   {
     "icon": "󰜉",
@@ -70,7 +115,8 @@
     "command": "systemctl reboot",
     "category": "IA",
     "danger": true,
-    "confirm_message": "Vas a reiniciar el equipo ahora."
+    "confirm_message": "Vas a reiniciar el equipo ahora.",
+    "aliases": []
   },
   {
     "icon": "󰐥",
@@ -80,7 +126,8 @@
     "command": "systemctl poweroff",
     "category": "IA",
     "danger": true,
-    "confirm_message": "Vas a apagar el equipo ahora."
+    "confirm_message": "Vas a apagar el equipo ahora.",
+    "aliases": []
   },
   {
     "icon": "󰍹",
@@ -93,7 +140,13 @@
       "wpe-menu"
     ],
     "hide_if_missing": true,
-    "danger": false
+    "danger": false,
+    "aliases": [
+      "fondos",
+      "wallpaper engine",
+      "wallpapers",
+      "wpe"
+    ]
   },
   {
     "icon": "󰉋",
@@ -106,7 +159,8 @@
       "nautilus"
     ],
     "hide_if_missing": true,
-    "danger": false
+    "danger": false,
+    "aliases": []
   },
   {
     "icon": "󰆍",
@@ -119,7 +173,8 @@
       "alacritty"
     ],
     "hide_if_missing": true,
-    "danger": false
+    "danger": false,
+    "aliases": []
   },
   {
     "icon": "󰈹",
@@ -128,7 +183,8 @@
     "search": "browser navegador web internet",
     "command": "xdg-open https://www.google.com",
     "category": "General",
-    "danger": false
+    "danger": false,
+    "aliases": []
   },
   {
     "icon": "󰕾",
@@ -141,7 +197,12 @@
       "pavucontrol"
     ],
     "hide_if_missing": true,
-    "danger": false
+    "danger": false,
+    "aliases": [
+      "audio",
+      "sonido",
+      "volumen"
+    ]
   },
   {
     "icon": "󰝟",
@@ -154,7 +215,8 @@
       "playerctl"
     ],
     "hide_if_missing": true,
-    "danger": false
+    "danger": false,
+    "aliases": []
   },
   {
     "icon": "󰒮",
@@ -167,7 +229,8 @@
       "playerctl"
     ],
     "hide_if_missing": true,
-    "danger": false
+    "danger": false,
+    "aliases": []
   },
   {
     "icon": "󰒭",
@@ -180,7 +243,8 @@
       "playerctl"
     ],
     "hide_if_missing": true,
-    "danger": false
+    "danger": false,
+    "aliases": []
   },
   {
     "icon": "󰝝",
@@ -193,7 +257,8 @@
       "pamixer"
     ],
     "hide_if_missing": true,
-    "danger": false
+    "danger": false,
+    "aliases": []
   },
   {
     "icon": "󰕾",
@@ -206,7 +271,8 @@
       "pamixer"
     ],
     "hide_if_missing": true,
-    "danger": false
+    "danger": false,
+    "aliases": []
   },
   {
     "icon": "󰖀",
@@ -219,7 +285,8 @@
       "pamixer"
     ],
     "hide_if_missing": true,
-    "danger": false
+    "danger": false,
+    "aliases": []
   },
   {
     "icon": "󰄀",
@@ -234,7 +301,12 @@
       "satty"
     ],
     "hide_if_missing": true,
-    "danger": false
+    "danger": false,
+    "aliases": [
+      "captura",
+      "recorte",
+      "screenshot"
+    ]
   },
   {
     "icon": "󰹑",
@@ -249,7 +321,8 @@
       "satty"
     ],
     "hide_if_missing": true,
-    "danger": false
+    "danger": false,
+    "aliases": []
   },
   {
     "icon": "󰅌",
@@ -265,7 +338,12 @@
       "code"
     ],
     "hide_if_missing": true,
-    "danger": false
+    "danger": false,
+    "aliases": [
+      "clipboard",
+      "copiar",
+      "portapapeles"
+    ]
   },
   {
     "icon": "󰖩",
@@ -279,7 +357,8 @@
       "impala"
     ],
     "hide_if_missing": true,
-    "danger": false
+    "danger": false,
+    "aliases": []
   },
   {
     "icon": "󰂯",
@@ -293,7 +372,8 @@
       "bluetui"
     ],
     "hide_if_missing": true,
-    "danger": false
+    "danger": false,
+    "aliases": []
   },
   {
     "icon": "󰖟",
@@ -302,7 +382,8 @@
     "search": "ip local red network direccion",
     "command": "notify-send \"IP local\" \"$(hostname -I | xargs)\"",
     "category": "Red",
-    "danger": false
+    "danger": false,
+    "aliases": []
   },
   {
     "icon": "󰖲",
@@ -312,7 +393,8 @@
     "command": "hyprctl dispatch killactive",
     "category": "Ventanas",
     "danger": true,
-    "confirm_message": "Vas a cerrar la ventana activa."
+    "confirm_message": "Vas a cerrar la ventana activa.",
+    "aliases": []
   },
   {
     "icon": "󰹑",
@@ -321,7 +403,8 @@
     "search": "fullscreen pantalla completa ventana",
     "command": "hyprctl dispatch fullscreen 1",
     "category": "Ventanas",
-    "danger": false
+    "danger": false,
+    "aliases": []
   },
   {
     "icon": "󰉈",
@@ -330,7 +413,8 @@
     "search": "floating flotante ventana toggle",
     "command": "hyprctl dispatch togglefloating",
     "category": "Ventanas",
-    "danger": false
+    "danger": false,
+    "aliases": []
   },
   {
     "icon": "󰏘",
@@ -339,7 +423,8 @@
     "search": "centrar ventana center window",
     "command": "hyprctl dispatch centerwindow",
     "category": "Ventanas",
-    "danger": false
+    "danger": false,
+    "aliases": []
   },
   {
     "icon": "󰓓",
@@ -352,7 +437,12 @@
       "steam"
     ],
     "hide_if_missing": true,
-    "danger": false
+    "danger": false,
+    "aliases": [
+      "gaming",
+      "juegos",
+      "steam"
+    ]
   },
   {
     "icon": "󰓅",
@@ -361,7 +451,8 @@
     "search": "gaming juegos gamemode mangohud rendimiento",
     "command": "notify-send \"Nodalix Gaming\" \"Modo Gaming todavía no está implementado\"",
     "category": "Gaming",
-    "danger": false
+    "danger": false,
+    "aliases": []
   },
   {
     "icon": "󰨞",
@@ -374,7 +465,8 @@
       "code"
     ],
     "hide_if_missing": true,
-    "danger": false
+    "danger": false,
+    "aliases": []
   },
   {
     "icon": "󰊤",
@@ -383,7 +475,8 @@
     "search": "github git repos repositorios dev",
     "command": "xdg-open https://github.com",
     "category": "Dev",
-    "danger": false
+    "danger": false,
+    "aliases": []
   },
   {
     "icon": "󰚩",
@@ -392,7 +485,8 @@
     "search": "ia ai opencode asistente voz pantalla",
     "command": "notify-send \"Nodalix AI\" \"IA todavía no está implementada\"",
     "category": "Dev",
-    "danger": false
+    "danger": false,
+    "aliases": []
   },
   {
     "icon": "󰟐",
@@ -401,7 +495,14 @@
     "search": "home assistant domotica hass casa nodalia",
     "command": "xdg-open http://homeassistant.local:8123",
     "category": "IA",
-    "danger": false
+    "danger": false,
+    "aliases": [
+      "casa",
+      "domotica",
+      "domótica",
+      "ha",
+      "hass"
+    ]
   },
   {
     "icon": "󰌾",
@@ -410,6 +511,11 @@
     "search": "privacidad privacy micro camara pantalla permisos",
     "command": "notify-send \"Nodalix Privacy\" \"Centro de privacidad todavía no está implementado\"",
     "category": "Privacidad",
-    "danger": false
+    "danger": false,
+    "aliases": [
+      "permisos",
+      "privacidad",
+      "privacy"
+    ]
   }
 ]
