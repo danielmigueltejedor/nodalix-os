@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+checkupdates 2>/dev/null | wc -l
