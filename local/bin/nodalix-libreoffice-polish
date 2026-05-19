@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROFILE="$HOME/.config/libreoffice/4/user"
+REG="$PROFILE/registrymodifications.xcu"
+BACKUP_DIR="$HOME/.config/libreoffice/backups"
+TS="$(date +%Y%m%d-%H%M%S)"
+
+mkdir -p "$PROFILE" "$BACKUP_DIR"
+
+if [ -f "$REG" ]; then
+  cp -av "$REG" "$BACKUP_DIR/registrymodifications.xcu.$TS.bak"
+fi
+
+# Crear perfil base si LibreOffice aún no lo ha creado.
+if [ ! -f "$REG" ]; then
+  libreoffice --headless --terminate_after_init >/dev/null 2>&1 || true
+fi
+
+if [ ! -f "$REG" ]; then
+  cat > "$REG" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<oor:items xmlns:oor="http://openoffice.org/2001/registry">
+</oor:items>
+EOF
+fi
+
+python - "$REG" <<'PY'
+from pathlib import Path
+import sys
+
+p = Path(sys.argv[1])
+s = p.read_text(errors="ignore")
+
+if "</oor:items>" not in s:
+    s = """<?xml version="1.0" encoding="UTF-8"?>
+<oor:items xmlns:oor="http://openoffice.org/2001/registry">
+</oor:items>
+"""
+
+items = {
+    # UI general
+    "/org.openoffice.Office.Common/Misc UseSystemFileDialog": "true",
+    "/org.openoffice.Office.Common/Misc SymbolStyle": "breeze_dark",
+    "/org.openoffice.Office.Common/View DialogScale": "110",
+    "/org.openoffice.Office.Common/View UseSkia": "true",
+    "/org.openoffice.Office.Common/View ForceSkiaRaster": "false",
+    "/org.openoffice.Office.Common/Accessibility AutoDetectSystemHC": "true",
+
+    # Writer / edición
+    "/org.openoffice.Office.Writer/Layout/Other TabStop": "1250",
+    "/org.openoffice.Office.Writer/Content/Display Graphics": "true",
+    "/org.openoffice.Office.Writer/Content/Display Tables": "true",
+    "/org.openoffice.Office.Writer/Content/Display Drawings": "true",
+
+    # Rendimiento / comportamiento
+    "/org.openoffice.Office.Common/Java Enable": "false",
+    "/org.openoffice.Office.Common/Save/Document AutoSave": "true",
+    "/org.openoffice.Office.Common/Save/Document AutoSaveTimeIntervall": "10",
+    "/org.openoffice.Office.Common/Save/Document CreateBackup": "true",
+
+    # Compatibilidad Microsoft Office
+    "/org.openoffice.Office.Common/Save/Document WarnAlienFormat": "false",
+}
+
+def make_item(path, value):
+    escaped = value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    typ = "boolean" if value in ["true", "false"] else "int" if value.isdigit() else "string"
+    return f'  <item oor:path="{path}"><prop oor:name="Value" oor:op="fuse"><value>{escaped}</value></prop></item>\n'
+
+# Eliminar entradas anteriores de las mismas rutas para evitar duplicados.
+for path in items:
+    start = 0
+    while True:
+        idx = s.find(f'<item oor:path="{path}"', start)
+        if idx == -1:
+            break
+        end = s.find("</item>", idx)
+        if end == -1:
+            break
+        s = s[:idx] + s[end + len("</item>"):]
+        start = idx
+
+insert = "".join(make_item(k, v) for k, v in items.items())
+s = s.replace("</oor:items>", insert + "</oor:items>")
+p.write_text(s)
+PY
+
+# Preferencias GTK/Wayland útiles para LibreOffice.
+mkdir -p "$HOME/.local/bin"
+cat > "$HOME/.local/bin/libreoffice-nodalix" <<'SH'
+#!/usr/bin/env bash
+export SAL_USE_VCLPLUGIN=gtk3
+export GTK_THEME="${GTK_THEME:-Adwaita:dark}"
+exec libreoffice "$@"
+SH
+chmod +x "$HOME/.local/bin/libreoffice-nodalix"
+
+echo "LibreOffice Nodalix aplicado."
+echo "Perfil: $PROFILE"
+echo "Backup: $BACKUP_DIR"
+echo "Lanzador recomendado: libreoffice-nodalix"
