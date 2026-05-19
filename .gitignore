@@ -23,3 +23,4 @@ config/wpe-hypr/state.json
 .backup/
 zen-cache/
 build.zen
+__pycache__/

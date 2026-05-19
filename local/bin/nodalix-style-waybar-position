@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+pos="${1:-top}"
+
+notify-send "Nodalix" "Cambio de posición de Waybar pendiente de migrar: $pos"
