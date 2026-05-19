@@ -41,9 +41,7 @@ o.bind("CTRL + ALT + 2", "Type @", "wtype @")
 -- Overwrite existing bindings with hl.unbind() first if needed.
 
 -- Logitech MX Keys examples:
--- o.bind("SUPER + SHIFT + S", nil, "omarchy-capture-screenshot")
 -- o.bind("SUPER + H", nil, "voxtype record toggle")
--- o.bind("SUPER + PERIOD", nil, { omarchy = "walker -m symbols" })
 
 -- Nodalix
 
