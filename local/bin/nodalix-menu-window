@@ -6,7 +6,7 @@ import subprocess
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk
 
-APP_TITLE = "Nodalia Menu"
+APP_TITLE = "Nodalix"
 
 
 def run(cmd):
@@ -186,13 +186,13 @@ class NodaliaMenu(Gtk.Window):
 
         self.sections = [
             {"id": "appearance", "icon": "󰉼", "title": "Estilo", "subtitle": "Tema, color, fuentes", "actions": [
-                ("Abrir estilos de Nodalix", "Personalización visual del sistema", "notify-send \"Nodalia Menu\" \"Editor de estilos próximamente\""),
-                ("Cambiar tema Omarchy", "Abre el menú de temas si existe", "omarchy-theme-menu || notify-send \"Nodalia Menu\" \"Menú de temas no disponible\""),
+                ("Abrir estilos de Nodalix", "Personalización visual del sistema", "notify-send \"Nodalix\" \"Editor de estilos próximamente\""),
+                ("Cambiar tema Nodalix", "Selector de temas Nodalix pendiente de migrar", "notify-send \"Nodalix\" \"Theme manager pendiente de migrar\""),
                 ("Editar configuración visual", "Abre looknfeel.lua en VS Code", "code ~/.config/hypr/looknfeel.lua"),
             ]},
             {"id": "wallpaper", "icon": "󰸉", "title": "Wallpaper", "subtitle": "Fondos y WPE", "actions": [
                 ("Abrir WPE Menu", "Wallpaper Engine / fondos animados", "wpe-menu"),
-                ("Abrir selector de fondos", "Menú de fondo de Omarchy", "omarchy-menu background || notify-send \"Nodalia Menu\" \"Selector de fondos no disponible\""),
+                ("Abrir selector de fondos", "Selector de fondos Nodalix pendiente de migrar", "notify-send \"Nodalix\" \"Wallpaper manager pendiente de migrar\""),
                 ("Abrir carpeta de fondos", "Carpeta de configuración WPE", "xdg-open ~/.config/wpe-hypr"),
             ]},
             {"id": "displays", "icon": "󰍹", "title": "Pantallas", "subtitle": "Monitores y escala", "actions": [
@@ -252,7 +252,7 @@ class NodaliaMenu(Gtk.Window):
 
         title = Gtk.Label(xalign=0)
         title.set_name("header_title")
-        title.set_text("󱄅 Nodalia Menu")
+        title.set_text("󱄅 Nodalix")
         title_box.pack_start(title, False, False, 0)
 
         subtitle = Gtk.Label(xalign=0)

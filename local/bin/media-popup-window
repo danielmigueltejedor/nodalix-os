@@ -366,7 +366,7 @@ def friendly_status(status):
 
 def focus_or_open_apple_music():
     run([
-        "omarchy-launch-or-focus",
+        "nodalix-launch-or-focus",
         APPLE_MUSIC_CLASS,
         "gtk-launch apple-music",
     ])

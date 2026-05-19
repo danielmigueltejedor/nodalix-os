@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+title_or_class="${1:-}"
+shift || true
+
+if [[ -z "$title_or_class" || $# -eq 0 ]]; then
+  echo "Usage: nodalix-launch-or-focus <class-or-title> <command...>" >&2
+  exit 1
+fi
+
+address="$(
+  hyprctl clients -j 2>/dev/null \
+    | jq -r --arg q "$title_or_class" '
+      .[]
+      | select(
+          (.class // "" | test($q; "i"))
+          or (.initialClass // "" | test($q; "i"))
+          or (.title // "" | test($q; "i"))
+          or (.initialTitle // "" | test($q; "i"))
+        )
+      | .address
+    ' \
+    | head -n 1
+)"
+
+if [[ -n "$address" && "$address" != "null" ]]; then
+  hyprctl dispatch focuswindow "address:$address" >/dev/null
+else
+  "$@" >/dev/null 2>&1 &
+fi

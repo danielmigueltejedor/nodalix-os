@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-omarchy-launch-or-focus "Nodalia Media Popup" "$HOME/.local/bin/media-popup-window"
+nodalix-launch-or-focus "Nodalia Media Popup" "$HOME/.local/bin/media-popup-window"
