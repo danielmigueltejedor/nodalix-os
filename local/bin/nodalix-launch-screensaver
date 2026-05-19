@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# For now, use display off as lightweight screensaver.
+# Later this can become a real Nodalix screensaver.
+hyprctl dispatch dpms off >/dev/null 2>&1 || true
