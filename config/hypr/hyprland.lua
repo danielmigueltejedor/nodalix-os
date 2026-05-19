@@ -1,23 +1,31 @@
 -- Learn how to configure Hyprland: https://wiki.hypr.land/Configuring/Start/
 
--- Load user modules from ~/.config and Omarchy defaults from $OMARCHY_PATH.
-package.path = os.getenv("HOME")
+-- Nodalix Hyprland entrypoint.
+-- User modules are loaded from ~/.config.
+-- Legacy Omarchy defaults are vendored under ~/.local/share/nodalix/vendor/omarchy
+-- until they are migrated module by module.
+
+local home = os.getenv("HOME")
+local nodalix_path = os.getenv("NODALIX_PATH") or (home .. "/.local/share/nodalix")
+local omarchy_vendor_path = nodalix_path .. "/vendor/omarchy"
+
+package.path = home
   .. "/.config/?.lua;"
-  .. (os.getenv("OMARCHY_PATH") or (os.getenv("HOME") .. "/.local/share/omarchy"))
+  .. omarchy_vendor_path
   .. "/?.lua;"
   .. package.path
 
--- All Omarchy default setups
+-- Temporary vendor compatibility layer.
 require("default.hypr.omarchy")
 
--- Change your own setup in these files and override defaults.
+-- User / Nodalix overrides.
 require("hypr.monitors")
 require("hypr.input")
 require("hypr.bindings")
 require("hypr.looknfeel")
 require("hypr.autostart")
 
--- Toggle config flags dynamically.
+-- Temporary vendor toggles until migrated.
 require("default.hypr.toggles")
 
 -- Add any other personal Hyprland configuration below.
