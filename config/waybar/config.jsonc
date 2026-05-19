@@ -55,10 +55,10 @@
     "on-click": "nodalix-privacy-menu"
   },
   "custom/nodalix-settings": {
-    "format": "󰒓",
+    "format": "",
     "tooltip": true,
-    "tooltip-format": "Ajustes Nodalix",
-    "on-click": "nodalix-settings-menu"
+    "tooltip-format": "Archivos",
+    "on-click": "nautilus --new-window"
   },
   "bluetooth": {
     "format": "󰂯",
