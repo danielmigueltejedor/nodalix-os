@@ -7,13 +7,13 @@
 
 local home = os.getenv("HOME")
 local nodalix_path = os.getenv("NODALIX_PATH") or (home .. "/.local/share/nodalix")
-local omarchy_vendor_path = nodalix_path .. "/vendor/omarchy"
+local legacy_vendor_path = nodalix_path .. "/vendor/omarchy"
 
 package.path = home
   .. "/.config/?.lua;"
   .. nodalix_path
   .. "/?.lua;"
-  .. omarchy_vendor_path
+  .. legacy_vendor_path
   .. "/?.lua;"
   .. package.path
 
