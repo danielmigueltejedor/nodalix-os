@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+keep="${1:-}"
+
+popups=(
+  "nodalix-wifi-menu-window"
+  "nodalix-bt-menu-window"
+  "nodalix-audio-menu-window"
+  "nodalix-volume-menu-window"
+  "nodalix-network-menu-window"
+  "nodalix-privacy-menu"
+  "nodalix-settings-menu"
+  "nodalix-media-menu"
+  "nodalix-weather-menu"
+  "nodalix-calendar-menu"
+  "nodalix-time-settings"
+)
+
+for popup in "${popups[@]}"; do
+  [[ "$popup" == "$keep" ]] && continue
+  pkill -f "$popup" 2>/dev/null || true
+done

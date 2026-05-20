@@ -10,8 +10,8 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
 
 APP_TITLE = "Nodalix Network"
-WIDTH = 460
-HEIGHT = 480
+WIDTH = 615
+HEIGHT = 562
 
 
 def sh(cmd):
@@ -145,20 +145,23 @@ button:hover {
 
 
 def position_near_waybar_click(window, width, height):
+    """
+    macOS-style positioning:
+    anchor the popup below the right Waybar island on the monitor where the cursor is.
+    Uses Gtk move plus Hyprland force-move after the window is mapped.
+    """
     raw = sh(["hyprctl", "cursorpos", "-j"])
     monitors_raw = sh(["hyprctl", "monitors", "-j"])
 
-    if not raw:
-        window.set_position(Gtk.WindowPosition.CENTER)
-        return
+    cursor_x = 0
+    cursor_y = 0
 
     try:
         pos = json.loads(raw)
-        x = int(pos.get("x", 0))
-        y = int(pos.get("y", 0))
+        cursor_x = int(pos.get("x", 0))
+        cursor_y = int(pos.get("y", 0))
     except Exception:
-        window.set_position(Gtk.WindowPosition.CENTER)
-        return
+        pass
 
     mon_x = 0
     mon_y = 0
@@ -173,7 +176,7 @@ def position_near_waybar_click(window, width, height):
             mw = int(mon.get("width", 1920))
             mh = int(mon.get("height", 1080))
 
-            if x >= mx and x <= mx + mw and y >= my and y <= my + mh:
+            if cursor_x >= mx and cursor_x <= mx + mw and cursor_y >= my and cursor_y <= my + mh:
                 mon_x = mx
                 mon_y = my
                 mon_w = mw
@@ -182,23 +185,53 @@ def position_near_waybar_click(window, width, height):
     except Exception:
         pass
 
-    margin = 12
-    target_x = x - width // 2
-    target_y = y + 36
+    outer_margin = 12
+    waybar_top_margin = 8
+    waybar_height = 44
+    popup_gap = 8
 
-    if target_x < mon_x + margin:
-        target_x = mon_x + margin
+    target_x = mon_x + mon_w - width - outer_margin
+    target_y = mon_y + waybar_top_margin + waybar_height + popup_gap
 
-    if target_x + width > mon_x + mon_w - margin:
-        target_x = mon_x + mon_w - width - margin
+    if target_x < mon_x + outer_margin:
+        target_x = mon_x + outer_margin
 
-    if target_y + height > mon_y + mon_h - margin:
-        target_y = y - height - 36
+    if target_y + height > mon_y + mon_h - outer_margin:
+        target_y = mon_y + mon_h - height - outer_margin
 
-    if target_y < mon_y + margin:
-        target_y = mon_y + margin
+    # GTK fallback
+    try:
+        window.move(target_x, target_y)
+    except Exception:
+        pass
 
-    window.move(target_x, target_y)
+    # Hyprland force move. Needed because Wayland may ignore Gtk.Window.move().
+    clients_raw = sh(["hyprctl", "clients", "-j"])
+    try:
+        clients = json.loads(clients_raw)
+        for client in clients:
+            title = str(client.get("title", ""))
+            klass = str(client.get("class", ""))
+            addr = client.get("address")
+
+            if addr and (APP_TITLE in title or "nodalix-wifi-menu-window" in title or "python" in klass.lower()):
+                subprocess.run(
+                    ["hyprctl", "dispatch", "focuswindow", f"address:{addr}"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                subprocess.run(
+                    [
+                        "hyprctl",
+                        "dispatch",
+                        f"movewindowpixel exact {target_x} {target_y},address:{addr}",
+                    ],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                break
+    except Exception:
+        pass
 
 
 def parse_nmcli_escaped_line(line):
@@ -341,7 +374,8 @@ class PasswordDialog(Gtk.Dialog):
     def __init__(self, parent, ssid):
         super().__init__(title=f"Conectar a {ssid}", transient_for=parent, flags=0)
         self.set_modal(True)
-        self.set_default_size(360, 120)
+        self.set_default_size(WIDTH, HEIGHT)
+        self.set_size_request(WIDTH, HEIGHT)
 
         self.add_button("Cancelar", Gtk.ResponseType.CANCEL)
         self.add_button("Conectar", Gtk.ResponseType.OK)
@@ -371,7 +405,7 @@ class ManualNetworkDialog(Gtk.Dialog):
     def __init__(self, parent):
         super().__init__(title="Añadir red Wi-Fi", transient_for=parent, flags=0)
         self.set_modal(True)
-        self.set_default_size(380, 180)
+        self.set_default_size(WIDTH, HEIGHT)
 
         self.add_button("Cancelar", Gtk.ResponseType.CANCEL)
         self.add_button("Conectar", Gtk.ResponseType.OK)
@@ -800,8 +834,12 @@ class WifiMenu(Gtk.Window):
 def main():
     load_css()
     win = WifiMenu()
-    position_near_waybar_click(win, WIDTH, HEIGHT)
     win.show_all()
+
+    # Position after mapping; otherwise Wayland/Hyprland may center the window.
+    GLib.timeout_add(120, lambda: (position_near_waybar_click(win, WIDTH, HEIGHT), False)[1])
+    GLib.timeout_add(350, lambda: (position_near_waybar_click(win, WIDTH, HEIGHT), False)[1])
+
     Gtk.main()
 
 

@@ -3,6 +3,7 @@ set -euo pipefail
 
 APP="$HOME/Projects/nodalix-os/local/bin/nodalix-wifi-menu-window"
 LOG="/tmp/nodalix-wifi-menu.log"
+nodalix-close-popups "nodalix-wifi-menu-window"
 
 if pgrep -f "$APP" >/dev/null; then
   pkill -f "$APP" || true

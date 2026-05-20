@@ -88,3 +88,24 @@ o.window({ class = "^wpe-menu-window$", title = "^Nodalia WPE Menu$" }, {
   center = true,
   size = { 940, 560 },
 })
+
+-- Nodalix right-island popups: macOS-style position under Waybar island
+local nodalix_right_popup_rules = {
+  { class = "^nodalix-wifi-menu-window$", title = "^Nodalix Network$" },
+  { class = "^nodalix-bt-menu-window$" },
+  { class = "^nodalix-audio-menu-window$" },
+  { class = "^nodalix-volume-menu-window$" },
+}
+
+for _, popup in ipairs(nodalix_right_popup_rules) do
+  o.window(
+    popup.title and { class = popup.class, title = popup.title } or { class = popup.class },
+    {
+      float = true,
+      size = { 615, 562 },
+      move = { "(monitor_w-window_w-32)", "60" },
+      animation = "popin"
+    }
+  )
+end
+
