@@ -1,12 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-nodalix-close-popups "org.gnome.Nautilus"
+APP="$HOME/Projects/nodalix-os/nodalix-files/src-tauri/target/release/nodalix-files"
+LOG="/tmp/nodalix-files-popup.log"
+CLASS="nodalix-files"
 
-# Toggle de Nautilus usado como popup de archivos
-if hyprctl clients -j 2>/dev/null | jq -e '.[] | select(.class == "org.gnome.Nautilus")' >/dev/null; then
-  pkill -f "nautilus" 2>/dev/null || true
+# Cierra otros popups de la isla derecha
+nodalix-close-popups "$CLASS" 2>/dev/null || true
+
+if [[ ! -x "$APP" ]]; then
+  notify-send "Nodalix Files" "No existe el binario: $APP"
+  echo "ERROR: no existe o no es ejecutable: $APP" > "$LOG"
+  exit 1
+fi
+
+# Toggle: si ya está abierto, cerrar
+if hyprctl clients -j 2>/dev/null | jq -e --arg class "$CLASS" '.[] | select(.class == $class)' >/dev/null; then
+  pkill -f "$APP" 2>/dev/null || true
   exit 0
 fi
 
-nautilus --new-window "$HOME" >/tmp/nodalix-files-popup.log 2>&1 &
+# Abrir
+nohup "$APP" >"$LOG" 2>&1 &
