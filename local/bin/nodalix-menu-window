@@ -353,7 +353,7 @@ class NodalixMenu(Gtk.Window):
         super().__init__(title=APP_TITLE)
 
         self.set_default_size(WIDTH, HEIGHT)
-        self.set_resizable(False)
+        self.set_resizable(True)
         self.set_decorated(False)
         self.set_keep_above(True)
         self.set_skip_taskbar_hint(True)
@@ -435,8 +435,13 @@ class NodalixMenu(Gtk.Window):
         sidebar_outer.set_size_request(285, -1)
         body.pack_start(sidebar_outer, False, False, 0)
 
+        sidebar_scroll = Gtk.ScrolledWindow()
+        sidebar_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        sidebar_scroll.set_min_content_height(0)
+        sidebar_outer.pack_start(sidebar_scroll, True, True, 0)
+
         self.sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=7)
-        sidebar_outer.pack_start(self.sidebar, True, True, 0)
+        sidebar_scroll.add(self.sidebar)
 
         page_scroll = Gtk.ScrolledWindow()
         page_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)

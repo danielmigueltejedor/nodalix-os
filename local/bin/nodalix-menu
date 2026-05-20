@@ -10,7 +10,9 @@ if hyprctl clients -j 2>/dev/null | jq -e '.[] | select(.class == "nodalix-menu-
   exit 0
 fi
 
-# Cierra otros popups grandes si existiesen
+# Comportamiento tipo popup: cerrar otros popups antes de abrir
+nodalix-close-popups "nodalix-menu-window" 2>/dev/null || true
+nodalix-close-center-popups "nodalix-menu-window" 2>/dev/null || true
 pkill -f "nodalix-command-bar" 2>/dev/null || true
 
 nohup "$APP" >"$LOG" 2>&1 &
