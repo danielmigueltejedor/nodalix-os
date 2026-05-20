@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+nodalix-close-popups "org.gnome.Nautilus"
+
+# Toggle de Nautilus usado como popup de archivos
+if hyprctl clients -j 2>/dev/null | jq -e '.[] | select(.class == "org.gnome.Nautilus")' >/dev/null; then
+  pkill -f "nautilus" 2>/dev/null || true
+  exit 0
+fi
+
+nautilus --new-window "$HOME" >/tmp/nodalix-files-popup.log 2>&1 &

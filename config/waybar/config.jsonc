@@ -58,7 +58,7 @@
     "format": "",
     "tooltip": true,
     "tooltip-format": "Archivos",
-    "on-click": "nautilus --new-window"
+    "on-click": "nodalix-files-popup"
   },
   "bluetooth": {
     "format": "󰂯",

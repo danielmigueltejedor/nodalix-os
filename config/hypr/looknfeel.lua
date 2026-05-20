@@ -109,3 +109,12 @@ for _, popup in ipairs(nodalix_right_popup_rules) do
   )
 end
 
+-- Nodalix files popup: macOS-style position under right Waybar island
+-- Nautilus needs a small X compensation because GTK restores/offsets its own position.
+o.window({ class = "^org.gnome.Nautilus$" }, {
+  float = true,
+  size = { 615, 562 },
+  move = { "(monitor_w-window_w+243)", "60" },
+  animation = "popin"
+})
+
