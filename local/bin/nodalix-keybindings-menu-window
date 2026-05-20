@@ -1,0 +1,575 @@
+#!/usr/bin/env python3
+import gi
+import json
+import os
+import subprocess
+from pathlib import Path
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gtk, Gdk
+
+APP_TITLE = "Nodalix Keybindings"
+WIDTH = 940
+HEIGHT = 620
+
+
+def run(cmd):
+    subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def sh(cmd, timeout=2):
+    try:
+        return subprocess.check_output(
+            cmd,
+            shell=True,
+            text=True,
+            stderr=subprocess.DEVNULL,
+            timeout=timeout,
+        ).strip()
+    except Exception:
+        return ""
+
+
+def load_accent():
+    theme = Path.home() / ".config/nodalix/theme.json"
+    if theme.exists():
+        try:
+            data = json.loads(theme.read_text())
+            return data.get("hex", "#cba6f7")
+        except Exception:
+            pass
+    return "#cba6f7"
+
+
+ACCENT = load_accent()
+
+
+KEYBINDINGS = [
+    {
+        "section": "Sistema y Nodalix",
+        "icon": "󱡓",
+        "items": [
+            ("SUPER + Space", "Abrir Nodalix Command Bar"),
+            ("SUPER + K", "Abrir esta vista rápida de atajos"),
+            ("ALT + SUPER + Space", "Abrir Nodalix Menu"),
+            ("SUPER + Escape", "Abrir menú del sistema"),
+            ("XF86PowerOff", "Abrir menú de energía"),
+            ("CTRL + SUPER + L", "Bloquear sistema"),
+            ("SHIFT + SUPER + Space", "Mostrar/ocultar Waybar"),
+            ("SHIFT + CTRL + SUPER + Space", "Abrir menú de temas"),
+            ("CTRL + SUPER + Space", "Cambiar fondo / background switcher"),
+        ],
+    },
+    {
+        "section": "Ventanas",
+        "icon": "󰖲",
+        "items": [
+            ("SUPER + W", "Cerrar ventana activa"),
+            ("CTRL + ALT + Delete", "Cerrar todas las ventanas"),
+            ("SUPER + F", "Pantalla completa"),
+            ("CTRL + SUPER + F", "Pantalla completa en modo tiled"),
+            ("ALT + SUPER + F", "Ventana a ancho completo"),
+            ("SUPER + T", "Alternar ventana flotante/tiling"),
+            ("SUPER + O", "Sacar ventana a flotante y fijarla"),
+            ("SUPER + J", "Alternar split de ventana"),
+            ("SUPER + P", "Pseudo window"),
+            ("SUPER + Backspace", "Alternar transparencia de ventana"),
+            ("SHIFT + SUPER + Backspace", "Alternar gaps"),
+            ("CTRL + SUPER + Backspace", "Alternar aspecto cuadrado en ventana única"),
+        ],
+    },
+    {
+        "section": "Foco y movimiento",
+        "icon": "󰁔",
+        "items": [
+            ("SUPER + ←", "Foco a ventana izquierda"),
+            ("SUPER + →", "Foco a ventana derecha"),
+            ("SUPER + ↑", "Foco a ventana superior"),
+            ("SUPER + ↓", "Foco a ventana inferior"),
+            ("SHIFT + SUPER + ←", "Intercambiar ventana hacia la izquierda"),
+            ("SHIFT + SUPER + →", "Intercambiar ventana hacia la derecha"),
+            ("SHIFT + SUPER + ↑", "Intercambiar ventana hacia arriba"),
+            ("SHIFT + SUPER + ↓", "Intercambiar ventana hacia abajo"),
+            ("ALT + Tab", "Foco a ventana siguiente"),
+            ("SHIFT + ALT + Tab", "Foco a ventana anterior"),
+            ("CTRL + ALT + Tab", "Foco al siguiente monitor"),
+            ("SHIFT + CTRL + ALT + Tab", "Foco al monitor anterior"),
+            ("SUPER + Mouse Left", "Mover ventana"),
+            ("SUPER + Mouse Right", "Redimensionar ventana"),
+        ],
+    },
+    {
+        "section": "Workspaces",
+        "icon": "󰣇",
+        "items": [
+            ("SUPER + 1..10", "Cambiar al workspace 1..10"),
+            ("SHIFT + SUPER + 1..10", "Mover ventana al workspace 1..10"),
+            ("SHIFT + ALT + SUPER + 1..10", "Mover ventana al workspace en silencio"),
+            ("SUPER + Tab", "Workspace siguiente"),
+            ("SHIFT + SUPER + Tab", "Workspace anterior"),
+            ("CTRL + SUPER + Tab", "Workspace usado anteriormente"),
+            ("SUPER + Scroll", "Cambiar workspace con rueda"),
+            ("SHIFT + ALT + SUPER + ←", "Mover workspace al monitor izquierdo"),
+            ("SHIFT + ALT + SUPER + →", "Mover workspace al monitor derecho"),
+            ("SHIFT + ALT + SUPER + ↑", "Mover workspace al monitor superior"),
+            ("SHIFT + ALT + SUPER + ↓", "Mover workspace al monitor inferior"),
+            ("SUPER + S", "Alternar scratchpad"),
+            ("ALT + SUPER + S", "Mover ventana al scratchpad"),
+        ],
+    },
+    {
+        "section": "Grupos",
+        "icon": "󰓡",
+        "items": [
+            ("SUPER + G", "Alternar agrupación de ventanas"),
+            ("ALT + SUPER + G", "Sacar ventana activa del grupo"),
+            ("ALT + SUPER + ←", "Mover ventana al grupo izquierdo"),
+            ("ALT + SUPER + →", "Mover ventana al grupo derecho"),
+            ("ALT + SUPER + ↑", "Mover ventana al grupo superior"),
+            ("ALT + SUPER + ↓", "Mover ventana al grupo inferior"),
+            ("ALT + SUPER + Tab", "Siguiente ventana dentro del grupo"),
+            ("SHIFT + ALT + SUPER + Tab", "Ventana anterior dentro del grupo"),
+            ("CTRL + SUPER + ←/→", "Mover foco dentro de grupo"),
+            ("ALT + SUPER + Scroll", "Cambiar ventana dentro del grupo"),
+            ("ALT + SUPER + 1..5", "Cambiar a ventana del grupo 1..5"),
+        ],
+    },
+    {
+        "section": "Portapapeles y texto",
+        "icon": "󰅌",
+        "items": [
+            ("SUPER + C", "Copiar universal"),
+            ("SUPER + V", "Pegar universal"),
+            ("SUPER + X", "Cortar universal"),
+            ("CTRL + SUPER + V", "Abrir gestor de portapapeles"),
+            ("CTRL + SUPER + E", "Selector de emojis"),
+            ("CTRL + ALT + 2", "Escribir @"),
+            ("CTRL + SUPER + X", "Alternar dictado"),
+            ("F9", "Iniciar/detener dictado push-to-talk"),
+        ],
+    },
+    {
+        "section": "Capturas, OCR y compartir",
+        "icon": "󰄄",
+        "items": [
+            ("Print", "Captura de pantalla"),
+            ("ALT + Print", "Grabación de pantalla"),
+            ("SUPER + Print", "Selector de color"),
+            ("CTRL + SUPER + Print", "Extraer texto de captura mediante OCR"),
+            ("CTRL + SUPER + S", "Compartir"),
+            ("CTRL + SUPER + Period", "Transcodificar"),
+        ],
+    },
+    {
+        "section": "Audio, brillo y multimedia",
+        "icon": "󰕾",
+        "items": [
+            ("XF86AudioRaiseVolume", "Subir volumen"),
+            ("XF86AudioLowerVolume", "Bajar volumen"),
+            ("XF86AudioMute", "Silenciar audio"),
+            ("XF86AudioMicMute", "Silenciar micrófono"),
+            ("ALT + XF86AudioRaiseVolume", "Subir volumen preciso"),
+            ("ALT + XF86AudioLowerVolume", "Bajar volumen preciso"),
+            ("SUPER + XF86AudioMute", "Cambiar salida de audio"),
+            ("XF86AudioNext", "Pista siguiente"),
+            ("XF86AudioPrev", "Pista anterior"),
+            ("XF86AudioPlay", "Reproducir"),
+            ("XF86AudioPause", "Pausar"),
+            ("XF86MonBrightnessUp", "Subir brillo"),
+            ("XF86MonBrightnessDown", "Bajar brillo"),
+            ("SHIFT + XF86MonBrightnessUp", "Brillo máximo"),
+            ("SHIFT + XF86MonBrightnessDown", "Brillo mínimo"),
+            ("ALT + XF86MonBrightnessUp/Down", "Ajuste fino de brillo"),
+            ("XF86KbdBrightnessUp/Down", "Brillo del teclado"),
+            ("XF86KbdLightOnOff", "Alternar luz del teclado"),
+        ],
+    },
+    {
+        "section": "Notificaciones y privacidad",
+        "icon": "󰂚",
+        "items": [
+            ("SUPER + ,", "Descartar última notificación"),
+            ("SHIFT + SUPER + ,", "Descartar todas las notificaciones"),
+            ("CTRL + SUPER + ,", "Activar/desactivar silencio de notificaciones"),
+            ("ALT + SUPER + ,", "Invocar última notificación"),
+            ("SHIFT + ALT + SUPER + ,", "Restaurar última notificación"),
+            ("CTRL + SUPER + I", "Alternar bloqueo por inactividad"),
+            ("CTRL + SUPER + N", "Alternar luz nocturna"),
+        ],
+    },
+    {
+        "section": "Paneles rápidos",
+        "icon": "󰒓",
+        "items": [
+            ("CTRL + SUPER + A", "Controles de audio"),
+            ("CTRL + SUPER + B", "Controles Bluetooth"),
+            ("CTRL + SUPER + W", "Controles WiFi"),
+            ("CTRL + SUPER + T", "Actividad / monitor del sistema"),
+            ("CTRL + SUPER + C", "Menú de captura"),
+            ("CTRL + SUPER + O", "Toggle menu"),
+            ("CTRL + SUPER + H", "Menú de hardware"),
+        ],
+    },
+    {
+        "section": "Información rápida",
+        "icon": "󰋼",
+        "items": [
+            ("CTRL + SUPER + R", "Crear recordatorio"),
+            ("CTRL + ALT + SUPER + R", "Mostrar recordatorios"),
+            ("SHIFT + CTRL + SUPER + R", "Limpiar recordatorios"),
+            ("CTRL + ALT + SUPER + T", "Mostrar hora"),
+            ("CTRL + ALT + SUPER + B", "Mostrar batería restante"),
+            ("CTRL + ALT + SUPER + W", "Mostrar tiempo/clima"),
+            ("CTRL + SUPER + Z", "Zoom in"),
+            ("CTRL + ALT + SUPER + Z", "Reset zoom"),
+        ],
+    },
+    {
+        "section": "Apps principales",
+        "icon": "󰀻",
+        "items": [
+            ("SUPER + Return", "Terminal"),
+            ("ALT + SUPER + Return", "Tmux"),
+            ("SHIFT + SUPER + Return", "Navegador"),
+            ("SHIFT + SUPER + F", "Gestor de archivos"),
+            ("SHIFT + ALT + SUPER + F", "Gestor de archivos en directorio actual"),
+            ("SHIFT + SUPER + B", "Navegador"),
+            ("SHIFT + ALT + SUPER + B", "Navegador privado"),
+            ("SHIFT + SUPER + N", "Editor"),
+            ("SHIFT + SUPER + D", "Docker"),
+            ("SHIFT + SUPER + Slash", "Contraseñas"),
+        ],
+    },
+    {
+        "section": "Web apps y productividad",
+        "icon": "󰖟",
+        "items": [
+            ("SHIFT + SUPER + A", "ChatGPT"),
+            ("SHIFT + ALT + SUPER + A", "Grok"),
+            ("SHIFT + SUPER + C", "Calendar"),
+            ("SHIFT + SUPER + E", "Thunderbird"),
+            ("SHIFT + SUPER + Y", "YouTube"),
+            ("SHIFT + SUPER + G", "Signal"),
+            ("SHIFT + ALT + SUPER + G", "WhatsApp"),
+            ("SHIFT + CTRL + SUPER + G", "Google Messages"),
+            ("SHIFT + SUPER + P", "Google Photos"),
+            ("SHIFT + SUPER + S", "Google Maps"),
+            ("SHIFT + SUPER + X", "X"),
+            ("SHIFT + ALT + SUPER + X", "X Post"),
+            ("SHIFT + SUPER + M", "Apple Music"),
+            ("SHIFT + ALT + SUPER + M", "Music TUI"),
+            ("SHIFT + SUPER + O", "Obsidian"),
+            ("SHIFT + SUPER + W", "Typora"),
+        ],
+    },
+    {
+        "section": "Pantallas y Waybar",
+        "icon": "󰍹",
+        "items": [
+            ("SUPER + =", "Ciclar escala del monitor"),
+            ("ALT + SUPER + =", "Ciclar escala del monitor hacia atrás"),
+            ("SHIFT + CTRL + SUPER + ↑", "Mover Waybar arriba"),
+            ("SHIFT + CTRL + SUPER + ↓", "Mover Waybar abajo"),
+            ("SHIFT + CTRL + SUPER + ←", "Mover Waybar a la izquierda"),
+            ("SHIFT + CTRL + SUPER + →", "Mover Waybar a la derecha"),
+            ("CTRL + SUPER + Delete", "Alternar pantalla del portátil"),
+            ("CTRL + ALT + SUPER + Delete", "Alternar mirror de pantalla del portátil"),
+        ],
+    },
+]
+
+
+def setup_css():
+    accent = ACCENT
+    css = f"""
+* {{
+  font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", monospace;
+  font-size: 13px;
+  color: #cdd6f4;
+}}
+
+window {{
+  background: transparent;
+}}
+
+#root {{
+  background: rgba(17, 17, 27, 0.970);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 28px;
+  padding: 18px;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.58);
+}}
+
+#header_title {{
+  color: #ffffff;
+  font-size: 22px;
+  font-weight: 900;
+}}
+
+#header_subtitle {{
+  color: #a6adc8;
+  font-size: 12px;
+}}
+
+#search {{
+  background: rgba(255, 255, 255, 0.065);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 999px;
+  padding: 10px 16px;
+  color: #ffffff;
+}}
+
+#section {{
+  background: rgba(255, 255, 255, 0.040);
+  border: 1px solid rgba(255, 255, 255, 0.075);
+  border-radius: 22px;
+  padding: 14px;
+}}
+
+#section_header {{
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 900;
+}}
+
+#section_icon {{
+  color: {accent};
+  font-size: 22px;
+  min-width: 34px;
+  margin-right: 8px;
+}}
+
+#binding_row {{
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.060);
+  border-radius: 16px;
+  padding: 10px 12px;
+}}
+
+#binding_row:hover {{
+  background: rgba(203, 166, 247, 0.10);
+  border-color: rgba(203, 166, 247, 0.25);
+}}
+
+#key {{
+  background: rgba(203, 166, 247, 0.16);
+  border: 1px solid rgba(203, 166, 247, 0.34);
+  border-radius: 999px;
+  color: #ffffff;
+  font-weight: 900;
+  padding: 6px 10px;
+  min-width: 170px;
+}}
+
+#desc {{
+  color: #cdd6f4;
+}}
+
+#footer {{
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.070);
+  border-radius: 999px;
+  padding: 8px 12px;
+}}
+
+#footer_hint {{
+  color: #7f849c;
+  font-size: 12px;
+}}
+
+button {{
+  background: rgba(255, 255, 255, 0.060);
+  border: 1px solid rgba(255, 255, 255, 0.090);
+  border-radius: 999px;
+  padding: 7px 12px;
+  box-shadow: none;
+}}
+
+button:hover {{
+  background: rgba(203, 166, 247, 0.18);
+  color: #ffffff;
+}}
+
+#primary_button {{
+  background: rgba(203, 166, 247, 0.22);
+  border: 1px solid rgba(203, 166, 247, 0.36);
+  color: #ffffff;
+}}
+
+scrollbar {{
+  background: transparent;
+  border: 0;
+}}
+
+scrollbar trough {{
+  background: rgba(255, 255, 255, 0.035);
+  border-radius: 999px;
+}}
+
+scrollbar slider {{
+  background: rgba(203, 166, 247, 0.30);
+  border-radius: 999px;
+}}
+"""
+    provider = Gtk.CssProvider()
+    provider.load_from_data(css.encode())
+    Gtk.StyleContext.add_provider_for_screen(
+        Gdk.Screen.get_default(),
+        provider,
+        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+    )
+
+
+class KeybindingsWindow(Gtk.Window):
+    def __init__(self):
+        super().__init__(title=APP_TITLE)
+
+        self.set_wmclass("nodalix-keybindings-menu-window", "nodalix-keybindings-menu-window")
+        self.set_default_size(WIDTH, HEIGHT)
+        self.set_resizable(True)
+        self.set_decorated(False)
+        self.set_keep_above(True)
+        self.set_skip_taskbar_hint(True)
+        self.set_skip_pager_hint(True)
+        self.set_type_hint(Gdk.WindowTypeHint.DIALOG)
+
+        self.connect("destroy", Gtk.main_quit)
+        self.connect("key-press-event", self.on_key)
+
+        screen = self.get_screen()
+        visual = screen.get_rgba_visual()
+        if visual and screen.is_composited():
+            self.set_visual(visual)
+
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        root.set_name("root")
+        self.add(root)
+
+        self.build_header(root)
+        self.build_search(root)
+        self.build_list(root)
+        self.build_footer(root)
+
+        self.render()
+
+    def on_key(self, _w, event):
+        if event.keyval == Gdk.KEY_Escape:
+            self.destroy()
+            return True
+        return False
+
+    def build_header(self, root):
+        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        root.pack_start(header, False, False, 0)
+
+        title_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        header.pack_start(title_box, True, True, 0)
+
+        title = Gtk.Label(label="󰌌  Nodalix Keybindings", xalign=0)
+        title.set_name("header_title")
+        title_box.pack_start(title, False, False, 0)
+
+        subtitle = Gtk.Label(
+            label="Vista rápida de atajos del sistema, ventanas, workspaces, Waybar y controles Nodalix",
+            xalign=0,
+        )
+        subtitle.set_name("header_subtitle")
+        title_box.pack_start(subtitle, False, False, 0)
+
+        close = Gtk.Button(label="Cerrar")
+        close.connect("clicked", lambda *_: self.destroy())
+        header.pack_start(close, False, False, 0)
+
+    def build_search(self, root):
+        self.search = Gtk.SearchEntry()
+        self.search.set_name("search")
+        self.search.set_placeholder_text("Buscar atajos: ventana, workspace, audio, captura, Nodalix…")
+        self.search.connect("search-changed", lambda *_: self.render())
+        root.pack_start(self.search, False, False, 0)
+
+    def build_list(self, root):
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        root.pack_start(scroll, True, True, 0)
+
+        self.list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        scroll.add(self.list_box)
+
+    def build_footer(self, root):
+        footer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        footer.set_name("footer")
+
+        hint = Gtk.Label(label="Pulsa Esc para cerrar · Edita este menú desde local/bin/nodalix-keybindings-menu-window")
+        hint.set_name("footer_hint")
+        hint.set_xalign(0)
+        footer.pack_start(hint, True, True, 0)
+
+        edit = Gtk.Button(label="Editar")
+        edit.set_name("primary_button")
+        edit.connect("clicked", lambda *_: run("zed ~/Projects/nodalix-os/local/bin/nodalix-keybindings-menu-window"))
+        footer.pack_start(edit, False, False, 0)
+
+        root.pack_start(footer, False, False, 0)
+
+    def clear(self):
+        for child in self.list_box.get_children():
+            self.list_box.remove(child)
+
+    def render(self):
+        self.clear()
+        query = self.search.get_text().lower().strip()
+
+        for group in KEYBINDINGS:
+            filtered = []
+            for key, desc in group["items"]:
+                haystack = f"{group['section']} {key} {desc}".lower()
+                if not query or query in haystack:
+                    filtered.append((key, desc))
+
+            if not filtered:
+                continue
+
+            section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+            section.set_name("section")
+
+            header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            section.pack_start(header, False, False, 0)
+
+            icon = Gtk.Label(label=group["icon"])
+            icon.set_name("section_icon")
+            header.pack_start(icon, False, False, 0)
+
+            title = Gtk.Label(label=group["section"], xalign=0)
+            title.set_name("section_header")
+            header.pack_start(title, True, True, 0)
+
+            for key, desc in filtered:
+                row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+                row.set_name("binding_row")
+
+                key_label = Gtk.Label(label=key)
+                key_label.set_name("key")
+                key_label.set_xalign(0.5)
+                row.pack_start(key_label, False, False, 0)
+
+                desc_label = Gtk.Label(label=desc, xalign=0)
+                desc_label.set_name("desc")
+                desc_label.set_line_wrap(True)
+                row.pack_start(desc_label, True, True, 0)
+
+                section.pack_start(row, False, False, 0)
+
+            self.list_box.pack_start(section, False, False, 0)
+
+        self.list_box.show_all()
+
+
+def main():
+    setup_css()
+    win = KeybindingsWindow()
+    win.show_all()
+    Gtk.main()
+
+
+if __name__ == "__main__":
+    main()

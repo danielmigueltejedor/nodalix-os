@@ -134,6 +134,15 @@ o.window({ class = "^media-popup-window$" }, {
   animation = "popin"
 })
 
+
+-- Nodalix Keybindings popup: quick keyboard shortcut reference
+o.window({ class = "^nodalix-keybindings-menu-window$", title = "^Nodalix Keybindings$" }, {
+  float = true,
+  center = true,
+  size = { 940, 620 },
+  animation = "popin"
+})
+
 -- Nodalix Menu: System Settings style popup under left island
 o.window({ class = "^nodalix-menu-window$" }, {
   tag = "-floating-window",
