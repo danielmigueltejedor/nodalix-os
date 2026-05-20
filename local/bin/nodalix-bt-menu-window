@@ -7,73 +7,229 @@ import gi
 import json
 import re
 import subprocess
+import threading
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
 
 APP_TITLE = "Nodalix Bluetooth"
 
-def sh(cmd):
+
+def sh(cmd, timeout=4):
     try:
-        return subprocess.check_output(cmd, shell=True, text=True, stderr=subprocess.DEVNULL, timeout=3).strip()
+        return subprocess.check_output(
+            cmd,
+            shell=True,
+            text=True,
+            stderr=subprocess.DEVNULL,
+            timeout=timeout,
+        ).strip()
     except Exception:
         return ""
+
 
 def run(cmd):
     subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
+
 def has_cmd(cmd):
     return bool(sh("command -v " + cmd))
 
-def bluetooth_powered():
-    out = sh("bluetoothctl show")
-    return "Powered: yes" in out
+
+def notify(title, msg):
+    run(f"notify-send {title!r} {msg!r}")
+
 
 def bluetooth_available():
     return bool(sh("bluetoothctl show"))
 
+
+def bluetooth_powered():
+    return "Powered: yes" in sh("bluetoothctl show")
+
+
+def bluetooth_pairable():
+    return "Pairable: yes" in sh("bluetoothctl show")
+
+
+def bluetooth_discovering():
+    return "Discovering: yes" in sh("bluetoothctl show")
+
+
 def set_power(enabled):
     run("bluetoothctl power " + ("on" if enabled else "off"))
 
+
+def bt(cmd, timeout=8):
+    return sh("bluetoothctl " + cmd, timeout=timeout)
+
+
+def parse_bool(info, key):
+    return f"{key}: yes" in info
+
+
+def parse_field(info, key):
+    m = re.search(rf"^\s*{re.escape(key)}:\s+(.+)$", info, re.M)
+    return m.group(1).strip() if m else ""
+
+
+def pretty_type(info, name):
+    hay = (info + "\n" + name).lower()
+    icon = parse_field(info, "Icon").lower()
+
+    if "xbox" in hay or "input-gaming" in icon or "human interface device" in hay or "00001124" in hay:
+        return "󰊴 Mando / Gamepad", "gamepad"
+
+    if "phone" in icon or "generic audio" in hay or "handsfree" in hay:
+        return "󰄜 Teléfono / Audio", "phone"
+
+    if "audio" in hay or "headset" in hay or "speaker" in hay:
+        return "󰋋 Audio", "audio"
+
+    if "keyboard" in hay:
+        return "󰌌 Teclado", "keyboard"
+
+    if "mouse" in hay:
+        return "󰍽 Ratón", "mouse"
+
+    if "sonos" in hay:
+        return "󰓃 Sonos / Audio", "audio"
+
+    return "󰂯 Bluetooth", "generic"
+
+
+def device_icon(kind):
+    return {
+        "gamepad": "󰊴",
+        "phone": "󰄜",
+        "audio": "󰋋",
+        "keyboard": "󰌌",
+        "mouse": "󰍽",
+        "generic": "󰂯",
+    }.get(kind, "󰂯")
+
+
+def all_device_macs():
+    macs = []
+    seen = set()
+
+    for cmd in [
+        "bluetoothctl devices",
+        "bluetoothctl devices Paired",
+        "bluetoothctl devices Connected",
+        "bluetoothctl devices Trusted",
+    ]:
+        out = sh(cmd)
+        for line in out.splitlines():
+            m = re.match(r"Device\s+([0-9A-Fa-f:]{17})\s+(.+)", line)
+            if not m:
+                continue
+
+            mac = m.group(1).upper()
+            if mac in seen:
+                continue
+
+            seen.add(mac)
+            macs.append(mac)
+
+    return macs
+
+
 def parse_devices():
     devices = []
-    paired = sh("bluetoothctl devices Paired")
-    connected_raw = sh("bluetoothctl devices Connected")
-    connected = set()
 
-    for line in connected_raw.splitlines():
-        m = re.match(r"Device\s+([0-9A-Fa-f:]{17})\s+(.+)", line)
-        if m:
-            connected.add(m.group(1).upper())
-
-    for line in paired.splitlines():
-        m = re.match(r"Device\s+([0-9A-Fa-f:]{17})\s+(.+)", line)
-        if not m:
+    for mac in all_device_macs():
+        info = bt(f"info {mac}", timeout=4)
+        if not info:
             continue
-        mac = m.group(1).upper()
-        name = m.group(2).strip()
-        devices.append({"mac": mac, "name": name, "connected": mac in connected})
 
+        name = parse_field(info, "Name") or parse_field(info, "Alias") or mac
+        alias = parse_field(info, "Alias") or name
+        icon = parse_field(info, "Icon")
+        rssi = parse_field(info, "RSSI")
+        klass = parse_field(info, "Class")
+        dev_type, kind = pretty_type(info, name)
+
+        paired = parse_bool(info, "Paired")
+        trusted = parse_bool(info, "Trusted")
+        connected = parse_bool(info, "Connected")
+        blocked = parse_bool(info, "Blocked")
+
+        # Oculta ruido Apple random sin nombre útil, pero deja dispositivos con nombre real.
+        if not paired and not connected and name.replace("-", ":").upper() == mac:
+            manufacturer = parse_field(info, "ManufacturerData.Key")
+            if manufacturer == "0x004c (76)":
+                continue
+
+        devices.append({
+            "mac": mac,
+            "name": name,
+            "alias": alias,
+            "icon": icon,
+            "class": klass,
+            "rssi": rssi,
+            "type": dev_type,
+            "kind": kind,
+            "paired": paired,
+            "trusted": trusted,
+            "connected": connected,
+            "blocked": blocked,
+        })
+
+    def score(d):
+        return (
+            not d["connected"],
+            not d["paired"],
+            d["kind"] != "gamepad",
+            d["kind"] != "audio",
+            d["name"].lower(),
+        )
+
+    devices.sort(key=score)
     return devices
+
 
 def connect_device(mac):
     if mac:
-        run("bluetoothctl connect " + mac)
+        run(f"bluetoothctl connect {mac}")
+
 
 def disconnect_device(mac):
     if mac:
-        run("bluetoothctl disconnect " + mac)
+        run(f"bluetoothctl disconnect {mac}")
 
-def open_advanced_bluetooth_settings():
-    # Futuro: nodalix-settings bluetooth
-    if has_cmd("bluetui"):
-        run("alacritty -e bluetui")
-    elif has_cmd("blueberry"):
-        run("blueberry")
-    elif has_cmd("blueman-manager"):
-        run("blueman-manager")
-    else:
-        run("notify-send \"Nodalix Bluetooth\" \"Ajustes avanzados de Bluetooth todavía no implementados\"")
+
+def pair_device(mac):
+    if mac:
+        run(f"bluetoothctl pair {mac}")
+
+
+def trust_device(mac):
+    if mac:
+        run(f"bluetoothctl trust {mac}")
+
+
+def remove_device(mac):
+    if mac:
+        run(f"bluetoothctl remove {mac}")
+
+
+def scan_for_devices(seconds=25):
+    # Prepara BlueZ para pairing HID/gamepad.
+    bt("agent on", timeout=2)
+    bt("default-agent", timeout=2)
+    bt("power on", timeout=2)
+    bt("pairable on", timeout=2)
+    bt("discoverable on", timeout=2)
+
+    # Mantener el escaneo activo en background.
+    run("bluetoothctl scan on")
+
+
+def stop_scan():
+    bt("scan off", timeout=2)
+    bt("discoverable off", timeout=2)
+
 
 def setup_css():
     css = b"""
@@ -113,11 +269,29 @@ window {
   border-radius: 14px;
   padding: 9px 10px;
 }
+#device_row:hover {
+  background: rgba(137, 180, 250, 0.10);
+}
 #device_row_connected {
   background: rgba(137, 180, 250, 0.13);
   border: 1px solid rgba(137, 180, 250, 0.24);
   border-radius: 14px;
   padding: 9px 10px;
+}
+#device_row_gamepad {
+  background: rgba(166, 227, 161, 0.11);
+  border: 1px solid rgba(166, 227, 161, 0.24);
+  border-radius: 14px;
+  padding: 9px 10px;
+}
+#device_row_gamepad:hover {
+  background: rgba(166, 227, 161, 0.18);
+}
+#row_icon {
+  color: #89b4fa;
+  font-size: 24px;
+  min-width: 34px;
+  margin-right: 6px;
 }
 #row_title {
   color: #ffffff;
@@ -154,67 +328,33 @@ button:hover {
   padding: 4px 8px;
   color: #d9ffcf;
 }
+#warn_badge {
+  background: rgba(245, 194, 93, 0.16);
+  border: 1px solid rgba(245, 194, 93, 0.28);
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: #fff2bf;
+}
+scrollbar {
+  background: transparent;
+  border: 0;
+}
+scrollbar trough {
+  background: rgba(255, 255, 255, 0.035);
+  border-radius: 999px;
+}
+scrollbar slider {
+  background: rgba(137, 180, 250, 0.30);
+  border-radius: 999px;
+}
 """
     provider = Gtk.CssProvider()
     provider.load_from_data(css)
-    Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-
-def position_near_waybar_click(window, width, height):
-    raw = sh("hyprctl cursorpos -j")
-    monitors_raw = sh("hyprctl monitors -j")
-
-    if not raw:
-        window.set_position(Gtk.WindowPosition.CENTER)
-        return
-
-    try:
-        pos = json.loads(raw)
-        x = int(pos.get("x", 0))
-        y = int(pos.get("y", 0))
-    except Exception:
-        window.set_position(Gtk.WindowPosition.CENTER)
-        return
-
-    mon_x = 0
-    mon_y = 0
-    mon_w = 1920
-    mon_h = 1080
-
-    try:
-        monitors = json.loads(monitors_raw)
-        for mon in monitors:
-            mx = int(mon.get("x", 0))
-            my = int(mon.get("y", 0))
-            mw = int(mon.get("width", 1920))
-            mh = int(mon.get("height", 1080))
-
-            if x >= mx and x <= mx + mw and y >= my and y <= my + mh:
-                mon_x = mx
-                mon_y = my
-                mon_w = mw
-                mon_h = mh
-                break
-    except Exception:
-        pass
-
-    margin = 12
-
-    target_x = x - width // 2
-    target_y = y + 36
-
-    if target_x < mon_x + margin:
-        target_x = mon_x + margin
-
-    if target_x + width > mon_x + mon_w - margin:
-        target_x = mon_x + mon_w - width - margin
-
-    if target_y + height > mon_y + mon_h - margin:
-        target_y = y - height - 36
-
-    if target_y < mon_y + margin:
-        target_y = mon_y + margin
-
-    window.move(target_x, target_y)
+    Gtk.StyleContext.add_provider_for_screen(
+        Gdk.Screen.get_default(),
+        provider,
+        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+    )
 
 
 class BluetoothMenu(Gtk.Window):
@@ -224,7 +364,15 @@ class BluetoothMenu(Gtk.Window):
         self.set_size_request(WIDTH, HEIGHT)
         self.set_resizable(False)
         self.set_decorated(False)
-        position_near_waybar_click(self, 460, 420)
+        self.set_type_hint(Gdk.WindowTypeHint.DIALOG)
+        self.set_keep_above(True)
+        self.set_skip_taskbar_hint(True)
+        self.set_skip_pager_hint(True)
+
+        self.scanning = False
+        self.scan_ticks_left = 0
+        self.scan_ticks_left = 0
+
         self.connect("destroy", Gtk.main_quit)
         self.connect("key-press-event", self.on_key)
 
@@ -237,15 +385,30 @@ class BluetoothMenu(Gtk.Window):
         self.root.set_name("root")
         self.add(self.root)
 
+        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        self.root.pack_start(header, False, False, 0)
+
+        title_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        header.pack_start(title_box, True, True, 0)
+
         title = Gtk.Label(xalign=0)
         title.set_name("title")
         title.set_text("󰂯 Bluetooth")
-        self.root.pack_start(title, False, False, 0)
+        title_box.pack_start(title, False, False, 0)
 
         self.subtitle = Gtk.Label(xalign=0)
         self.subtitle.set_name("subtitle")
         self.subtitle.set_text("Control rápido de Bluetooth")
-        self.root.pack_start(self.subtitle, False, False, 0)
+        title_box.pack_start(self.subtitle, False, False, 0)
+
+        self.scan_button = Gtk.Button(label="Escanear")
+        self.scan_button.set_name("primary_button")
+        self.scan_button.connect("clicked", self.on_scan_clicked)
+        header.pack_start(self.scan_button, False, False, 0)
+
+        close = Gtk.Button(label="Cerrar")
+        close.connect("clicked", lambda _b: Gtk.main_quit())
+        header.pack_start(close, False, False, 0)
 
         self.status_card = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.status_card.set_name("card")
@@ -265,27 +428,21 @@ class BluetoothMenu(Gtk.Window):
 
         devices_title = Gtk.Label(xalign=0)
         devices_title.set_name("row_title")
-        devices_title.set_text("Dispositivos")
+        devices_title.set_text("Dispositivos Bluetooth")
         self.devices_card.pack_start(devices_title, False, False, 0)
 
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.devices_card.pack_start(scroll, True, True, 0)
+
         self.devices_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=7)
-        self.devices_card.pack_start(self.devices_box, True, True, 0)
+        scroll.add(self.devices_box)
 
         footer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.root.pack_end(footer, False, False, 0)
 
-        refresh = Gtk.Button(label="Buscar/Actualizar")
-        refresh.connect("clicked", self.on_refresh_clicked)
-        footer.pack_start(refresh, False, False, 0)
-
-        advanced = Gtk.Button(label="Ajustes avanzados de Bluetooth")
-        advanced.set_name("primary_button")
-        advanced.connect("clicked", lambda _b: open_advanced_bluetooth_settings())
-        footer.pack_start(advanced, True, True, 0)
-
-        close = Gtk.Button(label="Cerrar")
-        close.connect("clicked", lambda _b: Gtk.main_quit())
-        footer.pack_start(close, False, False, 0)
+        footer_spacer = Gtk.Label(label="")
+        footer.pack_start(footer_spacer, True, True, 0)
 
         self.refresh()
 
@@ -305,34 +462,36 @@ class BluetoothMenu(Gtk.Window):
             self.subtitle.set_text("No se detecta adaptador Bluetooth")
             self.power_button.set_label("No disponible")
             self.power_button.set_sensitive(False)
+            self.scan_button.set_sensitive(False)
             self.clear_devices()
             return False
 
         powered = bluetooth_powered()
+        pairable = bluetooth_pairable()
+        discovering = bluetooth_discovering() or self.scanning
+
         self.status_label.set_text("Bluetooth activado" if powered else "Bluetooth desactivado")
-        self.subtitle.set_text("Gestiona dispositivos emparejados y conectados")
+        self.subtitle.set_text(
+            (f"Escaneando dispositivos cercanos… {self.scan_ticks_left * 1.5:.0f}s" if discovering else "Dispositivos emparejados y cercanos")
+            + (" · Pairable" if pairable else "")
+        )
+
         self.power_button.set_sensitive(True)
         self.power_button.set_label("Desactivar" if powered else "Activar")
         self.power_button.set_name("danger_button" if powered else "primary_button")
+        self.scan_button.set_sensitive(powered and not self.scanning)
+        self.scan_button.set_label("Escaneando…" if self.scanning else "Escanear")
 
         self.clear_devices()
 
         if not powered:
-            label = Gtk.Label(xalign=0)
-            label.set_name("row_subtitle")
-            label.set_text("Activa Bluetooth para ver dispositivos.")
-            self.devices_box.pack_start(label, False, False, 0)
-            self.devices_box.show_all()
+            self.add_empty("Activa Bluetooth para ver dispositivos.")
             return False
 
         devices = parse_devices()
 
         if not devices:
-            label = Gtk.Label(xalign=0)
-            label.set_name("row_subtitle")
-            label.set_text("No hay dispositivos emparejados.")
-            self.devices_box.pack_start(label, False, False, 0)
-            self.devices_box.show_all()
+            self.add_empty("No hay dispositivos nuevos. Pulsa Escanear y pon el dispositivo Bluetooth en modo emparejamiento.")
             return False
 
         for device in devices:
@@ -341,53 +500,149 @@ class BluetoothMenu(Gtk.Window):
         self.devices_box.show_all()
         return False
 
-    def make_device_row(self, device):
-        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        row.set_name("device_row_connected" if device["connected"] else "device_row")
+    def add_empty(self, text):
+        label = Gtk.Label(xalign=0)
+        label.set_name("row_subtitle")
+        label.set_text(text)
+        self.devices_box.pack_start(label, False, False, 0)
+        self.devices_box.show_all()
 
-        text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+    def make_device_row(self, device):
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=14)
+
+        if device["connected"]:
+            row.set_name("device_row_connected")
+        elif device["kind"] == "gamepad":
+            row.set_name("device_row_gamepad")
+        else:
+            row.set_name("device_row")
+
+        icon = Gtk.Label(label=device_icon(device["kind"]))
+        icon.set_name("row_icon")
+        icon.set_size_request(34, -1)
+        row.pack_start(icon, False, False, 4)
+
+        text = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
         row.pack_start(text, True, True, 0)
 
         title = Gtk.Label(xalign=0)
         title.set_name("row_title")
         title.set_text(device["name"])
+        title.set_ellipsize(3)
         text.pack_start(title, False, False, 0)
+
+        flags = []
+        flags.append(device["type"])
+        if device["paired"]:
+            flags.append("emparejado")
+        else:
+            flags.append("nuevo")
+        if device["trusted"]:
+            flags.append("confiado")
+        if device["connected"]:
+            flags.append("conectado")
+        if device["rssi"]:
+            flags.append("RSSI " + device["rssi"])
 
         subtitle = Gtk.Label(xalign=0)
         subtitle.set_name("row_subtitle")
-        subtitle.set_text(device["mac"])
+        subtitle.set_text(device["mac"] + " · " + " · ".join(flags))
+        subtitle.set_ellipsize(3)
         text.pack_start(subtitle, False, False, 0)
 
-        if device["connected"]:
-            badge = Gtk.Label(label="Conectado")
+        if device["kind"] == "gamepad":
+            badge = Gtk.Label(label="Gamepad")
             badge.set_name("success_badge")
             row.pack_start(badge, False, False, 0)
+        elif not device["paired"]:
+            badge = Gtk.Label(label="Nuevo")
+            badge.set_name("warn_badge")
+            row.pack_start(badge, False, False, 0)
+
+        if device["connected"]:
             btn = Gtk.Button(label="Desconectar")
             btn.set_name("danger_button")
             btn.connect("clicked", lambda _b, mac=device["mac"]: self.disconnect_and_refresh(mac))
+            row.pack_start(btn, False, False, 0)
         else:
-            btn = Gtk.Button(label="Conectar")
-            btn.set_name("primary_button")
-            btn.connect("clicked", lambda _b, mac=device["mac"]: self.connect_and_refresh(mac))
+            if not device["paired"]:
+                pair = Gtk.Button(label="Emparejar")
+                pair.set_name("primary_button")
+                pair.connect("clicked", lambda _b, mac=device["mac"]: self.pair_trust_connect(mac))
+                row.pack_start(pair, False, False, 0)
+            else:
+                trust = Gtk.Button(label="Confiar")
+                trust.connect("clicked", lambda _b, mac=device["mac"]: self.trust_and_refresh(mac))
+                row.pack_start(trust, False, False, 0)
 
-        row.pack_start(btn, False, False, 0)
+                connect = Gtk.Button(label="Conectar")
+                connect.set_name("primary_button")
+                connect.connect("clicked", lambda _b, mac=device["mac"]: self.connect_and_refresh(mac))
+                row.pack_start(connect, False, False, 0)
+
+        remove = Gtk.Button(label="Olvidar")
+        remove.set_name("danger_button")
+        remove.connect("clicked", lambda _b, mac=device["mac"]: self.remove_and_refresh(mac))
+        row.pack_start(remove, False, False, 0)
+
         return row
+
+    def pair_trust_connect(self, mac):
+        notify("Nodalix Bluetooth", "Emparejando dispositivo…")
+        run(f"bluetoothctl agent on; bluetoothctl default-agent; bluetoothctl pair {mac}; bluetoothctl trust {mac}; bluetoothctl connect {mac}")
+        GLib.timeout_add(3500, self.refresh)
 
     def connect_and_refresh(self, mac):
         connect_device(mac)
-        GLib.timeout_add(1200, self.refresh)
+        GLib.timeout_add(1400, self.refresh)
 
     def disconnect_and_refresh(self, mac):
         disconnect_device(mac)
         GLib.timeout_add(900, self.refresh)
 
+    def trust_and_refresh(self, mac):
+        trust_device(mac)
+        GLib.timeout_add(900, self.refresh)
+
+    def remove_and_refresh(self, mac):
+        remove_device(mac)
+        GLib.timeout_add(900, self.refresh)
+
     def on_power_clicked(self, _button):
         set_power(not bluetooth_powered())
-        GLib.timeout_add(700, self.refresh)
+        GLib.timeout_add(900, self.refresh)
 
-    def on_refresh_clicked(self, _button):
-        run("bluetoothctl scan on")
-        GLib.timeout_add(1600, self.refresh)
+    def on_scan_clicked(self, _button):
+        if self.scanning:
+            return
+
+        self.scanning = True
+        self.scan_ticks_left = 18  # 18 * 1500ms = 27s aprox.
+        scan_for_devices(25)
+        notify("Nodalix Bluetooth", "Escaneando 25s. Pon cualquier dispositivo Bluetooth en modo emparejamiento.")
+        self.refresh()
+        GLib.timeout_add(1500, self.live_scan_tick)
+
+    def live_scan_tick(self):
+        if not self.scanning:
+            return False
+
+        self.scan_ticks_left -= 1
+        self.refresh()
+
+        if self.scan_ticks_left <= 0:
+            return self.finish_scan()
+
+        return True
+
+    def finish_scan(self):
+        self.scanning = False
+        stop_scan()
+        self.refresh()
+        notify("Nodalix Bluetooth", "Escaneo completado")
+        return False
+
+
 
 if __name__ == "__main__":
     setup_css()
