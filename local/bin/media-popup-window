@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import urllib.parse
+import urllib.request
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GdkPixbuf, GLib, Gdk
@@ -489,19 +490,17 @@ def setup_css():
     )
 
 
-def load_art_pixbuf(path):
-    if not path or not os.path.exists(path):
+
+def scale_pixbuf(src):
+    if not src:
         return None
 
-    src = GdkPixbuf.Pixbuf.new_from_file(path)
     src_w = src.get_width()
     src_h = src.get_height()
 
     if src_w <= 0 or src_h <= 0:
         return None
 
-    # object-fit: contain, no crop. The widget itself uses the resulting size,
-    # so 16:9 stays 16:9 and square art stays square.
     scale = min(MAX_ART_W / src_w, MAX_ART_H / src_h)
     scale = min(scale, 1.0) if max(src_w, src_h) <= max(MAX_ART_W, MAX_ART_H) else scale
 
@@ -509,6 +508,106 @@ def load_art_pixbuf(path):
     new_h = max(1, int(src_h * scale))
 
     return src.scale_simple(new_w, new_h, GdkPixbuf.InterpType.BILINEAR)
+
+
+def load_art_pixbuf_from_url(url):
+    if not url:
+        return None
+
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0 Nodalix Media Popup",
+            },
+        )
+
+        with urllib.request.urlopen(req, timeout=5) as response:
+            data = response.read(8 * 1024 * 1024)
+
+        if not data:
+            return None
+
+        loader = GdkPixbuf.PixbufLoader()
+        loader.write(data)
+        loader.close()
+
+        return scale_pixbuf(loader.get_pixbuf())
+    except Exception:
+        return None
+
+
+def youtube_video_id(url):
+    if not url:
+        return ""
+
+    try:
+        parsed = urllib.parse.urlparse(url)
+        host = (parsed.netloc or "").lower()
+        path = parsed.path or ""
+
+        if "youtube.com" in host:
+            if path == "/watch":
+                return urllib.parse.parse_qs(parsed.query).get("v", [""])[0]
+
+            for prefix in ["/shorts/", "/embed/", "/live/"]:
+                if path.startswith(prefix):
+                    return path.split(prefix, 1)[1].split("/", 1)[0]
+
+        if "youtu.be" in host:
+            return path.strip("/").split("/", 1)[0]
+    except Exception:
+        return ""
+
+    return ""
+
+
+def art_candidates(player, art):
+    candidates = []
+
+    if art:
+        candidates.append(art)
+
+    url = meta(player, "xesam:url", "")
+    video_id = youtube_video_id(url)
+
+    if video_id:
+        candidates.extend([
+            f"https://img.youtube.com/vi/{video_id}/maxresdefault.jpg",
+            f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg",
+            f"https://img.youtube.com/vi/{video_id}/mqdefault.jpg",
+        ])
+
+    return candidates
+
+
+def resolve_art_pixbuf(player, art):
+    for candidate in art_candidates(player, art):
+        if not candidate:
+            continue
+
+        if candidate.startswith("file://"):
+            path = urllib.parse.unquote(candidate.replace("file://", "", 1))
+            pix = load_art_pixbuf(path)
+        elif candidate.startswith("http://") or candidate.startswith("https://"):
+            pix = load_art_pixbuf_from_url(candidate)
+        else:
+            pix = load_art_pixbuf(candidate)
+
+        if pix:
+            return pix
+
+    return None
+
+
+def load_art_pixbuf(path):
+    if not path or not os.path.exists(path):
+        return None
+
+    try:
+        return scale_pixbuf(GdkPixbuf.Pixbuf.new_from_file(path))
+    except Exception:
+        return None
 
 
 class MediaPopup(Gtk.Window):
@@ -523,6 +622,8 @@ class MediaPopup(Gtk.Window):
 
         self.selected_player = pick_initial_player()
         self.known_players = []
+        self.last_cover_key = ""
+        self.last_cover_pixbuf = None
 
         screen = self.get_screen()
         visual = screen.get_rgba_visual()
@@ -710,13 +811,15 @@ class MediaPopup(Gtk.Window):
         self.vol_label.set_text(f"{volume}%")
         self.vol.handler_unblock_by_func(self.set_volume)
 
-        path = ""
-        if art.startswith("file://"):
-            path = urllib.parse.unquote(art.replace("file://", "", 1))
+        cover_key = (meta(player, "xesam:url", "") or title or "").strip()
+        pix = resolve_art_pixbuf(player, art)
 
-        pix = load_art_pixbuf(path)
         if pix:
+            self.last_cover_key = cover_key
+            self.last_cover_pixbuf = pix
             self.cover.set_from_pixbuf(pix)
+        elif cover_key and cover_key == self.last_cover_key and self.last_cover_pixbuf:
+            self.cover.set_from_pixbuf(self.last_cover_pixbuf)
         else:
             self.cover.set_from_icon_name("multimedia-player", Gtk.IconSize.DIALOG)
 
