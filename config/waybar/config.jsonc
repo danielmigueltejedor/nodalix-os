@@ -115,7 +115,7 @@
     "return-type": "json",
     "interval": 2,
     "tooltip": true,
-    "on-click": "nodalix-media-menu",
+    "on-click": "media-popup",
     "on-click-right": "playerctl play-pause",
     "on-scroll-up": "playerctl next",
     "on-scroll-down": "playerctl previous"

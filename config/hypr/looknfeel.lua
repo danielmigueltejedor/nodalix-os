@@ -118,3 +118,11 @@ o.window({ class = "^org.gnome.Nautilus$" }, {
   animation = "popin"
 })
 
+-- Nodalix media popup: anchored under center Waybar island
+o.window({ class = "^media-popup-window$" }, {
+  float = true,
+  size = { 560, 306 },
+  move = { "((monitor_w-window_w)/2)", "60" },
+  animation = "popin"
+})
+
