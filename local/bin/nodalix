@@ -30,11 +30,11 @@ case "$cmd" in
     fi
     ;;
 
-  nautilus)
-    exec nautilus "$@"
+  nautilus|files)
+    exec nautilus "${1:-$HOME}"
     ;;
 
-  nautilus-cwd)
+  nautilus-cwd|files-cwd)
     exec nautilus "$(pwd)"
     ;;
 
