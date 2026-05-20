@@ -28,6 +28,14 @@ def run(args):
     subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
+def debug_log(message):
+    try:
+        with open("/tmp/media-popup-window.log", "a", encoding="utf-8") as f:
+            f.write(str(message) + "\n")
+    except Exception:
+        pass
+
+
 def players():
     raw = cmd(["playerctl", "-l"])
     found = [p.strip() for p in raw.splitlines() if p.strip()]
@@ -121,6 +129,15 @@ def player_run(player, args):
         run(["playerctl", "-p", player] + args)
     else:
         run(["playerctl"] + args)
+
+
+def player_run_logged(player, args):
+    try:
+        cmdline = ["playerctl", "-p", player] + args if player else ["playerctl"] + args
+        debug_log("[action] " + " ".join(cmdline))
+        subprocess.Popen(cmdline, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception as e:
+        debug_log(f"[action] failed {args}: {e!r}")
 
 
 def meta(player, key, default=""):
@@ -353,6 +370,25 @@ def set_stream_volume(player, value):
         return
 
     player_run(player, ["volume", str(int(value) / 100)])
+
+
+def player_can(action_name, player):
+    if not player:
+        return False
+
+    prop = "CanGoNext" if action_name == "next" else "CanGoPrevious"
+
+    try:
+        out = subprocess.check_output(
+            ["playerctl", "-p", player, "metadata", "--format", "{{mpris:" + prop + "}}"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+            timeout=1,
+        ).strip().lower()
+
+        return out in ["true", "1", "yes"]
+    except Exception:
+        return False
 
 
 def friendly_status(status):
@@ -622,6 +658,9 @@ class MediaPopup(Gtk.Window):
 
         self.selected_player = pick_initial_player()
         self.known_players = []
+        self.action_locked = False
+        self.last_cover_key = ""
+        self.last_cover_pixbuf = None
         self.last_cover_key = ""
         self.last_cover_pixbuf = None
 
@@ -667,18 +706,18 @@ class MediaPopup(Gtk.Window):
         controls = Gtk.Box(spacing=10)
         right.pack_start(controls, False, False, 0)
 
-        prev_btn = Gtk.Button(label="󰒮")
-        prev_btn.connect("clicked", lambda _b: self.action("previous"))
-        controls.pack_start(prev_btn, False, False, 0)
+        self.prev_btn = Gtk.Button(label="󰒮")
+        self.prev_btn.connect("clicked", lambda _b: self.action("previous"))
+        controls.pack_start(self.prev_btn, False, False, 0)
 
         self.play_btn = Gtk.Button(label="")
         self.play_btn.set_name("play_button")
         self.play_btn.connect("clicked", lambda _b: self.action("play-pause"))
         controls.pack_start(self.play_btn, False, False, 0)
 
-        next_btn = Gtk.Button(label="󰒭")
-        next_btn.connect("clicked", lambda _b: self.action("next"))
-        controls.pack_start(next_btn, False, False, 0)
+        self.next_btn = Gtk.Button(label="󰒭")
+        self.next_btn.connect("clicked", lambda _b: self.action("next"))
+        controls.pack_start(self.next_btn, False, False, 0)
 
         volrow = Gtk.Box(spacing=10)
         right.pack_start(volrow, False, False, 0)
@@ -708,7 +747,7 @@ class MediaPopup(Gtk.Window):
 
         self.refresh_players()
         self.refresh()
-        GLib.timeout_add_seconds(1, self.refresh)
+        GLib.timeout_add_seconds(1, self.safe_refresh)
         GLib.timeout_add_seconds(3, self.refresh_players)
 
     def on_key(self, _w, event):
@@ -759,20 +798,39 @@ class MediaPopup(Gtk.Window):
             self.selected_player = ps[idx]
             self.refresh()
 
+    def unlock_action(self):
+        self.action_locked = False
+        return False
+
     def action(self, action_name):
-        if not self.selected_player:
+        if self.action_locked:
+            debug_log(f"[action] ignored repeated click: {action_name}")
             return
 
-        # Primero intentamos control MPRIS directo sobre el player seleccionado.
-        player_run(self.selected_player, [action_name])
+        self.action_locked = True
+        GLib.timeout_add(450, self.unlock_action)
 
-        # Fallback para webapps/navegadores que ignoran next/previous por MPRIS.
-        if action_name == "next":
-            GLib.timeout_add(180, lambda: run(["playerctl", "next"]) or False)
-        elif action_name == "previous":
-            GLib.timeout_add(180, lambda: run(["playerctl", "previous"]) or False)
+        player = self.selected_player
 
-        GLib.timeout_add(250, self.refresh)
+        try:
+            if not player:
+                return
+
+            if action_name == "play-pause":
+                player_run_logged(player, ["play-pause"])
+
+            elif action_name == "next":
+                # Si el navegador no expone Next por MPRIS, esto hará no-op.
+                player_run_logged(player, ["next"])
+                GLib.timeout_add(180, lambda: player_run_logged("", ["next"]) or False)
+
+            elif action_name == "previous":
+                player_run_logged(player, ["previous"])
+                GLib.timeout_add(180, lambda: player_run_logged("", ["previous"]) or False)
+
+            GLib.timeout_add(350, self.safe_refresh)
+        except Exception as e:
+            debug_log(f"[action] crash prevented: {e!r}")
 
     def set_volume(self, scale):
         if not self.selected_player:
@@ -781,6 +839,17 @@ class MediaPopup(Gtk.Window):
         value = int(scale.get_value())
         self.vol_label.set_text(f"{value}%")
         set_stream_volume(self.selected_player, value)
+
+    def safe_refresh(self):
+        try:
+            return self.refresh()
+        except Exception as e:
+            debug_log(f"[refresh] crash prevented: {e!r}")
+            try:
+                self.cover.set_from_icon_name("multimedia-player", Gtk.IconSize.DIALOG)
+            except Exception:
+                pass
+            return True
 
     def refresh(self):
         player = self.selected_player
@@ -805,6 +874,11 @@ class MediaPopup(Gtk.Window):
         else:
             self.play_btn.set_label("")
 
+        if hasattr(self, "next_btn"):
+            self.next_btn.set_sensitive(player_can("next", player))
+        if hasattr(self, "prev_btn"):
+            self.prev_btn.set_sensitive(player_can("previous", player))
+
         volume = get_stream_volume(player)
         self.vol.handler_block_by_func(self.set_volume)
         self.vol.set_value(volume)
@@ -812,16 +886,20 @@ class MediaPopup(Gtk.Window):
         self.vol.handler_unblock_by_func(self.set_volume)
 
         cover_key = (meta(player, "xesam:url", "") or title or "").strip()
-        pix = resolve_art_pixbuf(player, art)
 
-        if pix:
-            self.last_cover_key = cover_key
-            self.last_cover_pixbuf = pix
-            self.cover.set_from_pixbuf(pix)
-        elif cover_key and cover_key == self.last_cover_key and self.last_cover_pixbuf:
+        if cover_key and cover_key == self.last_cover_key and self.last_cover_pixbuf:
             self.cover.set_from_pixbuf(self.last_cover_pixbuf)
         else:
-            self.cover.set_from_icon_name("multimedia-player", Gtk.IconSize.DIALOG)
+            pix = resolve_art_pixbuf(player, art)
+
+            if pix:
+                self.last_cover_key = cover_key
+                self.last_cover_pixbuf = pix
+                self.cover.set_from_pixbuf(pix)
+            elif self.last_cover_pixbuf and title and title == self.last_cover_key:
+                self.cover.set_from_pixbuf(self.last_cover_pixbuf)
+            else:
+                self.cover.set_from_icon_name("multimedia-player", Gtk.IconSize.DIALOG)
 
         return True
 
