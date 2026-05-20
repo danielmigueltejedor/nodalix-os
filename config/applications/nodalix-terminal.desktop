@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Terminal
+Comment=Usar la línea de comandos
+Exec=ghostty
+Icon=com.mitchellh.ghostty
+Terminal=false
+Type=Application
+Categories=System;TerminalEmulator;
+StartupNotify=true
+Keywords=terminal;consola;shell;comandos;ghostty;nodalix;

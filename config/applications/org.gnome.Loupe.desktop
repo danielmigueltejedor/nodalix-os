@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Image Viewer
+Exec=loupe %U
+Icon=org.gnome.Loupe
+Type=Application
+NoDisplay=true
+Hidden=false

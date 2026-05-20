@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Sonido
+Comment=Gestionar volumen, entradas, salidas y dispositivos de audio
+Exec=pavucontrol
+Icon=multimedia-volume-control
+Terminal=false
+Type=Application
+Categories=AudioVideo;Audio;Mixer;Settings;
+StartupNotify=true
+Keywords=sonido;audio;volumen;microfono;micrófono;altavoces;pavucontrol;nodalix;

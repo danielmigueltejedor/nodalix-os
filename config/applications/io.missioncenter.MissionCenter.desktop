@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Mission Center
+Exec=missioncenter
+Icon=io.missioncenter.MissionCenter
+Type=Application
+NoDisplay=true
+Hidden=false

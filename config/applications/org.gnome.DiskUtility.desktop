@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Disks
+Exec=gnome-disks
+Icon=org.gnome.DiskUtility
+Type=Application
+NoDisplay=true
+Hidden=false

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Documentos
+Comment=Ver documentos PDF, EPUB y otros archivos compatibles
+Exec=papers %U
+Icon=org.gnome.Papers
+Terminal=false
+Type=Application
+Categories=Office;Viewer;Graphics;
+MimeType=application/pdf;application/postscript;image/vnd.djvu;application/epub+zip;
+StartupNotify=true
+Keywords=documentos;pdf;epub;visor;papers;document viewer;nodalix;

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=Fotos
+Comment=Ver imágenes y fotografías
+Exec=loupe %U
+Icon=org.gnome.Loupe
+Terminal=false
+Type=Application
+Categories=Graphics;Viewer;
+MimeType=image/png;image/jpeg;image/webp;image/gif;image/tiff;image/bmp;image/svg+xml;
+StartupNotify=true
+Keywords=fotos;imagenes;imágenes;photo;image;visor;loupe;nodalix;

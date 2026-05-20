@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Calculadora
+Comment=Realizar cálculos rápidos
+Exec=gnome-calculator
+Icon=org.gnome.Calculator
+Terminal=false
+Type=Application
+Categories=Utility;Calculator;
+StartupNotify=true
+Keywords=calculadora;calcular;math;matematicas;matemáticas;calculator;nodalix;
