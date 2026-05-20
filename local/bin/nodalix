@@ -26,7 +26,7 @@ case "$cmd" in
     elif command -v cursor >/dev/null 2>&1; then
       exec cursor "$@"
     else
-      exec code "$@"
+      exec zed "$@"
     fi
     ;;
 
@@ -62,7 +62,7 @@ Nodalix commands:
   nodalix terminal-tmux  Open Ghostty with tmux
   nodalix browser        Open Zen Browser
   nodalix browser --private
-  nodalix editor         Open Zed/Cursor/Code
+  nodalix editor         Open Zed/Cursor
   nodalix nautilus       Open file manager
   nodalix nautilus-cwd   Open file manager in current directory
   nodalix passwords      Open Bitwarden

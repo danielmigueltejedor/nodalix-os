@@ -603,7 +603,7 @@ class NodalixMenu(Gtk.Window):
         elif self.active == "appearance":
             self.header("Apariencia", "Tema, Waybar, Hyprland y experiencia visual")
             self.card("󰉼", "Look & Feel", "Editar configuración visual principal.", buttons=[
-                ("Editar", "code ~/.config/hypr/looknfeel.lua", "primary_button"),
+                ("Editar", "zed ~/.config/hypr/looknfeel.lua", "primary_button"),
                 ("Recargar", "hyprctl reload && notify-send 'Nodalix' 'Hyprland recargado'", None),
             ])
             self.card("󰕮", "Waybar", "Reiniciar barra superior.", buttons=[
@@ -655,7 +655,7 @@ class NodalixMenu(Gtk.Window):
             monitors = sh("hyprctl monitors | grep -E 'Monitor|focused|scale|transform|availableModes' | head -n 16") or "Sin datos"
             self.header("Pantallas", "Monitores, escala, frecuencia y posición")
             self.card("󰍹", "Monitores Hyprland", monitors, buttons=[
-                ("Editar", "code ~/.config/hypr/monitors.lua", "primary_button"),
+                ("Editar", "zed ~/.config/hypr/monitors.lua", "primary_button"),
                 ("Ver", terminal("hyprctl monitors"), None),
                 ("Recargar", "hyprctl reload", None),
             ])

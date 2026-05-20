@@ -26,9 +26,9 @@
       "actions",
       "command bar config"
     ],
-    "command": "code ~/.config/nodalix/actions.json",
+    "command": "zed ~/.config/nodalix/actions.json",
     "requires": [
-      "code"
+      "zed"
     ],
     "hide_if_missing": true,
     "danger": false
@@ -335,7 +335,7 @@
       "cliphist",
       "rofi",
       "wl-copy",
-      "code"
+      "zed"
     ],
     "hide_if_missing": true,
     "danger": false,
@@ -456,13 +456,13 @@
   },
   {
     "icon": "󰨞",
-    "title": "Abrir VS Code",
-    "subtitle": "Dev · Visual Studio Code",
-    "search": "dev code vscode visual studio programar",
-    "command": "code",
+    "title": "Abrir Zed",
+    "subtitle": "Dev · Zed",
+    "search": "dev zed code editor programar",
+    "command": "zed",
     "category": "Dev",
     "requires": [
-      "code"
+      "zed"
     ],
     "hide_if_missing": true,
     "danger": false,

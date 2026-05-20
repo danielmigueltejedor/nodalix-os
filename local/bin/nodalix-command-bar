@@ -947,10 +947,10 @@ def load_actions():
             {
                 "kind": "action",
                 "icon": "󰨞",
-                "title": "Abrir VS Code",
-                "subtitle": "Dev · Visual Studio Code",
-                "search": "dev code vscode visual studio programar",
-                "command": "code",
+                "title": "Abrir Zed",
+                "subtitle": "Dev · Zed",
+                "search": "dev zed zed editor programar",
+                "command": "zed",
             },
             {
                 "kind": "action",
