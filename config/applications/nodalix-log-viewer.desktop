@@ -1,10 +1,10 @@
 [Desktop Entry]
-Name=Log Viewer
-Comment=View and inspect system logs
+Name=Visor de registros
+Comment=Ver e inspeccionar los registros del sistema
 Exec=gnome-logs
 Icon=org.gnome.Logs
 Terminal=false
 Type=Application
 Categories=System;Monitor;Utility;LogViewer;
 StartupNotify=true
-Keywords=logs;log viewer;registros;journal;systemd;gnome logs;system logs;nodalix;
+Keywords=logs;registros;visor de registros;journal;systemd;gnome logs;registros del sistema;nodalix;

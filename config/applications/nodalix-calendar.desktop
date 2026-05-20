@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Calendario
+Comment=Calendario y planificación elegante para Nodalix
+Exec=morgen
+Icon=morgen
+Terminal=false
+Type=Application
+Categories=Office;Calendar;Productivity;
+StartupNotify=true
+Keywords=calendar;calendario;agenda;eventos;morgen;planificador;planificación;nodalix;
