@@ -1,3 +1,12 @@
+-- Nodalix window borders
+hl.config({
+  general = {
+    border_size = 3,
+    ["col.active_border"] = "rgba(cba6f7ee)",
+    ["col.inactive_border"] = "rgba(31324455)",
+  },
+})
+
 -- Change the default Omarchy look'n'feel.
 
 -- https://wiki.hypr.land/Configuring/Basics/Variables/#general
@@ -6,7 +15,7 @@
 --     -- No gaps between windows or borders.
 --     gaps_in = 0,
 --     gaps_out = 0,
---     border_size = 0,
+--     border_size = 3,
 --
 --     -- Change to niri-like side-scrolling layout.
 --     layout = "scrolling",
