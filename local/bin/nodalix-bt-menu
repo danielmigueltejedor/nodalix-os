@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP="$HOME/Projects/nodalix-os/local/bin/nodalix-bt-menu-window"
+APP="$HOME/.local/bin/nodalix-bt-menu-window"
 LOG="/tmp/nodalix-bt-menu.log"
-nodalix-close-popups "nodalix-bt-menu-window"
 
-if pgrep -f "$APP" >/dev/null; then
-  pkill -f "$APP" || true
+nodalix-close-popups "nodalix-bt-menu-window" 2>/dev/null || true
+
+if hyprctl clients -j 2>/dev/null | jq -e '.[] | select(.class == "nodalix-bt-menu-window")' >/dev/null; then
+  pkill -f "nodalix-bt-menu-window" 2>/dev/null || true
   exit 0
 fi
 

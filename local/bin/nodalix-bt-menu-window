@@ -8,6 +8,7 @@ import json
 import re
 import subprocess
 import threading
+import time
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib
@@ -30,6 +31,19 @@ def sh(cmd, timeout=4):
 
 def run(cmd):
     subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def bt_run_blocking(cmd, timeout=10):
+    try:
+        subprocess.run(
+            cmd,
+            shell=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=timeout,
+        )
+    except Exception:
+        pass
 
 
 def has_cmd(cmd):
@@ -204,6 +218,32 @@ def pair_device(mac):
         run(f"bluetoothctl pair {mac}")
 
 
+def pair_trust_connect_interactive(mac):
+    if not mac:
+        return
+
+    script = f"""
+agent on
+default-agent
+power on
+pairable on
+pair {mac}
+yes
+trust {mac}
+connect {mac}
+info {mac}
+quit
+"""
+
+    subprocess.Popen(
+        ["bluetoothctl"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        text=True,
+    ).communicate(script)
+
+
 def trust_device(mac):
     if mac:
         run(f"bluetoothctl trust {mac}")
@@ -230,6 +270,24 @@ def stop_scan():
     bt("scan off", timeout=2)
     bt("discoverable off", timeout=2)
 
+
+def auto_connect_trusted_devices(blocked_until=None):
+    blocked_until = blocked_until or {}
+    now = time.time()
+
+    # Intenta reconectar dispositivos recordados de verdad.
+    # No hace pairing nuevo, solo connect sobre paired+trusted desconectados.
+    for device in parse_devices():
+        mac = device.get("mac", "")
+        if blocked_until.get(mac, 0) > now:
+            continue
+
+        if device.get("paired") and device.get("trusted") and not device.get("connected"):
+            kind = device.get("kind")
+            name = device.get("name", "")
+            # Prioridad a periféricos típicos: gamepad, teclado, ratón, audio.
+            if kind in ["gamepad", "keyboard", "mouse", "audio"] or "xbox" in name.lower():
+                run(f"bluetoothctl connect {mac}")
 
 def setup_css():
     css = b"""
@@ -369,9 +427,12 @@ class BluetoothMenu(Gtk.Window):
         self.set_skip_taskbar_hint(True)
         self.set_skip_pager_hint(True)
 
+
+
         self.scanning = False
         self.scan_ticks_left = 0
-        self.scan_ticks_left = 0
+        self.did_auto_connect = False
+        self.auto_connect_blocked_until = {}
 
         self.connect("destroy", Gtk.main_quit)
         self.connect("key-press-event", self.on_key)
@@ -445,6 +506,7 @@ class BluetoothMenu(Gtk.Window):
         footer.pack_start(footer_spacer, True, True, 0)
 
         self.refresh()
+        GLib.timeout_add_seconds(2, self.periodic_refresh)
 
     def on_key(self, _w, event):
         if event.keyval == Gdk.KEY_Escape:
@@ -487,6 +549,11 @@ class BluetoothMenu(Gtk.Window):
         if not powered:
             self.add_empty("Activa Bluetooth para ver dispositivos.")
             return False
+
+        if not self.did_auto_connect:
+            self.did_auto_connect = True
+            auto_connect_trusted_devices(self.auto_connect_blocked_until)
+            GLib.timeout_add(1800, self.refresh)
 
         devices = parse_devices()
 
@@ -575,7 +642,8 @@ class BluetoothMenu(Gtk.Window):
                 trust.connect("clicked", lambda _b, mac=device["mac"]: self.trust_and_refresh(mac))
                 row.pack_start(trust, False, False, 0)
 
-                connect = Gtk.Button(label="Conectar")
+                connect_label = "Reconectar" if device["trusted"] else "Conectar"
+                connect = Gtk.Button(label=connect_label)
                 connect.set_name("primary_button")
                 connect.connect("clicked", lambda _b, mac=device["mac"]: self.connect_and_refresh(mac))
                 row.pack_start(connect, False, False, 0)
@@ -587,30 +655,102 @@ class BluetoothMenu(Gtk.Window):
 
         return row
 
+    def schedule_state_refreshes(self):
+        GLib.timeout_add(350, self.refresh)
+        GLib.timeout_add(1000, self.refresh)
+        GLib.timeout_add(2200, self.refresh)
+        GLib.timeout_add(4200, self.refresh)
+
+    def periodic_refresh(self):
+        if self.get_visible():
+            self.refresh()
+            return True
+        return False
+
+    def schedule_state_refreshes(self):
+        GLib.timeout_add(350, self.refresh)
+        GLib.timeout_add(1000, self.refresh)
+        GLib.timeout_add(2200, self.refresh)
+        GLib.timeout_add(4200, self.refresh)
+
     def pair_trust_connect(self, mac):
-        notify("Nodalix Bluetooth", "Emparejando dispositivo…")
-        run(f"bluetoothctl agent on; bluetoothctl default-agent; bluetoothctl pair {mac}; bluetoothctl trust {mac}; bluetoothctl connect {mac}")
-        GLib.timeout_add(3500, self.refresh)
+        notify("Nodalix Bluetooth", "Emparejando dispositivo… acepta si BlueZ lo solicita.")
+        threading.Thread(target=pair_trust_connect_interactive, args=(mac,), daemon=True).start()
+        self.schedule_state_refreshes()
 
-    def connect_and_refresh(self, mac):
-        connect_device(mac)
-        GLib.timeout_add(1400, self.refresh)
-
-    def disconnect_and_refresh(self, mac):
-        disconnect_device(mac)
-        GLib.timeout_add(900, self.refresh)
-
-    def trust_and_refresh(self, mac):
-        trust_device(mac)
-        GLib.timeout_add(900, self.refresh)
-
-    def remove_and_refresh(self, mac):
-        remove_device(mac)
-        GLib.timeout_add(900, self.refresh)
 
     def on_power_clicked(self, _button):
         set_power(not bluetooth_powered())
-        GLib.timeout_add(900, self.refresh)
+        self.schedule_state_refreshes()
+
+    def connect_and_refresh(self, mac):
+        notify("Nodalix Bluetooth", "Buscando reconexión… pulsa el botón Xbox si el mando está dormido.")
+        self.auto_connect_blocked_until.pop(mac, None)
+
+        def worker():
+            # Preparar BlueZ para que vea el mando si se despierta/anuncia.
+            bt_run_blocking("bluetoothctl power on", timeout=3)
+            bt_run_blocking("bluetoothctl agent on", timeout=3)
+            bt_run_blocking("bluetoothctl default-agent", timeout=3)
+            bt_run_blocking("bluetoothctl pairable on", timeout=3)
+            bt_run_blocking(f"bluetoothctl trust {mac}", timeout=5)
+            bt_run_blocking("bluetoothctl scan on", timeout=3)
+
+            # El mando Xbox a veces solo acepta conexión cuando se despierta.
+            # Intentamos varias veces mientras el usuario pulsa Xbox o el mando anuncia.
+            for _ in range(9):
+                info = bt(f"info {mac}", timeout=3)
+                if "Connected: yes" in info:
+                    break
+
+                bt_run_blocking(f"bluetoothctl connect {mac}", timeout=6)
+
+                info = bt(f"info {mac}", timeout=3)
+                GLib.idle_add(self.refresh)
+
+                if "Connected: yes" in info:
+                    break
+
+                time.sleep(1.5)
+
+            bt_run_blocking("bluetoothctl scan off", timeout=3)
+            GLib.idle_add(self.refresh)
+
+        threading.Thread(target=worker, daemon=True).start()
+        self.schedule_state_refreshes()
+
+    def disconnect_and_refresh(self, mac):
+        notify("Nodalix Bluetooth", "Desconectando dispositivo…")
+        self.auto_connect_blocked_until[mac] = time.time() + 20
+
+        def worker():
+            bt_run_blocking(f"bluetoothctl disconnect {mac}", timeout=8)
+            GLib.idle_add(self.refresh)
+
+        threading.Thread(target=worker, daemon=True).start()
+        self.schedule_state_refreshes()
+
+    def trust_and_refresh(self, mac):
+        notify("Nodalix Bluetooth", "Marcando como dispositivo de confianza…")
+
+        def worker():
+            bt_run_blocking(f"bluetoothctl trust {mac}", timeout=5)
+            bt_run_blocking(f"bluetoothctl connect {mac}", timeout=10)
+            GLib.idle_add(self.refresh)
+
+        threading.Thread(target=worker, daemon=True).start()
+        self.schedule_state_refreshes()
+
+    def remove_and_refresh(self, mac):
+        notify("Nodalix Bluetooth", "Olvidando dispositivo…")
+
+        def worker():
+            bt_run_blocking(f"bluetoothctl remove {mac}", timeout=8)
+            GLib.idle_add(self.refresh)
+
+        threading.Thread(target=worker, daemon=True).start()
+        self.schedule_state_refreshes()
+
 
     def on_scan_clicked(self, _button):
         if self.scanning:
@@ -636,7 +776,6 @@ class BluetoothMenu(Gtk.Window):
         return True
 
     def finish_scan(self):
-        self.scanning = False
         stop_scan()
         self.refresh()
         notify("Nodalix Bluetooth", "Escaneo completado")
