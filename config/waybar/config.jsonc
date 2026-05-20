@@ -27,7 +27,7 @@
     "format": "󱡓",
     "tooltip": true,
     "tooltip-format": "Nodalix Menu",
-    "on-click": "nodalix-command-bar-toggle"
+    "on-click": "nodalix-menu"
   },
   "hyprland/workspaces": {
     "format": "{id}",

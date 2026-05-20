@@ -126,3 +126,11 @@ o.window({ class = "^media-popup-window$" }, {
   animation = "popin"
 })
 
+-- Nodalix Menu: System Settings style popup
+o.window({ class = "^nodalix-menu-window$" }, {
+  float = true,
+  size = { 1120, 740 },
+  center = true,
+  animation = "popin"
+})
+
