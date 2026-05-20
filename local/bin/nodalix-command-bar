@@ -507,11 +507,69 @@ def make_icon_widget(item):
 
 
 
+def nodalix_app_category(name, exec_cmd, categories, keywords, comment):
+    hay = " ".join([
+        str(name or ""),
+        str(exec_cmd or ""),
+        str(categories or ""),
+        str(keywords or ""),
+        str(comment or ""),
+    ]).lower()
+
+    cats = {c.strip().lower() for c in str(categories or "").split(";") if c.strip()}
+
+    # Apps base Nodalix con filtros propios.
+    if "nodalix files" in hay or "filemanager" in cats or "inode/directory" in hay:
+        return "Archivos"
+
+    if "mousam" in hay or "weather" in hay or "forecast" in hay or "tiempo" in hay or "clima" in hay:
+        return "Tiempo"
+
+    if "missioncenter" in hay or "mission center" in hay or "system monitor" in hay or "ksystemlog" in hay or "gnome logs" in hay or "logs" in hay or "journal" in hay:
+        return "Sistema"
+
+    if "calendar" in hay or "morgen" in hay or "calendario" in hay or "agenda" in hay:
+        return "Productividad"
+
+    if "papers" in hay or "evince" in hay or "document viewer" in hay or "pdf" in hay or "documents" in hay or "documentos" in hay:
+        return "Documentos"
+
+    if "loupe" in hay or "drawing" in hay or "image" in hay or "photo" in hay or "graphics" in cats or "2dgraphics" in cats:
+        return "Imágenes"
+
+    if "development" in cats:
+        return "Dev"
+
+    if "game" in cats:
+        return "Gaming"
+
+    if "network" in cats:
+        return "Red"
+
+    if "audiovideo" in cats or "audio" in cats or "video" in cats:
+        return "Audio"
+
+    if "settings" in cats or "system" in cats or "monitor" in cats:
+        return "Sistema"
+
+    if "office" in cats:
+        return "Productividad"
+
+    if "utility" in cats:
+        return "Utilidades"
+
+    return "Apps"
+
+
 def parse_desktop_file(path):
     name = None
     exec_cmd = None
     icon_name = None
     wmclass = None
+    comment = None
+    generic_name = None
+    categories = ""
+    keywords = ""
     hidden = False
     nodisplay = False
     terminal = False
@@ -533,12 +591,20 @@ def parse_desktop_file(path):
 
             if line.startswith("Name=") and name is None:
                 name = line.split("=", 1)[1].strip()
+            elif line.startswith("GenericName=") and generic_name is None:
+                generic_name = line.split("=", 1)[1].strip()
+            elif line.startswith("Comment=") and comment is None:
+                comment = line.split("=", 1)[1].strip()
             elif line.startswith("Exec=") and exec_cmd is None:
                 exec_cmd = line.split("=", 1)[1].strip()
             elif line.startswith("Icon=") and icon_name is None:
                 icon_name = line.split("=", 1)[1].strip()
             elif line.startswith("StartupWMClass=") and wmclass is None:
                 wmclass = line.split("=", 1)[1].strip()
+            elif line.startswith("Categories="):
+                categories = line.split("=", 1)[1].strip()
+            elif line.startswith("Keywords="):
+                keywords = line.split("=", 1)[1].strip()
             elif line.startswith("NoDisplay="):
                 nodisplay = line.split("=", 1)[1].strip().lower() == "true"
             elif line.startswith("Hidden="):
@@ -557,14 +623,25 @@ def parse_desktop_file(path):
     if terminal and exec_cmd:
         exec_cmd = f"alacritty -e {exec_cmd}"
 
+    category = nodalix_app_category(name, exec_cmd, categories, keywords, comment)
+
+    subtitle_parts = [category]
+    if generic_name:
+        subtitle_parts.append(generic_name)
+    elif comment:
+        subtitle_parts.append(comment)
+    else:
+        subtitle_parts.append(exec_cmd)
+
     return {
         "kind": "app",
         "icon": "󰣆",
         "icon_name": icon_name or "application-x-executable",
         "title": name,
-        "subtitle": f"App · {exec_cmd}",
-        "search": f"{name} {exec_cmd} {wmclass or ''} {base}".lower(),
+        "subtitle": " · ".join(subtitle_parts),
+        "search": f"{name} {generic_name or ''} {comment or ''} {exec_cmd} {wmclass or ''} {base} {categories} {keywords}".lower(),
         "command": exec_cmd,
+        "category": category,
         "wmclass": wmclass or "",
         "exec_base": base,
     }
@@ -574,6 +651,8 @@ def parse_desktop_file(path):
 def load_apps():
     dirs = [
         Path.home() / ".local/share/applications",
+        Path.home() / ".local/share/flatpak/exports/share/applications",
+        Path("/var/lib/flatpak/exports/share/applications"),
         Path("/usr/local/share/applications"),
         Path("/usr/share/applications"),
     ]
@@ -994,6 +1073,12 @@ def command_bar_filters(items):
     preferred = [
         "Nodalix",
         "Sistema",
+        "Archivos",
+        "Tiempo",
+        "Productividad",
+        "Documentos",
+        "Imágenes",
+        "Utilidades",
         "Energía",
         "Audio",
         "Red",
@@ -1010,9 +1095,6 @@ def command_bar_filters(items):
     seen = set()
 
     for item in items:
-        if item.get("kind") != "action":
-            continue
-
         category = str(item.get("category") or "").strip()
 
         if not category or category in seen:
@@ -1188,8 +1270,8 @@ class CommandBar(Gtk.Window):
         if f == "Workspaces":
             return kind == "workspace"
 
-        # Categorías dinámicas desde actions.json.
-        return kind == "action" and category == f
+        # Categorías dinámicas desde actions.json y categorías de apps .desktop.
+        return category == f
 
 
     def score_item(self, item, query):

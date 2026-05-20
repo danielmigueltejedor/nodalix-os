@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=Logs
+Exec=gnome-logs
+Icon=org.gnome.Logs
+Type=Application
+NoDisplay=true
+Hidden=false

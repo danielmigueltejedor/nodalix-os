@@ -1,0 +1,25 @@
+# Nodalix default desktop apps
+
+# Files
+# Nodalix Files is developed in ./nodalix-files
+nautilus
+
+# System
+gnome-logs
+
+# Weather
+# Flatpak: io.github.amit9838.mousam
+
+# Calendar
+morgen-bin
+
+# Documents
+papers
+evince
+
+# Images
+loupe
+drawing
+
+# Monitor
+# Flatpak: io.missioncenter.MissionCenter

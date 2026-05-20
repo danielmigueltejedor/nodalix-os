@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Log Viewer
+Comment=View and inspect system logs
+Exec=gnome-logs
+Icon=org.gnome.Logs
+Terminal=false
+Type=Application
+Categories=System;Monitor;Utility;LogViewer;
+StartupNotify=true
+Keywords=logs;log viewer;registros;journal;systemd;gnome logs;system logs;nodalix;
