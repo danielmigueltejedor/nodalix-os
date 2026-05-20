@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+@theme {
+  --color-nodalix-bg: rgba(17, 17, 27, 0.88);
+  --color-nodalix-surface: rgba(30, 30, 46, 0.72);
+  --color-nodalix-card: rgba(49, 50, 68, 0.55);
+  --color-nodalix-border: rgba(203, 166, 247, 0.18);
+  --color-nodalix-accent: #cba6f7;
+  --color-nodalix-accent-dim: rgba(203, 166, 247, 0.22);
+  --color-nodalix-text: #cdd6f4;
+  --color-nodalix-muted: #a6adc8;
+  --color-nodalix-danger: #f38ba8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  color: var(--color-nodalix-text);
+  background: radial-gradient(ellipse at top, #1e1e2e 0%, #11111b 55%, #0b0b12 100%);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(203, 166, 247, 0.35);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
