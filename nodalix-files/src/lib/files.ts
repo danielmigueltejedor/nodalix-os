@@ -8,15 +8,30 @@ export interface FileEntry {
   modified: number | null;
 }
 
-export interface SpecialDirs {
+export interface PathProperties {
+  name: string;
+  path: string;
+  kind: string;
+  size: number;
+  size_display: string;
+  created: number | null;
+  modified: number | null;
+  permissions: string;
+  is_symlink: boolean;
+  item_count: number | null;
+}
+
+export interface OpenWithApp {
+  id: string;
+  name: string;
+}
+
+export interface StartupBundle {
   home: string;
-  desktop: string | null;
-  downloads: string | null;
-  documents: string | null;
-  pictures: string | null;
-  videos: string | null;
-  music: string | null;
-  data: string | null;
+  platform: import("./platform").PlatformInfo;
+  sidebar_items: import("./sidebar").SidebarItem[];
+  localsend_available: boolean;
+  folder_customizations: Record<string, import("./folderCustomization").FolderStyle>;
 }
 
 export type FileKind =
@@ -28,22 +43,11 @@ export type FileKind =
   | "archive"
   | "generic";
 
-const IMAGE_EXT = new Set([
-  "png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico", "avif", "heic",
-]);
-const VIDEO_EXT = new Set([
-  "mp4", "mkv", "webm", "avi", "mov", "m4v", "wmv", "flv",
-]);
-const DOC_EXT = new Set([
-  "pdf", "doc", "docx", "odt", "txt", "md", "rtf", "xls", "xlsx", "ods",
-  "ppt", "pptx", "odp", "csv",
-]);
-const MUSIC_EXT = new Set([
-  "mp3", "flac", "wav", "ogg", "m4a", "aac", "opus", "wma",
-]);
-const ARCHIVE_EXT = new Set([
-  "zip", "tar", "gz", "bz2", "xz", "7z", "rar", "zst", "deb", "rpm",
-]);
+const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico", "avif"]);
+const VIDEO_EXT = new Set(["mp4", "mkv", "webm", "avi", "mov", "m4v"]);
+const DOC_EXT = new Set(["pdf", "doc", "docx", "odt", "txt", "md", "rtf", "xls", "xlsx", "csv"]);
+const MUSIC_EXT = new Set(["mp3", "flac", "wav", "ogg", "m4a", "aac", "opus"]);
+const ARCHIVE_EXT = new Set(["zip", "tar", "gz", "bz2", "xz", "7z", "rar", "zst"]);
 
 export function getFileKind(entry: FileEntry): FileKind {
   if (entry.is_dir) return "folder";
@@ -63,6 +67,11 @@ export function formatSize(bytes: number): string {
   return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
 }
 
+export function formatTimestamp(secs: number | null): string {
+  if (!secs) return "—";
+  return new Date(secs * 1000).toLocaleString();
+}
+
 export function parentPath(path: string): string | null {
   const normalized = path.replace(/\/+$/, "");
   const idx = normalized.lastIndexOf("/");
@@ -76,26 +85,28 @@ export function basename(path: string): string {
   return idx === -1 ? normalized : normalized.slice(idx + 1);
 }
 
-export async function listDirectory(path: string): Promise<FileEntry[]> {
-  return invoke<FileEntry[]>("list_directory", { path });
-}
-
-export async function getSpecialDirs(): Promise<SpecialDirs> {
-  return invoke<SpecialDirs>("get_special_dirs");
-}
-
-export async function openPath(path: string): Promise<void> {
-  await invoke("open_path", { path });
-}
-
-export async function createFolder(parent: string, name: string): Promise<string> {
-  return invoke<string>("create_folder", { parent, name });
-}
-
-export async function renamePath(oldPath: string, newName: string): Promise<string> {
-  return invoke<string>("rename_path", { oldPath, newName });
-}
-
-export async function trashPath(path: string): Promise<void> {
-  await invoke("trash_path", { path });
-}
+export const startupBundle = () => invoke<StartupBundle>("startup_bundle");
+export const listDirectory = (path: string) =>
+  invoke<FileEntry[]>("list_directory", { path });
+export const openPath = (path: string) => invoke<void>("open_path", { path });
+export const openWith = (path: string, appId: string) =>
+  invoke<void>("open_with", { path, appId });
+export const getOpenWithApps = (path: string) =>
+  invoke<OpenWithApp[]>("get_open_with_apps", { path });
+export const createFolder = (parent: string, name: string) =>
+  invoke<string>("create_folder", { parent, name });
+export const renamePath = (oldPath: string, newName: string) =>
+  invoke<string>("rename_path", { oldPath, newName });
+export const trashPaths = (paths: string[]) =>
+  invoke<void>("trash_paths", { paths });
+export const copyPaths = (paths: string[]) => invoke<void>("copy_paths", { paths });
+export const cutPaths = (paths: string[]) => invoke<void>("cut_paths", { paths });
+export const pasteInto = (targetDir: string) =>
+  invoke<void>("paste_into", { targetDir });
+export const clipboardHasContent = () => invoke<boolean>("clipboard_has_content");
+export const moveTo = (paths: string[], targetDir: string) =>
+  invoke<void>("move_to", { paths, targetDir });
+export const getProperties = (path: string) =>
+  invoke<PathProperties>("get_properties", { path });
+export const openTerminalHere = (path: string) =>
+  invoke<void>("open_terminal_here", { path });

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { basename, parentPath } from "../lib/files";
+import Breadcrumbs from "./Breadcrumbs";
 
 export interface Tab {
   id: string;
@@ -22,149 +23,9 @@ interface ToolbarProps {
   onTabClose: (tabId: string) => void;
   onNewTab: () => void;
   onNewFolder: () => void;
-  onRename: () => void;
-  onTrash: () => void;
-  hasSelection: boolean;
 }
 
-function ChevronLeft() {
-  return (
-    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path d="M15 6l-6 6 6 6" />
-    </svg>
-  );
-}
-
-function ChevronRight() {
-  return (
-    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path d="M9 6l6 6-6 6" />
-    </svg>
-  );
-}
-
-function ArrowUp() {
-  return (
-    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path d="M12 19V5M5 12l7-7 7 7" />
-    </svg>
-  );
-}
-
-function buildBreadcrumbs(path: string): { label: string; path: string }[] {
-  if (path === "/") return [{ label: "/", path: "/" }];
-  const parts = path.split("/").filter(Boolean);
-  const crumbs: { label: string; path: string }[] = [{ label: "/", path: "/" }];
-  let acc = "";
-  for (const part of parts) {
-    acc += `/${part}`;
-    crumbs.push({ label: part, path: acc });
-  }
-  return crumbs;
-}
-
-export default function Toolbar({
-  tabs,
-  activeTabId,
-  canGoBack,
-  canGoForward,
-  canGoUp,
-  onBack,
-  onForward,
-  onUp,
-  onBreadcrumb,
-  onTabSelect,
-  onTabClose,
-  onNewTab,
-  onNewFolder,
-  onRename,
-  onTrash,
-  hasSelection,
-}: ToolbarProps) {
-  const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
-  const crumbs = activeTab ? buildBreadcrumbs(activeTab.path) : [];
-
-  return (
-    <header className="flex flex-col gap-2 border-b border-nodalix-border bg-nodalix-bg/90 px-3 py-2 backdrop-blur-xl">
-      <div className="flex items-center gap-1 overflow-x-auto">
-        {tabs.map((tab) => (
-          <div
-            key={tab.id}
-            className={[
-              "group flex max-w-[180px] shrink-0 items-center gap-1 rounded-lg border px-2 py-1 text-xs transition-colors",
-              tab.id === activeTabId
-                ? "border-nodalix-accent/50 bg-nodalix-accent-dim text-nodalix-text"
-                : "border-transparent bg-nodalix-card/30 text-nodalix-muted hover:text-nodalix-text",
-            ].join(" ")}
-          >
-            <button type="button" className="truncate" onClick={() => onTabSelect(tab.id)}>
-              {basename(tab.path) || "Root"}
-            </button>
-            {tabs.length > 1 && (
-              <button
-                type="button"
-                className="rounded px-1 text-nodalix-muted opacity-0 hover:bg-white/10 group-hover:opacity-100"
-                onClick={() => onTabClose(tab.id)}
-                aria-label="Close tab"
-              >
-                ×
-              </button>
-            )}
-          </div>
-        ))}
-        <button
-          type="button"
-          onClick={onNewTab}
-          className="rounded-lg px-2 py-1 text-lg leading-none text-nodalix-muted hover:bg-nodalix-accent-dim hover:text-nodalix-accent"
-          aria-label="New tab"
-        >
-          +
-        </button>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex items-center gap-1">
-          <IconButton label="Back" disabled={!canGoBack} onClick={onBack}>
-            <ChevronLeft />
-          </IconButton>
-          <IconButton label="Forward" disabled={!canGoForward} onClick={onForward}>
-            <ChevronRight />
-          </IconButton>
-          <IconButton label="Up" disabled={!canGoUp} onClick={onUp}>
-            <ArrowUp />
-          </IconButton>
-        </div>
-
-        <nav className="flex min-w-0 flex-1 flex-wrap items-center gap-1 text-sm">
-          {crumbs.map((crumb, i) => (
-            <span key={crumb.path} className="flex min-w-0 items-center gap-1">
-              {i > 0 && <span className="text-nodalix-muted">/</span>}
-              <button
-                type="button"
-                className="truncate rounded-md px-1.5 py-0.5 text-nodalix-muted transition hover:bg-nodalix-accent-dim hover:text-nodalix-accent"
-                onClick={() => onBreadcrumb(crumb.path)}
-              >
-                {crumb.label}
-              </button>
-            </span>
-          ))}
-        </nav>
-
-        <div className="flex items-center gap-1">
-          <ActionButton onClick={onNewFolder}>New folder</ActionButton>
-          <ActionButton onClick={onRename} disabled={!hasSelection}>
-            Rename
-          </ActionButton>
-          <ActionButton onClick={onTrash} disabled={!hasSelection} variant="danger">
-            Delete
-          </ActionButton>
-        </div>
-      </div>
-    </header>
-  );
-}
-
-function IconButton({
+function NavBtn({
   children,
   label,
   disabled,
@@ -181,39 +42,100 @@ function IconButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="rounded-lg p-1.5 text-nodalix-muted transition enabled:hover:bg-nodalix-accent-dim enabled:hover:text-nodalix-accent disabled:opacity-35"
+      className="rounded-lg p-1.5 text-nodalix-muted transition enabled:hover:bg-nodalix-accent-dim enabled:hover:text-nodalix-accent disabled:opacity-30"
     >
       {children}
     </button>
   );
 }
 
-function ActionButton({
-  children,
-  onClick,
-  disabled,
-  variant = "default",
-}: {
-  children: ReactNode;
-  onClick: () => void;
-  disabled?: boolean;
-  variant?: "default" | "danger";
-}) {
+export default function Toolbar({
+  tabs,
+  activeTabId,
+  canGoBack,
+  canGoForward,
+  canGoUp,
+  onBack,
+  onForward,
+  onUp,
+  onBreadcrumb,
+  onTabSelect,
+  onTabClose,
+  onNewTab,
+  onNewFolder,
+}: ToolbarProps) {
+  const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
+
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={[
-        "rounded-lg border px-2.5 py-1 text-xs transition enabled:hover:-translate-y-px",
-        variant === "danger"
-          ? "border-nodalix-danger/30 text-nodalix-danger enabled:hover:bg-nodalix-danger/15"
-          : "border-nodalix-border text-nodalix-muted enabled:hover:border-nodalix-accent/40 enabled:hover:bg-nodalix-accent-dim enabled:hover:text-nodalix-text",
-        "disabled:opacity-35",
-      ].join(" ")}
-    >
-      {children}
-    </button>
+    <header className="flex flex-col gap-1.5 border-b border-nodalix-border bg-nodalix-bg/80 px-3 py-2 backdrop-blur-md">
+      <div className="flex items-center gap-1 overflow-x-auto">
+        {tabs.map((tab) => (
+          <div
+            key={tab.id}
+            className={[
+              "group flex max-w-[160px] shrink-0 items-center gap-0.5 rounded-lg px-2 py-0.5 text-xs transition",
+              tab.id === activeTabId
+                ? "bg-nodalix-accent-dim text-nodalix-text"
+                : "text-nodalix-muted hover:bg-white/5",
+            ].join(" ")}
+          >
+            <button type="button" className="truncate" onClick={() => onTabSelect(tab.id)}>
+              {basename(tab.path) || "Root"}
+            </button>
+            {tabs.length > 1 && (
+              <button
+                type="button"
+                className="rounded px-1 opacity-0 group-hover:opacity-100 hover:bg-white/10"
+                onClick={() => onTabClose(tab.id)}
+              >
+                ×
+              </button>
+            )}
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={onNewTab}
+          className="rounded-lg px-2 text-lg text-nodalix-muted hover:bg-nodalix-accent-dim hover:text-nodalix-accent"
+        >
+          +
+        </button>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-0.5">
+          <NavBtn label="Back" disabled={!canGoBack} onClick={onBack}>
+            <Chevron dir="left" />
+          </NavBtn>
+          <NavBtn label="Forward" disabled={!canGoForward} onClick={onForward}>
+            <Chevron dir="right" />
+          </NavBtn>
+          <NavBtn label="Up" disabled={!canGoUp} onClick={onUp}>
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 19V5M5 12l7-7 7 7" />
+            </svg>
+          </NavBtn>
+        </div>
+        {activeTab && (
+          <Breadcrumbs path={activeTab.path} onNavigate={onBreadcrumb} />
+        )}
+        <button
+          type="button"
+          onClick={onNewFolder}
+          className="shrink-0 rounded-lg border border-nodalix-border px-2.5 py-1 text-xs text-nodalix-muted transition hover:border-nodalix-accent/40 hover:bg-nodalix-accent-dim hover:text-nodalix-text"
+        >
+          New folder
+        </button>
+      </div>
+    </header>
+  );
+}
+
+function Chevron({ dir }: { dir: "left" | "right" }) {
+  return (
+    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d={dir === "left" ? "M15 6l-6 6 6 6" : "M9 6l6 6-6 6"} />
+    </svg>
   );
 }
 

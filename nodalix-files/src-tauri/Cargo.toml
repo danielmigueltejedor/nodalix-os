@@ -1,6 +1,6 @@
 [package]
 name = "nodalix-files"
-version = "0.1.0"
+version = "0.2.0"
 description = "Nodalix Files — modern file browser for Linux/Wayland"
 authors = ["Nodalix"]
 edition = "2021"

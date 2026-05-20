@@ -1,12 +1,12 @@
 # Nodalix Files
 
-Modern file browser for Linux/Wayland with Nodalix aesthetics. Built with Tauri 2, React, TypeScript, and Tailwind CSS.
+Modern file browser for Linux/Wayland (Hyprland) with Nodalix aesthetics. Tauri 2 + React + TypeScript + Tailwind.
 
 ## Requirements
 
-- [pnpm](https://pnpm.io/)
-- [Rust](https://www.rust-lang.org/tools/install)
-- Linux: `xdg-open`, `gio` (glib2) for trash support
+- pnpm
+- Rust toolchain
+- Linux: `xdg-open`, `gio` (trash), optional `localsend` / Flatpak
 
 ## Development
 
@@ -16,16 +16,28 @@ pnpm install
 pnpm tauri dev
 ```
 
+## Debug performance
+
+```bash
+NODALIX_FILES_DEBUG=1 pnpm tauri dev
+```
+
+Logs timings to stderr (Rust) and browser console (React).
+
+## Features (v0.2)
+
+- Context menus for files/folders and sidebar (no native browser menus)
+- Copy / cut / paste (in-app clipboard), move to trash via `gio trash`
+- Modals: rename, properties, move to, open with, folder color/icon
+- Sidebar pins persisted in `~/.config/nodalix-files/sidebar.json`
+- Folder appearance in `~/.config/nodalix-files/folder-customization.json`
+- Hyprland window chrome: close only (no minimize)
+- Fast startup via single `startup_bundle` IPC call
+- Directory listing cache + virtualized grid
+- Finder-like grid (no visible cell borders)
+
 ## Build
 
 ```bash
 pnpm tauri build
 ```
-
-## Features (v0.1)
-
-- Sidebar: Home, Desktop, Downloads, Documents, Pictures, Videos, Music, `/data` (if present)
-- Grid view, breadcrumbs, tabs, back/forward/up navigation
-- Double-click to open folders or files (`xdg-open`)
-- File-type icons (folder, image, video, document, music, archive, generic)
-- New folder, rename, move to trash (`gio trash`)

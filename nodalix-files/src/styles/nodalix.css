@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+@theme {
+  --color-nodalix-bg: rgba(17, 17, 27, 0.92);
+  --color-nodalix-surface: rgba(24, 24, 37, 0.78);
+  --color-nodalix-card: rgba(49, 50, 68, 0.45);
+  --color-nodalix-border: rgba(203, 166, 247, 0.14);
+  --color-nodalix-accent: #cba6f7;
+  --color-nodalix-accent-dim: rgba(203, 166, 247, 0.18);
+  --color-nodalix-accent-strong: rgba(203, 166, 247, 0.32);
+  --color-nodalix-text: #cdd6f4;
+  --color-nodalix-muted: #9399b2;
+  --color-nodalix-danger: #f38ba8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  color: var(--color-nodalix-text);
+  background: #0b0b12;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(203, 166, 247, 0.28);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@keyframes nodalix-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes nodalix-skeleton {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.65;
+  }
+}
+
+.nodalix-animate-in {
+  animation: nodalix-fade-in 120ms ease-out;
+}
+
+.nodalix-skeleton {
+  animation: nodalix-skeleton 1.2s ease-in-out infinite;
+  background: rgba(203, 166, 247, 0.08);
+  border-radius: 12px;
+}
