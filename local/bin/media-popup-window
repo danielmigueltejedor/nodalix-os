@@ -875,9 +875,16 @@ class MediaPopup(Gtk.Window):
             self.play_btn.set_label("")
 
         if hasattr(self, "next_btn"):
-            self.next_btn.set_sensitive(player_can("next", player))
+            if player_can("next", player):
+                self.next_btn.show()
+            else:
+                self.next_btn.hide()
+
         if hasattr(self, "prev_btn"):
-            self.prev_btn.set_sensitive(player_can("previous", player))
+            if player_can("previous", player):
+                self.prev_btn.show()
+            else:
+                self.prev_btn.hide()
 
         volume = get_stream_volume(player)
         self.vol.handler_block_by_func(self.set_volume)
