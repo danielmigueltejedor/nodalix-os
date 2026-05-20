@@ -24,7 +24,7 @@
     "pulseaudio"
   ],
   "custom/nodalix-menu": {
-    "format": "󱄅",
+    "format": "󱡓",
     "tooltip": true,
     "tooltip-format": "Nodalix Menu",
     "on-click": "nodalix-command-bar-toggle"
