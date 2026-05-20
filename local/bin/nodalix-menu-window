@@ -10,8 +10,8 @@ gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk
 
 APP_TITLE = "Nodalix Menu"
-WIDTH = 1120
-HEIGHT = 740
+WIDTH = 1180
+HEIGHT = 760
 
 
 def sh(cmd, timeout=3):
@@ -142,7 +142,7 @@ window {
 
 #root {
   background: rgba(17, 17, 27, 0.965);
-  border: 1px solid rgba(137, 180, 250, 0.28);
+  border: 1px solid rgba(203, 166, 247, 0.28);
   border-radius: 28px;
   padding: 18px;
   box-shadow: 0 28px 90px rgba(0, 0, 0, 0.58);
@@ -191,20 +191,22 @@ window {
 }
 
 #section_button:hover {
-  background: rgba(137, 180, 250, 0.13);
+  background: rgba(203, 166, 247, 0.13);
 }
 
 #section_button_active {
-  background: rgba(137, 180, 250, 0.24);
-  border: 1px solid rgba(137, 180, 250, 0.32);
+  background: rgba(203, 166, 247, 0.24);
+  border: 1px solid rgba(203, 166, 247, 0.32);
   border-radius: 16px;
   padding: 10px;
   box-shadow: none;
 }
 
 #section_icon {
-  color: #89b4fa;
+  color: #cba6f7;
   font-size: 23px;
+  min-width: 34px;
+  margin-right: 8px;
 }
 
 #section_title {
@@ -236,8 +238,8 @@ window {
 }
 
 #card:hover {
-  background: rgba(137, 180, 250, 0.075);
-  border-color: rgba(137, 180, 250, 0.20);
+  background: rgba(203, 166, 247, 0.075);
+  border-color: rgba(203, 166, 247, 0.20);
 }
 
 #card_title {
@@ -275,13 +277,13 @@ button {
 }
 
 button:hover {
-  background: rgba(137, 180, 250, 0.18);
+  background: rgba(203, 166, 247, 0.18);
   color: #ffffff;
 }
 
 #primary_button {
-  background: rgba(137, 180, 250, 0.22);
-  border: 1px solid rgba(137, 180, 250, 0.36);
+  background: rgba(203, 166, 247, 0.22);
+  border: 1px solid rgba(203, 166, 247, 0.36);
   color: #ffffff;
 }
 
@@ -292,9 +294,9 @@ button:hover {
 }
 
 #sleep_button {
-  background: rgba(137, 180, 250, 0.16);
-  border: 1px solid rgba(137, 180, 250, 0.30);
-  color: #dbe7ff;
+  background: rgba(203, 166, 247, 0.16);
+  border: 1px solid rgba(203, 166, 247, 0.30);
+  color: #f1ddff;
   padding: 8px 14px;
 }
 
@@ -335,7 +337,7 @@ scrollbar trough {
 }
 
 scrollbar slider {
-  background: rgba(137, 180, 250, 0.30);
+  background: rgba(203, 166, 247, 0.30);
   border-radius: 999px;
 }
 """
@@ -369,7 +371,8 @@ class NodalixMenu(Gtk.Window):
             self.set_visual(visual)
 
         self.sections = [
-            ("general", "󱡓", "General", "Sistema y estado"),
+            ("general", "󱡓", "Inicio", "Accesos rápidos y estado"),
+            ("nodalix", "󱡓", "Nodalix", "Files, Command Bar y configuración"),
             ("appearance", "󰉼", "Apariencia", "Tema, Waybar y efectos"),
             ("network", "󰖩", "Red y firewall", "Wi-Fi, IP, DNS, firewall"),
             ("bluetooth", "󰂯", "Bluetooth", "Dispositivos y emparejado"),
@@ -409,7 +412,7 @@ class NodalixMenu(Gtk.Window):
         title_box.pack_start(title, False, False, 0)
 
         subtitle = Gtk.Label(
-            label="Preferencias del sistema, privacidad, red, bundles, IA y mantenimiento",
+            label="Centro de control de Nodalix: sistema, apariencia, red, IA, bundles y mantenimiento",
             xalign=0,
         )
         subtitle.set_name("header_subtitle")
@@ -422,7 +425,7 @@ class NodalixMenu(Gtk.Window):
     def build_search(self, root):
         self.search = Gtk.SearchEntry()
         self.search.set_name("search")
-        self.search.set_placeholder_text("Buscar ajustes, red, firewall, IA, actualizaciones, almacenamiento…")
+        self.search.set_placeholder_text("Buscar ajustes, apps, red, apariencia, IA, mantenimiento…")
         self.search.connect("search-changed", lambda *_: self.render_sidebar())
         root.pack_start(self.search, False, False, 0)
 
@@ -591,13 +594,45 @@ class NodalixMenu(Gtk.Window):
 
         if self.active == "general":
             host, kernel, uptime, session, version = system_summary()
-            self.header("General", "Resumen del sistema Nodalix")
+            self.header("Inicio", "Accesos rápidos y resumen del sistema")
             self.card("󰌢", "Equipo", f"{host} · {session}", badge="Activo")
-            self.card("󰒋", "Kernel", kernel)
-            self.card("󰔚", "Tiempo encendido", uptime)
             self.card("󱡓", "Nodalix", version, buttons=[
-                ("Doctor", "nodalix-doctor", "primary_button"),
-                ("Command Bar", "nodalix-command-bar-toggle", None),
+                ("Command Bar", "nodalix-command-bar-toggle", "primary_button"),
+                ("Files", "nodalix-files-popup", None),
+                ("Terminal", "ghostty || alacritty || xterm", None),
+            ])
+            self.card("󰒋", "Sistema", f"Kernel: {kernel}\nUptime: {uptime}", buttons=[
+                ("btop", terminal("btop"), "primary_button"),
+                ("Logs Waybar", terminal("tail -n 160 /tmp/waybar.log"), None),
+            ])
+            self.card("󰊢", "Proyecto", "Repositorio local de Nodalix OS.", buttons=[
+                ("Abrir repo", "xdg-open ~/Projects/nodalix-os", "primary_button"),
+                ("Git status", terminal("cd ~/Projects/nodalix-os && git status --short"), None),
+            ])
+
+        elif self.active == "nodalix":
+            self.header("Nodalix", "Centro de herramientas de Nodalix OS")
+            self.card("󱡓", "Command Bar", "Lanzador rápido principal de Nodalix.", buttons=[
+                ("Abrir", "nodalix-command-bar-toggle", "primary_button"),
+                ("Editar", "zed ~/Projects/nodalix-os/local/bin/nodalix-command-bar", None),
+            ])
+            self.card("", "Nodalix Files", "Gestor de archivos propio integrado en la isla derecha.", buttons=[
+                ("Abrir", "nodalix-files-popup", "primary_button"),
+                ("Proyecto", "xdg-open ~/Projects/nodalix-os/nodalix-files", None),
+            ])
+            self.card("󰘳", "Configuración Hyprland", "Look & Feel, bindings, monitores y reglas de ventana.", buttons=[
+                ("looknfeel.lua", "zed ~/.config/hypr/looknfeel.lua", "primary_button"),
+                ("bindings.lua", "zed ~/.config/hypr/bindings.lua", None),
+                ("Recargar", "hyprctl reload && notify-send 'Nodalix' 'Hyprland recargado'", None),
+            ])
+            self.card("󰕮", "Waybar", "Config, estilos y reinicio rápido de la barra.", buttons=[
+                ("config.jsonc", "zed ~/.config/waybar/config.jsonc", "primary_button"),
+                ("style.css", "zed ~/.config/waybar/style.css", None),
+                ("Reiniciar", "pkill waybar; waybar >/tmp/waybar.log 2>&1 &", None),
+            ])
+            self.card("󰊢", "Repositorio", "Estado Git y sincronización con GitHub.", buttons=[
+                ("Git status", terminal("cd ~/Projects/nodalix-os && git status --short"), "primary_button"),
+                ("Abrir GitHub", "xdg-open https://github.com/danielmigueltejedor/nodalix-os", None),
             ])
 
         elif self.active == "appearance":
@@ -605,6 +640,30 @@ class NodalixMenu(Gtk.Window):
             self.card("󰉼", "Look & Feel", "Editar configuración visual principal.", buttons=[
                 ("Editar", "zed ~/.config/hypr/looknfeel.lua", "primary_button"),
                 ("Recargar", "hyprctl reload && notify-send 'Nodalix' 'Hyprland recargado'", None),
+            ])
+            self.card("󰝤", "Color de acento", "Cambia el acento global de Nodalix: bordes Hyprland, GTK, apps Nodalix y temas compatibles.", buttons=[
+                ("Elegir…", "nodalix-accent-color custom", "primary_button"),
+                ("Morado", "nodalix-accent-color purple", None),
+                ("Azul", "nodalix-accent-color blue", None),
+                ("Rosa", "nodalix-accent-color pink", None),
+                ("Verde", "nodalix-accent-color green", None),
+                ("Naranja", "nodalix-accent-color orange", None),
+            ])
+            self.card("󰘳", "Tema actual", "Muestra el tema Nodalix activo guardado en ~/.config/nodalix/theme.json.", buttons=[
+                ("Ver tema", terminal("nodalix-accent-color show"), "primary_button"),
+                ("Abrir config", "zed ~/.config/nodalix/theme.json", None),
+            ])
+            self.card("󰝤", "Color de acento", "Cambia el acento global de Nodalix: bordes Hyprland, GTK, apps Nodalix y temas compatibles.", buttons=[
+                ("Elegir…", "nodalix-accent-color custom", "primary_button"),
+                ("Morado", "nodalix-accent-color purple", None),
+                ("Azul", "nodalix-accent-color blue", None),
+                ("Rosa", "nodalix-accent-color pink", None),
+                ("Verde", "nodalix-accent-color green", None),
+                ("Naranja", "nodalix-accent-color orange", None),
+            ])
+            self.card("󰘳", "Tema actual", "Muestra el tema Nodalix activo guardado en ~/.config/nodalix/theme.json.", buttons=[
+                ("Ver tema", terminal("nodalix-accent-color show"), "primary_button"),
+                ("Abrir config", "zed ~/.config/nodalix/theme.json", None),
             ])
             self.card("󰕮", "Waybar", "Reiniciar barra superior.", buttons=[
                 ("Reiniciar", "pkill waybar; waybar >/tmp/waybar.log 2>&1 &", "primary_button"),
