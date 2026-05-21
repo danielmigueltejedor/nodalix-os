@@ -50,7 +50,7 @@
   "custom/nodalix-privacy": {
     "exec": "nodalix-right-island",
     "return-type": "json",
-    "interval": 2,
+    "interval": 5,
     "tooltip": true,
     "on-click": "nodalix-privacy-menu"
   },

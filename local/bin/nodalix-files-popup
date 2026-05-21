@@ -22,3 +22,4 @@ fi
 
 # Abrir
 nohup "$APP" >"$LOG" 2>&1 &
+~/.local/bin/nodalix-position-popup-right "nodalix-files" 420 620 14 >/dev/null 2>&1 &

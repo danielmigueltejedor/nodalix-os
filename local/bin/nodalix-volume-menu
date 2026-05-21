@@ -11,3 +11,4 @@ if pgrep -f "$APP" >/dev/null; then
 fi
 
 nohup "$APP" >"$LOG" 2>&1 &
+~/.local/bin/nodalix-position-popup-right "nodalix-audio-menu-window" 14 >/dev/null 2>&1 &

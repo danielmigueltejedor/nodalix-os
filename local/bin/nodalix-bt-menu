@@ -12,3 +12,4 @@ if hyprctl clients -j 2>/dev/null | jq -e '.[] | select(.class == "nodalix-bt-me
 fi
 
 nohup "$APP" >"$LOG" 2>&1 &
+~/.local/bin/nodalix-position-popup-right "nodalix-bt-menu-window" 14 >/dev/null 2>&1 &

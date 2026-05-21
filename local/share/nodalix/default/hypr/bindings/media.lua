@@ -1,7 +1,7 @@
 -- Volume, brightness, keyboard backlight, and touchpad controls.
-o.bind("XF86AudioRaiseVolume", "Volume up", "swayosd-client --output-volume raise", { locked = true, repeating = true })
-o.bind("XF86AudioLowerVolume", "Volume down", "swayosd-client --output-volume lower", { locked = true, repeating = true })
-o.bind("XF86AudioMute", "Mute", "swayosd-client --output-volume mute-toggle", { locked = true, repeating = true })
+o.bind("XF86AudioRaiseVolume", "Volume up", "nodalix-volume up", { locked = true, repeating = true })
+o.bind("XF86AudioLowerVolume", "Volume down", "nodalix-volume down", { locked = true, repeating = true })
+o.bind("XF86AudioMute", "Mute", "nodalix-volume mute", { locked = true, repeating = true })
 o.bind("XF86AudioMicMute", "Mute microphone", "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle", { locked = true, repeating = true })
 o.bind("XF86MonBrightnessUp", "Brightness up", "brightnessctl set +5%", { locked = true, repeating = true })
 o.bind("XF86MonBrightnessDown", "Brightness down", "brightnessctl set 5%-", { locked = true, repeating = true })
@@ -15,8 +15,8 @@ o.bind("XF86TouchpadOn", "Enable touchpad", "nodalix-toggle-touchpad on", { lock
 o.bind("XF86TouchpadOff", "Disable touchpad", "nodalix-toggle-touchpad off", { locked = true })
 
 -- Precise volume and brightness controls.
-o.bind("ALT + XF86AudioRaiseVolume", "Volume up precise", "swayosd-client --output-volume +1", { locked = true, repeating = true })
-o.bind("ALT + XF86AudioLowerVolume", "Volume down precise", "swayosd-client --output-volume -1", { locked = true, repeating = true })
+o.bind("ALT + XF86AudioRaiseVolume", "Volume up precise", "nodalix-volume up", { locked = true, repeating = true })
+o.bind("ALT + XF86AudioLowerVolume", "Volume down precise", "nodalix-volume down", { locked = true, repeating = true })
 o.bind("ALT + XF86MonBrightnessUp", "Brightness up precise", "brightnessctl set +1%", { locked = true, repeating = true })
 o.bind("ALT + XF86MonBrightnessDown", "Brightness down precise", "brightnessctl set 1%-", { locked = true, repeating = true })
 

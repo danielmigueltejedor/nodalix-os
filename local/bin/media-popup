@@ -14,3 +14,4 @@ if hyprctl clients -j 2>/dev/null | jq -e '.[] | select(.class == "media-popup-w
 fi
 
 nohup "$APP" >"$LOG" 2>&1 &
+~/.local/bin/nodalix-position-popup-right "media-popup-window" 420 320 14 >/dev/null 2>&1 &
