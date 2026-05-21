@@ -24,3 +24,9 @@ config/wpe-hypr/state.json
 zen-cache/
 build.zen
 __pycache__/
+
+# Local backups
+local/bin/Backups/
+
+# TypeScript incremental build info
+*.tsbuildinfo

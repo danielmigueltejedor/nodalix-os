@@ -2,8 +2,10 @@ import { useCallback, useState } from "react";
 import type { FileEntry } from "../lib/files";
 import {
   copyPaths,
+  createDocument,
   createFolder,
   cutPaths,
+  deletePathsPermanently,
   moveTo,
   openPath,
   openTerminalHere,
@@ -25,14 +27,25 @@ export function useFileActions(onRefresh: (path: string) => Promise<unknown>) {
     await openWith(path, appId);
   }, []);
 
-  const rename = useCallback(async (oldPath: string, newName: string, cwd: string) => {
-    await renamePath(oldPath, newName);
-    await onRefresh(cwd);
-  }, [onRefresh]);
+  const rename = useCallback(
+    async (oldPath: string, newName: string, cwd: string) => {
+      await renamePath(oldPath, newName);
+      await onRefresh(cwd);
+    },
+    [onRefresh],
+  );
 
   const trash = useCallback(
     async (paths: string[], cwd: string) => {
       await trashPaths(paths);
+      await onRefresh(cwd);
+    },
+    [onRefresh],
+  );
+
+  const deletePermanently = useCallback(
+    async (paths: string[], cwd: string) => {
+      await deletePathsPermanently(paths);
       await onRefresh(cwd);
     },
     [onRefresh],
@@ -68,8 +81,18 @@ export function useFileActions(onRefresh: (path: string) => Promise<unknown>) {
 
   const newFolder = useCallback(
     async (parent: string, name: string) => {
-      await createFolder(parent, name);
+      const created = await createFolder(parent, name);
       await onRefresh(parent);
+      return created;
+    },
+    [onRefresh],
+  );
+
+  const newDocument = useCallback(
+    async (parent: string, name: string) => {
+      const created = await createDocument(parent, name);
+      await onRefresh(parent);
+      return created;
     },
     [onRefresh],
   );
@@ -89,11 +112,13 @@ export function useFileActions(onRefresh: (path: string) => Promise<unknown>) {
     openWithApp,
     rename,
     trash,
+    deletePermanently,
     copy,
     cut,
     paste,
     move,
     newFolder,
+    newDocument,
     terminalHere,
     localSend,
   };

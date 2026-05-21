@@ -5,6 +5,7 @@ export interface SidebarItem {
   label: string;
   path: string;
   kind: string;
+  is_dir: boolean;
   pinned: boolean;
   custom: boolean;
   can_rename: boolean;
@@ -15,6 +16,7 @@ export interface SidebarConfig {
   hidden_builtin: string[];
   pins: { id: string; label: string; path: string }[];
   renamed: Record<string, string>;
+  icons?: Record<string, string>;
 }
 
 export const getSidebarItems = () => invoke<SidebarItem[]>("get_sidebar_items");
@@ -28,5 +30,7 @@ export const showBuiltinSidebar = (id: string) =>
   invoke<void>("show_builtin_sidebar", { id });
 export const renameSidebarAccess = (id: string, label: string) =>
   invoke<void>("rename_sidebar_access", { id, label });
+export const setSidebarIcon = (id: string, icon: string | null) =>
+  invoke<void>("set_sidebar_icon", { id, icon });
 export const removeSidebarAccess = (id: string) =>
   invoke<void>("remove_sidebar_access", { id });

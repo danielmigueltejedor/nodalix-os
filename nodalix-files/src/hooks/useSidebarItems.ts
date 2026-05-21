@@ -6,6 +6,7 @@ import {
   pinSidebarPath,
   removeSidebarAccess,
   renameSidebarAccess,
+  setSidebarIcon,
   showBuiltinSidebar,
   unpinSidebarPath,
 } from "../lib/sidebar";
@@ -67,6 +68,14 @@ export function useSidebarItems(initial: SidebarItem[] = []) {
     [refresh],
   );
 
+  const setIcon = useCallback(
+    async (id: string, icon: string | null) => {
+      await setSidebarIcon(id, icon);
+      return refresh();
+    },
+    [refresh],
+  );
+
   return {
     items,
     setItems,
@@ -76,6 +85,7 @@ export function useSidebarItems(initial: SidebarItem[] = []) {
     hideBuiltin,
     showBuiltin,
     renameAccess,
+    setIcon,
     removeAccess,
   };
 }

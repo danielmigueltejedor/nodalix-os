@@ -57,3 +57,8 @@ pub fn get_platform_info() -> PlatformInfo {
         debug: debug_enabled(),
     }
 }
+
+#[tauri::command]
+pub fn quit_app(app: tauri::AppHandle) {
+    app.exit(0);
+}

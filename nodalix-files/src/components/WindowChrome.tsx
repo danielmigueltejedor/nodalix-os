@@ -4,27 +4,17 @@ import type { PlatformInfo } from "../lib/platform";
 
 interface WindowChromeProps {
   platform: PlatformInfo;
-  title?: string;
 }
 
-export default function WindowChrome({
-  platform,
-  title = "Nodalix Files",
-}: WindowChromeProps) {
+export default function WindowChrome({ platform }: WindowChromeProps) {
   const win = getCurrentWindow();
   const { window_controls: c } = platform;
 
   return (
     <div
       data-tauri-drag-region
-      className="flex h-9 shrink-0 items-center justify-between border-b border-nodalix-border bg-nodalix-surface/90 px-3 backdrop-blur-xl"
+      className="flex h-7 shrink-0 items-center justify-end border-b border-nodalix-border/70 bg-transparent px-2"
     >
-      <span
-        data-tauri-drag-region
-        className="text-xs font-medium text-nodalix-muted select-none"
-      >
-        {title}
-      </span>
       <div className="flex items-center gap-1">
         {c.show_minimize && (
           <ChromeBtn label="Minimize" onClick={() => void win.minimize()}>
@@ -37,11 +27,7 @@ export default function WindowChrome({
           </ChromeBtn>
         )}
         {c.show_close && (
-          <ChromeBtn
-            label="Close"
-            danger
-            onClick={() => void win.close()}
-          >
+          <ChromeBtn label="Close" danger onClick={() => void win.close()}>
             <span className="text-sm leading-none">×</span>
           </ChromeBtn>
         )}

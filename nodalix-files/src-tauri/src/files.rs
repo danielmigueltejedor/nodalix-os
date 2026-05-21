@@ -13,6 +13,8 @@ pub struct FileEntry {
     pub is_dir: bool,
     pub size: u64,
     pub modified: Option<u64>,
+    pub created: Option<u64>,
+    pub icon_kind: Option<String>,
 }
 
 #[derive(Serialize, Clone)]
@@ -25,6 +27,7 @@ pub struct SpecialDirs {
     pub videos: Option<String>,
     pub music: Option<String>,
     pub data: Option<String>,
+    pub trash: Option<String>,
 }
 
 #[derive(Serialize, Clone)]
@@ -50,10 +53,32 @@ pub struct OpenWithApp {
 #[derive(Serialize, Clone)]
 pub struct StartupBundle {
     pub home: String,
+    pub initial_path: Option<String>,
     pub platform: crate::platform::PlatformInfo,
     pub sidebar_items: Vec<crate::sidebar::SidebarItem>,
     pub localsend_available: bool,
-    pub folder_customizations: std::collections::HashMap<String, crate::folder_customization::FolderStyle>,
+    pub folder_customizations:
+        std::collections::HashMap<String, crate::folder_customization::FolderStyle>,
+    pub special_dirs: SpecialDirs,
+}
+
+fn initial_launch_path() -> Option<String> {
+    std::env::args()
+        .skip(1)
+        .find(|arg| !arg.starts_with("--"))
+        .filter(|path| Path::new(path).is_dir())
+}
+
+fn virtual_dir_entry(path: &Path, name: String, size: u64, icon_kind: &str) -> FileEntry {
+    FileEntry {
+        name,
+        path: path_to_string_fast(path),
+        is_dir: true,
+        size,
+        modified: None,
+        created: None,
+        icon_kind: Some(icon_kind.into()),
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -147,16 +172,16 @@ fn compute_special_dirs() -> Result<SpecialDirs, String> {
     crate::platform::debug_log("compute_special_dirs");
     let home = home_dir()?;
     let home_str = path_to_string_fast(&home);
+    let trash = home.join(".local/share/Trash/files");
+    let trash = match fs::create_dir_all(&trash) {
+        Ok(_) => Some(path_to_string_fast(&trash)),
+        Err(_) => None,
+    };
     Ok(SpecialDirs {
         home: home_str,
         desktop: resolve_user_dir(&home, "XDG_DESKTOP_DIR", "XDG_DESKTOP_DIR", "Desktop"),
         downloads: resolve_user_dir(&home, "XDG_DOWNLOAD_DIR", "XDG_DOWNLOAD_DIR", "Downloads"),
-        documents: resolve_user_dir(
-            &home,
-            "XDG_DOCUMENTS_DIR",
-            "XDG_DOCUMENTS_DIR",
-            "Documents",
-        ),
+        documents: resolve_user_dir(&home, "XDG_DOCUMENTS_DIR", "XDG_DOCUMENTS_DIR", "Documents"),
         pictures: resolve_user_dir(&home, "XDG_PICTURES_DIR", "XDG_PICTURES_DIR", "Pictures"),
         videos: resolve_user_dir(&home, "XDG_VIDEOS_DIR", "XDG_VIDEOS_DIR", "Videos"),
         music: resolve_user_dir(&home, "XDG_MUSIC_DIR", "XDG_MUSIC_DIR", "Music"),
@@ -165,13 +190,12 @@ fn compute_special_dirs() -> Result<SpecialDirs, String> {
         } else {
             None
         },
+        trash,
     })
 }
 
 pub fn get_special_dirs_cached() -> Result<SpecialDirs, String> {
-    SPECIAL_DIRS
-        .get_or_init(compute_special_dirs)
-        .clone()
+    SPECIAL_DIRS.get_or_init(compute_special_dirs).clone()
 }
 
 #[tauri::command]
@@ -208,18 +232,32 @@ pub fn list_directory(path: String) -> Result<Vec<FileEntry>, String> {
         let file_path = item.path();
         let full_path = path_to_string_fast(&file_path);
 
+        let metadata = item.metadata().ok();
         let size = if is_dir {
             0
         } else {
-            item.metadata().map(|m| m.len()).unwrap_or(0)
+            metadata.as_ref().map(|m| m.len()).unwrap_or(0)
         };
+        let modified = metadata
+            .as_ref()
+            .and_then(|m| m.modified().ok())
+            .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+            .map(|d| d.as_secs());
+        let created = metadata
+            .as_ref()
+            .and_then(|m| m.created().ok())
+            .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+            .map(|d| d.as_secs())
+            .or(modified);
 
         entries.push(FileEntry {
             name: file_name,
             path: full_path,
             is_dir,
             size,
-            modified: None,
+            modified,
+            created,
+            icon_kind: None,
         });
     }
 
@@ -230,6 +268,277 @@ pub fn list_directory(path: String) -> Result<Vec<FileEntry>, String> {
     });
 
     Ok(entries)
+}
+
+#[tauri::command]
+pub fn list_disks() -> Result<Vec<FileEntry>, String> {
+    #[derive(Default)]
+    struct DiskInfo {
+        name: String,
+        label: String,
+        model: String,
+        size: u64,
+        mountpoints: Vec<String>,
+    }
+
+    fn read_lsblk_field(line: &str, key: &str) -> String {
+        let needle = format!("{key}=\"");
+        let Some(start) = line.find(&needle).map(|idx| idx + needle.len()) else {
+            return String::new();
+        };
+        let rest = &line[start..];
+        let Some(end) = rest.find('"') else {
+            return String::new();
+        };
+        rest[..end].to_string()
+    }
+
+    fn useful_mountpoint(path: &str) -> bool {
+        path == "/"
+            || path == "/home"
+            || path == "/data"
+            || path.starts_with("/media/")
+            || path.starts_with("/mnt/")
+            || path.starts_with("/run/media/")
+    }
+
+    fn mount_priority(path: &str) -> u8 {
+        if path == "/data" {
+            0
+        } else if path == "/home" {
+            1
+        } else if path.starts_with("/run/media/") || path.starts_with("/media/") {
+            2
+        } else if path.starts_with("/mnt/") {
+            3
+        } else if path == "/" {
+            4
+        } else {
+            9
+        }
+    }
+
+    fn best_mountpoint(mounts: &[String]) -> Option<String> {
+        mounts
+            .iter()
+            .filter(|mount| useful_mountpoint(mount) && Path::new(mount.as_str()).is_dir())
+            .min_by_key(|mount| mount_priority(mount))
+            .cloned()
+    }
+
+    let output = Command::new("lsblk")
+        .args(["-P", "-b", "-o", "NAME,LABEL,MODEL,SIZE,MOUNTPOINT,TYPE"])
+        .output()
+        .map_err(|e| format!("Failed to list disks with lsblk: {e}"))?;
+    if !output.status.success() {
+        return Err(err("Failed to list disks"));
+    }
+    let raw = String::from_utf8_lossy(&output.stdout);
+    let mut disks = Vec::<DiskInfo>::new();
+    let mut current: Option<DiskInfo> = None;
+    for line in raw.lines() {
+        let item_type = read_lsblk_field(line, "TYPE");
+        let name = read_lsblk_field(line, "NAME");
+        let label = read_lsblk_field(line, "LABEL");
+        let model = read_lsblk_field(line, "MODEL").trim().to_string();
+        let size = read_lsblk_field(line, "SIZE").parse::<u64>().unwrap_or(0);
+        let mountpoint = read_lsblk_field(line, "MOUNTPOINT");
+
+        if item_type == "disk" {
+            if name.starts_with("zram") || mountpoint == "[SWAP]" {
+                current = None;
+                continue;
+            }
+            if let Some(disk) = current.take() {
+                disks.push(disk);
+            }
+            current = Some(DiskInfo {
+                name,
+                label,
+                model,
+                size,
+                mountpoints: if useful_mountpoint(&mountpoint) {
+                    vec![mountpoint]
+                } else {
+                    Vec::new()
+                },
+            });
+        } else {
+            let Some(disk) = current.as_mut() else {
+                continue;
+            };
+            if useful_mountpoint(&mountpoint) {
+                disk.mountpoints.push(mountpoint);
+            }
+            if disk.label.is_empty() && !label.is_empty() {
+                disk.label = label;
+            }
+        }
+    }
+    if let Some(disk) = current.take() {
+        disks.push(disk);
+    }
+
+    let mut entries = Vec::new();
+    let mut used_mountpoints = std::collections::HashSet::<String>::new();
+    let home_path = home_dir().ok();
+    for (index, disk) in disks.into_iter().enumerate() {
+        let mut mountpoint = best_mountpoint(&disk.mountpoints);
+        if mountpoint.is_none() && index == 0 {
+            mountpoint = home_path.as_ref().map(|path| path_to_string_fast(path));
+        }
+        if mountpoint.is_none() && index > 0 && Path::new("/data").is_dir() {
+            mountpoint = Some("/data".into());
+        }
+        let Some(mountpoint) = mountpoint else {
+            continue;
+        };
+        if !used_mountpoints.insert(mountpoint.clone()) {
+            continue;
+        }
+        let path = PathBuf::from(&mountpoint);
+        if !path.is_dir() {
+            continue;
+        }
+        let base = if !disk.label.is_empty() {
+            disk.label
+        } else if !disk.model.is_empty() {
+            disk.model
+        } else {
+            disk.name
+        };
+        let label = if disk.size > 0 {
+            format!("{base} · {}", format_size(disk.size))
+        } else {
+            base
+        };
+        entries.push(virtual_dir_entry(&path, label, disk.size, "disk"));
+    }
+
+    entries.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    Ok(entries)
+}
+
+#[tauri::command]
+pub fn list_network_locations() -> Result<Vec<FileEntry>, String> {
+    let runtime = std::env::var("XDG_RUNTIME_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("/run/user").join(std::process::id().to_string()));
+    let gvfs = runtime.join("gvfs");
+    if !gvfs.is_dir() {
+        return Ok(Vec::new());
+    }
+    let mut entries = Vec::new();
+    for item in fs::read_dir(&gvfs).map_err(|e| format!("Cannot read network mounts: {e}"))? {
+        let item = match item {
+            Ok(item) => item,
+            Err(_) => continue,
+        };
+        let path = item.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let name = item.file_name().to_string_lossy().replace("smb-share:", "SMB ");
+        entries.push(virtual_dir_entry(&path, name, 0, "network"));
+    }
+    Ok(entries)
+}
+
+#[tauri::command]
+pub fn copy_text_to_clipboard(text: String) -> Result<(), String> {
+    if text.is_empty() {
+        return Err(err("Nothing to copy"));
+    }
+    let commands: [(&str, &[&str]); 3] = [
+        ("wl-copy", &[]),
+        ("xclip", &["-selection", "clipboard"]),
+        ("xsel", &["--clipboard", "--input"]),
+    ];
+    for (program, args) in commands {
+        let mut child = match Command::new(program)
+            .args(args)
+            .stdin(std::process::Stdio::piped())
+            .spawn()
+        {
+            Ok(child) => child,
+            Err(_) => continue,
+        };
+        if let Some(stdin) = child.stdin.as_mut() {
+            use std::io::Write;
+            if stdin.write_all(text.as_bytes()).is_err() {
+                continue;
+            }
+        }
+        if child.wait().map(|status| status.success()).unwrap_or(false) {
+            return Ok(());
+        }
+    }
+    Err(err("No clipboard command available"))
+}
+
+fn encode_uri_component(value: &str) -> String {
+    let mut encoded = String::new();
+    for byte in value.bytes() {
+        let keep = byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.' | b'~');
+        if keep {
+            encoded.push(byte as char);
+        } else {
+            encoded.push_str(&format!("%{byte:02X}"));
+        }
+    }
+    encoded
+}
+
+#[tauri::command]
+pub fn connect_network_location(
+    protocol: String,
+    host: String,
+    share: String,
+    username: Option<String>,
+    password: Option<String>,
+) -> Result<(), String> {
+    let protocol = protocol.trim().to_lowercase();
+    if protocol != "smb" && protocol != "ftp" && protocol != "sftp" {
+        return Err(err("Unsupported network protocol"));
+    }
+    let host = host.trim();
+    if host.is_empty() || host.contains('/') || host.contains('\\') {
+        return Err(err("Enter a valid host name or address"));
+    }
+    let share = share.trim().trim_matches('/');
+    let user = username.unwrap_or_default();
+    let password = password.unwrap_or_default();
+
+    let authority = if user.trim().is_empty() {
+        host.to_string()
+    } else if password.is_empty() {
+        format!("{}@{host}", encode_uri_component(user.trim()))
+    } else {
+        format!(
+            "{}:{}@{host}",
+            encode_uri_component(user.trim()),
+            encode_uri_component(&password)
+        )
+    };
+    let uri = if share.is_empty() {
+        format!("{protocol}://{authority}/")
+    } else {
+        format!("{protocol}://{authority}/{}", encode_uri_component(share))
+    };
+
+    let output = Command::new("gio")
+        .args(["mount", &uri])
+        .output()
+        .map_err(|e| format!("Failed to start gio mount: {e}"))?;
+    if output.status.success() {
+        return Ok(());
+    }
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    if stderr.is_empty() {
+        Err(err("Could not connect to network location"))
+    } else {
+        Err(stderr)
+    }
 }
 
 #[tauri::command]
@@ -310,6 +619,31 @@ pub fn create_folder(parent: String, name: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+pub fn create_document(parent: String, name: String) -> Result<String, String> {
+    let trimmed = name.trim();
+    if trimmed.is_empty() {
+        return Err(err("Document name cannot be empty"));
+    }
+    if trimmed.contains('/') || trimmed.contains('\\') {
+        return Err(err("Document name cannot contain path separators"));
+    }
+    let parent_path = PathBuf::from(&parent);
+    if !parent_path.is_dir() {
+        return Err(err(format!("Parent is not a directory: {parent}")));
+    }
+    let new_path = parent_path.join(trimmed);
+    if new_path.exists() {
+        return Err(err(format!("Already exists: {}", new_path.display())));
+    }
+    fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&new_path)
+        .map_err(|e| e.to_string())?;
+    Ok(path_to_string_fast(&new_path))
+}
+
+#[tauri::command]
 pub fn rename_path(old_path: String, new_name: String) -> Result<String, String> {
     let trimmed = new_name.trim();
     if trimmed.is_empty() {
@@ -356,6 +690,24 @@ pub fn trash_paths(paths: Vec<String>) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn delete_paths_permanently(paths: Vec<String>) -> Result<(), String> {
+    for path in paths {
+        let target = PathBuf::from(&path);
+        if !target.exists() {
+            continue;
+        }
+        let meta =
+            fs::symlink_metadata(&target).map_err(|e| format!("Failed to inspect {path}: {e}"))?;
+        if meta.is_dir() {
+            fs::remove_dir_all(&target).map_err(|e| format!("Failed to delete {path}: {e}"))?;
+        } else {
+            fs::remove_file(&target).map_err(|e| format!("Failed to delete {path}: {e}"))?;
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
 pub fn copy_paths(paths: Vec<String>) -> Result<(), String> {
     let mut clip = CLIPBOARD.lock().map_err(|_| err("clipboard lock"))?;
     *clip = Some(Clipboard {
@@ -377,7 +729,7 @@ pub fn cut_paths(paths: Vec<String>) -> Result<(), String> {
 
 #[tauri::command]
 pub fn clipboard_has_content() -> bool {
-    CLIPBOARD.lock().ok().and_then(|c| c.as_ref()).is_some()
+    CLIPBOARD.lock().map(|c| c.is_some()).unwrap_or(false)
 }
 
 fn copy_recursive(src: &Path, dst: &Path) -> io::Result<()> {
@@ -464,22 +816,45 @@ pub fn move_to(paths: Vec<String>, target_dir: String) -> Result<(), String> {
     if !target.is_dir() {
         return Err(err("Target must be a directory"));
     }
-    for src_str in paths {
-        let src = PathBuf::from(&src_str);
+    let target_canon = target
+        .canonicalize()
+        .map_err(|e| format!("Cannot resolve target directory: {e}"))?;
+
+    let mut moves = Vec::new();
+    for src_str in &paths {
+        let src = PathBuf::from(src_str);
         if !src.exists() {
             return Err(err(format!("Path does not exist: {src_str}")));
+        }
+        let src_canon = src
+            .canonicalize()
+            .map_err(|e| format!("Cannot resolve source path {src_str}: {e}"))?;
+        if src_canon == target_canon {
+            return Err(err("Cannot move an item into itself"));
+        }
+        let meta =
+            fs::symlink_metadata(&src).map_err(|e| format!("Failed to inspect {src_str}: {e}"))?;
+        if meta.is_dir() && target_canon.starts_with(&src_canon) {
+            return Err(err("Cannot move a folder into itself or one of its descendants"));
         }
         let name = src.file_name().ok_or_else(|| err("Invalid path"))?;
         let dest = target.join(name);
         if dest.exists() {
             return Err(err(format!("Already exists: {}", dest.display())));
         }
+        moves.push((src, dest));
+    }
+
+    for (src, dest) in moves {
         fs::rename(&src, &dest).map_err(|e| e.to_string())?;
     }
     Ok(())
 }
 
-fn ts_secs(path: &Path, field: fn(&fs::Metadata) -> io::Result<std::time::SystemTime>) -> Option<u64> {
+fn ts_secs(
+    path: &Path,
+    field: fn(&fs::Metadata) -> io::Result<std::time::SystemTime>,
+) -> Option<u64> {
     let meta = fs::symlink_metadata(path).ok()?;
     field(&meta)
         .ok()
@@ -513,11 +888,7 @@ pub fn get_properties(path: String) -> Result<PathProperties, String> {
         meta.is_dir()
     };
 
-    let size = if is_dir {
-        0
-    } else {
-        meta.len()
-    };
+    let size = if is_dir { 0 } else { meta.len() };
 
     let kind = if is_dir {
         "Folder".into()
@@ -632,9 +1003,11 @@ pub fn startup_bundle() -> Result<StartupBundle, String> {
 
     Ok(StartupBundle {
         home,
+        initial_path: initial_launch_path(),
         platform,
         sidebar_items,
         localsend_available: localsend.available,
         folder_customizations,
+        special_dirs: dirs,
     })
 }

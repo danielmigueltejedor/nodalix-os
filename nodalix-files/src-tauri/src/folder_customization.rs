@@ -10,7 +10,7 @@ pub struct FolderStyle {
     pub icon: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Default)]
+#[derive(Clone, Serialize, Deserialize, Default)]
 struct Store {
     folders: HashMap<String, FolderStyle>,
 }

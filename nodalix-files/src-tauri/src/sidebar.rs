@@ -2,7 +2,7 @@ use crate::files::{get_special_dirs_cached, SpecialDirs};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -18,6 +18,8 @@ pub struct SidebarConfig {
     pub pins: Vec<SidebarPin>,
     #[serde(default)]
     pub renamed: HashMap<String, String>,
+    #[serde(default)]
+    pub icons: HashMap<String, String>,
 }
 
 #[derive(Serialize, Clone)]
@@ -26,6 +28,7 @@ pub struct SidebarItem {
     pub label: String,
     pub path: String,
     pub kind: String,
+    pub is_dir: bool,
     pub pinned: bool,
     pub custom: bool,
     pub can_rename: bool,
@@ -58,7 +61,9 @@ pub fn save_config(config: &SidebarConfig) -> Result<(), String> {
 static CONFIG_CACHE: Mutex<Option<SidebarConfig>> = Mutex::new(None);
 
 pub fn config_cached() -> Result<SidebarConfig, String> {
-    let mut cache = CONFIG_CACHE.lock().map_err(|_| "lock poisoned".to_string())?;
+    let mut cache = CONFIG_CACHE
+        .lock()
+        .map_err(|_| "lock poisoned".to_string())?;
     if cache.is_none() {
         *cache = Some(load_config()?);
     }
@@ -73,15 +78,17 @@ pub fn invalidate_sidebar_cache() {
 
 fn builtin_items(dirs: &SpecialDirs, config: &SidebarConfig) -> Vec<SidebarItem> {
     let mut items = Vec::new();
-    let builtins: Vec<(&str, &str, Option<&String>)> = vec![
-        ("home", "Home", Some(&dirs.home)),
-        ("desktop", "Desktop", dirs.desktop.as_ref()),
-        ("downloads", "Downloads", dirs.downloads.as_ref()),
-        ("documents", "Documents", dirs.documents.as_ref()),
-        ("pictures", "Pictures", dirs.pictures.as_ref()),
-        ("videos", "Videos", dirs.videos.as_ref()),
-        ("music", "Music", dirs.music.as_ref()),
-        ("data", "Data", dirs.data.as_ref()),
+    let builtins: Vec<(&str, &str, Option<String>)> = vec![
+        ("home", "Home", Some(dirs.home.clone())),
+        ("downloads", "Downloads", dirs.downloads.clone()),
+        ("documents", "Documents", dirs.documents.clone()),
+        ("pictures", "Pictures", dirs.pictures.clone()),
+        ("videos", "Videos", dirs.videos.clone()),
+        ("music", "Music", dirs.music.clone()),
+        ("disks", "Disks", Some("nodalix://disks".into())),
+        ("network", "Network", Some("nodalix://network".into())),
+        ("trash", "Trash", dirs.trash.clone()),
+        ("data", "Data", dirs.data.clone()),
     ];
 
     for (id, label, path) in builtins {
@@ -92,8 +99,9 @@ fn builtin_items(dirs: &SpecialDirs, config: &SidebarConfig) -> Vec<SidebarItem>
         items.push(SidebarItem {
             id: id.to_string(),
             label: label.to_string(),
-            path: path.clone(),
+            path,
             kind: id.to_string(),
+            is_dir: id != "disks" && id != "network",
             pinned: true,
             custom: false,
             can_rename: false,
@@ -101,6 +109,24 @@ fn builtin_items(dirs: &SpecialDirs, config: &SidebarConfig) -> Vec<SidebarItem>
         });
     }
     items
+}
+
+fn sidebar_kind_for_path(path: &str) -> String {
+    let path = Path::new(path);
+    if path.is_dir() {
+        return "folder".into();
+    }
+    match path
+        .extension()
+        .map(|ext| ext.to_string_lossy().to_lowercase())
+        .as_deref()
+    {
+        Some("jpg") | Some("jpeg") | Some("png") | Some("webp") | Some("svg") => "pictures",
+        Some("mp3") | Some("flac") | Some("wav") | Some("ogg") | Some("m4a") => "music",
+        Some("mp4") | Some("mkv") | Some("webm") | Some("mov") | Some("avi") => "videos",
+        _ => "custom",
+    }
+    .into()
 }
 
 pub fn build_sidebar_items() -> Result<Vec<SidebarItem>, String> {
@@ -117,11 +143,17 @@ pub fn build_sidebar_items() -> Result<Vec<SidebarItem>, String> {
             .get(&pin.id)
             .cloned()
             .unwrap_or_else(|| pin.label.clone());
+        let kind = config
+            .icons
+            .get(&pin.id)
+            .cloned()
+            .unwrap_or_else(|| sidebar_kind_for_path(&pin.path));
         items.push(SidebarItem {
             id: pin.id.clone(),
             label,
             path: pin.path.clone(),
-            kind: "custom".into(),
+            kind,
+            is_dir: Path::new(&pin.path).is_dir(),
             pinned: true,
             custom: true,
             can_rename: true,
@@ -151,9 +183,7 @@ pub fn pin_sidebar_path(path: String, label: Option<String>) -> Result<(), Strin
         return Ok(());
     }
     let id = format!("pin-{}", config.pins.len() + 1);
-    let name = label.unwrap_or_else(|| {
-        path.rsplit('/').next().unwrap_or("Folder").to_string()
-    });
+    let name = label.unwrap_or_else(|| path.rsplit('/').next().unwrap_or("Folder").to_string());
     config.pins.push(SidebarPin {
         id,
         label: name,
@@ -203,10 +233,27 @@ pub fn rename_sidebar_access(id: String, label: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn set_sidebar_icon(id: String, icon: Option<String>) -> Result<(), String> {
+    let mut config = config_cached()?;
+    match icon.map(|value| value.trim().to_string()).filter(|value| !value.is_empty()) {
+        Some(icon) => {
+            config.icons.insert(id, icon);
+        }
+        None => {
+            config.icons.remove(&id);
+        }
+    }
+    save_config(&config)?;
+    invalidate_sidebar_cache();
+    Ok(())
+}
+
+#[tauri::command]
 pub fn remove_sidebar_access(id: String) -> Result<(), String> {
     let mut config = config_cached()?;
     config.pins.retain(|p| p.id != id);
     config.renamed.remove(&id);
+    config.icons.remove(&id);
     save_config(&config)?;
     invalidate_sidebar_cache();
     Ok(())
