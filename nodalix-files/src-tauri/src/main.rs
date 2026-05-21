@@ -173,6 +173,8 @@ fn main() {
             folder_customization::set_folder_color,
             folder_customization::set_folder_icon,
             localsend::get_localsend_info,
+            localsend::discover_localsend_devices,
+            localsend::send_to_localsend_device,
             localsend::send_with_localsend,
         ])
         .run(tauri::generate_context!())

@@ -55,6 +55,11 @@ import {
 } from "./lib/files";
 import type { FolderStyle } from "./lib/folderCustomization";
 import { setFolderColor, setFolderIcon } from "./lib/folderCustomization";
+import {
+  discoverLocalSendDevices,
+  sendToLocalSendDevice,
+  type LocalSendDevice,
+} from "./lib/localsend";
 import type { PlatformInfo } from "./lib/platform";
 import type { SidebarItem } from "./lib/sidebar";
 import { FileTypeIcon } from "./lib/icons";
@@ -239,6 +244,14 @@ export default function App() {
   const [home, setHome] = useState("");
   const [platform, setPlatform] = useState<PlatformInfo | null>(null);
   const [localsendAvailable, setLocalsendAvailable] = useState(false);
+  const [localsendDevices, setLocalsendDevices] = useState<LocalSendDevice[]>(
+    [],
+  );
+  const [localsendScanning, setLocalsendScanning] = useState(false);
+  const [localsendSendingId, setLocalsendSendingId] = useState<string | null>(
+    null,
+  );
+  const localsendScanningRef = useRef(false);
   const [folderStyles, setFolderStyles] = useState<Record<string, FolderStyle>>(
     {},
   );
@@ -426,6 +439,33 @@ export default function App() {
       })
       .catch((e) => setError(e instanceof Error ? e.message : String(e)));
   }, [mark, setSidebarItems, setError]);
+
+  const refreshLocalSendDevices = useCallback(async () => {
+    if (!localsendAvailable || localsendScanningRef.current) return;
+    localsendScanningRef.current = true;
+    setLocalsendScanning(true);
+    try {
+      const devices = await discoverLocalSendDevices();
+      setLocalsendDevices(devices);
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : String(e));
+      setLocalsendDevices([]);
+    } finally {
+      localsendScanningRef.current = false;
+      setLocalsendScanning(false);
+    }
+  }, [localsendAvailable]);
+
+  useEffect(() => {
+    if (!localsendAvailable) {
+      setLocalsendDevices([]);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      void refreshLocalSendDevices();
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [localsendAvailable, refreshLocalSendDevices]);
 
   useEffect(() => {
     if (!ready || !activeTab) return;
@@ -913,6 +953,25 @@ export default function App() {
     }
   }, []);
 
+  const showPathContextMenu = useCallback(
+    (path: string, x: number, y: number) => {
+      openMenu(
+        x,
+        y,
+        <>
+          <ContextMenuItem
+            label="Copy path"
+            onClick={() => {
+              closeMenu();
+              void copyPath(path);
+            }}
+          />
+        </>,
+      );
+    },
+    [closeMenu, copyPath, openMenu],
+  );
+
   const moveDraggedPaths = useCallback(
     async (paths: string[], targetDir: string) => {
       await actions.move(paths, targetDir, cwd);
@@ -1073,6 +1132,23 @@ export default function App() {
     [canDropOnFolder, clearDragState, getDraggedPaths, moveDraggedPaths],
   );
 
+  const sendDraggedPathsToLocalSendDevice = useCallback(
+    async (paths: string[], device: LocalSendDevice) => {
+      if (paths.length === 0) return;
+      dragHandledRef.current = true;
+      setLocalsendSendingId(device.id);
+      try {
+        await sendToLocalSendDevice(paths, device);
+        setActionError(null);
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setLocalsendSendingId(null);
+      }
+    },
+    [],
+  );
+
   const handleDragEnd = useCallback(
     async (event: React.DragEvent<HTMLElement>) => {
       const paths = getDraggedPaths(event);
@@ -1083,6 +1159,17 @@ export default function App() {
             event.clientY,
           ) as HTMLElement | null;
           const item = target?.closest<HTMLElement>("[data-file-item='true']");
+          const localsendTarget = target?.closest<HTMLElement>(
+            "[data-localsend-device-id]",
+          );
+          const localsendDeviceId = localsendTarget?.dataset.localsendDeviceId;
+          const localsendDevice = localsendDeviceId
+            ? localsendDevices.find((device) => device.id === localsendDeviceId)
+            : undefined;
+          if (localsendDevice) {
+            await sendDraggedPathsToLocalSendDevice(paths, localsendDevice);
+            return;
+          }
           const path = item?.dataset.filePath;
           const entry = path ? entryForDragTarget(path) : undefined;
           if (entry?.is_dir && canDropOnFolder(entry, paths)) {
@@ -1101,7 +1188,9 @@ export default function App() {
       clearDragState,
       entryForDragTarget,
       getDraggedPaths,
+      localsendDevices,
       moveDraggedPaths,
+      sendDraggedPathsToLocalSendDevice,
     ],
   );
 
@@ -1128,6 +1217,17 @@ export default function App() {
       void handleDropOnPath(item.path, dataTransfer);
     },
     [handleDropOnPath],
+  );
+
+  const handleLocalSendDeviceDrop = useCallback(
+    async (device: LocalSendDevice, dataTransfer: DataTransfer) => {
+      const paths = draggingPathsRef.current.length
+        ? draggingPathsRef.current
+        : dragPathsFromTransfer(dataTransfer);
+      await sendDraggedPathsToLocalSendDevice(paths, device);
+      clearDragState();
+    },
+    [clearDragState, sendDraggedPathsToLocalSendDevice],
   );
 
   useEffect(() => {
@@ -1547,6 +1647,12 @@ export default function App() {
           onContextMenu={showSidebarContextMenu}
           onDropPaths={handleSidebarDrop}
           onDropToItem={handleSidebarItemDrop}
+          localsendAvailable={localsendAvailable}
+          localsendDevices={localsendDevices}
+          localsendScanning={localsendScanning}
+          localsendSendingId={localsendSendingId}
+          onRefreshLocalSend={refreshLocalSendDevices}
+          onDropToLocalSendDevice={handleLocalSendDeviceDrop}
           onHoverItem={(item) => scheduleHoverNavigate(item.path)}
           onLeaveHoverItem={(item) => cancelHoverNavigate(item.path)}
         />
@@ -1564,6 +1670,7 @@ export default function App() {
             onForward={() => updateActiveTab((t) => tabGoForward(t))}
             onBreadcrumb={goTo}
             onCopyPath={copyPath}
+            onPathContextMenu={showPathContextMenu}
             onBreadcrumbDrop={(path, dataTransfer) =>
               void handleDropOnPath(path, dataTransfer)
             }

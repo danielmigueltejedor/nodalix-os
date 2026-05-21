@@ -235,7 +235,10 @@ pub fn rename_sidebar_access(id: String, label: String) -> Result<(), String> {
 #[tauri::command]
 pub fn set_sidebar_icon(id: String, icon: Option<String>) -> Result<(), String> {
     let mut config = config_cached()?;
-    match icon.map(|value| value.trim().to_string()).filter(|value| !value.is_empty()) {
+    match icon
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+    {
         Some(icon) => {
             config.icons.insert(id, icon);
         }

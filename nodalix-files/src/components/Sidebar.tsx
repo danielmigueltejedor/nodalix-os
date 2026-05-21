@@ -1,4 +1,5 @@
-import { memo } from "react";
+import { memo, useState } from "react";
+import type { LocalSendDevice } from "../lib/localsend";
 import type { SidebarItem } from "../lib/sidebar";
 
 interface SidebarProps {
@@ -10,6 +11,15 @@ interface SidebarProps {
   onContextMenu: (item: SidebarItem, x: number, y: number) => void;
   onDropPaths?: (dataTransfer: DataTransfer) => void;
   onDropToItem?: (item: SidebarItem, dataTransfer: DataTransfer) => void;
+  localsendAvailable?: boolean;
+  localsendDevices?: LocalSendDevice[];
+  localsendScanning?: boolean;
+  localsendSendingId?: string | null;
+  onRefreshLocalSend?: () => void;
+  onDropToLocalSendDevice?: (
+    device: LocalSendDevice,
+    dataTransfer: DataTransfer,
+  ) => void;
   onHoverItem?: (item: SidebarItem) => void;
   onLeaveHoverItem?: (item: SidebarItem) => void;
 }
@@ -105,6 +115,18 @@ function iconFor(kind: string) {
           strokeLinejoin="round"
         />
       )}
+      {kind === "localsend" && (
+        <>
+          <circle cx="12" cy="12" r="5.8" />
+          <path d="M1.65 9.05c-.25.95-.4 1.95-.4 2.95s.15 2 .4 2.9c.15 0 1.1-.3 1.15-1.3.05-.3 0-1.2 0-1.6-.05-.45.05-1.25 0-1.55-.1-1.05-1-1.4-1.15-1.4M22.35 9.1c.25.95.4 1.9.4 2.95 0 1-.15 2-.4 2.9-.15 0-1.1-.3-1.15-1.3-.05-.3 0-1.2 0-1.6.05-.45-.05-1.25 0-1.55.1-1.1 1-1.4 1.15-1.4M14.9 1.65c-.9-.25-1.9-.4-2.9-.4s-2 .15-2.9.4c0 .15.3 1.1 1.3 1.15.3.05 1.2 0 1.6 0 .45-.05 1.25.05 1.55 0 1.05-.1 1.35-1 1.35-1.15M14.9 22.35c-.95.25-1.9.4-2.95.4-1 0-2-.15-2.9-.4 0-.15.3-1.1 1.3-1.15.3-.05 1.2 0 1.6 0 .45.05 1.25-.05 1.55 0 1.1.1 1.4 1 1.4 1.15M6.75 2.6c-.85.45-1.65 1.05-2.35 1.8-.7.7-1.3 1.5-1.75 2.35.1.1 1 .55 1.75-.1.25-.2.85-.8 1.15-1.15.3-.3.9-.85 1.1-1.1.65-.8.2-1.65.1-1.8M21.35 17.25c-.45.85-1.05 1.65-1.8 2.35-.7.7-1.5 1.3-2.35 1.75-.1-.1-.55-1 .1-1.75.2-.25.8-.85 1.15-1.15.3-.3.85-.9 1.1-1.1.85-.6 1.7-.2 1.8-.1M17.25 2.6c.85.45 1.65 1.05 2.35 1.8.7.7 1.3 1.5 1.75 2.35-.1.1-1 .55-1.75-.1-.25-.2-.85-.8-1.15-1.15-.3-.3-.9-.85-1.1-1.1-.65-.8-.2-1.65-.1-1.8M2.65 17.25c.45.85 1.05 1.65 1.8 2.35.7.7 1.5 1.3 2.35 1.75.1-.1.55-1-.1-1.75-.2-.25-.8-.85-1.15-1.15-.3-.3-.85-.9-1.1-1.1-.85-.65-1.7-.2-1.8-.1" />
+        </>
+      )}
+      {kind === "phone" && (
+        <path d="M9 3h6a2 2 0 012 2v14a2 2 0 01-2 2H9a2 2 0 01-2-2V5a2 2 0 012-2zM11 18h2" strokeLinecap="round" strokeLinejoin="round" />
+      )}
+      {kind === "computer" && (
+        <path d="M4 5h16v11H4zM9 20h6M12 16v4" strokeLinecap="round" strokeLinejoin="round" />
+      )}
       {kind === "icloud" && (
         <path d="M5.5 17h12.5a4 4 0 00.4-8A6 6 0 006.9 7.4 5 5 0 005.5 17z" fill="currentColor" stroke="none" />
       )}
@@ -146,6 +168,9 @@ function iconFor(kind: string) {
         "data",
         "disks",
         "network",
+        "localsend",
+        "phone",
+        "computer",
         "icloud",
         "cloud",
         "server",
@@ -158,6 +183,77 @@ function iconFor(kind: string) {
         <path d="M7 4h7l5 5v11H7V4z" strokeLinejoin="round" />
       )}
     </svg>
+  );
+}
+
+function LocalSendTarget({
+  device,
+  collapsed,
+  sending,
+  onDrop,
+}: {
+  device: LocalSendDevice;
+  collapsed: boolean;
+  sending: boolean;
+  onDrop?: (device: LocalSendDevice, dataTransfer: DataTransfer) => void;
+}) {
+  const [dragOver, setDragOver] = useState(false);
+  return (
+    <button
+      type="button"
+      data-localsend-drop-target="true"
+      data-localsend-device-id={device.id}
+      title={collapsed ? device.alias : `${device.alias} · ${device.ip}`}
+      className={[
+        "nodalix-sidebar-item nodalix-sidebar-localsend-device mb-0.5 flex w-full items-center rounded-xl px-2.5 py-2 text-left text-[13px] transition duration-150",
+        collapsed ? "justify-center gap-0" : "gap-2.5",
+        dragOver && "nodalix-sidebar-localsend-drop-active",
+        sending && "nodalix-sidebar-localsend-sending",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      onDragOver={(event) => {
+        if (!onDrop) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.dataTransfer.dropEffect = "copy";
+      }}
+      onDragEnter={(event) => {
+        if (!onDrop) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setDragOver(true);
+      }}
+      onDragLeave={(event) => {
+        if (event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          return;
+        }
+        setDragOver(false);
+      }}
+      onDrop={(event) => {
+        if (!onDrop) return;
+        event.preventDefault();
+        event.stopPropagation();
+        setDragOver(false);
+        onDrop(device, event.dataTransfer);
+      }}
+      onDragEnd={() => setDragOver(false)}
+    >
+      <span
+        className="nodalix-sidebar-icon"
+        style={{ color: "var(--nx-sidebar-localsend-icon-color)" }}
+      >
+        {iconFor("localsend")}
+      </span>
+      {!collapsed && (
+        <span className="min-w-0 flex-1">
+          <span className="block truncate">{device.alias}</span>
+          <span className="block truncate text-[10px] text-nodalix-muted/70">
+            {sending ? "Sending…" : device.device_model || device.ip}
+          </span>
+        </span>
+      )}
+    </button>
   );
 }
 
@@ -247,6 +343,12 @@ function SidebarInner({
   onContextMenu,
   onDropPaths,
   onDropToItem,
+  localsendAvailable,
+  localsendDevices = [],
+  localsendScanning,
+  localsendSendingId,
+  onRefreshLocalSend,
+  onDropToLocalSendDevice,
   onHoverItem,
   onLeaveHoverItem,
 }: SidebarProps) {
@@ -265,12 +367,22 @@ function SidebarInner({
       ].join(" ")}
       onDragOver={(event) => {
         if (!onDropPaths) return;
+        if (
+          (event.target as HTMLElement | null)?.closest(
+            "[data-localsend-drop-target='true']",
+          )
+        ) {
+          return;
+        }
         event.preventDefault();
         event.dataTransfer.dropEffect = "copy";
       }}
       onDrop={(event) => {
         if (
           !onDropPaths ||
+          (event.target as HTMLElement | null)?.closest(
+            "[data-localsend-drop-target='true']",
+          ) ||
           !(event.target as HTMLElement | null)?.closest(
             "[data-sidebar-pin-zone='true']",
           )
@@ -317,6 +429,54 @@ function SidebarInner({
             onLeaveHoverItem={onLeaveHoverItem}
           />
         ))}
+        {localsendAvailable && (
+          <div className="nodalix-sidebar-localsend">
+            <div
+              className={[
+                "nodalix-sidebar-localsend-header",
+                collapsed && "nodalix-sidebar-localsend-header-collapsed",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
+              <span
+                className="nodalix-sidebar-icon"
+                style={{ color: "var(--nx-sidebar-localsend-icon-color)" }}
+              >
+                {iconFor("localsend")}
+              </span>
+              {!collapsed && <span className="truncate">LocalSend</span>}
+              {!collapsed && (
+                <button
+                  type="button"
+                  className="nodalix-sidebar-localsend-refresh"
+                  title="Refresh LocalSend devices"
+                  aria-label="Refresh LocalSend devices"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onRefreshLocalSend?.();
+                  }}
+                >
+                  {localsendScanning ? "…" : "↻"}
+                </button>
+              )}
+            </div>
+            {localsendDevices.map((device) => (
+              <LocalSendTarget
+                key={device.id}
+                device={device}
+                collapsed={collapsed}
+                sending={localsendSendingId === device.id}
+                onDrop={onDropToLocalSendDevice}
+              />
+            ))}
+            {!collapsed && !localsendScanning && localsendDevices.length === 0 && (
+              <p className="nodalix-sidebar-localsend-empty">
+                No LocalSend devices
+              </p>
+            )}
+          </div>
+        )}
         {pinnedItems.length > 0 && (
           <div
             className={[

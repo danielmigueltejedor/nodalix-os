@@ -17,6 +17,7 @@ interface BreadcrumbsProps {
   compact?: boolean;
   onNavigate: (path: string) => void;
   onCopyPath?: (path: string) => void;
+  onPathContextMenu?: (path: string, x: number, y: number) => void;
   onDropPath?: (path: string, dataTransfer: DataTransfer) => void;
   onHoverPath?: (path: string) => void;
   onLeaveHoverPath?: (path: string) => void;
@@ -29,6 +30,7 @@ export default function Breadcrumbs({
   compact = false,
   onNavigate,
   onCopyPath,
+  onPathContextMenu,
   onDropPath,
   onHoverPath,
   onLeaveHoverPath,
@@ -67,10 +69,14 @@ export default function Breadcrumbs({
                 onDropPath(crumb.path, event.dataTransfer);
               }}
               onContextMenu={(event) => {
-                if (!onCopyPath) return;
+                if (!onPathContextMenu && !onCopyPath) return;
                 event.preventDefault();
                 event.stopPropagation();
-                onCopyPath(crumb.path);
+                if (onPathContextMenu) {
+                  onPathContextMenu(crumb.path, event.clientX, event.clientY);
+                } else {
+                  onCopyPath?.(crumb.path);
+                }
               }}
               className={[
                 "truncate rounded-full px-2 py-1 transition",
@@ -79,10 +85,6 @@ export default function Breadcrumbs({
                   : "text-nodalix-muted hover:bg-nodalix-accent-dim hover:text-nodalix-accent",
               ].join(" ")}
               onClick={() => {
-                if (current && onCopyPath) {
-                  onCopyPath(crumb.path);
-                  return;
-                }
                 onNavigate(crumb.path);
               }}
             >

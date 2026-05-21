@@ -40,6 +40,7 @@ interface ToolbarProps {
   onForward: () => void;
   onBreadcrumb: (path: string) => void;
   onCopyPath: (path: string) => void;
+  onPathContextMenu: (path: string, x: number, y: number) => void;
   onBreadcrumbDrop: (path: string, dataTransfer: DataTransfer) => void;
   onPathHover: (path: string) => void;
   onPathLeave: (path: string) => void;
@@ -88,6 +89,7 @@ export default function Toolbar({
   onForward,
   onBreadcrumb,
   onCopyPath,
+  onPathContextMenu,
   onBreadcrumbDrop,
   onPathHover,
   onPathLeave,
@@ -146,88 +148,91 @@ export default function Toolbar({
   }, [settingsOpen]);
 
   const tabsRow = (
-    <div className="nodalix-tabs-row flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
-      {tabs.map((tab) => (
-        <div
-          key={tab.id}
-          draggable
-          onDragStart={(event) => {
-            setDraggingTabId(tab.id);
-            event.dataTransfer.effectAllowed = "move";
-            event.dataTransfer.setData("application/x-nodalix-tab-id", tab.id);
-          }}
-          onDragOver={(event) => {
-            const tabId =
-              draggingTabId ||
-              event.dataTransfer.getData("application/x-nodalix-tab-id");
-            if (!tabId || tabId === tab.id) return;
-            event.preventDefault();
-            event.dataTransfer.dropEffect = "move";
-          }}
-          onDrop={(event) => {
-            const tabId =
-              draggingTabId ||
-              event.dataTransfer.getData("application/x-nodalix-tab-id");
-            if (!tabId || tabId === tab.id) return;
-            event.preventDefault();
-            event.stopPropagation();
-            onTabReorder(tabId, tab.id);
-            setDraggingTabId(null);
-          }}
-          onDragEnd={() => setDraggingTabId(null)}
-          className={[
-            "nodalix-tab-chip group flex shrink-0 items-center gap-1 text-xs transition",
-            draggingTabId === tab.id && "opacity-55",
-            tab.id === activeTabId
-              ? "nodalix-tab-chip-active min-w-0 flex-1 text-nodalix-text"
-              : "max-w-36 text-nodalix-muted hover:text-nodalix-text",
-          ].join(" ")}
-        >
-          {tab.id === activeTabId ? (
-            <Breadcrumbs
-              path={tab.path}
-              pathLabels={pathLabels}
-              compact
-              className="nodalix-tab-breadcrumb"
-              onNavigate={onBreadcrumb}
-              onCopyPath={onCopyPath}
-              onDropPath={onBreadcrumbDrop}
-              onHoverPath={onPathHover}
-              onLeaveHoverPath={onPathLeave}
-            />
-          ) : (
-            <button
-              type="button"
-              className="truncate px-2"
-              title={tab.path}
-              onClick={() => {
-                onTabSelect(tab.id);
-                onCopyPath(tab.path);
-              }}
-              onContextMenu={(event) => {
-                event.preventDefault();
-                onCopyPath(tab.path);
-              }}
-            >
-              {(pathLabels[tab.path] ?? basename(tab.path)) || "Root"}
-            </button>
-          )}
-          {tabs.length > 1 && (
-            <button
-              type="button"
-              aria-label="Close tab"
-              title="Close tab"
-              className="nodalix-tab-close"
-              onClick={(event) => {
-                event.stopPropagation();
-                onTabClose(tab.id);
-              }}
-            >
-              ×
-            </button>
-          )}
-        </div>
-      ))}
+    <div className="nodalix-tabs-shell flex min-w-0 flex-1 items-center gap-1">
+      <div className="nodalix-tabs-row flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
+        {tabs.map((tab) => (
+          <div
+            key={tab.id}
+            draggable
+            onDragStart={(event) => {
+              setDraggingTabId(tab.id);
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData("application/x-nodalix-tab-id", tab.id);
+            }}
+            onDragOver={(event) => {
+              const tabId =
+                draggingTabId ||
+                event.dataTransfer.getData("application/x-nodalix-tab-id");
+              if (!tabId || tabId === tab.id) return;
+              event.preventDefault();
+              event.dataTransfer.dropEffect = "move";
+            }}
+            onDrop={(event) => {
+              const tabId =
+                draggingTabId ||
+                event.dataTransfer.getData("application/x-nodalix-tab-id");
+              if (!tabId || tabId === tab.id) return;
+              event.preventDefault();
+              event.stopPropagation();
+              onTabReorder(tabId, tab.id);
+              setDraggingTabId(null);
+            }}
+            onDragEnd={() => setDraggingTabId(null)}
+            className={[
+              "nodalix-tab-chip group flex shrink-0 items-center gap-1 text-xs transition",
+              draggingTabId === tab.id && "opacity-55",
+              tab.id === activeTabId
+                ? "nodalix-tab-chip-active text-nodalix-text"
+                : "text-nodalix-muted hover:text-nodalix-text",
+            ].join(" ")}
+          >
+            {tab.id === activeTabId ? (
+              <Breadcrumbs
+                path={tab.path}
+                pathLabels={pathLabels}
+                compact
+                className="nodalix-tab-breadcrumb"
+                onNavigate={onBreadcrumb}
+                onCopyPath={onCopyPath}
+                onPathContextMenu={onPathContextMenu}
+                onDropPath={onBreadcrumbDrop}
+                onHoverPath={onPathHover}
+                onLeaveHoverPath={onPathLeave}
+              />
+            ) : (
+              <button
+                type="button"
+                className="truncate px-2"
+                title={tab.path}
+                onClick={() => {
+                  onTabSelect(tab.id);
+                }}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onPathContextMenu(tab.path, event.clientX, event.clientY);
+                }}
+              >
+                {(pathLabels[tab.path] ?? basename(tab.path)) || "Root"}
+              </button>
+            )}
+            {tabs.length > 1 && (
+              <button
+                type="button"
+                aria-label="Close tab"
+                title="Close tab"
+                className="nodalix-tab-close"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onTabClose(tab.id);
+                }}
+              >
+                ×
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
       <button
         type="button"
         onClick={onNewTab}
@@ -270,6 +275,7 @@ export default function Toolbar({
                     pathLabels={pathLabels}
                     onNavigate={onBreadcrumb}
                     onCopyPath={onCopyPath}
+                    onPathContextMenu={onPathContextMenu}
                     onDropPath={onBreadcrumbDrop}
                     onHoverPath={onPathHover}
                     onLeaveHoverPath={onPathLeave}

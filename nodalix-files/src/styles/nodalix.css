@@ -24,6 +24,7 @@
     --nx-sidebar-icon-active-color: rgba(255, 255, 255, 0.96);
     --nx-sidebar-pinned-icon-color: rgba(218, 224, 236, 0.84);
     --nx-sidebar-trash-icon-color: rgba(205, 214, 244, 0.88);
+    --nx-sidebar-localsend-icon-color: color-mix(in srgb, var(--nx-accent) 78%, rgba(255, 255, 255, 0.72));
 }
 
 * {
@@ -206,6 +207,80 @@ textarea,
     transition: color 120ms ease;
 }
 
+.nodalix-sidebar-localsend {
+    margin: 10px 0 8px;
+    padding: 7px 5px;
+    border: 1px solid color-mix(in srgb, var(--nx-accent) 18%, rgba(255, 255, 255, 0.06));
+    border-radius: 16px;
+    background:
+        linear-gradient(
+            135deg,
+            color-mix(in srgb, var(--nx-accent) 9%, rgba(255, 255, 255, 0.035)),
+            rgba(255, 255, 255, 0.012)
+        ),
+        rgba(12, 12, 20, 0.24);
+}
+
+.nodalix-sidebar-localsend-header {
+    display: flex;
+    min-height: 28px;
+    align-items: center;
+    gap: 8px;
+    padding: 0 5px 5px;
+    color: rgba(224, 229, 239, 0.82);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+.nodalix-sidebar-localsend-header-collapsed {
+    justify-content: center;
+    padding: 2px 0;
+}
+
+.nodalix-sidebar-localsend-refresh {
+    margin-left: auto;
+    display: inline-flex;
+    height: 22px;
+    width: 22px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid color-mix(in srgb, var(--nx-accent) 18%, rgba(255, 255, 255, 0.08));
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.035);
+    color: rgba(232, 236, 244, 0.74);
+}
+
+.nodalix-sidebar-localsend-refresh:hover {
+    border-color: color-mix(in srgb, var(--nx-accent) 34%, rgba(255, 255, 255, 0.1));
+    color: rgba(255, 255, 255, 0.96);
+}
+
+.nodalix-sidebar-localsend-device {
+    color: rgba(214, 222, 236, 0.84);
+}
+
+.nodalix-sidebar-localsend-device:hover {
+    background: color-mix(in srgb, var(--nx-accent) 14%, rgba(255, 255, 255, 0.04));
+}
+
+.nodalix-sidebar-localsend-drop-active {
+    border-color: color-mix(in srgb, var(--nx-accent) 42%, rgba(255, 255, 255, 0.12));
+    background: color-mix(in srgb, var(--nx-accent) 22%, rgba(255, 255, 255, 0.06));
+    color: rgba(255, 255, 255, 0.96);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--nx-accent) 30%, transparent);
+}
+
+.nodalix-sidebar-localsend-sending {
+    background: color-mix(in srgb, var(--nx-accent) 20%, rgba(255, 255, 255, 0.05));
+}
+
+.nodalix-sidebar-localsend-empty {
+    margin: 2px 5px 0;
+    color: rgba(205, 214, 244, 0.46);
+    font-size: 11px;
+}
+
 .nodalix-sidebar-pinned-separator {
     display: flex;
     align-items: center;
@@ -302,9 +377,15 @@ textarea,
 
 .nodalix-tabs-row {
     max-width: 100%;
+    min-width: 0;
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--nx-accent) 32%, transparent) transparent;
 }
 
 .nodalix-tab-chip {
+    flex: 0 0 auto;
+    width: fit-content;
+    max-width: 142px;
     min-height: 32px;
     border: 1px solid color-mix(in srgb, var(--nx-accent) 24%, rgba(255, 255, 255, 0.08));
     border-radius: 999px;
@@ -323,6 +404,8 @@ textarea,
 }
 
 .nodalix-tab-chip-active {
+    max-width: none;
+    width: clamp(160px, 24vw, 260px);
     background:
         linear-gradient(
             135deg,
@@ -334,6 +417,7 @@ textarea,
 }
 
 .nodalix-tab-breadcrumb {
+    min-width: 0;
     max-width: 100%;
 }
 
@@ -425,6 +509,16 @@ textarea,
 @media (max-width: 760px) {
     .nodalix-tabs-row {
         max-width: 100%;
+    }
+
+    .nodalix-tab-chip {
+        max-width: 126px;
+        width: fit-content;
+    }
+
+    .nodalix-tab-chip-active {
+        max-width: none;
+        width: 158px;
     }
 
     .search-open .nodalix-search-expanded {

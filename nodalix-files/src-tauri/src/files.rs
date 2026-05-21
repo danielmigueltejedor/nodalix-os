@@ -438,7 +438,10 @@ pub fn list_network_locations() -> Result<Vec<FileEntry>, String> {
         if !path.is_dir() {
             continue;
         }
-        let name = item.file_name().to_string_lossy().replace("smb-share:", "SMB ");
+        let name = item
+            .file_name()
+            .to_string_lossy()
+            .replace("smb-share:", "SMB ");
         entries.push(virtual_dir_entry(&path, name, 0, "network"));
     }
     Ok(entries)
@@ -835,7 +838,9 @@ pub fn move_to(paths: Vec<String>, target_dir: String) -> Result<(), String> {
         let meta =
             fs::symlink_metadata(&src).map_err(|e| format!("Failed to inspect {src_str}: {e}"))?;
         if meta.is_dir() && target_canon.starts_with(&src_canon) {
-            return Err(err("Cannot move a folder into itself or one of its descendants"));
+            return Err(err(
+                "Cannot move a folder into itself or one of its descendants",
+            ));
         }
         let name = src.file_name().ok_or_else(|| err("Invalid path"))?;
         let dest = target.join(name);
