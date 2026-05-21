@@ -112,7 +112,7 @@ for _, popup in ipairs(nodalix_right_popup_rules) do
     {
       float = true,
       size = { 615, 562 },
-      move = { "1913", "60" },
+      move = { "(monitor_w-window_w-32)", "60" },
       animation = "popin"
     }
   )
@@ -122,7 +122,7 @@ end
 o.window({ class = "^nodalix-files$", title = "^Nodalix Files$" }, {
   float = true,
   size = { 800, 562 },
-  move = { "1728", "60" },
+  move = { "((monitor_w-window_w-32)+300)", "60" },
   animation = "popin"
 })
 
@@ -152,3 +152,11 @@ o.window({ class = "^nodalix-menu-window$" }, {
   animation = "popin"
 })
 
+
+-- Nodalix Audio OSD: bottom centered
+o.window({ class = "^nodalix-audio-osd$", title = "^Nodalix Audio OSD$" }, {
+  float = true,
+  size = { 380, 112 },
+  move = { "((monitor_w-window_w)/2)", "(monitor_h-window_h-24)" },
+  animation = "popin"
+})

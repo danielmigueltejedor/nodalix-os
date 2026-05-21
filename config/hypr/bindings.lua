@@ -2,9 +2,10 @@
 o.bind("SUPER + RETURN", "Terminal", { launch = "nodalix terminal" })
 o.bind("SUPER + ALT + RETURN", "Tmux", { launch = "ghostty -e tmux new -A -s main", focus = "com.mitchellh.ghostty" })
 o.bind("SUPER + SHIFT + RETURN", "Browser", { launch = "zen-browser --new-window" })
-o.bind("SUPER + SHIFT + F", "File manager", { launch = "nodalix nautilus", focus = "org.gnome.Nautilus" })
-o.bind("SUPER + ALT + SHIFT + F", "File manager (cwd)", { launch = "nodalix nautilus-cwd", focus = "org.gnome.Nautilus" })
-o.bind("SUPER + SHIFT + B", "Browser", { launch = "zen-browser --new-window" })
+o.bind("SUPER + SHIFT + F", "File manager", { launch = "nodalix files", focus = "dde-file-manager" })
+o.bind("SUPER + SHIFT + B", "Browser", { launch = "zen-browser --new-window about:home" })
+o.bind("SUPER + ALT + SHIFT + F", "File manager (cwd)", { launch = "nodalix files-cwd", focus = "dde-file-manager" })
+
 o.bind("SUPER + SHIFT + ALT + B", "Browser (private)", { launch = "zen-browser --private-window" })
 
 -- Music: Apple Music web app instead of Spotify.
