@@ -666,3 +666,336 @@ Nodalix should eventually provide a complete, coherent desktop experience where 
 * Enjoy a visually consistent, fast, and elegant Linux desktop.
 
 Nodalix OS should feel intentional from boot to shutdown.
+
+# Nodalix Engineering and Productivity Suite
+
+Beyond the core operating system experience, Nodalix aims to provide a native suite of productivity, creative, and engineering tools built specifically for Linux.
+
+The goal is to create applications that feel deeply integrated with Nodalix OS while also being useful on any modern Linux desktop.
+
+---
+
+## Vision
+
+Nodalix should not only provide a beautiful desktop environment, but also a complete set of native tools for work, study, engineering, creativity, and daily productivity.
+
+This suite should focus on:
+
+- Native Linux performance.
+- A cohesive Nodalix visual language.
+- Engineering-friendly workflows.
+- Clean export formats.
+- Interoperability with common standards.
+- A balance between simplicity and professional power.
+
+---
+
+# Planned Applications
+
+## Nodalix CAD
+
+Native CAD application for Linux.
+
+### Goals
+
+Provide a modern, elegant, and engineering-focused CAD experience for Linux users.
+
+### Features
+
+- 2D technical drawing.
+- Layers.
+- Dimensions.
+- Blocks.
+- Snapping.
+- Layouts.
+- PDF export.
+- DXF import/export.
+- DWG compatibility research.
+- AutoCAD-like command workflow.
+- Nodalix-native interface.
+- Engineering templates.
+- Native `.nodcad` project format.
+
+### Priority
+
+Very high.
+
+---
+
+## Nodalix Pages
+
+Document editor and technical writing app.
+
+### Goals
+
+Create beautiful documents, reports, academic papers, and engineering documentation.
+
+### Features
+
+- Rich text editing.
+- Technical reports.
+- Templates.
+- Tables.
+- Figures.
+- Automatic table of contents.
+- Equations.
+- PDF export.
+- Markdown/document hybrid mode.
+- Engineering report templates.
+
+### Priority
+
+Medium-high.
+
+---
+
+## Nodalix Cells
+
+Spreadsheet application.
+
+### Goals
+
+Provide a spreadsheet app with strong support for engineering calculations.
+
+### Features
+
+- Tables.
+- Formulas.
+- Charts.
+- CSV support.
+- XLSX compatibility research.
+- PDF export.
+- Engineering templates.
+- Unit-aware calculations.
+- Physical magnitudes.
+- Technical plotting.
+
+### Example
+
+`10 m + 25 cm = 10.25 m`
+
+### Priority
+
+Medium-high.
+
+---
+
+## Nodalix Point
+
+Presentation app.
+
+### Goals
+
+Create elegant technical and academic presentations.
+
+### Features
+
+- Slides.
+- Nodalix templates.
+- Presentation mode.
+- PDF export.
+- Basic animations.
+- Charts.
+- Diagrams.
+- Engineering presentation templates.
+- Project pitch templates.
+
+### Priority
+
+Medium.
+
+---
+
+## Nodalix Drop
+
+Local file transfer app.
+
+### Goals
+
+Provide an AirDrop-like experience for Nodalix and Linux devices.
+
+### Features
+
+- Send files over local network.
+- Receive files.
+- Device discovery.
+- QR pairing.
+- Transfer history.
+- Nodalix Files integration.
+- Mobile interoperability research.
+
+### Priority
+
+High.
+
+---
+
+## Nodalix Photo
+
+Image viewer and lightweight editor.
+
+### Goals
+
+Provide a fast and elegant image experience for Nodalix.
+
+### Features
+
+- Image viewing.
+- Crop.
+- Rotate.
+- Brightness/contrast.
+- Basic filters.
+- Annotations.
+- Format conversion.
+- Simple library view.
+
+### Priority
+
+Medium.
+
+---
+
+## Nodalix Video
+
+Video player and lightweight editor.
+
+### Goals
+
+Provide a simple video tool for playback, trimming, conversion, and basic editing.
+
+### Features
+
+- Video playback.
+- Trim clips.
+- Convert formats.
+- Extract audio.
+- Export GIF.
+- Capture frames.
+- Compression.
+- Subtitle support.
+- Future timeline editing.
+
+### Priority
+
+Medium.
+
+---
+
+## Nodalix Draw
+
+Vector drawing and diagramming app.
+
+### Goals
+
+Create diagrams, technical illustrations, architecture sketches, and clean vector graphics.
+
+### Features
+
+- Shapes.
+- Lines.
+- Arrows.
+- Connectors.
+- Text.
+- Layers.
+- SVG export.
+- PDF export.
+- PNG export.
+- Network diagrams.
+- Software architecture diagrams.
+- Engineering figures.
+
+### Priority
+
+Medium-high.
+
+---
+
+## Nodalix Notes
+
+Markdown-based notes and knowledge app.
+
+### Goals
+
+Provide a clean native notes app for study, projects, and technical documentation.
+
+### Features
+
+- Markdown notes.
+- Folders.
+- Tags.
+- Search.
+- Code blocks.
+- Equations.
+- Images.
+- Internal links.
+- Project notebooks.
+
+### Priority
+
+Medium.
+
+---
+
+## Nodalix Lab
+
+Engineering and scientific tools app.
+
+### Goals
+
+Provide native engineering utilities for calculations, plotting, unit conversion, and scientific workflows.
+
+### Features
+
+- Scientific calculator.
+- Unit converter.
+- 2D plotting.
+- Equation solving.
+- Matrices.
+- Interpolation.
+- Numerical integration.
+- Numerical derivatives.
+- Atmospheric tables.
+- Aerodynamic utilities.
+- Airfoil tools.
+- Basic structural calculations.
+
+### Priority
+
+High.
+
+---
+
+# Suite Priorities
+
+The first productivity and engineering apps should be:
+
+1. Nodalix CAD.
+2. Nodalix Drop.
+3. Nodalix Lab.
+4. Nodalix Draw.
+5. Nodalix Pages.
+6. Nodalix Cells.
+7. Nodalix Point.
+8. Nodalix Photo.
+9. Nodalix Video.
+10. Nodalix Notes.
+
+---
+
+# Long-Term Goal
+
+The long-term goal is to make Nodalix not only a desktop operating system, but also a complete native productivity and engineering platform for Linux.
+
+Nodalix should become a place where users can:
+
+- Design.
+- Calculate.
+- Write.
+- Present.
+- Transfer files.
+- Edit media.
+- Build engineering projects.
+- Manage technical documentation.
+- Work inside a coherent Linux-native ecosystem.
+
+The Nodalix app suite should feel intentional, integrated, and professional.
