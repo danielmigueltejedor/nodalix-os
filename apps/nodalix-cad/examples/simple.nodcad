@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "name": "Simple Nodalix CAD example",
+  "units": "Millimeters",
+  "modified": false,
+  "layers": [
+    { "name": "Default", "visible": true },
+    { "name": "Construction", "visible": true },
+    { "name": "Dimensions", "visible": true },
+    { "name": "Mesh Reference", "visible": true }
+  ],
+  "entities": [
+    {
+      "Line": {
+        "id": 1,
+        "layer": "Default",
+        "start": { "x": -80.0, "y": -40.0 },
+        "end": { "x": 80.0, "y": -40.0 }
+      }
+    },
+    {
+      "Polyline": {
+        "id": 2,
+        "layer": "Default",
+        "points": [
+          { "x": -60.0, "y": 20.0 },
+          { "x": 60.0, "y": 20.0 },
+          { "x": 60.0, "y": 80.0 },
+          { "x": -60.0, "y": 80.0 }
+        ],
+        "closed": true
+      }
+    },
+    {
+      "Circle": {
+        "id": 3,
+        "layer": "Default",
+        "center": { "x": 0.0, "y": 50.0 },
+        "radius": 22.0
+      }
+    }
+  ],
+  "imported_references": [],
+  "mesh_references": [],
+  "views": [
+    { "name": "Front", "view_type": "front" },
+    { "name": "Top", "view_type": "top" },
+    { "name": "Right", "view_type": "right" },
+    { "name": "Isometric", "view_type": "isometric-placeholder" }
+  ],
+  "sheets": [
+    {
+      "name": "A4 Drawing",
+      "format": "A4",
+      "orientation": "landscape",
+      "projection": "first-angle"
+    }
+  ],
+  "metadata": {
+    "scale_factor": 1.0,
+    "measured_distance": null,
+    "real_distance": null
+  }
+}
+

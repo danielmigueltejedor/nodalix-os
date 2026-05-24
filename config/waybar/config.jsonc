@@ -26,8 +26,8 @@
   "custom/nodalix-menu": {
     "format": "󱡓",
     "tooltip": true,
-    "tooltip-format": "Nodalix Menu",
-    "on-click": "nodalix-menu"
+    "tooltip-format": "Nodalix Settings",
+    "on-click": "nodalix-settings-toggle"
   },
   "hyprland/workspaces": {
     "format": "{id}",

@@ -1,7 +1,7 @@
 # Nodalix default desktop apps
 
 # Files
-# Nodalix Files is developed in ./nodalix-files
+# Nodalix Files is developed in ./apps/nodalix-files
 nautilus
 
 # System

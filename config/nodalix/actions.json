@@ -36,9 +36,9 @@
   {
     "icon": "󰒓",
     "title": "Abrir Nodalix Settings",
-    "subtitle": "Sistema · Próximamente",
+    "subtitle": "Sistema · Nodalix Settings",
     "search": "settings ajustes nodalix sistema configuracion",
-    "command": "notify-send \"Nodalix\" \"Nodalix Settings todavía no está implementado\"",
+    "command": "nodalix-settings",
     "category": "Sistema",
     "danger": false,
     "aliases": []

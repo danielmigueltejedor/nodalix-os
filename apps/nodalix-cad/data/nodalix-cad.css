@@ -1,0 +1,179 @@
+@define-color nodalix_accent #cba6f7;
+@define-color nodalix_text rgba(255, 255, 255, 0.94);
+@define-color nodalix_muted rgba(235, 228, 255, 0.62);
+@define-color nodalix_card rgba(24, 21, 34, 0.72);
+
+* {
+  font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", "Adwaita Sans", sans-serif;
+}
+
+.cad-root {
+  background: #08070d;
+}
+
+.top-toolbar,
+.status-bar {
+  padding: 10px 14px;
+  background: rgba(12, 10, 18, 0.88);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.top-toolbar {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.toolbar-scroll {
+  min-height: 58px;
+  background: rgba(12, 10, 18, 0.88);
+}
+
+.status-bar {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tool-button,
+.palette-button {
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 700;
+}
+
+.tool-button {
+  min-height: 34px;
+  padding: 5px 11px;
+  font-size: 12px;
+}
+
+.tool-button:hover,
+.palette-button:hover,
+.palette-button:checked {
+  background: alpha(@nodalix_accent, 0.22);
+  border-color: alpha(@nodalix_accent, 0.42);
+}
+
+.tool-palette {
+  padding: 12px 9px;
+  background: rgba(12, 10, 18, 0.72);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.side-scroll {
+  min-width: 66px;
+  background: rgba(12, 10, 18, 0.72);
+}
+
+.palette-button {
+  min-width: 46px;
+  min-height: 42px;
+  font-size: 18px;
+}
+
+.cad-canvas {
+  background: #090914;
+}
+
+.right-panel {
+  min-width: 340px;
+  background: rgba(12, 10, 18, 0.76);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.tool-context-panel,
+.properties-panel {
+  padding: 16px;
+}
+
+.tool-context-panel {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.panel-separator {
+  margin: 0 14px;
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.panel-title {
+  margin-top: 6px;
+  color: @nodalix_text;
+  font-size: 15px;
+  font-weight: 850;
+}
+
+.prop-label,
+.status-label {
+  color: @nodalix_text;
+  font-weight: 700;
+}
+
+.prop-value,
+.status-bar label {
+  color: @nodalix_muted;
+  font-size: 12px;
+}
+
+.workflow-step {
+  padding: 7px 9px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.045);
+  color: @nodalix_text;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+entry {
+  min-height: 34px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.07);
+  color: @nodalix_text;
+}
+
+.context-entry {
+  min-height: 30px;
+  font-size: 12px;
+}
+
+.context-chip {
+  min-height: 28px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid alpha(@nodalix_accent, 0.28);
+  background: alpha(@nodalix_accent, 0.12);
+  color: @nodalix_text;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.context-chip:hover {
+  background: alpha(@nodalix_accent, 0.22);
+  border-color: alpha(@nodalix_accent, 0.45);
+}
+
+.context-note {
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.045);
+  color: @nodalix_muted;
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.attribute-bar {
+  padding: 7px 12px;
+  background: rgba(12, 10, 18, 0.82);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.attribute-label {
+  min-width: 210px;
+  color: @nodalix_text;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.attribute-entry {
+  min-height: 28px;
+  min-width: 92px;
+  font-size: 11px;
+}

@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Archivos
 Comment=Explorar archivos y carpetas
-Exec=sh -lc 'cd ~/Projects/nodalix-os/nodalix-files && pnpm tauri dev'
+Exec=sh -lc 'cd ~/Projects/nodalix-os/apps/nodalix-files && pnpm tauri dev'
 Icon=folder
 Terminal=false
 Type=Application

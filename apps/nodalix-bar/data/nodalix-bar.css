@@ -1,0 +1,64 @@
+@define-color nodalix_accent #cba6f7;
+@define-color nodalix_text rgba(255, 255, 255, 0.94);
+@define-color nodalix_muted rgba(235, 228, 255, 0.62);
+
+* {
+  font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", "Adwaita Sans", sans-serif;
+}
+
+.bar-window {
+  background: transparent;
+}
+
+.bar-root {
+  padding: 6px 10px;
+  background: rgba(6, 6, 10, 0.18);
+}
+
+.bar-island {
+  min-height: 32px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.018)),
+    rgba(17, 15, 25, 0.82);
+  box-shadow:
+    0 12px 30px rgba(0, 0, 0, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.center-island {
+  min-width: 300px;
+}
+
+.bar-button {
+  min-height: 28px;
+  border-radius: 999px;
+  border: 0;
+  background: transparent;
+  color: @nodalix_text;
+  font-weight: 800;
+}
+
+.bar-button:hover {
+  background: alpha(@nodalix_accent, 0.18);
+}
+
+.workspace-label {
+  color: @nodalix_accent;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.window-title,
+.status-pill {
+  color: @nodalix_text;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.status-pill {
+  padding: 0 2px;
+}
+

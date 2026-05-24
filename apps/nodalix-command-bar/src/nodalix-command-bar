@@ -1,0 +1,2 @@
+#!/usr/bin/env bash
+exec env -u GDK_BACKEND python3 "$(dirname "$0")/nodalix-command-bar.py" "$@"
