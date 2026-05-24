@@ -7,26 +7,41 @@
 config/wpe-hypr/workshop-cache/
 **/__pycache__/
 *.pyc
-
 # Logs
 *.log
 logs/
-
 # Secretos / entorno local
 .env
 *.secret
 *.key
 *.token
 config/wpe-hypr/state.json
-
 # Local Nodalix/Zen temporary files
 .backup/
 zen-cache/
 build.zen
 __pycache__/
-
 # Local backups
 local/bin/Backups/
-
 # TypeScript incremental build info
 *.tsbuildinfo
+# Rust / Cargo
+target/
+**/target/
+# Node / pnpm
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+.pnpm-store/
+# Python
+# Tauri bundles
+**/src-tauri/target/
+**/src-tauri/target/release/bundle/
+# Backups/local temporary files
+*.backup
+old-backups/
+broken-backups/
+# OS/editor
+.DS_Store
+*.swp

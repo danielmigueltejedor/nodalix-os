@@ -1,25 +1,53 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -u
 
-APP="$HOME/Projects/nodalix-os/nodalix-files/src-tauri/target/release/nodalix-files"
 LOG="/tmp/nodalix-files-popup.log"
-CLASS="nodalix-files"
+APP="$HOME/Projects/nodalix-os/apps/nodalix-files/src-tauri/target/release/nodalix-files"
 
-# Cierra otros popups de la isla derecha
-nodalix-close-popups "$CLASS" 2>/dev/null || true
+echo "---- $(date) ----" >> "$LOG"
 
-if [[ ! -x "$APP" ]]; then
-  notify-send "Nodalix Files" "No existe el binario: $APP"
-  echo "ERROR: no existe o no es ejecutable: $APP" > "$LOG"
-  exit 1
-fi
+clients_json="$(hyprctl clients -j 2>/dev/null || echo '[]')"
 
-# Toggle: si ya está abierto, cerrar
-if hyprctl clients -j 2>/dev/null | jq -e --arg class "$CLASS" '.[] | select(.class == $class)' >/dev/null; then
-  pkill -f "$APP" 2>/dev/null || true
+pids="$(
+  printf '%s' "$clients_json" | jq -r '
+    .[] |
+    select(
+      (.class // "") == "nodalix-files" or
+      (.initialClass // "") == "nodalix-files" or
+      (.title // "") == "Nodalix Files" or
+      (.initialTitle // "") == "Nodalix Files"
+    ) |
+    .pid
+  ' | grep -E '^[0-9]+$' | sort -u
+)"
+
+if [[ -n "${pids:-}" ]]; then
+  echo "Closing Nodalix Files pids: $pids" >> "$LOG"
+
+  while read -r pid; do
+    [[ -n "$pid" ]] || continue
+    kill "$pid" 2>/dev/null || true
+  done <<< "$pids"
+
   exit 0
 fi
 
-# Abrir
-nohup "$APP" >"$LOG" 2>&1 &
-~/.local/bin/nodalix-position-popup-right "nodalix-files" 420 620 14 >/dev/null 2>&1 &
+if [[ ! -x "$APP" ]]; then
+  echo "ERROR: no existe o no es ejecutable: $APP" >> "$LOG"
+  notify-send "Nodalix Files" "No existe el binario: $APP"
+  exit 1
+fi
+
+echo "Opening: $APP" >> "$LOG"
+
+nohup "$APP" >> "$LOG" 2>&1 &
+
+sleep 0.35
+
+if command -v nodalix-position-popup-right >/dev/null 2>&1; then
+  nodalix-position-popup-right "nodalix-files" 420 620 14 >/dev/null 2>&1 &
+elif [[ -x "$HOME/.local/bin/nodalix-position-popup-right" ]]; then
+  "$HOME/.local/bin/nodalix-position-popup-right" "nodalix-files" 420 620 14 >/dev/null 2>&1 &
+fi
+
+exit 0

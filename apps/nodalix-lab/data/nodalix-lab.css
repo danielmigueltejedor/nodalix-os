@@ -1,0 +1,16 @@
+@define-color nodalix_accent #cba6f7;
+@define-color nodalix_text rgba(255, 255, 255, 0.94);
+@define-color nodalix_card rgba(24, 21, 34, 0.72);
+
+* { font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", "Adwaita Sans", sans-serif; }
+.lab-root { background: linear-gradient(135deg, rgba(12, 10, 18, 1.0), rgba(7, 7, 12, 1.0)); }
+.lab-sidebar { padding: 24px 16px; background: rgba(10, 9, 15, 0.74); border-right: 1px solid rgba(255,255,255,0.08); }
+.lab-content { padding: 28px; }
+.app-title, .page-title { color: @nodalix_text; font-weight: 850; }
+.app-title { font-size: 20px; }
+.page-title { font-size: 28px; }
+.nav-button { min-height: 38px; border-radius: 14px; background: rgba(255,255,255,0.06); color: @nodalix_text; font-weight: 700; }
+.nav-button:hover { background: alpha(@nodalix_accent, 0.18); }
+.lab-card { padding: 18px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.10); background: @nodalix_card; }
+.card-title { color: @nodalix_text; font-size: 15px; font-weight: 750; }
+

@@ -618,7 +618,7 @@ class NodalixMenu(Gtk.Window):
             ])
             self.card("", "Nodalix Files", "Gestor de archivos propio integrado en la isla derecha.", buttons=[
                 ("Abrir", "nodalix-files-popup", "primary_button"),
-                ("Proyecto", "xdg-open ~/Projects/nodalix-os/nodalix-files", None),
+                ("Proyecto", "xdg-open ~/Projects/nodalix-os/apps/nodalix-files", None),
             ])
             self.card("󰘳", "Configuración Hyprland", "Look & Feel, bindings, monitores y reglas de ventana.", buttons=[
                 ("looknfeel.lua", "zed ~/.config/hypr/looknfeel.lua", "primary_button"),

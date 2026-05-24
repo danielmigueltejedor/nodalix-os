@@ -1,0 +1,71 @@
+@define-color nodalix_accent #cba6f7;
+@define-color nodalix_text rgba(255, 255, 255, 0.94);
+@define-color nodalix_muted rgba(235, 228, 255, 0.62);
+@define-color nodalix_card rgba(24, 21, 34, 0.72);
+
+* {
+  font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", "Adwaita Sans", sans-serif;
+}
+
+.bundle-root {
+  background: linear-gradient(135deg, rgba(12, 10, 18, 1.0), rgba(7, 7, 12, 1.0));
+}
+
+.bundle-sidebar {
+  padding: 24px 16px;
+  background: rgba(10, 9, 15, 0.74);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.bundle-content {
+  padding: 26px;
+}
+
+.app-title {
+  color: @nodalix_text;
+  font-size: 20px;
+  font-weight: 850;
+}
+
+.nav-button,
+.action-button {
+  min-height: 38px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  color: @nodalix_text;
+  font-weight: 700;
+}
+
+.nav-button:hover,
+.action-button:hover {
+  background: alpha(@nodalix_accent, 0.18);
+}
+
+.summary-card {
+  padding: 22px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: @nodalix_card;
+}
+
+.card-title {
+  color: @nodalix_text;
+  font-size: 18px;
+  font-weight: 850;
+}
+
+.info-row {
+  padding: 7px 0;
+}
+
+.info-label {
+  color: @nodalix_text;
+  font-size: 13px;
+  font-weight: 750;
+}
+
+.info-value {
+  color: @nodalix_muted;
+  font-size: 13px;
+}
+

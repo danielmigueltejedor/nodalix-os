@@ -1,109 +1,44 @@
-#!/usr/bin/env python3
+#!/usr/bin/env bash
+set -euo pipefail
 
-import json
-import subprocess
-import time
+APP_NAME="nodalix-command-bar"
+APP_TITLE="Nodalix Command Bar"
 
+APP_RELEASE="$HOME/Projects/nodalix-os/apps/nodalix-command-bar/target/release/nodalix-command-bar"
+APP_DEBUG="$HOME/Projects/nodalix-os/apps/nodalix-command-bar/target/debug/nodalix-command-bar"
+APP_SOURCE="$HOME/Projects/nodalix-os/apps/nodalix-command-bar/src/nodalix-command-bar"
+APP_DIR="$HOME/Projects/nodalix-os/apps/nodalix-command-bar"
 
-COMMAND = "nodalix-command-bar"
-CLASS = "nodalix-command-bar"
-TITLE = "Nodalix Command Bar"
+# If already open, close it.
+if hyprctl clients -j 2>/dev/null | jq -e '
+  .[] | select(
+    (.class // "" | test("nodalix-command-bar"; "i")) or
+    (.initialClass // "" | test("nodalix-command-bar"; "i")) or
+    (.title // "" | test("Nodalix Command Bar"; "i")) or
+    (.initialTitle // "" | test("Nodalix Command Bar"; "i"))
+  )
+' >/dev/null; then
+  pkill -f "nodalix-command-bar" 2>/dev/null || true
+  exit 0
+fi
 
+# Prefer release binary, then debug binary, then Python/source app, then cargo run.
+if [[ -x "$APP_RELEASE" ]]; then
+  exec "$APP_RELEASE"
+fi
 
-def sh(args):
-    try:
-        return subprocess.check_output(
-            args,
-            text=True,
-            stderr=subprocess.DEVNULL,
-        ).strip()
-    except Exception:
-        return ""
+if [[ -x "$APP_DEBUG" ]]; then
+  exec "$APP_DEBUG"
+fi
 
+if [[ -x "$APP_SOURCE" ]]; then
+  exec "$APP_SOURCE"
+fi
 
-def run(args):
-    subprocess.Popen(
-        args,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        start_new_session=True,
-    )
+if [[ -d "$APP_DIR" && -f "$APP_DIR/Cargo.toml" ]]; then
+  cd "$APP_DIR"
+  exec cargo run
+fi
 
-
-def get_command_bar_clients():
-    raw = sh(["hyprctl", "clients", "-j"])
-
-    if not raw:
-        return []
-
-    try:
-        clients = json.loads(raw)
-    except Exception:
-        return []
-
-    matches = []
-
-    for client in clients:
-        address = str(client.get("address") or "")
-        klass = str(client.get("class") or "")
-        initial_class = str(client.get("initialClass") or "")
-        title = str(client.get("title") or "")
-        pid = client.get("pid")
-
-        if address and (
-            klass == CLASS
-            or initial_class == CLASS
-            or title == TITLE
-        ):
-            matches.append({
-                "address": address,
-                "pid": str(pid) if pid else "",
-            })
-
-    return matches
-
-
-def close_existing():
-    clients = get_command_bar_clients()
-
-    if not clients:
-        return False
-
-    for client in clients:
-        address = client["address"]
-
-        # Primero intentamos cierre limpio por Hyprland.
-        subprocess.run(
-            ["hyprctl", "dispatch", "closewindow", f"address:{address}"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-
-    time.sleep(0.15)
-
-    # Si Hyprland no la cerró, matamos el PID exacto de la ventana.
-    remaining = get_command_bar_clients()
-
-    for client in remaining:
-        pid = client.get("pid")
-
-        if pid:
-            subprocess.run(
-                ["kill", pid],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-
-    return True
-
-
-def main():
-    if close_existing():
-        return 0
-
-    run([COMMAND])
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+notify-send "Nodalix Command Bar" "No encuentro la app en apps/nodalix-command-bar"
+exit 1
