@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod conversion;
 mod files;
 mod folder_customization;
 mod localsend;
@@ -87,6 +88,7 @@ fn spawn_single_instance_server(app: tauri::AppHandle, listener: UnixListener) {
 
 fn main() {
     app_start();
+    conversion::init_conversion_backends();
     platform::debug_log("main");
     let args: Vec<String> = std::env::args().collect();
     let background = args.iter().any(|arg| arg == "--background");
@@ -154,6 +156,9 @@ fn main() {
             files::create_folder,
             files::create_document,
             files::rename_path,
+            conversion::preview_rename_with_conversion,
+            conversion::convert_file_to_path,
+            conversion::get_file_conversion_settings,
             files::trash_path,
             files::trash_paths,
             files::delete_paths_permanently,

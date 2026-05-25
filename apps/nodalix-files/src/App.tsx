@@ -17,6 +17,7 @@ import {
   ContextMenuSubmenu,
 } from "./components/ContextMenu";
 import ConfirmModal from "./components/ConfirmModal";
+import ConvertOnRenameModal from "./components/ConvertOnRenameModal";
 import FileGrid, { type ViewMode, type ZoomLevel } from "./components/FileGrid";
 import FolderCustomizeModal from "./components/FolderCustomizeModal";
 import MoveToModal from "./components/MoveToModal";
@@ -37,6 +38,7 @@ import Toolbar, {
 import { useContextMenu } from "./hooks/useContextMenu";
 import { useDirectory } from "./hooks/useDirectory";
 import { useFileActions } from "./hooks/useFileActions";
+import { useRenameWithConversion } from "./hooks/useRenameWithConversion";
 import { perfMark, usePerformanceMarks } from "./hooks/usePerformanceMarks";
 import { useSidebarItems } from "./hooks/useSidebarItems";
 import type { FileEntry, SpecialDirs } from "./lib/files";
@@ -372,6 +374,7 @@ export default function App() {
   );
 
   const actions = useFileActions(refreshDir);
+  const renameWithConversion = useRenameWithConversion(refreshDir);
   const { mark } = usePerformanceMarks(platform?.debug ?? false);
   const accent = accentPresets[accentName];
   const accentOptions = useMemo(
@@ -857,18 +860,23 @@ export default function App() {
   const commitInlineRename = useCallback(
     async (entry: FileEntry, name: string) => {
       try {
-        await actions.rename(entry.path, name, cwd);
-        setSelectedPaths(new Set());
-        setInlineRenamePath(null);
-        setInlineRenameInitial(null);
-        setActionError(null);
-        return true;
+        const done = await renameWithConversion.commitRename(entry.path, name, cwd);
+        if (done) {
+          setSelectedPaths(new Set());
+          setInlineRenamePath(null);
+          setInlineRenameInitial(null);
+          setActionError(null);
+        } else {
+          setInlineRenamePath(null);
+          setInlineRenameInitial(null);
+        }
+        return done;
       } catch (e) {
         setActionError(e instanceof Error ? e.message : String(e));
         return false;
       }
     },
-    [actions, cwd],
+    [cwd, renameWithConversion],
   );
 
   const cancelInlineRename = useCallback(() => {
@@ -2259,6 +2267,36 @@ export default function App() {
           await actions.deletePermanently(pathsForAction(), cwd);
           setSelectedPaths(new Set());
           setModal(null);
+        }}
+      />
+
+      <ConvertOnRenameModal
+        open={renameWithConversion.convertModalOpen}
+        preview={renameWithConversion.convertModal}
+        busy={renameWithConversion.convertBusy}
+        statusMessage={renameWithConversion.convertStatusMessage}
+        onClose={renameWithConversion.closeConvertModal}
+        onConvert={renameWithConversion.handleConvert}
+        onRenameOnly={renameWithConversion.handleRenameOnly}
+      />
+
+      <ConfirmModal
+        open={renameWithConversion.overwriteOpen}
+        title="Archivo existente"
+        message={`Ya existe un archivo con el nombre «${renameWithConversion.overwriteTargetName}». ¿Quieres sobrescribirlo?`}
+        confirmLabel="Sobrescribir"
+        onClose={renameWithConversion.cancelOverwrite}
+        onConfirm={async () => {
+          try {
+            await renameWithConversion.confirmOverwrite();
+            setSelectedPaths(new Set());
+            setInlineRenamePath(null);
+            setInlineRenameInitial(null);
+            setActionError(null);
+          } catch (e) {
+            setActionError(e instanceof Error ? e.message : String(e));
+            throw e;
+          }
         }}
       />
     </div>

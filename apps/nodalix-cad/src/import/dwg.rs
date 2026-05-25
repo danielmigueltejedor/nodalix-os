@@ -214,40 +214,7 @@ fn convert_and_import(
             }
         }
         DwgBackendKind::Oda => {
-            let input_dir = path
-                .parent()
-                .ok_or_else(|| format!("DWG path has no parent directory: {}", path.display()))?;
-            let filter = path
-                .file_name()
-                .and_then(|value| value.to_str())
-                .ok_or_else(|| format!("DWG path has no valid file name: {}", path.display()))?;
-            let args = [
-                input_dir.display().to_string(),
-                workspace.display().to_string(),
-                "ACAD2018".to_string(),
-                "DXF".to_string(),
-                "0".to_string(),
-                "1".to_string(),
-                filter.to_string(),
-            ];
-            log_dwg(format!(
-                "running DWG converter command: {} {}",
-                converter.display(),
-                args.join(" ")
-            ));
-            let output_log = Command::new(converter)
-                .args(args)
-                .output()
-                .map_err(|err| format!("Failed to run {}: {err}", converter.display()))?;
-            write_conversion_log(&log_path, &output_log.stdout, &output_log.stderr)?;
-            log_command_output(&backend, &output_log.stdout, &output_log.stderr);
-            if !output_log.status.success() {
-                return Err(format!(
-                    "DWG conversion failed with {}. Log: {}",
-                    backend.name,
-                    log_path.display()
-                ));
-            }
+            run_oda_conversion(path, &workspace, converter, &log_path, &backend)?;
         }
         DwgBackendKind::FreeCad => {
             return Err(format!(
@@ -260,7 +227,7 @@ fn convert_and_import(
 
     let output = if output.exists() {
         output
-    } else if let Some(found) = find_first_dxf(&workspace) {
+    } else if let Some(found) = find_first_dxf(&workspace.join("output")).or_else(|| find_first_dxf(&workspace)) {
         found
     } else {
         return Err(format!(
@@ -541,6 +508,87 @@ fn home_dir() -> PathBuf {
         .unwrap_or_else(std::env::temp_dir)
 }
 
+/// ODA File Converter expects exactly six arguments (folders may contain spaces; each is one argv):
+/// input_dir output_dir ACAD_version DXF|DWG|DXB recurse audit
+/// Do not pass a bare filename as a 7th argument — names with spaces become extra argv tokens and
+/// the binary prints its usage text instead of converting.
+fn run_oda_conversion(
+    source: &Path,
+    workspace: &Path,
+    converter: &Path,
+    log_path: &Path,
+    backend: &DwgBackend,
+) -> Result<(), String> {
+    let input_dir = workspace.join("input");
+    fs::create_dir_all(&input_dir).map_err(|err| err.to_string())?;
+    let file_name = source
+        .file_name()
+        .ok_or_else(|| format!("DWG path has no valid file name: {}", source.display()))?;
+    let staged_input = input_dir.join(file_name);
+    fs::copy(source, &staged_input).map_err(|err| {
+        format!(
+            "Failed to stage DWG for ODA converter ({} -> {}): {err}",
+            source.display(),
+            staged_input.display()
+        )
+    })?;
+
+    let output_dir = workspace.join("output");
+    fs::create_dir_all(&output_dir).map_err(|err| err.to_string())?;
+
+    let args = [
+        path_to_oda_arg(&input_dir),
+        path_to_oda_arg(&output_dir),
+        "ACAD2018".to_string(),
+        "DXF".to_string(),
+        "0".to_string(),
+        "1".to_string(),
+    ];
+    log_dwg(format!(
+        "running DWG converter command: {} {}",
+        converter.display(),
+        args.iter()
+            .map(|arg| format!("{arg:?}"))
+            .collect::<Vec<_>>()
+            .join(" ")
+    ));
+    let output_log = Command::new(converter)
+        .args(&args)
+        .output()
+        .map_err(|err| format!("Failed to run {}: {err}", converter.display()))?;
+    write_conversion_log(log_path, &output_log.stdout, &output_log.stderr)?;
+    log_command_output(backend, &output_log.stdout, &output_log.stderr);
+
+    let stdout = String::from_utf8_lossy(&output_log.stdout);
+    let stderr = String::from_utf8_lossy(&output_log.stderr);
+    if oda_output_is_usage_help(&stdout) || oda_output_is_usage_help(&stderr) {
+        return Err(format!(
+            "ODA File Converter printed its usage help instead of converting. \
+             This usually means the command line was wrong. Log: {}",
+            log_path.display()
+        ));
+    }
+    if !output_log.status.success() {
+        return Err(format!(
+            "DWG conversion failed with {} (exit {:?}). Log: {}",
+            backend.name,
+            output_log.status.code(),
+            log_path.display()
+        ));
+    }
+    Ok(())
+}
+
+fn path_to_oda_arg(path: &Path) -> String {
+    path.to_string_lossy().into_owned()
+}
+
+fn oda_output_is_usage_help(text: &str) -> bool {
+    text.contains("Command Line Format")
+        || text.contains("Quoted Input Folder")
+        || text.contains("Output File type")
+}
+
 fn write_conversion_log(path: &Path, stdout: &[u8], stderr: &[u8]) -> Result<(), String> {
     let mut data = String::new();
     data.push_str("stdout:\n");
@@ -658,6 +706,29 @@ mod tests {
             Some(Path::new("/usr/bin/oda-file-converter"))
         );
         assert!(backend_is_oda(config.backend.as_deref().unwrap()));
+    }
+
+    #[test]
+    fn oda_args_use_six_arguments_without_filename_tokens() {
+        let workspace = PathBuf::from("/tmp/cache/imports/123");
+        let input_dir = workspace.join("input");
+        let output_dir = workspace.join("output");
+        let args = [
+            path_to_oda_arg(&input_dir),
+            path_to_oda_arg(&output_dir),
+            "ACAD2018".to_string(),
+            "DXF".to_string(),
+            "0".to_string(),
+            "1".to_string(),
+        ];
+        assert_eq!(args.len(), 6);
+        assert!(!args.iter().any(|arg| arg == "DE" || arg == "PISTA.dwg"));
+    }
+
+    #[test]
+    fn detects_oda_usage_help() {
+        assert!(oda_output_is_usage_help("Command Line Format is:\nQuoted Input Folder"));
+        assert!(!oda_output_is_usage_help("converted 1 files"));
     }
 
     #[test]

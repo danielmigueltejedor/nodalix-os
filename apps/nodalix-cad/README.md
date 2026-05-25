@@ -121,7 +121,7 @@ Only the import, sketch primitives, scale metadata, native save/open, and DXF/SV
 ## Limitations
 
 - STEP import is metadata/reference only.
-- DWG import depends on external converter quality. Current automatic command wiring is implemented for ODA File Converter and LibreDWG `dwg2dxf`; FreeCAD is detected/configured but still needs backend-specific command wiring.
+- DWG import depends on external converter quality. ODA File Converter is invoked with six arguments only (input folder, output folder, version, type, recurse, audit). The DWG is staged into an isolated cache input folder so filenames with spaces are not split into extra argv tokens. LibreDWG `dwg2dxf` uses a separate code path; FreeCAD is detected but not wired yet.
 - DWG export currently writes a DXF intermediate and reports the conversion requirement. Automatic DWG conversion will be enabled after the converter command is pinned and tested.
 - STL rendering is a bounding-box/reference preview, not full 3D rendering.
 - Snaps are early but functional; full constraint solving is still planned.
