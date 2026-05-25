@@ -104,26 +104,74 @@ Este mismo criterio se aplica al resto del ecosistema.
 
 ---
 
+
+# Lix Apps — Ecosistema nativo de Nodalix OS
+
+Este documento define una propuesta refinada para las aplicaciones propias de **Nodalix OS**, agrupando herramientas equivalentes de Windows, Adobe, Autodesk, MATLAB, Office y software científico/ingenieril en una suite coherente bajo la marca **Lix**.
+
+La idea no es crear una app por cada programa existente, sino crear **apps Lix potentes por categoría**, con nombres claros, memorables y con identidad propia.
+
+---
+
+## Principio de diseño
+
+En vez de tener decenas de aplicaciones separadas como:
+
+- Adobe Premiere
+- DaVinci Resolve
+- After Effects
+- Media Encoder
+
+se agrupan en una sola app:
+
+- **LixStudio**
+
+Y dentro de ella habría módulos:
+
+- Edición de vídeo
+- Color
+- Motion graphics
+- VFX
+- Render/export
+
+Este mismo criterio se aplica al resto del ecosistema.
+
+---
+
+## Criterio de nombres
+
+Los nombres deben ser:
+
+- fáciles de recordar,
+- cortos,
+- reconocibles,
+- profesionales,
+- visuales cuando sea posible,
+- coherentes con la marca Lix,
+- y suficientemente amplios para permitir módulos internos.
+
+---
+
 # 1. Sistema Nodalix
 
 | App Lix | Sustituye / agrupa | Función |
 |---|---|---|
 | **LixFiles** | Windows Explorer, Finder, Nautilus, Dolphin | Gestor de archivos nativo |
 | **LixSettings** | Windows Settings, GNOME Settings, KDE Settings | Ajustes generales del sistema |
-| **LixControl Center** | macOS Control Center, Windows Quick Settings | Centro rápido de controles |
+| **LixControl** | macOS Control Center, Windows Quick Settings | Centro rápido de controles del sistema |
 | **LixStore** | Microsoft Store, App Store, Discover | Tienda e instalador de apps |
-| **LixUpdater** | Windows Update, Discover Updates | Actualizaciones del sistema |
-| **LixGuard** | Windows Defender, firewall GUIs | Seguridad, firewall y privacidad |
+| **LixUpdate** | Windows Update, Discover Updates | Actualizaciones del sistema |
+| **LixShield** | Windows Defender, firewall GUIs | Seguridad, firewall y privacidad |
 | **LixDrop** | AirDrop, LocalSend, Phone Link | Transferencia rápida de archivos |
-| **LixCapture** | Snipping Tool, ShareX, OBS básico | Capturas y grabación de pantalla |
+| **LixShot** | Snipping Tool, ShareX, OBS básico | Capturas y grabación rápida |
 | **LixWelcome** | Welcome apps, setup assistants | Bienvenida y configuración inicial |
 | **LixGreeter** | SDDM, GDM, Windows Login | Pantalla de inicio de sesión |
 | **LixLock** | Windows Lock Screen, Hyprlock | Pantalla de bloqueo |
 | **LixBar** | Waybar, taskbar, top bar | Barra superior del sistema |
 | **LixDock** | macOS Dock, taskbar | Dock de aplicaciones |
-| **LixNotifications** | Notification Center | Centro de notificaciones |
-| **LixTerminal** | Windows Terminal, Ghostty, Alacritty | Terminal nativa |
-| **LixTweaks** | PowerToys, herramientas avanzadas | Ajustes avanzados del sistema |
+| **LixNotify** | Notification Center | Centro de notificaciones |
+| **LixTerm** | Windows Terminal, Ghostty, Alacritty | Terminal nativa |
+| **LixTune** | PowerToys, herramientas avanzadas | Optimización y ajustes avanzados |
 
 ---
 
@@ -131,17 +179,17 @@ Este mismo criterio se aplica al resto del ecosistema.
 
 | App Lix | Sustituye / agrupa | Módulos internos |
 |---|---|---|
-| **LixOffice** | Microsoft Office, LibreOffice, iWork, Google Docs | Hub general de oficina |
+| **LixSuite** | Microsoft Office, LibreOffice, iWork, Google Docs | Hub general de productividad |
 | **LixPages** | Microsoft Word, Apple Pages, LibreOffice Writer | Documentos de texto |
-| **LixNumbers** | Microsoft Excel, Apple Numbers, LibreOffice Calc | Hojas de cálculo |
-| **LixSlides** | PowerPoint, Keynote, LibreOffice Impress | Presentaciones |
-| **LixPDF** | Adobe Acrobat, PDF-XChange, Preview | PDF, anotaciones, firmas |
+| **LixCells** | Microsoft Excel, Apple Numbers, LibreOffice Calc | Hojas de cálculo |
+| **LixDeck** | PowerPoint, Keynote, LibreOffice Impress | Presentaciones |
+| **LixPaper** | Adobe Acrobat, PDF-XChange, Preview | PDF, documentos, firmas y escáner |
 | **LixNotes** | OneNote, Notion, Obsidian, Apple Notes | Notas y base de conocimiento |
-| **LixCite** | Zotero, Mendeley, EndNote | Bibliografía y citas |
-| **LixProject** | Microsoft Project, Planner, Trello, Jira básico | Gestión de proyectos |
-| **LixDiagram** | Microsoft Visio, Draw.io, Lucidchart | Diagramas técnicos |
+| **LixRefs** | Zotero, Mendeley, EndNote | Bibliografía y citas |
+| **LixPlan** | Microsoft Project, Planner, Trello, Jira básico | Gestión de proyectos |
+| **LixFlow** | Microsoft Visio, Draw.io, Lucidchart | Diagramas, flujos y esquemas |
 | **LixBoard** | Miro, Microsoft Whiteboard | Pizarra visual |
-| **LixProof** | Grammarly, LanguageTool | Corrección y revisión de textos |
+| **LixWrite** | Grammarly, LanguageTool, asistentes de escritura | Corrección, escritura y asistencia textual |
 
 ---
 
@@ -151,12 +199,12 @@ Este mismo criterio se aplica al resto del ecosistema.
 |---|---|---|
 | **LixStudio** | Adobe Premiere, DaVinci Resolve, After Effects, Media Encoder | Vídeo, color, VFX, motion y render |
 | **LixPhoto** | Photoshop, Lightroom, Affinity Photo, Camera RAW | Foto, RAW, retoque y biblioteca |
-| **LixDesign** | Illustrator, Figma, Adobe XD, Affinity Designer | Vectorial, UI/UX, iconos y prototipos |
-| **LixLayout** | InDesign, Publisher, Scribus | Maquetación editorial |
-| **LixAudio** | Audition, Audacity, Logic básico | Grabación, edición y mezcla de audio |
-| **Lix3D** | Blender, Cinema4D, Substance Painter | Modelado 3D, materiales, render y animación |
-| **LixAnimate** | Adobe Animate, Toon Boom básico | Animación 2D |
-| **LixCreate** | Canva, Adobe Express | Diseño rápido para documentos y redes |
+| **LixCanvas** | Illustrator, Figma, Adobe XD, Affinity Designer, Canva | Vectorial, UI/UX, iconos, prototipos y diseño rápido |
+| **LixPress** | InDesign, Publisher, Scribus | Maquetación editorial y publicaciones |
+| **LixSound** | Audition, Audacity, Logic básico | Grabación, edición y mezcla de audio |
+| **LixForge** | Blender, Cinema4D, Substance Painter | Modelado 3D creativo, materiales, render y animación |
+| **LixMotion** | Integrado en LixStudio | Motion graphics y animación |
+| **LixCreate** | Integrado en LixCanvas | Diseño rápido para documentos y redes |
 
 ---
 
@@ -166,11 +214,11 @@ Este mismo criterio se aplica al resto del ecosistema.
 |---|---|---|
 | **LixCAD** | AutoCAD, BricsCAD, DraftSight, LibreCAD | CAD 2D/3D general, DWG, DXF, STEP |
 | **LixModel** | Fusion 360, Inventor, SolidWorks, Creo, FreeCAD | Modelado paramétrico mecánico |
-| **LixBIM** | Revit, Archicad, Navisworks | Arquitectura, BIM y coordinación |
-| **LixCivil** | Civil 3D, InfraWorks, Global Mapper civil | Obra civil, carreteras y topografía |
-| **LixStructures** | Tekla, Robot, SAP2000, CYPE estructuras | Estructuras metálicas y hormigón |
+| **LixBuild** | Revit, Archicad, Navisworks | Arquitectura, BIM, construcción y coordinación |
+| **LixTerrain** | Civil 3D, InfraWorks, Global Mapper civil | Obra civil, terreno, carreteras y topografía |
+| **LixFrame** | Tekla, Robot, SAP2000, CYPE estructuras | Estructuras metálicas y hormigón |
 | **LixSurface** | Rhino, Grasshopper, Alias | Superficies, NURBS y diseño paramétrico |
-| **LixDraft** | AutoCAD LT, LibreCAD | Dibujo técnico 2D ligero |
+| **LixDraft** | Integrado en LixCAD | Modo de dibujo técnico 2D ligero |
 | **LixMesh** | HyperMesh, Salome, Gmsh | Mallado y preprocesado CAE |
 
 ---
@@ -181,10 +229,10 @@ Este mismo criterio se aplica al resto del ecosistema.
 |---|---|---|
 | **LixMath** | MATLAB, Mathematica, Maple, Mathcad, Octave | Cálculo numérico, simbólico, notebooks y scripts |
 | **LixSim** | Simulink, LabVIEW visual, Modelica | Simulación por bloques y sistemas dinámicos |
-| **LixPlot** | OriginPro, Desmos, GeoGebra, GraphPad Prism | Gráficas, análisis de datos y ajuste de curvas |
+| **LixGraph** | OriginPro, Desmos, GeoGebra, GraphPad Prism | Gráficas, análisis de datos y ajuste de curvas |
 | **LixLab** | LabVIEW, ELN, instrumentación | Laboratorio, adquisición de datos y cuaderno técnico |
 | **LixUnits** | Conversores de unidades, tablas técnicas | Unidades, constantes y propiedades físicas |
-| **LixNotebook** | Jupyter, Spyder, RStudio | Notebooks científicos Python/R/Julia |
+| **LixBook** | Jupyter, Spyder, RStudio | Notebooks científicos Python/R/Julia |
 | **LixData** | Power BI, Tableau, Orange, Weka | BI, datasets y machine learning visual |
 
 ---
@@ -195,11 +243,13 @@ Este mismo criterio se aplica al resto del ecosistema.
 |---|---|---|
 | **LixCAE** | ANSYS Workbench, Abaqus, Nastran, COMSOL | Simulación general CAE y multifísica |
 | **LixCFD** | ANSYS Fluent, CFX, OpenFOAM, SU2 | Dinámica de fluidos computacional |
-| **LixFEA** | ANSYS Mechanical, Abaqus, Nastran | Elementos finitos estructurales |
+| **LixStress** | ANSYS Mechanical, Abaqus, Nastran | Elementos finitos estructurales |
 | **LixAero** | XFLR5, AVL, SU2 Aero | Aeronaves, alas, estabilidad y polares |
-| **LixAirfoil** | XFOIL, JavaFoil, Profili | Perfiles aerodinámicos |
-| **LixDynamics** | Adams, LS-DYNA, dinámica multicuerpo | Dinámica, impacto y sistemas multicuerpo |
-| **LixPrePost** | Salome-Meca, ParaView, PrePoMax | Preprocesado y postprocesado |
+| **LixFoil** | XFOIL, JavaFoil, Profili | Perfiles aerodinámicos |
+| **LixMotion** | Adams, LS-DYNA, dinámica multicuerpo | Dinámica, impacto y sistemas multicuerpo |
+| **LixPrePost** | Integrado en LixCAE | Preprocesado y postprocesado |
+
+> Nota: **LixMotion** puede tener dos módulos: motion graphics dentro de **LixStudio** y dinámica/multicuerpo dentro de **LixCAE**. Si quieres evitar conflicto total, usa **LixDynamics** para ingeniería y deja **LixMotion** para creatividad.
 
 ---
 
@@ -208,10 +258,12 @@ Este mismo criterio se aplica al resto del ecosistema.
 | App Lix | Sustituye / agrupa | Módulos internos |
 |---|---|---|
 | **LixCircuit** | KiCad, Altium, Proteus, Multisim, LTspice | PCB, esquemas y simulación electrónica |
-| **LixControlSim** | TIA Portal, Codesys, Simulink Control | PLC, control automático y automatización |
+| **LixAutomate** | TIA Portal, Codesys, Simulink Control | PLC, control automático y automatización |
 | **LixRobotics** | ROS tools, Gazebo, RViz | Robótica, sensores y simulación |
 | **LixIoT** | Home Assistant tools, Node-RED, MQTT tools | IoT, domótica y automatización |
 | **LixElectrical** | AutoCAD Electrical, EPLAN | Esquemas eléctricos industriales |
+
+> Nota: **LixControl** queda reservado para el centro de control del sistema. Para control automático/PLC es mejor **LixAutomate**, así no hay conflicto de nombres.
 
 ---
 
@@ -220,7 +272,7 @@ Este mismo criterio se aplica al resto del ecosistema.
 | App Lix | Sustituye / agrupa | Módulos internos |
 |---|---|---|
 | **LixCode** | VS Code, Zed, JetBrains, Visual Studio | Editor/IDE |
-| **LixDevkit** | GitHub Desktop, Docker Desktop, Postman, DBeaver | Git, contenedores, APIs y bases de datos |
+| **LixDev** | GitHub Desktop, Docker Desktop, Postman, DBeaver | Git, contenedores, APIs y bases de datos |
 | **LixAPI** | Postman, Insomnia | APIs y peticiones HTTP |
 | **LixDB** | DBeaver, DataGrip, pgAdmin | Bases de datos |
 | **LixGit** | GitHub Desktop, GitKraken | Cliente Git visual |
@@ -235,7 +287,7 @@ Este mismo criterio se aplica al resto del ecosistema.
 | App Lix | Sustituye / agrupa | Módulos internos |
 |---|---|---|
 | **LixGIS** | ArcGIS, QGIS, Global Mapper | GIS, mapas, capas y análisis espacial |
-| **LixTerrain** | Herramientas DEM, topografía, Global Mapper | Terreno, curvas de nivel y nubes de puntos |
+| **LixTerrain** | Civil 3D, InfraWorks, DEM tools | Terreno, topografía, curvas de nivel y nubes de puntos |
 | **LixHydro** | HEC-RAS, EPANET, SWMM | Hidráulica, redes de agua y drenaje |
 | **LixMaps** | QGIS ligero, mapas técnicos | Mapas y visualización territorial |
 | **LixInfra** | InfraWorks, Civil 3D infraestructuras | Infraestructura 3D |
@@ -254,9 +306,44 @@ Este mismo criterio se aplica al resto del ecosistema.
 
 ---
 
-# 11. Apps principales recomendadas para empezar
+# 11. Cambios de naming aplicados
 
-Esta es la lista inicial más equilibrada para crear un ecosistema potente sin hacer demasiadas apps desde el principio.
+| Nombre actual | Nuevo nombre | Motivo |
+|---|---|---|
+| LixControl Center | **LixControl** | Más corto y recordable; el “Center” sobra |
+| LixUpdater | **LixUpdate** | Más limpio, estilo app de sistema |
+| LixNotifications | **LixNotify** | Más corto y con identidad |
+| LixTerminal | **LixTerm** | Más técnico y corto |
+| LixTweaks | **LixTune** | “Tune” suena a optimizar/ajustar fino |
+| LixOffice | **LixSuite** | Más amplio que Office |
+| LixNumbers | **LixCells** | Más reconocible como hoja de cálculo |
+| LixSlides | **LixDeck** | Más memorable y moderno |
+| LixPDF | **LixPaper** | Más elegante; PDF + documentos + firma + escáner |
+| LixCite | **LixRefs** | Más claro para referencias/bibliografía |
+| LixProject | **LixPlan** | Más simple y amplio |
+| LixDiagram | **LixFlow** | Más bonito para diagramas, flujos y esquemas |
+| LixProof | **LixWrite** | Mejor para corrección, escritura y asistencia |
+| LixDesign | **LixCanvas** | Más visual y memorable para vectorial/UI/UX |
+| LixLayout | **LixPress** | Suena editorial/profesional |
+| LixAudio | **LixSound** | Más de producto final, menos genérico |
+| Lix3D | **LixForge** | Más potente para 3D/modelado/render |
+| LixAnimate | **Integrado en LixStudio** | No hace falta app separada al principio |
+| LixCreate | **Integrado en LixCanvas** | Diseño rápido dentro de la app de diseño |
+| LixModel | **LixModel** | Se mantiene para CAD paramétrico |
+| LixBIM | **LixBuild** | Más memorable para arquitectura/BIM/construcción |
+| LixCivil | **LixTerrain** | Mejor si incluye civil, topografía y terreno |
+| LixStructures | **LixFrame** | Más corto y visual |
+| LixDraft | **Integrado en LixCAD** | Sería modo Draft dentro de LixCAD |
+| LixPlot | **LixGraph** | Graph suena más serio y científico |
+| LixNotebook | **LixBook** | Más elegante, aunque Notebook es más explícito |
+| LixFEA | **LixStress** | Más recordable para estructuras/esfuerzos |
+| LixAirfoil | **LixFoil** | Más corto y memorable |
+| LixPrePost | **Integrado en LixCAE** | No hace falta app separada al principio |
+| LixControlSim | **LixAutomate** | Evita conflicto con LixControl del sistema |
+
+---
+
+# 12. Apps principales recomendadas para empezar
 
 ## Sistema
 
@@ -264,27 +351,27 @@ Esta es la lista inicial más equilibrada para crear un ecosistema potente sin h
 |---:|---|
 | 1 | **LixFiles** |
 | 2 | **LixSettings** |
-| 3 | **LixControl Center** |
+| 3 | **LixControl** |
 | 4 | **LixBar** |
 | 5 | **LixGreeter** |
 | 6 | **LixLock** |
 | 7 | **LixDock** |
 | 8 | **LixStore** |
-| 9 | **LixUpdater** |
+| 9 | **LixUpdate** |
 | 10 | **LixDrop** |
 
 ## Productividad
 
 | Prioridad | App |
 |---:|---|
-| 11 | **LixOffice** |
+| 11 | **LixSuite** |
 | 12 | **LixPages** |
-| 13 | **LixNumbers** |
-| 14 | **LixSlides** |
-| 15 | **LixPDF** |
+| 13 | **LixCells** |
+| 14 | **LixDeck** |
+| 15 | **LixPaper** |
 | 16 | **LixNotes** |
-| 17 | **LixCite** |
-| 18 | **LixDiagram** |
+| 17 | **LixRefs** |
+| 18 | **LixFlow** |
 
 ## Creatividad
 
@@ -292,10 +379,10 @@ Esta es la lista inicial más equilibrada para crear un ecosistema potente sin h
 |---:|---|
 | 19 | **LixStudio** |
 | 20 | **LixPhoto** |
-| 21 | **LixDesign** |
-| 22 | **LixAudio** |
-| 23 | **Lix3D** |
-| 24 | **LixCapture** |
+| 21 | **LixCanvas** |
+| 22 | **LixSound** |
+| 23 | **LixForge** |
+| 24 | **LixShot** |
 
 ## Ingeniería y ciencia
 
@@ -305,44 +392,153 @@ Esta es la lista inicial más equilibrada para crear un ecosistema potente sin h
 | 26 | **LixModel** |
 | 27 | **LixMath** |
 | 28 | **LixSim** |
-| 29 | **LixPlot** |
+| 29 | **LixGraph** |
 | 30 | **LixCFD** |
-| 31 | **LixStructures** |
-| 32 | **LixAirfoil** |
+| 31 | **LixFrame** |
+| 32 | **LixFoil** |
 | 33 | **LixUnits** |
 | 34 | **LixCAE** |
-| 35 | **LixFEA** |
+| 35 | **LixStress** |
 
 ## Desarrollo y datos
 
 | Prioridad | App |
 |---:|---|
 | 36 | **LixCode** |
-| 37 | **LixDevkit** |
-| 38 | **LixNotebook** |
+| 37 | **LixDev** |
+| 38 | **LixBook** |
 | 39 | **LixData** |
 | 40 | **LixAI** |
 
 ---
 
-# 12. Núcleo mínimo realista de Nodalix OS
+# 13. Núcleo mínimo realista de Nodalix OS
 
 Si el objetivo es tener una primera versión coherente y usable, el núcleo mínimo debería ser:
 
 | Categoría | Apps |
 |---|---|
-| Sistema | **LixFiles**, **LixSettings**, **LixControl Center**, **LixBar**, **LixGreeter**, **LixLock** |
-| Productividad | **LixPages**, **LixNumbers**, **LixSlides**, **LixPDF**, **LixNotes** |
-| Creatividad | **LixPhoto**, **LixStudio**, **LixDesign** |
-| Ingeniería | **LixCAD**, **LixMath**, **LixSim**, **LixPlot**, **LixUnits** |
-| Desarrollo | **LixCode**, **LixDevkit** |
-| Utilidades | **LixDrop**, **LixCapture**, **LixStore**, **LixUpdater** |
+| Sistema | **LixFiles**, **LixSettings**, **LixControl**, **LixBar**, **LixGreeter**, **LixLock** |
+| Productividad | **LixPages**, **LixCells**, **LixDeck**, **LixPaper**, **LixNotes** |
+| Creatividad | **LixPhoto**, **LixStudio**, **LixCanvas** |
+| Ingeniería | **LixCAD**, **LixMath**, **LixSim**, **LixGraph**, **LixUnits** |
+| Desarrollo | **LixCode**, **LixDev** |
+| Utilidades | **LixDrop**, **LixShot**, **LixStore**, **LixUpdate** |
 
 Total aproximado inicial: **24 apps**.
 
 ---
 
-# 13. Filosofía final
+# 14. Naming final recomendado
+
+## Sistema
+
+- **LixFiles**
+- **LixSettings**
+- **LixControl**
+- **LixBar**
+- **LixDock**
+- **LixGreeter**
+- **LixLock**
+- **LixStore**
+- **LixUpdate**
+- **LixShield**
+- **LixDrop**
+- **LixShot**
+- **LixNotify**
+- **LixTerm**
+- **LixTune**
+
+## Productividad
+
+- **LixSuite**
+- **LixPages**
+- **LixCells**
+- **LixDeck**
+- **LixPaper**
+- **LixNotes**
+- **LixRefs**
+- **LixPlan**
+- **LixFlow**
+- **LixBoard**
+- **LixWrite**
+
+## Creatividad
+
+- **LixStudio**
+- **LixPhoto**
+- **LixCanvas**
+- **LixPress**
+- **LixSound**
+- **LixForge**
+
+## Ingeniería
+
+- **LixCAD**
+- **LixModel**
+- **LixBuild**
+- **LixTerrain**
+- **LixFrame**
+- **LixSurface**
+- **LixMesh**
+
+## Ciencia y simulación
+
+- **LixMath**
+- **LixSim**
+- **LixGraph**
+- **LixLab**
+- **LixUnits**
+- **LixBook**
+- **LixData**
+
+## CAE y aeroespacial
+
+- **LixCAE**
+- **LixCFD**
+- **LixStress**
+- **LixAero**
+- **LixFoil**
+- **LixDynamics**
+
+## Electrónica y automatización
+
+- **LixCircuit**
+- **LixAutomate**
+- **LixRobotics**
+- **LixIoT**
+- **LixElectrical**
+
+## Desarrollo e IA
+
+- **LixCode**
+- **LixDev**
+- **LixAPI**
+- **LixDB**
+- **LixGit**
+- **LixContainers**
+- **LixAI**
+- **LixML**
+
+## Territorio
+
+- **LixGIS**
+- **LixTerrain**
+- **LixHydro**
+- **LixMaps**
+- **LixInfra**
+
+## Ciencia bio/química
+
+- **LixChem**
+- **LixBio**
+- **LixPrism**
+- **LixQuantum**
+- **LixMolecule**
+
+---
+
+# 15. Filosofía final
 
 Nodalix OS no debería intentar parecer una colección de clones.
 
@@ -351,6 +547,7 @@ La filosofía debería ser:
 > Una suite nativa, coherente y elegante para Linux, enfocada en productividad, creatividad, ingeniería y ciencia.
 
 Cada app Lix debe:
+
 - tener identidad visual propia,
 - compartir diseño común,
 - integrarse con Nodalix OS,
