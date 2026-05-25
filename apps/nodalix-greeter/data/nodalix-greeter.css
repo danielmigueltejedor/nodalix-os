@@ -33,6 +33,14 @@
 
 .brand {
   margin-top: 14px;
+}
+
+.brand-logo {
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.brand-text {
   color: rgba(255, 255, 255, 0.92);
   font-size: 24px;
   font-weight: 700;

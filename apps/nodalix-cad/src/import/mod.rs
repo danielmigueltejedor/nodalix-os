@@ -29,8 +29,8 @@ pub fn import_path(path: &Path, document: &mut Document) -> Result<ImportSummary
         "step" | "stp" | "iges" | "igs" => step::import_step_metadata(path, document),
         "stl" => stl::import_stl(path, document),
         "dxf" => dxf::import_dxf(path, document),
-        "dwg" => dwg::import_dwg_reference(path, document),
-        "nodcad" => {
+        "dwg" => dwg::import_dwg(path, document),
+        "nodcad" | "lixcad" => {
             *document = native::open(path)?;
             Ok(ImportSummary {
                 file_name: path

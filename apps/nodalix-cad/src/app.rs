@@ -2,7 +2,7 @@ use gtk::prelude::*;
 
 pub fn run() {
     let app = adw::Application::builder()
-        .application_id("os.nodalix.Cad")
+        .application_id("com.nodalia.lix.cad")
         .build();
 
     app.connect_startup(|_| {

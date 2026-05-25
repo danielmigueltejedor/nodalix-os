@@ -1,5 +1,6 @@
 use adw::prelude::AdwApplicationWindowExt;
 use gtk::{gdk, prelude::*};
+use std::path::{Path, PathBuf};
 
 pub fn build(app: &adw::Application) {
     load_css();
@@ -15,8 +16,9 @@ pub fn build(app: &adw::Application) {
     window.set_content(Some(&root));
 
     let left = island();
-    let logo = gtk::Button::with_label("󰣇 Nodalix");
+    let logo = gtk::Button::new();
     logo.add_css_class("bar-button");
+    logo.set_child(Some(&brand_content("Nodalix", 20)));
     logo.connect_clicked(|_| {
         crate::modules::spawn_detached("nodalix-control-center", &[]);
     });
@@ -57,6 +59,34 @@ pub fn build(app: &adw::Application) {
     root.set_end_widget(Some(&right));
 
     window.present();
+}
+
+fn brand_content(text: &str, size: i32) -> gtk::Box {
+    let content = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    content.set_valign(gtk::Align::Center);
+    if let Some(path) = resolve_logo_path() {
+        let image = gtk::Picture::for_filename(path);
+        image.set_content_fit(gtk::ContentFit::Contain);
+        image.set_size_request(size, size);
+        image.add_css_class("brand-logo");
+        content.append(&image);
+    }
+    let label = gtk::Label::new(Some(text));
+    label.add_css_class("brand-label");
+    content.append(&label);
+    content
+}
+
+fn resolve_logo_path() -> Option<PathBuf> {
+    [
+        "/etc/nodalix/brand/nodalix-logo-symbol.svg",
+        "/usr/share/nodalix/brand/nodalix-logo-symbol.svg",
+        "/home/dani/Projects/nodalix-os/assets/brand/nodalix-logo-symbol.svg",
+    ]
+    .iter()
+    .map(Path::new)
+    .find(|path| path.is_file())
+    .map(Path::to_path_buf)
 }
 
 fn island() -> gtk::Box {

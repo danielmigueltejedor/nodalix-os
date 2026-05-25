@@ -45,6 +45,17 @@
   background: alpha(@nodalix_accent, 0.18);
 }
 
+.brand-logo {
+  min-width: 20px;
+  min-height: 20px;
+}
+
+.brand-label {
+  color: @nodalix_text;
+  font-size: 12px;
+  font-weight: 850;
+}
+
 .workspace-label {
   color: @nodalix_accent;
   font-size: 12px;
@@ -61,4 +72,3 @@
 .status-pill {
   padding: 0 2px;
 }
-

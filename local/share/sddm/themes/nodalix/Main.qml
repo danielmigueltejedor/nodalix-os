@@ -119,7 +119,7 @@ Rectangle {
                 spacing: 13
 
                 Text {
-                    text: "󱡓  Nodalix OS"
+                    text: "  Nodalix OS"
                     anchors.horizontalCenter: parent.horizontalCenter
                     color: "#ffffff"
                     font.family: "JetBrainsMono Nerd Font"

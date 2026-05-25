@@ -3,4 +3,4 @@ session_command = "uwsm start hyprland-uwsm.desktop"
 accent_color = "#cba6f7"
 font_family = "JetBrainsMono Nerd Font"
 default_user = ""
-
+logo_path = "/usr/share/nodalix/brand/nodalix-logo-symbol.svg"

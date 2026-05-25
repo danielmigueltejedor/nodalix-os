@@ -22,7 +22,7 @@ pub fn build(app: &adw::Application) {
 
     let window = adw::ApplicationWindow::builder()
         .application(app)
-        .title("NodeCad")
+        .title("Lix CAD")
         .default_width(1460)
         .default_height(900)
         .build();
@@ -78,9 +78,17 @@ pub fn build(app: &adw::Application) {
     root.append(&status_bar(
         cursor_label,
         tool_label,
-        modified_label,
+        modified_label.clone(),
         document.clone(),
     ));
+
+    attach_keyboard_shortcuts(
+        &window,
+        canvas.clone(),
+        document.clone(),
+        active_tool.clone(),
+        modified_label.clone(),
+    );
 
     window.present();
 }
@@ -139,7 +147,7 @@ fn top_toolbar(
         let properties = properties.clone();
         let modified_label = modified_label.clone();
         open_button.connect_clicked(move |_| {
-            choose_file(&window, "Open Nodalix CAD", gtk::FileChooserAction::Open, {
+            choose_file(&window, "Open Lix CAD", gtk::FileChooserAction::Open, {
                 let document = document.clone();
                 let current_path = current_path.clone();
                 let canvas = canvas.clone();
@@ -184,7 +192,7 @@ fn top_toolbar(
             if let Some(path) = current_path.borrow().clone() {
                 save_document(&window, &document, &path, &modified_label);
             } else {
-                choose_file(&window, "Save Nodalix CAD", gtk::FileChooserAction::Save, {
+                choose_file(&window, "Save Lix CAD", gtk::FileChooserAction::Save, {
                     let window = window.clone();
                     let document = document.clone();
                     let current_path = current_path.clone();
@@ -272,6 +280,13 @@ fn top_toolbar(
         });
     }
     bar.append(&scale_button);
+
+    let settings_button = toolbar_button("Settings");
+    {
+        let window = window.clone();
+        settings_button.connect_clicked(move |_| show_settings_dialog(&window));
+    }
+    bar.append(&settings_button);
 
     let export_dxf = toolbar_button("Export DXF");
     {
@@ -368,7 +383,7 @@ fn toolbar_button(label: &str) -> gtk::Button {
 fn is_native_document(path: &PathBuf) -> bool {
     path.extension()
         .and_then(|value| value.to_str())
-        .map(|ext| ext.eq_ignore_ascii_case("nodcad"))
+        .map(|ext| ext.eq_ignore_ascii_case("nodcad") || ext.eq_ignore_ascii_case("lixcad"))
         .unwrap_or(false)
 }
 
@@ -508,7 +523,15 @@ fn refresh_tool_context(panel: &gtk::Box, tool: Tool) {
             );
             context_buttons(panel, &["Move", "Copy", "Rotate"]);
         }
-        Tool::Line | Tool::Polyline | Tool::Rectangle | Tool::Circle | Tool::Arc => {
+        Tool::Polyline => {
+            compact_note(panel, "Click to add connected vertices. Enter finishes the polyline. Esc cancels the current polyline.");
+            context_entry(panel, "Layer", "Default");
+            context_entry(panel, "Lineweight", "0.25 mm");
+            context_entry(panel, "Linetype", "Continuous");
+            context_entry(panel, "Snap", "Endpoint / midpoint / perpendicular");
+            context_buttons(panel, &["Close later", "Object snap", "Construction"]);
+        }
+        Tool::Line | Tool::Rectangle | Tool::Circle | Tool::Arc => {
             context_entry(panel, "Layer", "Default");
             context_entry(panel, "Lineweight", "0.25 mm");
             context_entry(panel, "Linetype", "Continuous");
@@ -770,7 +793,9 @@ fn status_bar(
         document.borrow().metadata.scale_factor
     ))));
     status.append(&tool_label);
-    status.append(&gtk::Label::new(Some("Snap: Grid")));
+    status.append(&gtk::Label::new(Some(
+        "Snap: endpoint · midpoint · center · perpendicular",
+    )));
     status.append(&modified_label);
     status
 }
@@ -817,8 +842,38 @@ fn import_and_refresh(
             canvas.queue_draw();
             show_import_summary(window, &summary);
         }
+        Err(error) if error.starts_with(crate::import::dwg::DWG_SETUP_REQUIRED) => {
+            show_dwg_setup_dialog(window, &error)
+        }
         Err(error) => show_error(window, "Import failed", &error),
     }
+}
+
+fn attach_keyboard_shortcuts(
+    window: &adw::ApplicationWindow,
+    canvas: CadCanvas,
+    document: Rc<RefCell<Document>>,
+    active_tool: Rc<RefCell<Tool>>,
+    modified_label: gtk::Label,
+) {
+    let keys = gtk::EventControllerKey::new();
+    keys.connect_key_pressed(move |_, key, _, _| match key {
+        gdk::Key::Return | gdk::Key::KP_Enter => {
+            if *active_tool.borrow() == Tool::Polyline {
+                canvas.finish_polyline(&document);
+                modified_label.set_text("Modified");
+                gtk::glib::Propagation::Stop
+            } else {
+                gtk::glib::Propagation::Proceed
+            }
+        }
+        gdk::Key::Escape => {
+            canvas.cancel_interaction();
+            gtk::glib::Propagation::Stop
+        }
+        _ => gtk::glib::Propagation::Proceed,
+    });
+    window.add_controller(keys);
 }
 
 fn save_document(
@@ -889,6 +944,132 @@ fn show_scale_dialog(
         }
         dialog.close();
     });
+    dialog.present();
+}
+
+#[allow(deprecated)]
+fn show_dwg_setup_dialog(window: &adw::ApplicationWindow, import_error: &str) {
+    let dialog = gtk::Dialog::builder()
+        .transient_for(window)
+        .modal(true)
+        .title("DWG import requires a converter")
+        .build();
+    dialog.add_button("Detect converters", gtk::ResponseType::Other(1));
+    dialog.add_button("Configure converter path", gtk::ResponseType::Other(2));
+    dialog.add_button("Open documentation", gtk::ResponseType::Other(3));
+    dialog.add_button("Cancel", gtk::ResponseType::Cancel);
+    let area = dialog.content_area();
+    area.set_spacing(12);
+    area.set_margin_top(16);
+    area.set_margin_bottom(16);
+    area.set_margin_start(16);
+    area.set_margin_end(16);
+
+    let intro = gtk::Label::new(Some(
+        "DWG is a proprietary CAD format. Lix CAD can import DWG by converting it internally to DXF using a local converter.",
+    ));
+    intro.set_wrap(true);
+    intro.set_xalign(0.0);
+    intro.add_css_class("context-note");
+    area.append(&intro);
+
+    let status = gtk::Label::new(Some(
+        import_error
+            .trim_start_matches(crate::import::dwg::DWG_SETUP_REQUIRED)
+            .trim(),
+    ));
+    status.set_wrap(true);
+    status.set_xalign(0.0);
+    status.add_css_class("prop-value");
+    area.append(&status);
+
+    let window_for_response = window.clone();
+    dialog.connect_response(move |dialog, response| match response {
+        gtk::ResponseType::Other(1) => {
+            show_info(
+                &window_for_response,
+                "DWG converter detection",
+                &crate::import::dwg::converter_status_text(),
+            );
+        }
+        gtk::ResponseType::Other(2) => {
+            show_info(
+                &window_for_response,
+                "Configure DWG converter",
+                &format!(
+                    "Create or edit:\n{}\n\nExample:\n[dwg_import]\nbackend = \"oda\"\nconverter_path = \"/usr/bin/oda-file-converter\"\n\nAlso supported:\n~/.config/lixcad/settings.toml\n~/.config/nodalix-cad/settings.toml\n\nLix CAD will use this path on the next DWG import.",
+                    crate::import::dwg::settings_path().display()
+                ),
+            );
+        }
+        gtk::ResponseType::Other(3) => {
+            show_info(
+                &window_for_response,
+                "DWG import documentation",
+                "See README.md and INTEGRATION_RESEARCH.md. ODA File Converter and LibreDWG are detected from settings/PATH. ODA is accepted with backend = \"oda\" and converter_path = \"/usr/bin/oda-file-converter\".",
+            );
+        }
+        _ => dialog.close(),
+    });
+    dialog.present();
+}
+
+#[allow(deprecated)]
+fn show_settings_dialog(window: &adw::ApplicationWindow) {
+    let dialog = gtk::Dialog::builder()
+        .transient_for(window)
+        .modal(true)
+        .title("Lix CAD Settings")
+        .default_width(520)
+        .build();
+    dialog.add_button("Close", gtk::ResponseType::Close);
+    let area = dialog.content_area();
+    area.set_spacing(12);
+    area.set_margin_top(16);
+    area.set_margin_bottom(16);
+    area.set_margin_start(16);
+    area.set_margin_end(16);
+
+    section_title(&area, "General");
+    property(&area, "Native format", ".nodcad / .lixcad JSON project");
+    section_title(&area, "Units");
+    property(&area, "Default units", "millimeters");
+    section_title(&area, "Snaps");
+    property(
+        &area,
+        "Active snaps",
+        "grid, endpoint, midpoint, center, quadrant, intersection, perpendicular, ortho",
+    );
+    section_title(&area, "DWG Import");
+    property(
+        &area,
+        "Converter status",
+        &crate::import::dwg::converter_status_text(),
+    );
+    section_title(&area, "External Tools");
+    property(
+        &area,
+        "ODA File Converter",
+        "detected from settings/PATH; backend = \"oda\" is supported",
+    );
+    property(
+        &area,
+        "LibreDWG",
+        "dwg2dxf can be used for DWG -> DXF import",
+    );
+    property(
+        &area,
+        "FreeCAD",
+        "detected as future bridge for CAD conversions",
+    );
+    section_title(&area, "Experimental");
+    property(
+        &area,
+        "STEP",
+        "metadata/reference import now; B-Rep/OCCT planned",
+    );
+
+    dialog.connect_response(|dialog, _| dialog.close());
     dialog.present();
 }
 

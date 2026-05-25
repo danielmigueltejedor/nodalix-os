@@ -12,6 +12,14 @@ Nodalix native apps should look and feel like one OS, not a collection of unrela
 - Compact but readable spacing.
 - Native Linux behavior.
 
+## Branding assets
+
+- Official Nodalix logos/icons must be loaded from shared SVG/PNG assets in `assets/brand`.
+- Do not use Nerd Font private Unicode glyphs as the official Nodalix logo.
+- Private glyphs are acceptable only for generic UI symbols where a missing glyph does not break branding.
+- Apps must provide a plain text fallback such as `Nodalix OS` if the brand asset is missing.
+- Installed system apps should prefer `/etc/nodalix/brand` or `/usr/share/nodalix/brand` so restricted users such as `greeter` can read the logo.
+
 ## Interaction
 
 - Keyboard-first where practical.
@@ -27,4 +35,3 @@ Nodalix native apps should look and feel like one OS, not a collection of unrela
 - Harsh white borders.
 - Hidden destructive actions.
 - Logging secrets, paths with credentials, or passwords.
-
