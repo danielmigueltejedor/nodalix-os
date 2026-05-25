@@ -1,21 +1,25 @@
 use crate::{
-    document::{Document, Entity},
-    geometry::Point,
+    document::{Document, Entity, LayoutKind},
+    geometry::{Point, Point3},
     tools::Tool,
 };
-use gtk::{prelude::*, DrawingArea};
+use gtk::{gdk, prelude::*, DrawingArea};
 use std::{cell::RefCell, rc::Rc};
 
-const MIN_ZOOM: f64 = 0.08;
-const MAX_ZOOM: f64 = 24.0;
-const ZOOM_STEP: f64 = 1.18;
+const MIN_ZOOM: f64 = 0.000_05;
+const MAX_ZOOM: f64 = 20_000.0;
+const ZOOM_STEP: f64 = 1.25;
 const SNAP_SCREEN_TOLERANCE: f64 = 13.0;
+const FULL_SNAP_ENTITY_LIMIT: usize = 2_500;
+const LARGE_DOCUMENT_MOTION_REDRAW_ENTITY_LIMIT: usize = 5_000;
+const FIT_VIEW_MARGIN: f64 = 0.84;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Camera {
     pub zoom: f64,
     pub pan_x: f64,
     pub pan_y: f64,
+    pub rotation: f64,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -34,6 +38,7 @@ enum SnapKind {
     Intersection,
     Perpendicular,
     Ortho,
+    Parallel,
 }
 
 impl SnapKind {
@@ -47,6 +52,7 @@ impl SnapKind {
             SnapKind::Intersection => "intersection",
             SnapKind::Perpendicular => "perpendicular",
             SnapKind::Ortho => "ortho",
+            SnapKind::Parallel => "parallel",
         }
     }
 }
@@ -57,6 +63,7 @@ impl Default for Camera {
             zoom: 1.0,
             pan_x: 0.0,
             pan_y: 0.0,
+            rotation: 0.0,
         }
     }
 }
@@ -71,17 +78,26 @@ pub struct CadCanvas {
     hover_point: Rc<RefCell<Option<Point>>>,
 }
 
+#[derive(Clone, Copy, Debug)]
+struct SelectionBox {
+    start_x: f64,
+    start_y: f64,
+    current_x: f64,
+    current_y: f64,
+}
+
 impl CadCanvas {
     pub fn new(
         document: Rc<RefCell<Document>>,
         active_tool: Rc<RefCell<Tool>>,
-        selected_entity: Rc<RefCell<Option<u64>>>,
+        selected_entity: Rc<RefCell<Vec<u64>>>,
         selection_label: gtk::Label,
     ) -> Self {
         let area = DrawingArea::new();
         area.add_css_class("cad-canvas");
         area.set_hexpand(true);
         area.set_vexpand(true);
+        area.set_focusable(true);
         area.set_content_width(900);
         area.set_content_height(620);
 
@@ -92,6 +108,7 @@ impl CadCanvas {
         let pending_start = Rc::new(RefCell::new(None));
         let polyline_vertices = Rc::new(RefCell::new(Vec::<Point>::new()));
         let hover_point = Rc::new(RefCell::new(None::<Point>));
+        let selection_box = Rc::new(RefCell::new(None::<SelectionBox>));
         let draw_document = document.clone();
         let draw_pending = pending_start.clone();
         let draw_polyline = polyline_vertices.clone();
@@ -99,7 +116,9 @@ impl CadCanvas {
         let draw_camera = camera.clone();
         let draw_selected = selected_entity.clone();
         let draw_snap = snap_target.clone();
+        let draw_selection_box = selection_box.clone();
         area.set_draw_func(move |_, cr, width, height| {
+            let selected = draw_selected.borrow();
             draw_scene(
                 cr,
                 width as f64,
@@ -109,8 +128,9 @@ impl CadCanvas {
                 &draw_polyline.borrow(),
                 *draw_hover.borrow(),
                 *draw_camera.borrow(),
-                *draw_selected.borrow(),
+                &selected,
                 *draw_snap.borrow(),
+                *draw_selection_box.borrow(),
             );
         });
 
@@ -126,6 +146,7 @@ impl CadCanvas {
         let click_selection_label = selection_label.clone();
         let click_snap = snap_target.clone();
         click.connect_pressed(move |_, _, x, y| {
+            queue_area.grab_focus();
             let point = screen_to_world(
                 x,
                 y,
@@ -146,8 +167,12 @@ impl CadCanvas {
                     point,
                     10.0 / click_camera.borrow().zoom,
                 );
-                *click_selected.borrow_mut() = hit;
-                update_selection_label(&click_selection_label, &click_document.borrow(), hit);
+                *click_selected.borrow_mut() = hit.into_iter().collect();
+                update_selection_label(
+                    &click_selection_label,
+                    &click_document.borrow(),
+                    &click_selected.borrow(),
+                );
                 *click_pending.borrow_mut() = None;
             } else {
                 handle_click(
@@ -171,26 +196,41 @@ impl CadCanvas {
             let polyline_vertices = polyline_vertices.clone();
             let snap_target = snap_target.clone();
             let hover_point = hover_point.clone();
+            let active_tool = active_tool.clone();
             let area = area.clone();
             motion.connect_motion(move |_, x, y| {
                 *pointer.borrow_mut() = Some((x, y));
                 let camera = *camera.borrow();
                 let point =
                     screen_to_world(x, y, area.width() as f64, area.height() as f64, camera);
-                let snap = find_snap(
-                    &document.borrow(),
-                    point,
-                    pending_start
-                        .borrow()
-                        .as_ref()
-                        .copied()
-                        .or_else(|| polyline_vertices.borrow().last().copied()),
-                    SNAP_SCREEN_TOLERANCE / camera.zoom,
-                );
+                let entity_count = document.borrow().entities.len();
+                let tool = *active_tool.borrow();
+                let pending_point = pending_start
+                    .borrow()
+                    .as_ref()
+                    .copied()
+                    .or_else(|| polyline_vertices.borrow().last().copied());
+                let snap = if tool == Tool::Select {
+                    None
+                } else {
+                    find_snap(
+                        &document.borrow(),
+                        point,
+                        pending_point,
+                        SNAP_SCREEN_TOLERANCE / camera.zoom,
+                    )
+                };
                 let effective = snap.map(|snap| snap.point).unwrap_or(point);
                 *hover_point.borrow_mut() = Some(effective);
                 *snap_target.borrow_mut() = snap;
-                area.queue_draw();
+                let needs_preview_redraw =
+                    pending_point.is_some() || !matches!(tool, Tool::Select | Tool::Modify);
+                if needs_preview_redraw
+                    || snap.is_some()
+                    || entity_count <= LARGE_DOCUMENT_MOTION_REDRAW_ENTITY_LIMIT
+                {
+                    area.queue_draw();
+                }
             });
         }
         {
@@ -240,6 +280,8 @@ impl CadCanvas {
         let move_drag = gtk::GestureDrag::new();
         move_drag.set_button(1);
         let drag_last_world = Rc::new(RefCell::new(None::<Point>));
+        let drag_pan_start = Rc::new(RefCell::new(None::<Camera>));
+        let drag_moved_entity = Rc::new(RefCell::new(false));
         {
             let document = document.clone();
             let active_tool = active_tool.clone();
@@ -247,24 +289,55 @@ impl CadCanvas {
             let selection_label = selection_label.clone();
             let camera = camera.clone();
             let drag_last_world = drag_last_world.clone();
+            let drag_pan_start = drag_pan_start.clone();
+            let drag_moved_entity = drag_moved_entity.clone();
+            let selection_box = selection_box.clone();
             let area = area.clone();
-            move_drag.connect_drag_begin(move |_, x, y| {
+            move_drag.connect_drag_begin(move |gesture, x, y| {
+                *drag_moved_entity.borrow_mut() = false;
+                *selection_box.borrow_mut() = None;
+                if gesture
+                    .current_event_state()
+                    .contains(gdk::ModifierType::SHIFT_MASK)
+                {
+                    *drag_pan_start.borrow_mut() = Some(*camera.borrow());
+                    *drag_last_world.borrow_mut() = None;
+                    return;
+                }
+                *drag_pan_start.borrow_mut() = None;
                 if !matches!(*active_tool.borrow(), Tool::Select | Tool::Modify) {
                     *drag_last_world.borrow_mut() = None;
                     return;
                 }
+                let camera_state = *camera.borrow();
                 let point = screen_to_world(
                     x,
                     y,
                     area.width() as f64,
                     area.height() as f64,
-                    *camera.borrow(),
+                    camera_state,
                 );
-                let hit = hit_test(&document.borrow(), point, 10.0 / camera.borrow().zoom);
-                if hit.is_some() {
-                    *selected_entity.borrow_mut() = hit;
-                    update_selection_label(&selection_label, &document.borrow(), hit);
+                let hit = hit_test(&document.borrow(), point, 10.0 / camera_state.zoom);
+                if let Some(id) = hit {
+                    if !selected_entity.borrow().contains(&id) {
+                        *selected_entity.borrow_mut() = vec![id];
+                        let selected_ids = selected_entity.borrow().clone();
+                        update_selection_label(&selection_label, &document.borrow(), &selected_ids);
+                    }
                     *drag_last_world.borrow_mut() = Some(point);
+                    *drag_moved_entity.borrow_mut() = true;
+                    area.queue_draw();
+                } else if *active_tool.borrow() == Tool::Select {
+                    selected_entity.borrow_mut().clear();
+                    let selected_ids = selected_entity.borrow().clone();
+                    update_selection_label(&selection_label, &document.borrow(), &selected_ids);
+                    *selection_box.borrow_mut() = Some(SelectionBox {
+                        start_x: x,
+                        start_y: y,
+                        current_x: x,
+                        current_y: y,
+                    });
+                    *drag_last_world.borrow_mut() = None;
                     area.queue_draw();
                 }
             });
@@ -272,16 +345,45 @@ impl CadCanvas {
         {
             let document = document.clone();
             let selected_entity = selected_entity.clone();
+            let selection_label = selection_label.clone();
             let camera = camera.clone();
             let drag_last_world = drag_last_world.clone();
+            let drag_pan_start = drag_pan_start.clone();
+            let selection_box = selection_box.clone();
             let area = area.clone();
             move_drag.connect_drag_update(move |gesture, dx, dy| {
-                let Some(id) = *selected_entity.borrow() else {
-                    return;
-                };
                 let Some((start_x, start_y)) = gesture.start_point() else {
                     return;
                 };
+                if let Some(start) = *drag_pan_start.borrow() {
+                    let delta = screen_delta_to_world(dx, dy, start);
+                    let mut camera = camera.borrow_mut();
+                    camera.pan_x = start.pan_x - delta.x;
+                    camera.pan_y = start.pan_y - delta.y;
+                    area.queue_draw();
+                    return;
+                }
+                let current_selection_box = *selection_box.borrow();
+                if let Some(mut box_rect) = current_selection_box {
+                    box_rect.current_x = start_x + dx;
+                    box_rect.current_y = start_y + dy;
+                    *selection_box.borrow_mut() = Some(box_rect);
+                    let selected_ids = entities_in_screen_box(
+                        &document.borrow(),
+                        box_rect,
+                        area.width() as f64,
+                        area.height() as f64,
+                        *camera.borrow(),
+                    );
+                    *selected_entity.borrow_mut() = selected_ids.clone();
+                    update_selection_label(&selection_label, &document.borrow(), &selected_ids);
+                    area.queue_draw();
+                    return;
+                }
+                let selected_ids = selected_entity.borrow().clone();
+                if selected_ids.is_empty() {
+                    return;
+                }
                 let point = screen_to_world(
                     start_x + dx,
                     start_y + dy,
@@ -293,19 +395,23 @@ impl CadCanvas {
                     *drag_last_world.borrow_mut() = Some(point);
                     return;
                 };
-                document.borrow_mut().translate_entity(
-                    id,
-                    point.x - previous.x,
-                    point.y - previous.y,
-                );
+                let move_dx = point.x - previous.x;
+                let move_dy = point.y - previous.y;
+                for id in selected_ids {
+                    document.borrow_mut().translate_entity(id, move_dx, move_dy);
+                }
                 *drag_last_world.borrow_mut() = Some(point);
                 area.queue_draw();
             });
         }
         {
             let drag_last_world = drag_last_world.clone();
+            let drag_pan_start = drag_pan_start.clone();
+            let selection_box = selection_box.clone();
             move_drag.connect_drag_end(move |_, _, _| {
                 *drag_last_world.borrow_mut() = None;
+                *drag_pan_start.borrow_mut() = None;
+                *selection_box.borrow_mut() = None;
             });
         }
         area.add_controller(move_drag);
@@ -327,8 +433,9 @@ impl CadCanvas {
             drag.connect_drag_update(move |_, dx, dy| {
                 let start = *pan_start.borrow();
                 let mut camera = camera.borrow_mut();
-                camera.pan_x = start.pan_x - dx / start.zoom;
-                camera.pan_y = start.pan_y + dy / start.zoom;
+                let delta = screen_delta_to_world(dx, dy, start);
+                camera.pan_x = start.pan_x - delta.x;
+                camera.pan_y = start.pan_y - delta.y;
                 area.queue_draw();
             });
         }
@@ -366,6 +473,48 @@ impl CadCanvas {
 
     pub fn reset_view(&self) {
         *self.camera.borrow_mut() = Camera::default();
+        self.area.queue_draw();
+    }
+
+    pub fn set_view_rotation(&self, radians: f64) {
+        self.camera.borrow_mut().rotation = radians;
+        self.area.queue_draw();
+    }
+
+    pub fn rotate_view_by(&self, radians: f64) {
+        self.camera.borrow_mut().rotation += radians;
+        self.area.queue_draw();
+    }
+
+    pub fn entity_at_screen(&self, document: &Document, x: f64, y: f64) -> Option<u64> {
+        let camera = *self.camera.borrow();
+        let point = screen_to_world(
+            x,
+            y,
+            self.area.width() as f64,
+            self.area.height() as f64,
+            camera,
+        );
+        hit_test(document, point, 10.0 / camera.zoom)
+    }
+
+    pub fn fit_document(&self, document: &Document) {
+        let Some((min, max)) = document_bounds(document) else {
+            return;
+        };
+        let width = self.area.width().max(1) as f64;
+        let height = self.area.height().max(1) as f64;
+        let span_x = (max.x - min.x).abs().max(1.0);
+        let span_y = (max.y - min.y).abs().max(1.0);
+        let zoom = ((width * FIT_VIEW_MARGIN / span_x).min(height * FIT_VIEW_MARGIN / span_y))
+            .clamp(MIN_ZOOM, MAX_ZOOM);
+        let rotation = self.camera.borrow().rotation;
+        *self.camera.borrow_mut() = Camera {
+            zoom,
+            pan_x: (min.x + max.x) / 2.0,
+            pan_y: (min.y + max.y) / 2.0,
+            rotation,
+        };
         self.area.queue_draw();
     }
 
@@ -409,17 +558,183 @@ impl CadCanvas {
 }
 
 pub fn screen_to_world(x: f64, y: f64, width: f64, height: f64, camera: Camera) -> Point {
+    let view_x = (x - width / 2.0) / camera.zoom;
+    let view_y = (height / 2.0 - y) / camera.zoom;
+    let cos = camera.rotation.cos();
+    let sin = camera.rotation.sin();
     Point {
-        x: (x - width / 2.0) / camera.zoom + camera.pan_x,
-        y: (height / 2.0 - y) / camera.zoom + camera.pan_y,
+        x: camera.pan_x + view_x * cos - view_y * sin,
+        y: camera.pan_y + view_x * sin + view_y * cos,
     }
 }
 
 fn world_to_screen(point: Point, width: f64, height: f64, camera: Camera) -> Point {
+    let dx = point.x - camera.pan_x;
+    let dy = point.y - camera.pan_y;
+    let cos = camera.rotation.cos();
+    let sin = camera.rotation.sin();
+    let view_x = dx * cos + dy * sin;
+    let view_y = -dx * sin + dy * cos;
     Point {
-        x: width / 2.0 + (point.x - camera.pan_x) * camera.zoom,
-        y: height / 2.0 - (point.y - camera.pan_y) * camera.zoom,
+        x: width / 2.0 + view_x * camera.zoom,
+        y: height / 2.0 - view_y * camera.zoom,
     }
+}
+
+fn screen_delta_to_world(dx: f64, dy: f64, camera: Camera) -> Point {
+    let view_x = dx / camera.zoom;
+    let view_y = -dy / camera.zoom;
+    let cos = camera.rotation.cos();
+    let sin = camera.rotation.sin();
+    Point {
+        x: view_x * cos - view_y * sin,
+        y: view_x * sin + view_y * cos,
+    }
+}
+
+fn document_bounds(document: &Document) -> Option<(Point, Point)> {
+    document_bounds_2d(document)
+        .into_iter()
+        .chain(document_bounds_3d(document))
+        .reduce(merge_bounds)
+}
+
+fn document_bounds_2d(document: &Document) -> Option<(Point, Point)> {
+    document
+        .entities
+        .iter()
+        .filter(|entity| document.entity_visible_in_active_layout(entity.id()))
+        .filter_map(entity_bounds)
+        .reduce(|acc, bounds| merge_bounds(acc, bounds))
+}
+
+fn document_bounds_3d(document: &Document) -> Option<(Point, Point)> {
+    document
+        .mesh_references
+        .iter()
+        .filter_map(|mesh| {
+            let bbox = mesh.bounding_box?;
+            mesh_box_points(bbox.min, bbox.max)
+                .into_iter()
+                .map(|point| {
+                    project_mesh_point(point, mesh.transform.scale, mesh.transform.translation)
+                })
+                .reduce_bounds()
+        })
+        .reduce(merge_bounds)
+}
+
+fn entity_bounds(entity: &Entity) -> Option<(Point, Point)> {
+    match entity {
+        Entity::Point { point, .. }
+        | Entity::Text { origin: point, .. }
+        | Entity::BlockReference {
+            insertion: point, ..
+        } => Some((*point, *point)),
+        Entity::Line { start, end, .. }
+        | Entity::Dimension { start, end, .. }
+        | Entity::Guideline { start, end, .. } => Some(points_bounds([*start, *end])),
+        Entity::Polyline { points, .. } => points.iter().copied().reduce_bounds(),
+        Entity::Spline { control_points, .. } => control_points.iter().copied().reduce_bounds(),
+        Entity::Hatch { boundary, .. } => boundary.iter().copied().reduce_bounds(),
+        Entity::Circle { center, radius, .. } => {
+            let radius = radius.abs();
+            Some((
+                Point {
+                    x: center.x - radius,
+                    y: center.y - radius,
+                },
+                Point {
+                    x: center.x + radius,
+                    y: center.y + radius,
+                },
+            ))
+        }
+        Entity::Table {
+            origin,
+            rows,
+            columns,
+            cell_width,
+            cell_height,
+            ..
+        } => Some(points_bounds([
+            *origin,
+            Point {
+                x: origin.x + *columns as f64 * *cell_width,
+                y: origin.y + *rows as f64 * *cell_height,
+            },
+        ])),
+    }
+}
+
+fn entities_in_screen_box(
+    document: &Document,
+    selection_box: SelectionBox,
+    width: f64,
+    height: f64,
+    camera: Camera,
+) -> Vec<u64> {
+    let min_x = selection_box.start_x.min(selection_box.current_x);
+    let max_x = selection_box.start_x.max(selection_box.current_x);
+    let min_y = selection_box.start_y.min(selection_box.current_y);
+    let max_y = selection_box.start_y.max(selection_box.current_y);
+    if (max_x - min_x) < 3.0 || (max_y - min_y) < 3.0 {
+        return Vec::new();
+    }
+    document
+        .entities
+        .iter()
+        .filter_map(|entity| {
+            let (min, max) = entity_bounds(entity)?;
+            let corners = [
+                Point { x: min.x, y: min.y },
+                Point { x: max.x, y: min.y },
+                Point { x: max.x, y: max.y },
+                Point { x: min.x, y: max.y },
+            ];
+            corners
+                .into_iter()
+                .map(|point| world_to_screen(point, width, height, camera))
+                .any(|point| {
+                    point.x >= min_x && point.x <= max_x && point.y >= min_y && point.y <= max_y
+                })
+                .then_some(entity.id())
+        })
+        .collect()
+}
+
+trait BoundsIterator {
+    fn reduce_bounds(self) -> Option<(Point, Point)>;
+}
+
+impl<I> BoundsIterator for I
+where
+    I: Iterator<Item = Point>,
+{
+    fn reduce_bounds(self) -> Option<(Point, Point)> {
+        self.map(|point| (point, point))
+            .reduce(|acc, bounds| merge_bounds(acc, bounds))
+    }
+}
+
+fn points_bounds<const N: usize>(points: [Point; N]) -> (Point, Point) {
+    points
+        .into_iter()
+        .reduce_bounds()
+        .unwrap_or((Point::default(), Point::default()))
+}
+
+fn merge_bounds(first: (Point, Point), second: (Point, Point)) -> (Point, Point) {
+    (
+        Point {
+            x: first.0.x.min(second.0.x),
+            y: first.0.y.min(second.0.y),
+        },
+        Point {
+            x: first.1.x.max(second.1.x),
+            y: first.1.y.max(second.1.y),
+        },
+    )
 }
 
 fn zoom_camera_at(
@@ -601,19 +916,29 @@ fn draw_scene(
     polyline_vertices: &[Point],
     hover_point: Option<Point>,
     camera: Camera,
-    selected_entity: Option<u64>,
+    selected_entities: &[u64],
     snap: Option<SnapTarget>,
+    selection_box: Option<SelectionBox>,
 ) {
-    draw_grid(cr, width, height, camera);
+    if document.active_layout_kind() == LayoutKind::Paper {
+        draw_paper_background(cr, width, height);
+    } else {
+        draw_grid(cr, width, height, camera);
+    }
     draw_import_placeholders(cr, width, height, document, camera);
-    for entity in &document.entities {
+    for entity in document
+        .entities
+        .iter()
+        .filter(|entity| document.entity_visible_in_active_layout(entity.id()))
+    {
         draw_entity(
             cr,
             width,
             height,
             camera,
             entity,
-            selected_entity == Some(entity.id()),
+            selected_entities.contains(&entity.id()),
+            document.entity_color(entity.id()),
         );
     }
     if let Some(point) = pending {
@@ -626,6 +951,48 @@ fn draw_scene(
     if let Some(snap) = snap {
         draw_snap_marker(cr, width, height, camera, snap);
     }
+    if let Some(selection_box) = selection_box {
+        draw_selection_box(cr, selection_box);
+    }
+}
+
+fn draw_selection_box(cr: &gtk::cairo::Context, selection_box: SelectionBox) {
+    let x = selection_box.start_x.min(selection_box.current_x);
+    let y = selection_box.start_y.min(selection_box.current_y);
+    let width = (selection_box.current_x - selection_box.start_x).abs();
+    let height = (selection_box.current_y - selection_box.start_y).abs();
+    cr.set_source_rgba(0.55, 0.75, 1.0, 0.18);
+    cr.rectangle(x, y, width, height);
+    let _ = cr.fill_preserve();
+    cr.set_line_width(1.2);
+    cr.set_source_rgba(0.72, 0.86, 1.0, 0.86);
+    let _ = cr.stroke();
+}
+
+fn parse_hex_color(value: &str) -> Option<(f64, f64, f64)> {
+    let value = value.trim().strip_prefix('#').unwrap_or(value.trim());
+    if value.len() == 6 && value.chars().all(|ch| ch.is_ascii_hexdigit()) {
+        let r = u8::from_str_radix(&value[0..2], 16).ok()? as f64 / 255.0;
+        let g = u8::from_str_radix(&value[2..4], 16).ok()? as f64 / 255.0;
+        let b = u8::from_str_radix(&value[4..6], 16).ok()? as f64 / 255.0;
+        return Some((r, g, b));
+    }
+
+    let rgb = value
+        .strip_prefix("rgb(")
+        .and_then(|inner| inner.strip_suffix(')'))
+        .unwrap_or(value);
+    let parts: Vec<&str> = rgb
+        .split(|ch: char| ch == ',' || ch.is_ascii_whitespace())
+        .filter(|part| !part.is_empty())
+        .collect();
+    if parts.len() != 3 {
+        return None;
+    }
+    let r = parts[0].parse::<u8>().ok()? as f64 / 255.0;
+    let g = parts[1].parse::<u8>().ok()? as f64 / 255.0;
+    let b = parts[2].parse::<u8>().ok()? as f64 / 255.0;
+    Some((r, g, b))
 }
 
 fn draw_pending_point(
@@ -745,6 +1112,13 @@ fn draw_snap_marker(
             cr.line_to(p.x, p.y - 5.0);
             let _ = cr.stroke();
         }
+        SnapKind::Parallel => {
+            cr.move_to(p.x - 7.0, p.y + 5.0);
+            cr.line_to(p.x - 1.0, p.y - 5.0);
+            cr.move_to(p.x + 2.0, p.y + 5.0);
+            cr.line_to(p.x + 8.0, p.y - 5.0);
+            let _ = cr.stroke();
+        }
     }
     cr.move_to(p.x + 9.0, p.y - 9.0);
     let _ = cr.show_text(snap.kind.label());
@@ -795,6 +1169,29 @@ fn draw_grid(cr: &gtk::cairo::Context, width: f64, height: f64, camera: Camera) 
     let _ = cr.fill();
 }
 
+fn draw_paper_background(cr: &gtk::cairo::Context, width: f64, height: f64) {
+    cr.set_source_rgb(0.56, 0.56, 0.54);
+    let _ = cr.paint();
+    let margin = 42.0;
+    cr.set_source_rgb(0.98, 0.98, 0.96);
+    cr.rectangle(margin, margin, width - margin * 2.0, height - margin * 2.0);
+    let _ = cr.fill_preserve();
+    cr.set_line_width(1.0);
+    cr.set_source_rgba(0.12, 0.12, 0.12, 0.34);
+    let _ = cr.stroke();
+    cr.set_line_width(1.0);
+    cr.set_dash(&[7.0, 7.0], 0.0);
+    cr.set_source_rgba(0.12, 0.12, 0.12, 0.22);
+    cr.rectangle(
+        margin + 18.0,
+        margin + 18.0,
+        width - (margin + 18.0) * 2.0,
+        height - (margin + 18.0) * 2.0,
+    );
+    let _ = cr.stroke();
+    cr.set_dash(&[], 0.0);
+}
+
 fn draw_import_placeholders(
     cr: &gtk::cairo::Context,
     width: f64,
@@ -805,16 +1202,188 @@ fn draw_import_placeholders(
     if document.imported_references.is_empty() && document.mesh_references.is_empty() {
         return;
     }
-    cr.set_line_width(1.2);
-    cr.set_source_rgba(0.54, 0.78, 0.92, 0.42);
-    let top_left = world_to_screen(Point { x: -140.0, y: 92.0 }, width, height, camera);
-    cr.rectangle(
-        top_left.x,
-        top_left.y,
-        280.0 * camera.zoom,
-        184.0 * camera.zoom,
+    if !document.imported_references.is_empty() {
+        cr.set_line_width(1.2);
+        cr.set_source_rgba(0.54, 0.78, 0.92, 0.42);
+        let top_left = world_to_screen(Point { x: -140.0, y: 92.0 }, width, height, camera);
+        cr.rectangle(
+            top_left.x,
+            top_left.y,
+            280.0 * camera.zoom,
+            184.0 * camera.zoom,
+        );
+        let _ = cr.stroke();
+    }
+    draw_mesh_reference_boxes(cr, width, height, document, camera);
+}
+
+fn draw_mesh_reference_boxes(
+    cr: &gtk::cairo::Context,
+    width: f64,
+    height: f64,
+    document: &Document,
+    camera: Camera,
+) {
+    for mesh in &document.mesh_references {
+        let Some(bbox) = mesh.bounding_box else {
+            continue;
+        };
+        let points = mesh_box_points(bbox.min, bbox.max)
+            .map(|point| {
+                project_mesh_point(point, mesh.transform.scale, mesh.transform.translation)
+            })
+            .map(|point| world_to_screen(point, width, height, camera));
+        let edges = [
+            (0, 1),
+            (1, 2),
+            (2, 3),
+            (3, 0),
+            (4, 5),
+            (5, 6),
+            (6, 7),
+            (7, 4),
+            (0, 4),
+            (1, 5),
+            (2, 6),
+            (3, 7),
+        ];
+        cr.set_line_width(1.4);
+        cr.set_source_rgba(0.40, 0.91, 0.98, 0.62);
+        for (a, b) in edges {
+            cr.move_to(points[a].x, points[a].y);
+            cr.line_to(points[b].x, points[b].y);
+        }
+        let _ = cr.stroke();
+
+        let center = Point3 {
+            x: (bbox.min.x + bbox.max.x) * 0.5,
+            y: (bbox.min.y + bbox.max.y) * 0.5,
+            z: (bbox.min.z + bbox.max.z) * 0.5,
+        };
+        draw_3d_axis(
+            cr,
+            width,
+            height,
+            camera,
+            center,
+            mesh.transform.scale,
+            mesh.transform.translation,
+        );
+    }
+}
+
+fn draw_3d_axis(
+    cr: &gtk::cairo::Context,
+    width: f64,
+    height: f64,
+    camera: Camera,
+    origin: Point3,
+    scale: f64,
+    translation: Point3,
+) {
+    let length = 42.0 / scale.max(0.0001);
+    let origin_screen = world_to_screen(
+        project_mesh_point(origin, scale, translation),
+        width,
+        height,
+        camera,
     );
-    let _ = cr.stroke();
+    let axes = [
+        (
+            Point3 {
+                x: origin.x + length,
+                ..origin
+            },
+            (0.95, 0.25, 0.25),
+            "X",
+        ),
+        (
+            Point3 {
+                y: origin.y + length,
+                ..origin
+            },
+            (0.25, 0.85, 0.38),
+            "Y",
+        ),
+        (
+            Point3 {
+                z: origin.z + length,
+                ..origin
+            },
+            (0.38, 0.65, 1.0),
+            "Z",
+        ),
+    ];
+    cr.set_line_width(1.8);
+    for (end, color, label) in axes {
+        let end_screen = world_to_screen(
+            project_mesh_point(end, scale, translation),
+            width,
+            height,
+            camera,
+        );
+        cr.set_source_rgba(color.0, color.1, color.2, 0.82);
+        cr.move_to(origin_screen.x, origin_screen.y);
+        cr.line_to(end_screen.x, end_screen.y);
+        let _ = cr.stroke();
+        cr.move_to(end_screen.x + 4.0, end_screen.y - 4.0);
+        let _ = cr.show_text(label);
+    }
+}
+
+fn mesh_box_points(min: Point3, max: Point3) -> [Point3; 8] {
+    [
+        Point3 {
+            x: min.x,
+            y: min.y,
+            z: min.z,
+        },
+        Point3 {
+            x: max.x,
+            y: min.y,
+            z: min.z,
+        },
+        Point3 {
+            x: max.x,
+            y: max.y,
+            z: min.z,
+        },
+        Point3 {
+            x: min.x,
+            y: max.y,
+            z: min.z,
+        },
+        Point3 {
+            x: min.x,
+            y: min.y,
+            z: max.z,
+        },
+        Point3 {
+            x: max.x,
+            y: min.y,
+            z: max.z,
+        },
+        Point3 {
+            x: max.x,
+            y: max.y,
+            z: max.z,
+        },
+        Point3 {
+            x: min.x,
+            y: max.y,
+            z: max.z,
+        },
+    ]
+}
+
+fn project_mesh_point(point: Point3, scale: f64, translation: Point3) -> Point {
+    let x = point.x * scale + translation.x;
+    let y = point.y * scale + translation.y;
+    let z = point.z * scale + translation.z;
+    Point {
+        x: x - z * 0.42,
+        y: y - z * 0.30,
+    }
 }
 
 fn draw_entity(
@@ -824,12 +1393,15 @@ fn draw_entity(
     camera: Camera,
     entity: &Entity,
     selected: bool,
+    color: Option<&str>,
 ) {
     cr.set_line_width(if selected { 2.6 } else { 1.6 });
     if selected {
         cr.set_source_rgba(1.0, 0.90, 0.45, 0.98);
+    } else if let Some((r, g, b)) = parse_hex_color(color.unwrap_or_default()) {
+        cr.set_source_rgba(r, g, b, 0.95);
     } else {
-        cr.set_source_rgba(0.80, 0.65, 0.97, 0.95);
+        cr.set_source_rgba(0.64, 0.67, 0.72, 0.92);
     }
     match entity {
         Entity::Line { start, end, .. } | Entity::Guideline { start, end, .. } => {
@@ -865,6 +1437,25 @@ fn draw_entity(
                 let _ = cr.stroke();
             }
         }
+        Entity::Spline {
+            control_points,
+            closed,
+            ..
+        } => {
+            let points = spline_display_points(control_points, *closed);
+            if let Some(first) = points.first() {
+                let first = world_to_screen(*first, width, height, camera);
+                cr.move_to(first.x, first.y);
+                for point in points.iter().skip(1) {
+                    let p = world_to_screen(*point, width, height, camera);
+                    cr.line_to(p.x, p.y);
+                }
+                if *closed {
+                    cr.close_path();
+                }
+                let _ = cr.stroke();
+            }
+        }
         Entity::Circle { center, radius, .. } => {
             let c = world_to_screen(*center, width, height, camera);
             cr.arc(c.x, c.y, *radius * camera.zoom, 0.0, std::f64::consts::TAU);
@@ -872,7 +1463,14 @@ fn draw_entity(
         }
         Entity::Point { point, .. } => {
             let p = world_to_screen(*point, width, height, camera);
-            cr.arc(p.x, p.y, 3.0, 0.0, std::f64::consts::TAU);
+            let radius = if camera.zoom < 0.08 {
+                1.2
+            } else if camera.zoom < 0.25 {
+                1.8
+            } else {
+                3.0
+            };
+            cr.arc(p.x, p.y, radius, 0.0, std::f64::consts::TAU);
             let _ = cr.fill();
         }
         Entity::Text {
@@ -886,12 +1484,14 @@ fn draw_entity(
             cr.move_to(p.x, p.y);
             let _ = cr.show_text(text);
         }
-        Entity::Hatch {
-            boundary, pattern, ..
-        } => {
+        Entity::Hatch { boundary, .. } => {
             if let Some(first) = boundary.first() {
                 let first = world_to_screen(*first, width, height, camera);
-                cr.set_source_rgba(0.80, 0.65, 0.97, 0.22);
+                if let Some((r, g, b)) = parse_hex_color(color.unwrap_or_default()) {
+                    cr.set_source_rgba(r, g, b, 0.30);
+                } else {
+                    cr.set_source_rgba(0.64, 0.67, 0.72, 0.28);
+                }
                 cr.move_to(first.x, first.y);
                 for point in boundary.iter().skip(1) {
                     let p = world_to_screen(*point, width, height, camera);
@@ -899,10 +1499,12 @@ fn draw_entity(
                 }
                 cr.close_path();
                 let _ = cr.fill_preserve();
-                cr.set_source_rgba(0.80, 0.65, 0.97, 0.72);
+                if let Some((r, g, b)) = parse_hex_color(color.unwrap_or_default()) {
+                    cr.set_source_rgba(r, g, b, 0.70);
+                } else {
+                    cr.set_source_rgba(0.64, 0.67, 0.72, 0.60);
+                }
                 let _ = cr.stroke();
-                cr.move_to(first.x + 6.0, first.y + 16.0);
-                let _ = cr.show_text(pattern);
             }
         }
         Entity::Table {
@@ -944,10 +1546,14 @@ fn draw_entity(
     }
 }
 
-fn update_selection_label(label: &gtk::Label, document: &Document, selected: Option<u64>) {
-    let text = selected
-        .and_then(|id| document.entity_summary(id))
-        .unwrap_or_else(|| "Selection: none".to_string());
+pub(crate) fn update_selection_label(label: &gtk::Label, document: &Document, selected: &[u64]) {
+    let text = match selected {
+        [] => "Selection: none".to_string(),
+        [id] => document
+            .entity_summary(*id)
+            .unwrap_or_else(|| "Selection: none".to_string()),
+        ids => format!("Selection: {} entities", ids.len()),
+    };
     label.set_text(&text);
 }
 
@@ -955,6 +1561,7 @@ fn hit_test(document: &Document, point: Point, tolerance: f64) -> Option<u64> {
     document
         .entities
         .iter()
+        .filter(|entity| document.entity_visible_in_active_layout(entity.id()))
         .filter_map(|entity| hit_distance(entity, point).map(|distance| (entity.id(), distance)))
         .filter(|(_, distance)| *distance <= tolerance)
         .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
@@ -968,6 +1575,15 @@ fn hit_distance(entity: &Entity, point: Point) -> Option<f64> {
         | Entity::Dimension { start, end, .. }
         | Entity::Guideline { start, end, .. } => Some(distance_to_segment(point, *start, *end)),
         Entity::Polyline { points, closed, .. } => polyline_distance(point, points, *closed),
+        Entity::Spline {
+            control_points,
+            closed,
+            ..
+        } => polyline_distance(
+            point,
+            &spline_display_points(control_points, *closed),
+            *closed,
+        ),
         Entity::Circle { center, radius, .. } => Some((point.distance_to(*center) - *radius).abs()),
         Entity::Text { origin, .. }
         | Entity::Table { origin, .. }
@@ -1003,6 +1619,62 @@ fn polyline_distance(point: Point, points: &[Point], closed: bool) -> Option<f64
     )
 }
 
+fn spline_display_points(points: &[Point], closed: bool) -> Vec<Point> {
+    if points.len() < 3 {
+        return points.to_vec();
+    }
+
+    let mut display = Vec::with_capacity(points.len() * 8);
+    let count = points.len();
+    let segment_count = if closed { count } else { count - 1 };
+    for index in 0..segment_count {
+        let p0 = if index == 0 {
+            if closed {
+                points[count - 1]
+            } else {
+                points[0]
+            }
+        } else {
+            points[index - 1]
+        };
+        let p1 = points[index];
+        let p2 = points[(index + 1) % count];
+        let p3 = if index + 2 < count {
+            points[index + 2]
+        } else if closed {
+            points[(index + 2) % count]
+        } else {
+            points[count - 1]
+        };
+
+        for step in 0..8 {
+            let t = step as f64 / 8.0;
+            display.push(catmull_rom_point(p0, p1, p2, p3, t));
+        }
+    }
+    if !closed {
+        display.push(*points.last().unwrap_or(&points[0]));
+    }
+    display
+}
+
+fn catmull_rom_point(p0: Point, p1: Point, p2: Point, p3: Point, t: f64) -> Point {
+    let t2 = t * t;
+    let t3 = t2 * t;
+    Point {
+        x: 0.5
+            * ((2.0 * p1.x)
+                + (-p0.x + p2.x) * t
+                + (2.0 * p0.x - 5.0 * p1.x + 4.0 * p2.x - p3.x) * t2
+                + (-p0.x + 3.0 * p1.x - 3.0 * p2.x + p3.x) * t3),
+        y: 0.5
+            * ((2.0 * p1.y)
+                + (-p0.y + p2.y) * t
+                + (2.0 * p0.y - 5.0 * p1.y + 4.0 * p2.y - p3.y) * t2
+                + (-p0.y + 3.0 * p1.y - 3.0 * p2.y + p3.y) * t3),
+    }
+}
+
 fn distance_to_segment(point: Point, start: Point, end: Point) -> f64 {
     let dx = end.x - start.x;
     let dy = end.y - start.y;
@@ -1027,26 +1699,37 @@ fn find_snap(
 ) -> Option<SnapTarget> {
     let mut candidates = Vec::new();
     collect_point_snaps(document, &mut candidates);
-    collect_intersection_snaps(document, &mut candidates);
-    collect_derived_midpoint_snaps(document, &mut candidates);
+    if document.entities.len() <= FULL_SNAP_ENTITY_LIMIT {
+        collect_intersection_snaps(document, &mut candidates);
+        collect_derived_midpoint_snaps(document, &mut candidates);
+    }
     collect_circle_edge_snaps(document, point, &mut candidates);
     if let Some(start) = pending_start {
         collect_circle_radius_snaps(document, point, start, &mut candidates);
         collect_perpendicular_snaps(document, point, start, &mut candidates);
         collect_ortho_snap(point, start, &mut candidates);
     }
-    candidates
+    let primary_snap = candidates
         .into_iter()
         .filter_map(|snap| {
             let distance = snap.point.distance_to(point);
             (distance <= tolerance).then_some((snap, distance))
         })
         .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-        .map(|(snap, _)| snap)
+        .map(|(snap, _)| snap);
+    if primary_snap.is_some() {
+        return primary_snap;
+    }
+
+    pending_start.and_then(|start| find_parallel_snap(document, point, start, tolerance * 0.45))
 }
 
 fn collect_point_snaps(document: &Document, out: &mut Vec<SnapTarget>) {
-    for entity in &document.entities {
+    for entity in document
+        .entities
+        .iter()
+        .filter(|entity| document.entity_visible_in_active_layout(entity.id()))
+    {
         match entity {
             Entity::Point { point, .. } => out.push(snap(*point, SnapKind::Endpoint)),
             Entity::Line { start, end, .. }
@@ -1068,6 +1751,19 @@ fn collect_point_snaps(document: &Document, out: &mut Vec<SnapTarget>) {
                         midpoint(*points.last().unwrap_or(&points[0]), points[0]),
                         SnapKind::Midpoint,
                     ));
+                }
+            }
+            Entity::Spline {
+                control_points,
+                closed,
+                ..
+            } => {
+                for point in control_points {
+                    out.push(snap(*point, SnapKind::Endpoint));
+                }
+                let points = spline_display_points(control_points, *closed);
+                for pair in points.windows(2) {
+                    out.push(snap(midpoint(pair[0], pair[1]), SnapKind::Midpoint));
                 }
             }
             Entity::Hatch {
@@ -1161,7 +1857,11 @@ fn collect_derived_midpoint_snaps(document: &Document, out: &mut Vec<SnapTarget>
 }
 
 fn collect_circle_edge_snaps(document: &Document, point: Point, out: &mut Vec<SnapTarget>) {
-    for entity in &document.entities {
+    for entity in document
+        .entities
+        .iter()
+        .filter(|entity| document.entity_visible_in_active_layout(entity.id()))
+    {
         if let Entity::Circle { center, radius, .. } = entity {
             if let Some(edge) = circle_edge_point(*center, *radius, point) {
                 out.push(snap(edge, SnapKind::CircleEdge));
@@ -1176,7 +1876,11 @@ fn collect_circle_radius_snaps(
     start: Point,
     out: &mut Vec<SnapTarget>,
 ) {
-    for entity in &document.entities {
+    for entity in document
+        .entities
+        .iter()
+        .filter(|entity| document.entity_visible_in_active_layout(entity.id()))
+    {
         if let Entity::Circle { center, radius, .. } = entity {
             if start.distance_to(*center) < radius.abs().max(1.0) * 0.02 {
                 if let Some(edge) = circle_edge_point(*center, *radius, point) {
@@ -1199,6 +1903,50 @@ fn collect_perpendicular_snaps(
             out.push(snap(projected, SnapKind::Perpendicular));
         }
     }
+}
+
+fn find_parallel_snap(
+    document: &Document,
+    point: Point,
+    start: Point,
+    tolerance: f64,
+) -> Option<SnapTarget> {
+    let pointer_dx = point.x - start.x;
+    let pointer_dy = point.y - start.y;
+    let pointer_length = (pointer_dx * pointer_dx + pointer_dy * pointer_dy).sqrt();
+    if pointer_length <= 1e-9 {
+        return None;
+    }
+
+    let mut best = None::<(SnapTarget, f64)>;
+    for (a, b) in entity_segments(document) {
+        let segment_dx = b.x - a.x;
+        let segment_dy = b.y - a.y;
+        let segment_length = (segment_dx * segment_dx + segment_dy * segment_dy).sqrt();
+        if segment_length <= 1e-9 {
+            continue;
+        }
+
+        let ux = segment_dx / segment_length;
+        let uy = segment_dy / segment_length;
+        let dot = pointer_dx * ux + pointer_dy * uy;
+        let projected = Point {
+            x: start.x + ux * dot,
+            y: start.y + uy * dot,
+        };
+        let distance = projected.distance_to(point);
+        if distance <= tolerance.min(pointer_length.max(1.0) * 0.02) {
+            let candidate = snap(projected, SnapKind::Parallel);
+            if best
+                .as_ref()
+                .map(|(_, best_distance)| distance < *best_distance)
+                .unwrap_or(true)
+            {
+                best = Some((candidate, distance));
+            }
+        }
+    }
+    best.map(|(snap, _)| snap)
 }
 
 fn collect_ortho_snap(point: Point, start: Point, out: &mut Vec<SnapTarget>) {
@@ -1225,13 +1973,25 @@ fn collect_ortho_snap(point: Point, start: Point, out: &mut Vec<SnapTarget>) {
 
 fn entity_segments(document: &Document) -> Vec<(Point, Point)> {
     let mut segments = Vec::new();
-    for entity in &document.entities {
+    for entity in document
+        .entities
+        .iter()
+        .filter(|entity| document.entity_visible_in_active_layout(entity.id()))
+    {
         match entity {
             Entity::Line { start, end, .. }
             | Entity::Dimension { start, end, .. }
             | Entity::Guideline { start, end, .. } => segments.push((*start, *end)),
             Entity::Polyline { points, closed, .. } => {
                 push_polyline_segments(&mut segments, points, *closed)
+            }
+            Entity::Spline {
+                control_points,
+                closed,
+                ..
+            } => {
+                let points = spline_display_points(control_points, *closed);
+                push_polyline_segments(&mut segments, &points, *closed);
             }
             Entity::Hatch { boundary, .. } => push_polyline_segments(&mut segments, boundary, true),
             Entity::Table {

@@ -533,5 +533,89 @@
       "privacidad",
       "privacy"
     ]
+  },
+  {
+    "id": "screenshot-full",
+    "kind": "action",
+    "icon": "",
+    "title": "Capturar pantalla",
+    "subtitle": "Nodalix · guarda una captura completa",
+    "category": "Capturas",
+    "search": "capturar pantalla screenshot full captura completa imagen save guardar",
+    "tags": [
+      "screenshot",
+      "captura",
+      "pantalla",
+      "imagen"
+    ],
+    "command": "nodalix-screenshot-full",
+    "requires": [
+      "grim"
+    ],
+    "hide_if_missing": true
+  },
+  {
+    "id": "screenshot-area",
+    "kind": "action",
+    "icon": "󰹑",
+    "title": "Capturar zona",
+    "subtitle": "Nodalix · selecciona una zona y guarda la captura",
+    "category": "Capturas",
+    "search": "capturar zona screenshot area region seleccion slurp captura parcial",
+    "tags": [
+      "screenshot",
+      "captura",
+      "zona",
+      "selección"
+    ],
+    "command": "nodalix-screenshot-area",
+    "requires": [
+      "grim",
+      "slurp"
+    ],
+    "hide_if_missing": true
+  },
+  {
+    "id": "screenshot-full-copy",
+    "kind": "action",
+    "icon": "",
+    "title": "Capturar pantalla al portapapeles",
+    "subtitle": "Nodalix · copia una captura completa",
+    "category": "Capturas",
+    "search": "capturar pantalla portapapeles clipboard copy screenshot full copiar",
+    "tags": [
+      "screenshot",
+      "captura",
+      "portapapeles",
+      "copiar"
+    ],
+    "command": "nodalix-screenshot-full-copy",
+    "requires": [
+      "grim",
+      "wl-copy"
+    ],
+    "hide_if_missing": true
+  },
+  {
+    "id": "screenshot-area-copy",
+    "kind": "action",
+    "icon": "󰆞",
+    "title": "Capturar zona al portapapeles",
+    "subtitle": "Nodalix · selecciona una zona y la copia",
+    "category": "Capturas",
+    "search": "capturar zona portapapeles clipboard copy screenshot area region copiar",
+    "tags": [
+      "screenshot",
+      "captura",
+      "zona",
+      "portapapeles"
+    ],
+    "command": "nodalix-screenshot-area-copy",
+    "requires": [
+      "grim",
+      "slurp",
+      "wl-copy"
+    ],
+    "hide_if_missing": true
   }
 ]

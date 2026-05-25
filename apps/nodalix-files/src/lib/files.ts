@@ -85,6 +85,11 @@ export type FileKind =
   | "document-pdf"
   | "document-markdown"
   | "document-spreadsheet"
+  | "document-presentation"
+  | "cad-dwg"
+  | "cad-dxf"
+  | "cad"
+  | "model-3d"
   | "music"
   | "audio-mp3"
   | "archive"
@@ -106,8 +111,12 @@ const IMAGE_EXT = new Set([
   "bmp",
   "ico",
   "avif",
+  "tif",
+  "tiff",
+  "heic",
+  "heif",
 ]);
-const VIDEO_EXT = new Set(["mp4", "mkv", "webm", "avi", "mov", "m4v"]);
+const VIDEO_EXT = new Set(["mp4", "mkv", "webm", "avi", "mov", "m4v", "wmv", "flv"]);
 const DOC_EXT = new Set([
   "pdf",
   "doc",
@@ -119,6 +128,9 @@ const DOC_EXT = new Set([
   "xls",
   "xlsx",
   "csv",
+  "ppt",
+  "pptx",
+  "odp",
 ]);
 const MUSIC_EXT = new Set(["mp3", "flac", "wav", "ogg", "m4a", "aac", "opus"]);
 const ARCHIVE_EXT = new Set([
@@ -131,6 +143,8 @@ const ARCHIVE_EXT = new Set([
   "rar",
   "zst",
 ]);
+const CAD_EXT = new Set(["dwg", "dxf", "nodcad", "lixcad"]);
+const MODEL_3D_EXT = new Set(["stl", "obj", "ply", "step", "stp", "iges", "igs"]);
 
 export function normalizePath(path: string): string {
   if (path === "/") return path;
@@ -195,6 +209,13 @@ export function getFileKind(
   if (ext === "xls" || ext === "xlsx" || ext === "csv") {
     return "document-spreadsheet";
   }
+  if (ext === "ppt" || ext === "pptx" || ext === "odp") {
+    return "document-presentation";
+  }
+  if (ext === "dwg") return "cad-dwg";
+  if (ext === "dxf") return "cad-dxf";
+  if (ext === "nodcad" || ext === "lixcad") return "cad";
+  if (MODEL_3D_EXT.has(ext)) return "model-3d";
   if (ext === "py" || ext === "pyw") return "code-python";
   if (ext === "c" || ext === "h" || ext === "cpp" || ext === "hpp") {
     return "code-c";
@@ -212,6 +233,8 @@ export function getFileKind(
   if (IMAGE_EXT.has(ext)) return "image";
   if (VIDEO_EXT.has(ext)) return "video";
   if (DOC_EXT.has(ext)) return "document";
+  if (CAD_EXT.has(ext)) return "cad";
+  if (MODEL_3D_EXT.has(ext)) return "model-3d";
   if (MUSIC_EXT.has(ext)) return "music";
   if (ARCHIVE_EXT.has(ext)) return "archive";
   return "generic";
@@ -258,6 +281,18 @@ export const quitApp = () => invoke<void>("quit_app");
 export const getSpecialDirs = () => invoke<SpecialDirs>("get_special_dirs");
 export const listDirectory = (path: string) =>
   invoke<FileEntry[]>("list_directory", { path });
+export const searchDirectory = (
+  path: string,
+  query: string,
+  showHidden: boolean,
+  extensions: string[] = [],
+) =>
+  invoke<FileEntry[]>("search_directory", {
+    path,
+    query,
+    showHidden,
+    extensions,
+  });
 export const listDisks = () => invoke<FileEntry[]>("list_disks");
 export const listNetworkLocations = () =>
   invoke<FileEntry[]>("list_network_locations");

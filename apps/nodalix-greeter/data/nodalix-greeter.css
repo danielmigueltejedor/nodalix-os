@@ -38,6 +38,7 @@
 .brand-logo {
   min-width: 32px;
   min-height: 32px;
+  -gtk-icon-size: 42px;
 }
 
 .brand-text {

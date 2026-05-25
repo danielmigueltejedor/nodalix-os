@@ -1,21 +1,22 @@
-@define-color nodalix_accent #cba6f7;
+@define-color nodalix_accent #67e8f9;
+@define-color nodalix_warm #f0b35a;
 @define-color nodalix_text rgba(255, 255, 255, 0.94);
-@define-color nodalix_muted rgba(235, 228, 255, 0.62);
-@define-color nodalix_card rgba(24, 21, 34, 0.72);
+@define-color nodalix_muted rgba(226, 232, 240, 0.66);
+@define-color nodalix_card rgba(16, 20, 28, 0.78);
 
 * {
   font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", "Adwaita Sans", sans-serif;
 }
 
 .cad-root {
-  background: #08070d;
+  background: #080b10;
 }
 
 .top-toolbar,
 .status-bar {
   padding: 10px 14px;
-  background: rgba(12, 10, 18, 0.88);
-  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(10, 14, 20, 0.94);
+  border-color: rgba(255, 255, 255, 0.09);
 }
 
 .top-toolbar {
@@ -24,7 +25,7 @@
 
 .toolbar-scroll {
   min-height: 58px;
-  background: rgba(12, 10, 18, 0.88);
+  background: rgba(10, 14, 20, 0.94);
 }
 
 .status-bar {
@@ -33,9 +34,9 @@
 
 .tool-button,
 .palette-button {
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  background: rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.11);
+  background: rgba(255, 255, 255, 0.055);
   color: rgba(255, 255, 255, 0.92);
   font-weight: 700;
 }
@@ -49,19 +50,20 @@
 .tool-button:hover,
 .palette-button:hover,
 .palette-button:checked {
-  background: alpha(@nodalix_accent, 0.22);
-  border-color: alpha(@nodalix_accent, 0.42);
+  background: alpha(@nodalix_accent, 0.16);
+  border-color: alpha(@nodalix_accent, 0.48);
+  color: white;
 }
 
 .tool-palette {
   padding: 12px 9px;
-  background: rgba(12, 10, 18, 0.72);
+  background: rgba(10, 14, 20, 0.82);
   border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .side-scroll {
   min-width: 66px;
-  background: rgba(12, 10, 18, 0.72);
+  background: rgba(10, 14, 20, 0.82);
 }
 
 .palette-button {
@@ -71,13 +73,29 @@
 }
 
 .cad-canvas {
-  background: #090914;
+  background: #080b12;
 }
 
 .right-panel {
   min-width: 340px;
-  background: rgba(12, 10, 18, 0.76);
+  background: rgba(10, 14, 20, 0.9);
   border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.panel-header {
+  padding: 14px 16px 0;
+}
+
+.panel-heading {
+  color: @nodalix_text;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.panel-subtitle {
+  color: @nodalix_muted;
+  font-size: 11px;
+  font-weight: 650;
 }
 
 .tool-context-panel,
@@ -86,6 +104,8 @@
 }
 
 .tool-context-panel {
+  margin: 0 10px 4px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.035);
 }
 
@@ -115,7 +135,7 @@
 
 .workflow-step {
   padding: 7px 9px;
-  border-radius: 12px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.045);
   color: @nodalix_text;
   font-size: 11px;
@@ -124,7 +144,7 @@
 
 entry {
   min-height: 34px;
-  border-radius: 12px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.07);
   color: @nodalix_text;
 }
@@ -137,7 +157,7 @@ entry {
 .context-chip {
   min-height: 28px;
   padding: 3px 9px;
-  border-radius: 999px;
+  border-radius: 8px;
   border: 1px solid alpha(@nodalix_accent, 0.28);
   background: alpha(@nodalix_accent, 0.12);
   color: @nodalix_text;
@@ -152,7 +172,7 @@ entry {
 
 .context-note {
   padding: 8px 10px;
-  border-radius: 12px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.045);
   color: @nodalix_muted;
   font-size: 11px;
@@ -160,9 +180,63 @@ entry {
 }
 
 .attribute-bar {
-  padding: 7px 12px;
-  background: rgba(12, 10, 18, 0.82);
+  padding: 8px 12px;
+  background: rgba(10, 14, 20, 0.94);
   border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.layout-tabs-bar {
+  padding: 6px 12px;
+  background: rgba(10, 14, 20, 0.94);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.document-tabs-bar {
+  padding: 6px 10px 4px;
+  background: rgba(10, 14, 20, 0.97);
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.document-tab {
+  min-height: 30px;
+  padding: 4px 14px;
+  border-radius: 8px 8px 0 0;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-bottom-color: rgba(255, 255, 255, 0.04);
+  background: rgba(255, 255, 255, 0.05);
+  color: @nodalix_muted;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.document-tab-active {
+  border-color: alpha(@nodalix_accent, 0.50);
+  background: rgba(23, 29, 42, 0.96);
+  color: @nodalix_text;
+}
+
+.layout-tab {
+  min-height: 28px;
+  padding: 3px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.055);
+  color: @nodalix_muted;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.layout-tab-active {
+  border-color: alpha(@nodalix_accent, 0.52);
+  background: alpha(@nodalix_accent, 0.18);
+  color: @nodalix_text;
+}
+
+.layout-add-tab {
+  min-width: 34px;
+  padding: 3px 8px;
+  font-size: 14px;
 }
 
 .attribute-label {
@@ -176,4 +250,101 @@ entry {
   min-height: 28px;
   min-width: 92px;
   font-size: 11px;
+}
+
+.attribute-group,
+.color-control {
+  padding: 5px 7px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.field-label {
+  color: @nodalix_muted;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.color-picker {
+  min-width: 34px;
+  min-height: 30px;
+  border-radius: 8px;
+}
+
+.rgb-spin {
+  min-width: 54px;
+  min-height: 28px;
+  font-size: 11px;
+}
+
+.color-swatch {
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+}
+
+.color-swatch:hover {
+  border-color: @nodalix_accent;
+}
+
+.floating-command-bar {
+  min-width: 540px;
+  padding: 9px 12px 10px;
+  border-radius: 8px;
+  border: 1px solid alpha(@nodalix_accent, 0.34);
+  background: rgba(12, 16, 23, 0.9);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
+}
+
+.command-history {
+  color: @nodalix_muted;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.command-prompt {
+  color: @nodalix_accent;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.command-entry {
+  min-height: 32px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: @nodalix_text;
+  font-size: 12px;
+}
+
+.view-compass {
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(12, 16, 23, 0.78);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.38);
+}
+
+.view-compass-title {
+  color: @nodalix_muted;
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.view-compass-button {
+  min-width: 34px;
+  min-height: 30px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  color: @nodalix_text;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.view-compass-button:hover {
+  background: alpha(@nodalix_accent, 0.22);
+  border-color: alpha(@nodalix_accent, 0.46);
 }

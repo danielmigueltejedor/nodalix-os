@@ -24,7 +24,6 @@ o.bind("SUPER + SHIFT + A", "ChatGPT", { webapp = "https://chatgpt.com" })
 o.bind("SUPER + SHIFT + ALT + A", "Grok", { webapp = "https://grok.com" })
 o.bind("SUPER + SHIFT + C", "Calendar", { webapp = "https://app.hey.com/calendar/weeks/" })
 
--- Email: Thunderbird instead of HEY webmail.
 o.bind("SUPER + SHIFT + E", "Thunderbird", { launch = "thunderbird", focus = "^thunderbird$" })
 
 o.bind("SUPER + SHIFT + Y", "YouTube", { webapp = "https://youtube.com/" })

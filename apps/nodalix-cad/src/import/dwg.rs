@@ -4,7 +4,7 @@ use std::{
     io::Read,
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Stdio},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -227,7 +227,9 @@ fn convert_and_import(
 
     let output = if output.exists() {
         output
-    } else if let Some(found) = find_first_dxf(&workspace.join("output")).or_else(|| find_first_dxf(&workspace)) {
+    } else if let Some(found) =
+        find_first_dxf(&workspace.join("output")).or_else(|| find_first_dxf(&workspace))
+    {
         found
     } else {
         return Err(format!(
@@ -554,6 +556,10 @@ fn run_oda_conversion(
     ));
     let output_log = Command::new(converter)
         .args(&args)
+        .stdin(Stdio::null())
+        .env("QT_QPA_PLATFORM", "offscreen")
+        .env("QT_LOGGING_RULES", "*.debug=false")
+        .env("NO_AT_BRIDGE", "1")
         .output()
         .map_err(|err| format!("Failed to run {}: {err}", converter.display()))?;
     write_conversion_log(log_path, &output_log.stdout, &output_log.stderr)?;
@@ -727,7 +733,9 @@ mod tests {
 
     #[test]
     fn detects_oda_usage_help() {
-        assert!(oda_output_is_usage_help("Command Line Format is:\nQuoted Input Folder"));
+        assert!(oda_output_is_usage_help(
+            "Command Line Format is:\nQuoted Input Folder"
+        ));
         assert!(!oda_output_is_usage_help("converted 1 files"));
     }
 

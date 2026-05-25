@@ -43,10 +43,7 @@ fn config_path() -> Option<PathBuf> {
 }
 
 fn parse_bool(table: &toml::Table, key: &str, default: bool) -> bool {
-    table
-        .get(key)
-        .and_then(|v| v.as_bool())
-        .unwrap_or(default)
+    table.get(key).and_then(|v| v.as_bool()).unwrap_or(default)
 }
 
 fn parse_tool(table: &toml::Table, key: &str, default: &str) -> String {
@@ -65,10 +62,7 @@ pub fn load_conversion_config() -> ConversionConfig {
         return config;
     };
     let Ok(raw) = fs::read_to_string(&path) else {
-        crate::platform::debug_log(&format!(
-            "conversion config: no file at {}",
-            path.display()
-        ));
+        crate::platform::debug_log(&format!("conversion config: no file at {}", path.display()));
         return config;
     };
     let parsed: toml::Table = match raw.parse() {
@@ -79,27 +73,26 @@ pub fn load_conversion_config() -> ConversionConfig {
         }
     };
     if let Some(conversion) = parsed.get("conversion").and_then(|v| v.as_table()) {
-        config.ask_on_extension_change =
-            parse_bool(conversion, "ask_on_extension_change", config.ask_on_extension_change);
+        config.ask_on_extension_change = parse_bool(
+            conversion,
+            "ask_on_extension_change",
+            config.ask_on_extension_change,
+        );
         config.keep_original = parse_bool(conversion, "keep_original", config.keep_original);
-        config.allow_external_tools =
-            parse_bool(conversion, "allow_external_tools", config.allow_external_tools);
+        config.allow_external_tools = parse_bool(
+            conversion,
+            "allow_external_tools",
+            config.allow_external_tools,
+        );
     }
     if let Some(tools) = parsed.get("conversion.tools").and_then(|v| v.as_table()) {
-        config.tools.imagemagick =
-            parse_tool(tools, "imagemagick", &config.tools.imagemagick);
-        config.tools.libreoffice =
-            parse_tool(tools, "libreoffice", &config.tools.libreoffice);
-        config.tools.rsvg_convert =
-            parse_tool(tools, "rsvg_convert", &config.tools.rsvg_convert);
+        config.tools.imagemagick = parse_tool(tools, "imagemagick", &config.tools.imagemagick);
+        config.tools.libreoffice = parse_tool(tools, "libreoffice", &config.tools.libreoffice);
+        config.tools.rsvg_convert = parse_tool(tools, "rsvg_convert", &config.tools.rsvg_convert);
         config.tools.pdftoppm = parse_tool(tools, "pdftoppm", &config.tools.pdftoppm);
-        config.tools.heif_convert =
-            parse_tool(tools, "heif_convert", &config.tools.heif_convert);
+        config.tools.heif_convert = parse_tool(tools, "heif_convert", &config.tools.heif_convert);
     }
-    crate::platform::debug_log(&format!(
-        "conversion config loaded from {}",
-        path.display()
-    ));
+    crate::platform::debug_log(&format!("conversion config loaded from {}", path.display()));
     config
 }
 

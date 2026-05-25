@@ -302,6 +302,7 @@ fn build_login_screen(
                     logging::log_event("UI state: SuccessTransition");
                     loading.set_text("Sesión aceptada · preparando escritorio…");
                     password.set_sensitive(false);
+                    *auth_receiver.borrow_mut() = None;
                     glib::ControlFlow::Continue
                 }
                 Ok(AuthEvent::Failed(outcome)) => {
@@ -399,8 +400,8 @@ fn build_brand_widget(config: &theme::GreeterConfig) -> gtk::Box {
     brand.add_css_class("brand");
 
     if let Some(path) = resolve_logo_path(config) {
-        let logo = gtk::Picture::for_filename(path);
-        logo.set_content_fit(gtk::ContentFit::Contain);
+        let logo = gtk::Image::from_file(path);
+        logo.set_pixel_size(42);
         logo.set_size_request(32, 32);
         logo.add_css_class("brand-logo");
         brand.append(&logo);
