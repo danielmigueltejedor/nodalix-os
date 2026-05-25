@@ -10,12 +10,14 @@
 ## Stage 1 — Real 2D sketching
 
 - line
+- real multi-segment polyline
 - rectangle
 - circle
 - layers
-- save/open `.nodcad`
+- save/open `.nodcad` / `.lixcad`
 - DXF export
-- basic DXF import
+- DXF import for LINE, LWPOLYLINE/POLYLINE, CIRCLE, TEXT and MTEXT
+- keyboard finish/cancel flow for active drawing commands
 
 ## Stage 2 — Mesh import and reverse engineering
 
@@ -30,6 +32,9 @@
 ## Stage 3 — STEP/STP and real CAD geometry
 
 - STEP metadata/reference import
+- DWG import setup wizard and converter detection
+- LibreDWG DWG-to-DXF automatic import when `dwg2dxf` is available
+- ODA File Converter and FreeCAD backend wiring
 - OpenCascade/OCCT integration research
 - optional FreeCAD/OCCT bridge
 - B-Rep tessellation
@@ -51,4 +56,3 @@
 - assemblies
 - parametric modeling
 - advanced export/import
-

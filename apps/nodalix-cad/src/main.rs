@@ -13,6 +13,10 @@ mod units;
 
 fn main() {
     let args = std::env::args().collect::<Vec<_>>();
+    if args.get(1).map(String::as_str) == Some("--dwg-status") {
+        println!("{}", import::dwg::dwg_status_report());
+        return;
+    }
     if args.get(1).map(String::as_str) == Some("--inspect-step") {
         let Some(path) = args.get(2) else {
             eprintln!("usage: nodalix-cad --inspect-step <file.step|file.stp>");

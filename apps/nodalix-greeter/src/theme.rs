@@ -11,6 +11,7 @@ pub struct GreeterConfig {
     pub accent_color: String,
     pub font_family: String,
     pub default_user: String,
+    pub logo_path: String,
 }
 
 impl Default for GreeterConfig {
@@ -21,6 +22,7 @@ impl Default for GreeterConfig {
             accent_color: "#cba6f7".to_string(),
             font_family: "JetBrainsMono Nerd Font".to_string(),
             default_user: String::new(),
+            logo_path: String::new(),
         }
     }
 }
@@ -61,6 +63,7 @@ struct PartialGreeterConfig {
     accent_color: Option<String>,
     font_family: Option<String>,
     default_user: Option<String>,
+    logo_path: Option<String>,
 }
 
 impl PartialGreeterConfig {
@@ -71,6 +74,7 @@ impl PartialGreeterConfig {
             accent_color: self.accent_color.unwrap_or(defaults.accent_color),
             font_family: self.font_family.unwrap_or(defaults.font_family),
             default_user: self.default_user.unwrap_or(defaults.default_user),
+            logo_path: self.logo_path.unwrap_or(defaults.logo_path),
         }
     }
 }

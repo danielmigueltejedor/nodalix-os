@@ -26,6 +26,11 @@ window {
   font-weight: 900;
 }
 
+#brand_logo {
+  min-width: 28px;
+  min-height: 28px;
+}
+
 #header_hint {
   color: #7f849c;
   font-size: 12px;
@@ -187,4 +192,3 @@ row:selected {
   font-size: 12px;
   padding-top: 6px;
 }
-

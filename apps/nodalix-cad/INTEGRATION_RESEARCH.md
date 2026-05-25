@@ -1,6 +1,6 @@
-# CAD Integration Research
+# Lix CAD Integration Research
 
-Nodalix CAD should grow honestly and incrementally. Full STEP/B-Rep support requires a real CAD kernel or conversion bridge.
+Lix CAD should grow honestly and incrementally. Full STEP/B-Rep support requires a real CAD kernel or conversion bridge.
 
 ## OpenCascade / OCCT
 
@@ -8,7 +8,7 @@ Best long-term path for STEP, IGES, B-Rep, tessellation, booleans, and technical
 
 ## FreeCAD CLI / Python bridge
 
-Practical optional bridge for Linux. FreeCAD can import STEP/IGES, tessellate shapes, and export meshes/DXF/SVG. It is heavy, so Nodalix CAD should detect it optionally and degrade gracefully.
+Practical optional bridge for Linux. FreeCAD can import STEP/IGES, tessellate shapes, and export meshes/DXF/SVG. It is heavy, so Lix CAD should detect it optionally and degrade gracefully.
 
 ## pythonOCC
 
@@ -28,28 +28,47 @@ Useful for mesh formats such as OBJ/PLY/STL. It does not solve real CAD B-Rep. O
 
 ## DWG
 
-DWG should be supported through a staged approach because it is a proprietary binary format. The first safe implementation detects known AutoCAD DWG signatures and stores the file as an external reference. Real geometry import should use an optional bridge:
+DWG should be supported through a staged approach because it is a proprietary binary format. Lix CAD should use optional conversion backends internally so the user can open a DWG from the normal import flow without being left at a blocking error:
 
 - ODA File Converter for DWG to DXF conversion when installed by the user.
 - LibreDWG tools such as `dwgread` / `dwg2dxf` if available and compatible with the file version.
+- FreeCAD CLI/Python bridge as a heavier fallback for future tests.
 - A future native DWG parser only if licensing, stability, and coverage are acceptable.
 
-NodeCad should never claim full DWG compatibility until it can reliably load geometry, layers, blocks, units, dimensions, text styles, hatches, tables, and block references.
+Lix CAD should never claim full DWG compatibility until it can reliably load geometry, layers, blocks, units, dimensions, text styles, hatches, tables, and block references.
 
 The desired practical pipeline is:
 
 1. DWG input.
 2. Optional converter creates DXF while preserving layers, line types, blocks, text, dimensions, hatches, and units as far as the converter supports.
-3. NodeCad imports DXF into its native document model.
-4. NodeCad edits the document.
-5. NodeCad exports DXF.
+3. Lix CAD imports DXF into its native document model.
+4. Lix CAD edits the document.
+5. Lix CAD exports DXF.
 6. Optional converter writes DWG again.
 
 Conversion must be explicit and transparent. If a property cannot be preserved, the summary dialog should say so.
 
+Current implementation status:
+
+- Detects ODA File Converter, LibreDWG and FreeCAD-style commands.
+- Uses ODA File Converter or LibreDWG `dwg2dxf` automatically when available.
+- Writes conversion output and logs under `~/.cache/lixcad/imports/`.
+- Shows an integrated DWG Import Setup dialog when no automatic backend is ready.
+- Stores the original DWG as an imported reference.
+- Does not claim native DWG parsing.
+
+Config path:
+
+```toml
+# /home/dani/lixcad/settings.toml
+[dwg_import]
+backend = "oda"
+converter_path = "/usr/bin/oda-file-converter"
+```
+
 ## DXF
 
-DXF export can be implemented directly for basic 2D entities. Import can start with LINE/LWPOLYLINE/CIRCLE and grow from there. DXF remains the practical interchange target while DWG support matures.
+DXF export can be implemented directly for basic 2D entities. Import currently supports LINE, LWPOLYLINE/POLYLINE, CIRCLE, TEXT and MTEXT. DXF remains the practical interchange target while DWG support matures.
 
 ## PDF/SVG export
 

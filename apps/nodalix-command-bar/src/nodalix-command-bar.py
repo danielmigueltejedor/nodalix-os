@@ -20,6 +20,11 @@ from gi.repository import Gtk, Gdk, GLib, GdkPixbuf
 
 
 APP_TITLE = "Nodalix Command Bar"
+NODALIX_LOGO_CANDIDATES = [
+    Path("/etc/nodalix/brand/nodalix-logo-symbol.svg"),
+    Path("/usr/share/nodalix/brand/nodalix-logo-symbol.svg"),
+    Path("/home/dani/Projects/nodalix-os/assets/brand/nodalix-logo-symbol.svg"),
+]
 
 LOCK_FILE_HANDLE = None
 
@@ -37,6 +42,28 @@ def acquire_single_instance_lock():
         return True
     except BlockingIOError:
         return False
+
+
+def nodalix_logo_path():
+    return next((path for path in NODALIX_LOGO_CANDIDATES if path.is_file()), None)
+
+
+def make_brand_widget(text="Nodalix", size=28):
+    box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+    box.set_valign(Gtk.Align.CENTER)
+    logo_path = nodalix_logo_path()
+    if logo_path:
+        try:
+            pix = GdkPixbuf.Pixbuf.new_from_file_at_scale(str(logo_path), size, size, True)
+            image = Gtk.Image.new_from_pixbuf(pix)
+            image.set_name("brand_logo")
+            box.pack_start(image, False, False, 0)
+        except Exception:
+            pass
+    label = Gtk.Label(label=text, xalign=0)
+    label.set_name("brand")
+    box.pack_start(label, True, True, 0)
+    return box
 
 
 def find_repo_root():
@@ -998,8 +1025,7 @@ class CommandBar(Gtk.Window):
         header.set_name("header")
         root.pack_start(header, False, False, 0)
 
-        brand = Gtk.Label(label="󱡓 Nodalix", xalign=0)
-        brand.set_name("brand")
+        brand = make_brand_widget("Nodalix", 28)
         header.pack_start(brand, True, True, 0)
 
         header_hint = Gtk.Label(label="Command Bar", xalign=1)

@@ -1,4 +1,5 @@
 mod greetd;
+mod logging;
 mod theme;
 mod ui;
 mod users;
@@ -22,6 +23,15 @@ fn main() {
     } else {
         ui::GreeterMode::MissingGreetdSocket
     };
+    logging::log_event(format!(
+        "app mode: {}",
+        match &mode {
+            ui::GreeterMode::Demo => "demo",
+            ui::GreeterMode::Greetd { .. } => "greetd",
+            ui::GreeterMode::MissingGreetdSocket => "missing socket",
+        }
+    ));
+    logging::log_event(format!("session command: {}", config.session_command));
 
     let users = if demo {
         users::demo_users()

@@ -7,7 +7,7 @@ This repository includes the native Nodalix branding assets used by the local sy
 The native Nodalix icon is generated as a custom glyph inside a patched Nerd Font.
 
 - Glyph codepoint: `U+E00B`
-- Display character: ``
+- Display character: ``
 - Font family: `JetBrainsMono Nerd Font Nodalix`
 - Generator script: `assets/fonts/nodalix-glyph/add-nodalix-glyph.py`
 - Source SVG: `assets/fonts/nodalix-glyph/nodalix-icon.svg`

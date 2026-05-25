@@ -1,6 +1,7 @@
 
 * {
-  font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", monospace;
+  /* Native Nodalix glyph: U+E00B. Requires JetBrainsMono Nerd Font Nodalix; falls back to Nerd Font. */
+  font-family: "JetBrainsMono Nerd Font Nodalix", "JetBrainsMono Nerd Font", sans-serif;
   font-size: 13px;
   font-weight: 700;
   border: none;

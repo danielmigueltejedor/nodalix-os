@@ -1,9 +1,10 @@
-use crate::{greetd, theme, users};
+use crate::{greetd, logging, theme, users};
 use adw::prelude::AdwApplicationWindowExt;
 use chrono::{Datelike, Local, Timelike};
 use gtk::{gdk, glib, prelude::*};
 use std::{
     cell::{Cell, RefCell},
+    path::{Path, PathBuf},
     rc::Rc,
     sync::mpsc,
     thread,
@@ -19,7 +20,7 @@ pub enum GreeterMode {
 
 enum AuthEvent {
     Started,
-    Failed(String),
+    Failed(greetd::AuthOutcome),
 }
 
 pub fn build(
@@ -127,8 +128,7 @@ fn build_login_screen(
     clock.add_css_class("clock");
     let date = gtk::Label::new(None);
     date.add_css_class("date");
-    let brand = gtk::Label::new(Some("󱡓  Nodalix OS"));
-    brand.add_css_class("brand");
+    let brand = build_brand_widget(&config);
     let subtitle = gtk::Label::new(Some("Inicia sesión para continuar"));
     subtitle.add_css_class("subtitle");
 
@@ -241,7 +241,8 @@ fn build_login_screen(
             entry.set_sensitive(false);
 
             let user = greeter_users[selected_index.get()].clone();
-            loading.show(&user);
+            logging::log_event(format!("UI state: Authenticating user {}", user.username));
+            loading.show(&user, "Iniciando sesión…");
 
             match mode.clone() {
                 GreeterMode::Demo => {
@@ -253,7 +254,7 @@ fn build_login_screen(
                         let event = if ok {
                             AuthEvent::Started
                         } else {
-                            AuthEvent::Failed("Contraseña incorrecta".to_string())
+                            AuthEvent::Failed(greetd::AuthOutcome::InvalidPassword)
                         };
                         let _ = tx.send(event);
                     });
@@ -263,14 +264,15 @@ fn build_login_screen(
                     let (tx, rx) = mpsc::channel();
                     *auth_receiver.borrow_mut() = Some(rx);
                     thread::spawn(move || {
-                        let event = match greetd::authenticate_and_start(
+                        let outcome = greetd::authenticate_and_start(
                             &socket,
                             &user.username,
                             password_text,
                             &session_command,
-                        ) {
-                            Ok(()) => AuthEvent::Started,
-                            Err(err) => AuthEvent::Failed(err.to_string()),
+                        );
+                        let event = match outcome {
+                            greetd::AuthOutcome::Success => AuthEvent::Started,
+                            other => AuthEvent::Failed(other),
                         };
                         let _ = tx.send(event);
                     });
@@ -297,28 +299,32 @@ fn build_login_screen(
 
             match event {
                 Ok(AuthEvent::Started) => {
-                    password.set_text("");
+                    logging::log_event("UI state: SuccessTransition");
+                    loading.set_text("Sesión aceptada · preparando escritorio…");
+                    password.set_sensitive(false);
                     glib::ControlFlow::Continue
                 }
-                Ok(AuthEvent::Failed(message)) => {
+                Ok(AuthEvent::Failed(outcome)) => {
                     loading.hide();
                     auth_pending.set(false);
                     password.set_sensitive(true);
-                    password.set_text("");
-                    password.grab_focus();
-                    show_error(
-                        &error,
-                        if message.is_empty() {
-                            "Contraseña incorrecta"
-                        } else {
-                            &message
-                        },
-                    );
+                    match outcome {
+                        greetd::AuthOutcome::InvalidPassword => {
+                            logging::log_event("UI state: FailedAuth");
+                            password.set_text("");
+                            password.grab_focus();
+                        }
+                        _ => {
+                            logging::log_event(format!("UI state: FailedSession ({outcome})"));
+                        }
+                    }
+                    show_error(&error, outcome.ui_message());
                     *auth_receiver.borrow_mut() = None;
                     glib::ControlFlow::Continue
                 }
                 Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
                 Err(mpsc::TryRecvError::Disconnected) => {
+                    logging::log_event("UI state: auth worker disconnected unexpectedly");
                     loading.hide();
                     auth_pending.set(false);
                     password.set_sensitive(true);
@@ -386,16 +392,58 @@ fn build_login_screen(
     password.grab_focus();
 }
 
+fn build_brand_widget(config: &theme::GreeterConfig) -> gtk::Box {
+    let brand = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+    brand.set_halign(gtk::Align::Center);
+    brand.set_valign(gtk::Align::Center);
+    brand.add_css_class("brand");
+
+    if let Some(path) = resolve_logo_path(config) {
+        let logo = gtk::Picture::for_filename(path);
+        logo.set_content_fit(gtk::ContentFit::Contain);
+        logo.set_size_request(32, 32);
+        logo.add_css_class("brand-logo");
+        brand.append(&logo);
+    }
+
+    let label = gtk::Label::new(Some("Nodalix OS"));
+    label.add_css_class("brand-text");
+    brand.append(&label);
+    brand
+}
+
+fn resolve_logo_path(config: &theme::GreeterConfig) -> Option<PathBuf> {
+    let configured = config.logo_path.trim();
+    let candidates = [
+        configured,
+        "/etc/nodalix/brand/nodalix-logo-symbol.svg",
+        "/usr/share/nodalix/brand/nodalix-logo-symbol.svg",
+        "/home/dani/Projects/nodalix-os/assets/brand/nodalix-logo-symbol.svg",
+    ];
+    candidates
+        .iter()
+        .filter(|path| !path.is_empty())
+        .map(Path::new)
+        .find(|path| path.is_file())
+        .map(Path::to_path_buf)
+}
+
 #[derive(Clone)]
 struct LoadingOverlay {
     container: gtk::Box,
     avatar_slot: gtk::Box,
+    text: gtk::Label,
 }
 
 impl LoadingOverlay {
-    fn show(&self, user: &users::GreeterUser) {
+    fn show(&self, user: &users::GreeterUser, message: &str) {
         replace_child(&self.avatar_slot, avatar_widget(user, 86));
+        self.set_text(message);
         self.container.set_visible(true);
+    }
+
+    fn set_text(&self, message: &str) {
+        self.text.set_text(message);
     }
 
     fn hide(&self) {
@@ -425,6 +473,7 @@ fn build_loading_overlay(root: &gtk::Overlay) -> LoadingOverlay {
     LoadingOverlay {
         container,
         avatar_slot,
+        text,
     }
 }
 
@@ -605,10 +654,6 @@ fn month_es(month: u32) -> &'static str {
 }
 
 fn show_error(label: &gtk::Label, message: &str) {
-    if message.contains("auth") || message.contains("Authentication") {
-        label.set_text("Contraseña incorrecta");
-    } else {
-        label.set_text(message);
-    }
+    label.set_text(message);
     label.set_opacity(1.0);
 }

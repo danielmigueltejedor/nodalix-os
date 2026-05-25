@@ -1,5 +1,21 @@
 [
   {
+    "kind": "action",
+    "icon": "󰚺",
+    "title": "Plex",
+    "subtitle": "Abrir Plex Desktop",
+    "category": "Apps",
+    "search": "plex peliculas series media tv player video",
+    "command": "/home/dani/.local/bin/plex-desktop",
+    "danger": false,
+    "aliases": [
+      "plex",
+      "peliculas",
+      "series",
+      "tv"
+    ]
+  },
+  {
     "icon": "󰈉",
     "title": "Mostrar/Ocultar acciones no disponibles",
     "subtitle": "Nodalix · alterna acciones con dependencias faltantes",
