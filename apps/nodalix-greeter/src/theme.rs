@@ -18,9 +18,9 @@ impl Default for GreeterConfig {
     fn default() -> Self {
         Self {
             background: "/etc/nodalix/wallpapers/current/greeter-wallpaper.png".to_string(),
-            session_command: "uwsm start hyprland-uwsm.desktop".to_string(),
+            session_command: "uwsm start nodalix.desktop".to_string(),
             accent_color: "#cba6f7".to_string(),
-            font_family: "JetBrainsMono Nerd Font".to_string(),
+            font_family: "Inter".to_string(),
             default_user: String::new(),
             logo_path: String::new(),
         }

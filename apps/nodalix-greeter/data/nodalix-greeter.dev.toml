@@ -1,6 +1,6 @@
 background = "/etc/nodalix/wallpapers/current/greeter-wallpaper.png"
-session_command = "uwsm start hyprland-uwsm.desktop"
+session_command = "uwsm start nodalix.desktop"
 accent_color = "#cba6f7"
-font_family = "JetBrainsMono Nerd Font"
+font_family = "Inter"
 default_user = ""
 logo_path = "/usr/share/nodalix/brand/nodalix-logo-symbol.svg"

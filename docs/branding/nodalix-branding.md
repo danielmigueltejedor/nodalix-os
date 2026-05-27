@@ -2,6 +2,11 @@
 
 This repository includes the native Nodalix branding assets used by the local system configuration.
 
+## UI typography
+
+- General UI: **Inter** with system fallbacks (`assets/styles/nodalix-fonts.css`).
+- Monospace / terminals / code: **JetBrainsMono Nerd Font** (via fontconfig `monospace` alias).
+
 ## Native Nodalix glyph
 
 The native Nodalix icon is generated as a custom glyph inside a patched Nerd Font.

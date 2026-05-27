@@ -21,7 +21,7 @@ When launched by greetd, the app reads `GREETD_SOCK`, authenticates the selected
 Default session command:
 
 ```sh
-uwsm start hyprland-uwsm.desktop
+uwsm start nodalix.desktop
 ```
 
 If `GREETD_SOCK` is missing and `--demo` was not passed, the app shows a friendly error screen instead of crashing.
@@ -62,9 +62,9 @@ Defaults:
 
 ```toml
 background = "/etc/nodalix/wallpapers/current/greeter-wallpaper.png"
-session_command = "uwsm start hyprland-uwsm.desktop"
+session_command = "uwsm start nodalix.desktop"
 accent_color = "#cba6f7"
-font_family = "JetBrainsMono Nerd Font"
+font_family = "Inter"
 default_user = ""
 logo_path = "/usr/share/nodalix/brand/nodalix-logo-symbol.svg"
 ```

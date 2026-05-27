@@ -1,7 +1,13 @@
 //! Runtime asset paths (icons). Works when installed to `~/.local/bin/lixcad`.
+//!
+//! Icon naming convention:
+//! - `line`, `move` → `assets/icons/{name}.svg`
+//! - `snap-endpoint` → `assets/icons/snaps/snap-endpoint.svg` (or flat `icons/snap-endpoint.svg`)
+//! - `precision/precision-ortho` → `assets/icons/precision/precision-ortho.svg`
+//! - `modify/modify-rotate` → `assets/icons/modify/modify-rotate.svg`
 
 use gtk::prelude::*;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Directory containing toolbar/palette SVG icons.
 pub fn icons_dir() -> PathBuf {
@@ -31,8 +37,35 @@ pub fn icons_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets/icons")
 }
 
+/// Resolve icon path: supports `subdir/name` and automatic `snaps/` for `snap-*` names.
 pub fn icon_path(name: &str) -> PathBuf {
-    icons_dir().join(format!("{name}.svg"))
+    let dir = icons_dir();
+    let mut candidates = icon_path_candidates(&dir, name);
+    let bundled = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("assets/icons");
+    if bundled != dir && bundled.is_dir() {
+        candidates.extend(icon_path_candidates(&bundled, name));
+    }
+    candidates
+        .into_iter()
+        .find(|path| path.is_file())
+        .unwrap_or_else(|| dir.join(format!("{name}.svg")))
+}
+
+fn icon_path_candidates(dir: &Path, name: &str) -> Vec<PathBuf> {
+    let mut paths = vec![dir.join(format!("{name}.svg"))];
+    if name.contains('/') {
+        return paths;
+    }
+    if name.starts_with("snap-") {
+        paths.push(dir.join("snaps").join(format!("{name}.svg")));
+    }
+    if name.starts_with("modify-") {
+        paths.push(dir.join("modify").join(format!("{name}.svg")));
+    }
+    if name.starts_with("precision-") {
+        paths.push(dir.join("precision").join(format!("{name}.svg")));
+    }
+    paths
 }
 
 pub fn load_icon_image(name: &str, size: i32) -> gtk::Image {
@@ -64,5 +97,61 @@ mod tests {
         let dir = icons_dir();
         assert!(dir.is_dir(), "icons dir missing: {}", dir.display());
         assert!(icon_path("line").is_file());
+    }
+
+    #[test]
+    fn snap_endpoint_icon_resolves() {
+        let path = icon_path("snap-endpoint");
+        assert!(
+            path.is_file(),
+            "snap-endpoint icon missing: {}",
+            path.display()
+        );
+    }
+
+    #[test]
+    fn snap_toggle_icon_resolves() {
+        let path = icon_path("snap-toggle");
+        assert!(
+            path.is_file(),
+            "snap-toggle icon missing: {}",
+            path.display()
+        );
+    }
+
+    #[test]
+    fn all_osnap_icons_resolve() {
+        for name in [
+            "snap-toggle",
+            "snap-endpoint",
+            "snap-midpoint",
+            "snap-center",
+            "snap-intersection",
+            "snap-quadrant",
+            "snap-nearest",
+            "snap-node",
+            "snap-perpendicular",
+            "snap-tangent",
+        ] {
+            let path = icon_path(name);
+            assert!(path.is_file(), "missing icon: {}", path.display());
+        }
+    }
+
+    #[test]
+    fn modify_icons_resolve() {
+        for name in [
+            "modify-rotate",
+            "modify-scale",
+            "modify-mirror",
+            "modify-move",
+            "modify-copy",
+            "modify-offset",
+            "modify-trim",
+            "modify-extend",
+        ] {
+            let path = icon_path(name);
+            assert!(path.is_file(), "missing icon: {}", path.display());
+        }
     }
 }

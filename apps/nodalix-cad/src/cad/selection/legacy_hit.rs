@@ -17,7 +17,9 @@ pub fn legacy_hit_entity_at(document: &Document, point: Point, tolerance: f64) -
     let cad = from_legacy_document(document);
     if let Some(hit) = hit_entity_at(&cad, point2, tolerance) {
         if let Some(id) = parse_legacy_entity_id(&hit.entity_id) {
-            best = Some((id, hit.distance));
+            if document.entity_visible_in_active_layout(id) {
+                best = Some((id, hit.distance));
+            }
         }
     }
 

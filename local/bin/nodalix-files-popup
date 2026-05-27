@@ -2,7 +2,7 @@
 set -u
 
 LOG="/tmp/nodalix-files-popup.log"
-APP="$HOME/Projects/nodalix-os/apps/nodalix-files/src-tauri/target/release/nodalix-files"
+APP="$HOME/Proyectos/nodalix-os/apps/nodalix-files/src-tauri/target/release/nodalix-files"
 
 echo "---- $(date) ----" >> "$LOG"
 

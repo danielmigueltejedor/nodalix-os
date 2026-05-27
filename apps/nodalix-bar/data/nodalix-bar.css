@@ -2,10 +2,6 @@
 @define-color nodalix_text rgba(255, 255, 255, 0.94);
 @define-color nodalix_muted rgba(235, 228, 255, 0.62);
 
-* {
-  font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", "Adwaita Sans", sans-serif;
-}
-
 .bar-window {
   background: transparent;
 }

@@ -40,6 +40,16 @@ pub fn local_users() -> Vec<LocalUser> {
     users
 }
 
+pub fn set_avatar_from_file(source: &std::path::Path) -> Result<PathBuf, String> {
+    let home = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .ok_or_else(|| "HOME no definido".to_string())?;
+    let dest = home.join(".face");
+    std::fs::copy(source, &dest)
+        .map_err(|e| format!("No se pudo copiar la imagen: {e}"))?;
+    Ok(dest)
+}
+
 pub fn avatar_candidates(user: &LocalUser) -> Vec<PathBuf> {
     vec![
         PathBuf::from(format!("/var/lib/AccountsService/icons/{}", user.username)),

@@ -9,8 +9,11 @@ pub mod entities;
 pub mod geometry;
 pub mod history;
 pub mod layers;
+pub mod layouts;
+pub mod precision;
 pub mod rendering;
 pub mod selection;
+pub mod snapping;
 pub mod tools;
 
 pub use commands::command_registry::CommandRegistry;

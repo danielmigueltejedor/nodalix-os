@@ -254,6 +254,7 @@ fn cad_viewport_to_legacy(viewport: &LayoutViewport, layout_name: &str) -> Legac
         scale_paper_units: viewport.scale_paper_units,
         scale_model_units: viewport.scale_model_units,
         twist: viewport.twist,
+        visible: true,
         locked: viewport.locked,
         border_visible: viewport.border_visible,
         visible_layers: Vec::new(),

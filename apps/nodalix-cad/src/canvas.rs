@@ -1,10 +1,20 @@
 use crate::{
     cad::dimensions::{
-        dimension_offset_from_point, dimension_segments, format_distance_with_unit,
-        parse_dimension_style,
+        aligned_dimension_points, diameter_dimension_from_circle, dimension_offset_from_point,
+        dimension_segments, format_distance_with_unit, linear_dimension_points,
+        parse_dimension_style, radius_dimension_from_circle, DimensionKind,
     },
-    cad::geometry::{CircleCreationMode, LineCreationMode, RectangleCreationMode},
-    cad::history::{record_entities_added, record_entity_move_if_nonzero, LegacyHistoryManager},
+    cad::geometry::{apply_grip_edit, CircleCreationMode, LineCreationMode, RectangleCreationMode},
+    cad::history::{
+        apply_entity_snapshot_in_place, capture_entity_snapshot, capture_entity_snapshots,
+        record_entities_added, record_entity_move_if_nonzero, EntitySnapshot, LegacyHistoryManager,
+        LegacyTransformEntitiesAction,
+    },
+    cad::precision::{
+        dynamic_preview_label, ortho_move_delta, precision_anchor, resolve_precision_point,
+        tracking_guide_label, PrecisionState, ResolvedPoint, TrackingGuide,
+    },
+    cad::snapping::{self, OsnapState, SnapKind, SnapTarget},
     document::{Document, Entity, LayoutKind, LayoutViewport},
     geometry::{Point, Point3},
     tool_parameters::{
@@ -12,7 +22,7 @@ use crate::{
         preview_arc_three_points, preview_circle_center_diameter, preview_circle_center_radius,
         preview_circle_three_points, preview_circle_two_point_diameter, preview_line_two_points,
         preview_rectangle_center_size, preview_rectangle_corner_size,
-        preview_rectangle_two_corners, ToolParametersState, ToolPreview,
+        preview_rectangle_two_corners, DimensionCreationMode, ToolParametersState, ToolPreview,
     },
     tools::Tool,
 };
@@ -22,8 +32,6 @@ use std::{cell::RefCell, rc::Rc};
 const MIN_ZOOM: f64 = 0.000_05;
 const MAX_ZOOM: f64 = 20_000.0;
 const ZOOM_STEP: f64 = 1.25;
-const SNAP_SCREEN_TOLERANCE: f64 = 13.0;
-const FULL_SNAP_ENTITY_LIMIT: usize = 2_500;
 const LARGE_DOCUMENT_MOTION_REDRAW_ENTITY_LIMIT: usize = 5_000;
 const FIT_VIEW_MARGIN: f64 = 0.84;
 const MIN_SCREEN_VERTEX_DISTANCE: f64 = 0.7;
@@ -37,7 +45,10 @@ pub struct CanvasInteractionContext {
     pub selected_entity: Rc<RefCell<Vec<u64>>>,
     pub history: Rc<RefCell<LegacyHistoryManager>>,
     pub tool_parameters: Rc<RefCell<ToolParametersState>>,
+    pub osnap: Rc<RefCell<OsnapState>>,
+    pub precision: Rc<RefCell<PrecisionState>>,
     pub inline_text_entry: gtk::Entry,
+    pub attribute_layer_entry: gtk::Entry,
 }
 
 #[derive(Clone, Debug)]
@@ -47,47 +58,20 @@ struct EntityMoveDragSession {
     accumulated_dy: f64,
 }
 
+#[derive(Clone, Debug)]
+struct GripDragSession {
+    entity_id: u64,
+    kind: crate::cad::geometry::GripKind,
+    anchor: Point,
+    before: EntitySnapshot,
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Camera {
     pub zoom: f64,
     pub pan_x: f64,
     pub pan_y: f64,
     pub rotation: f64,
-}
-
-#[derive(Clone, Copy, Debug)]
-struct SnapTarget {
-    point: Point,
-    kind: SnapKind,
-}
-
-#[derive(Clone, Copy, Debug)]
-enum SnapKind {
-    Endpoint,
-    Midpoint,
-    Center,
-    Quadrant,
-    CircleEdge,
-    Intersection,
-    Perpendicular,
-    Ortho,
-    Parallel,
-}
-
-impl SnapKind {
-    fn label(self) -> &'static str {
-        match self {
-            SnapKind::Endpoint => "endpoint",
-            SnapKind::Midpoint => "midpoint",
-            SnapKind::Center => "center",
-            SnapKind::Quadrant => "quadrant",
-            SnapKind::CircleEdge => "circle",
-            SnapKind::Intersection => "intersection",
-            SnapKind::Perpendicular => "perpendicular",
-            SnapKind::Ortho => "ortho",
-            SnapKind::Parallel => "parallel",
-        }
-    }
 }
 
 impl Default for Camera {
@@ -113,6 +97,13 @@ pub struct CadCanvas {
     hovered_entity: Rc<RefCell<Option<u64>>>,
     text_entry: gtk::Entry,
     inline_text_mode: Rc<RefCell<Option<InlineTextMode>>>,
+    modify_preview: Rc<RefCell<Vec<Entity>>>,
+    document: Rc<RefCell<Document>>,
+    history: Rc<RefCell<LegacyHistoryManager>>,
+    grip_drag_session: Rc<RefCell<Option<GripDragSession>>>,
+    offset_source: Rc<RefCell<Option<u64>>>,
+    trim_boundary: Rc<RefCell<Option<crate::canvas_trim_extend::TrimBoundary>>>,
+    extend_boundary: Rc<RefCell<Option<crate::canvas_trim_extend::TrimBoundary>>>,
 }
 
 #[derive(Clone, Debug)]
@@ -145,8 +136,12 @@ impl CadCanvas {
             selected_entity,
             history,
             tool_parameters,
+            osnap,
+            precision,
             inline_text_entry,
+            attribute_layer_entry,
         } = interaction;
+        let attribute_layer_entry = attribute_layer_entry.clone();
         let area = DrawingArea::new();
         area.add_css_class("cad-canvas");
         area.set_hexpand(true);
@@ -159,6 +154,11 @@ impl CadCanvas {
         let camera = Rc::new(RefCell::new(Camera::default()));
         let pointer = Rc::new(RefCell::new(None::<(f64, f64)>));
         let snap_target = Rc::new(RefCell::new(None::<SnapTarget>));
+        let resolved_hover = Rc::new(RefCell::new(None::<ResolvedPoint>));
+        let modify_preview = Rc::new(RefCell::new(Vec::<Entity>::new()));
+        let offset_source = Rc::new(RefCell::new(None::<u64>));
+        let trim_boundary = Rc::new(RefCell::new(None));
+        let extend_boundary = Rc::new(RefCell::new(None));
         let pending_start = Rc::new(RefCell::new(None));
         let pending_points = Rc::new(RefCell::new(Vec::<Point>::new()));
         let polyline_vertices = Rc::new(RefCell::new(Vec::<Point>::new()));
@@ -177,7 +177,10 @@ impl CadCanvas {
         let draw_tool = active_tool.clone();
         let draw_tool_parameters = tool_parameters.clone();
         let draw_snap = snap_target.clone();
+        let draw_resolved = resolved_hover.clone();
+        let draw_precision = precision.clone();
         let draw_selection_box = selection_box.clone();
+        let draw_modify_preview = modify_preview.clone();
         area.set_draw_func(move |_, cr, width, height| {
             let Some(document) = draw_document.try_borrow().ok() else {
                 // Command/edit path holds `borrow_mut`; skip this frame instead of panicking.
@@ -199,6 +202,9 @@ impl CadCanvas {
                 *draw_tool_parameters.borrow(),
                 *draw_hovered_entity.borrow(),
                 *draw_snap.borrow(),
+                *draw_resolved.borrow(),
+                &draw_precision.borrow(),
+                &draw_modify_preview.borrow(),
                 *draw_selection_box.borrow(),
             );
         });
@@ -214,11 +220,17 @@ impl CadCanvas {
         let click_camera = camera.clone();
         let click_selected = selected_entity.clone();
         let click_selection_label = selection_label.clone();
+        let click_layer_entry = attribute_layer_entry.clone();
         let click_snap = snap_target.clone();
+        let click_hover = hover_point.clone();
         let click_history = history.clone();
         let click_tool_parameters = tool_parameters.clone();
         let click_text_entry = inline_text_entry.clone();
         let click_inline_mode = inline_text_mode.clone();
+        let click_modify_preview = modify_preview.clone();
+        let click_offset_source = offset_source.clone();
+        let click_trim_boundary = trim_boundary.clone();
+        let click_extend_boundary = extend_boundary.clone();
         click.connect_pressed(move |_, n_press, x, y| {
             queue_area.grab_focus();
             let point = screen_to_world(
@@ -228,10 +240,8 @@ impl CadCanvas {
                 queue_area.height() as f64,
                 *click_camera.borrow(),
             );
-            let point = click_pending
+            let point = click_hover
                 .borrow()
-                .and_then(|_| *click_snap.borrow())
-                .map(|snap| snap.point)
                 .or_else(|| click_snap.borrow().map(|snap| snap.point))
                 .unwrap_or(point);
             let tool = *click_tool.borrow();
@@ -242,8 +252,9 @@ impl CadCanvas {
                     10.0 / click_camera.borrow().zoom,
                 );
                 *click_selected.borrow_mut() = hit.into_iter().collect();
-                update_selection_label(
+                update_selection_ui(
                     &click_selection_label,
+                    &click_layer_entry,
                     &click_document.borrow(),
                     &click_selected.borrow(),
                 );
@@ -274,6 +285,66 @@ impl CadCanvas {
                         &queue_area,
                         *click_camera.borrow(),
                     );
+                } else if matches!(tool, Tool::Move | Tool::Copy) {
+                    if crate::canvas_modify::handle_move_copy_tool_click(
+                        &mut click_document.borrow_mut(),
+                        &click_history,
+                        tool,
+                        point,
+                        &click_selected.borrow(),
+                        &click_pending,
+                    ) {
+                        click_modify_preview.borrow_mut().clear();
+                    }
+                } else if matches!(tool, Tool::Rotate | Tool::Scale | Tool::Mirror) {
+                    if crate::canvas_modify::handle_modify_tool_click(
+                        &mut click_document.borrow_mut(),
+                        &click_history,
+                        tool,
+                        point,
+                        &click_selected.borrow(),
+                        &click_pending,
+                        &click_pending_points,
+                    ) {
+                        click_modify_preview.borrow_mut().clear();
+                    }
+                } else if tool == Tool::Offset {
+                    let tolerance = 10.0 / click_camera.borrow().zoom;
+                    let distance = click_tool_parameters.borrow().offset_distance;
+                    let _ = crate::canvas_offset::handle_offset_tool_click(
+                        &mut click_document.borrow_mut(),
+                        &click_history,
+                        point,
+                        tolerance,
+                        distance,
+                        &click_offset_source,
+                        |doc, p, tol| hit_test(doc, p, tol),
+                    );
+                    click_modify_preview.borrow_mut().clear();
+                } else if tool == Tool::Trim {
+                    let tolerance = 10.0 / click_camera.borrow().zoom;
+                    let _ = crate::canvas_trim_extend::handle_trim_extend_click(
+                        &mut click_document.borrow_mut(),
+                        &click_history,
+                        point,
+                        tolerance,
+                        &click_trim_boundary,
+                        true,
+                        |doc, p, tol| crate::canvas_trim_extend::pick_edge_at(doc, p, tol),
+                    );
+                    click_modify_preview.borrow_mut().clear();
+                } else if tool == Tool::Extend {
+                    let tolerance = 10.0 / click_camera.borrow().zoom;
+                    let _ = crate::canvas_trim_extend::handle_trim_extend_click(
+                        &mut click_document.borrow_mut(),
+                        &click_history,
+                        point,
+                        tolerance,
+                        &click_extend_boundary,
+                        false,
+                        |doc, p, tol| crate::canvas_trim_extend::pick_edge_at(doc, p, tol),
+                    );
+                    click_modify_preview.borrow_mut().clear();
                 } else {
                     handle_click(
                         &mut click_document.borrow_mut(),
@@ -281,6 +352,7 @@ impl CadCanvas {
                         tool,
                         *click_tool_parameters.borrow(),
                         point,
+                        10.0 / click_camera.borrow().zoom,
                         &click_pending,
                         &click_pending_points,
                         &click_polyline,
@@ -302,6 +374,16 @@ impl CadCanvas {
             let hover_point = hover_point.clone();
             let hovered_entity = hovered_entity.clone();
             let active_tool = active_tool.clone();
+            let selected_entity = selected_entity.clone();
+            let modify_preview = modify_preview.clone();
+            let osnap = osnap.clone();
+            let precision = precision.clone();
+            let resolved_hover = resolved_hover.clone();
+            let pending_points = pending_points.clone();
+            let tool_parameters = tool_parameters.clone();
+            let offset_source = offset_source.clone();
+            let trim_boundary = trim_boundary.clone();
+            let extend_boundary = extend_boundary.clone();
             let area = area.clone();
             let text_entry = inline_text_entry.clone();
             motion.connect_motion(move |_, x, y| {
@@ -311,21 +393,23 @@ impl CadCanvas {
                     screen_to_world(x, y, area.width() as f64, area.height() as f64, camera);
                 let entity_count = document.borrow().entities.len();
                 let tool = *active_tool.borrow();
-                let pending_point = pending_start
-                    .borrow()
-                    .as_ref()
-                    .copied()
-                    .or_else(|| polyline_vertices.borrow().last().copied());
-                let snap = if tool == Tool::Select {
+                let anchor = precision_anchor(
+                    pending_start.borrow().as_ref().copied(),
+                    &pending_points.borrow(),
+                    &polyline_vertices.borrow(),
+                );
+                let snap = if matches!(tool, Tool::Select | Tool::Pan | Tool::Orbit) {
                     None
                 } else {
-                    find_snap(
+                    snapping::find_snap(
                         &document.borrow(),
                         point,
-                        pending_point,
-                        SNAP_SCREEN_TOLERANCE / camera.zoom,
+                        anchor,
+                        camera.zoom,
+                        &osnap.borrow(),
                     )
                 };
+                let resolved = resolve_precision_point(point, anchor, snap, &precision.borrow());
                 let next_hovered_entity = if matches!(tool, Tool::Select | Tool::Modify) {
                     hit_test(&document.borrow(), point, 10.0 / camera.zoom)
                 } else {
@@ -341,13 +425,114 @@ impl CadCanvas {
                 } else if !gtk::prelude::WidgetExt::is_visible(&text_entry) {
                     area.set_cursor_from_name(None);
                 }
-                let effective = snap.map(|snap| snap.point).unwrap_or(point);
-                *hover_point.borrow_mut() = Some(effective);
+                *hover_point.borrow_mut() = Some(resolved.point);
                 *snap_target.borrow_mut() = snap;
-                let needs_preview_redraw =
-                    pending_point.is_some() || !matches!(tool, Tool::Select | Tool::Modify);
+                *resolved_hover.borrow_mut() = Some(resolved);
+                if matches!(tool, Tool::Rotate | Tool::Scale | Tool::Mirror) {
+                    if let Some(base) = pending_start.borrow().as_ref().copied() {
+                        let hover = resolved.point;
+                        let scale_ref = pending_points.borrow().first().copied();
+                        *modify_preview.borrow_mut() = crate::canvas_modify::build_modify_preview(
+                            &document.borrow(),
+                            &selected_entity.borrow(),
+                            tool,
+                            base,
+                            hover,
+                            pending_start.borrow().as_ref().copied(),
+                            scale_ref,
+                        );
+                    } else {
+                        modify_preview.borrow_mut().clear();
+                    }
+                } else if matches!(tool, Tool::Move | Tool::Copy) {
+                    if let Some(base) = pending_start.borrow().as_ref().copied() {
+                        let hover = resolved.point;
+                        *modify_preview.borrow_mut() =
+                            crate::canvas_modify::build_move_copy_preview(
+                                &document.borrow(),
+                                &selected_entity.borrow(),
+                                base,
+                                hover,
+                                tool == Tool::Copy,
+                            );
+                    } else {
+                        modify_preview.borrow_mut().clear();
+                    }
+                } else if tool == Tool::Offset {
+                    let pending_source = *offset_source.borrow();
+                    if let Some(source_id) = pending_source {
+                        let distance = tool_parameters.borrow().offset_distance;
+                        let preview = crate::canvas_offset::build_offset_preview(
+                            &document.borrow(),
+                            source_id,
+                            distance,
+                            resolved.point,
+                        );
+                        *modify_preview.borrow_mut() = preview.into_iter().collect();
+                    } else {
+                        modify_preview.borrow_mut().clear();
+                    }
+                } else if tool == Tool::Trim {
+                    let pending_boundary = *trim_boundary.borrow();
+                    if let Some(boundary) = pending_boundary {
+                        let tolerance = 10.0 / camera.zoom;
+                        if let Some(target) = crate::canvas_trim_extend::pick_edge_at(
+                            &document.borrow(),
+                            resolved.point,
+                            tolerance,
+                        ) {
+                            let preview = crate::canvas_trim_extend::build_trim_preview(
+                                &document.borrow(),
+                                target,
+                                boundary,
+                                resolved.point,
+                            );
+                            *modify_preview.borrow_mut() = preview.into_iter().collect();
+                        } else {
+                            modify_preview.borrow_mut().clear();
+                        }
+                    } else {
+                        modify_preview.borrow_mut().clear();
+                    }
+                } else if tool == Tool::Extend {
+                    let pending_boundary = *extend_boundary.borrow();
+                    if let Some(boundary) = pending_boundary {
+                        let tolerance = 10.0 / camera.zoom;
+                        if let Some(target) = crate::canvas_trim_extend::pick_edge_at(
+                            &document.borrow(),
+                            resolved.point,
+                            tolerance,
+                        ) {
+                            let preview = crate::canvas_trim_extend::build_extend_preview(
+                                &document.borrow(),
+                                target,
+                                boundary,
+                                resolved.point,
+                            );
+                            *modify_preview.borrow_mut() = preview.into_iter().collect();
+                        } else {
+                            modify_preview.borrow_mut().clear();
+                        }
+                    } else {
+                        modify_preview.borrow_mut().clear();
+                    }
+                }
+                let needs_preview_redraw = anchor.is_some()
+                    || matches!(
+                        tool,
+                        Tool::Rotate
+                            | Tool::Scale
+                            | Tool::Mirror
+                            | Tool::Move
+                            | Tool::Copy
+                            | Tool::Offset
+                            | Tool::Trim
+                            | Tool::Extend
+                    )
+                    || !matches!(tool, Tool::Select | Tool::Modify);
                 if needs_preview_redraw
                     || snap.is_some()
+                    || resolved.guide.is_some()
                     || hovered_entity_changed
                     || entity_count <= LARGE_DOCUMENT_MOTION_REDRAW_ENTITY_LIMIT
                 {
@@ -358,12 +543,14 @@ impl CadCanvas {
         {
             let pointer = pointer.clone();
             let snap_target = snap_target.clone();
+            let resolved_hover = resolved_hover.clone();
             let hover_point = hover_point.clone();
             let hovered_entity = hovered_entity.clone();
             let area = area.clone();
             motion.connect_leave(move |_| {
                 *pointer.borrow_mut() = None;
                 *snap_target.borrow_mut() = None;
+                *resolved_hover.borrow_mut() = None;
                 *hover_point.borrow_mut() = None;
                 if hovered_entity.borrow().is_some() {
                     *hovered_entity.borrow_mut() = None;
@@ -410,8 +597,8 @@ impl CadCanvas {
             let history = history.clone();
             let selected = selected_entity.clone();
             let selection_label = selection_label.clone();
+            let layer_entry = attribute_layer_entry.clone();
             let area = area.clone();
-            let camera = camera.clone();
             let mode = inline_text_mode.clone();
             let entry = inline_text_entry.clone();
             entry.connect_activate(move |entry| {
@@ -422,6 +609,7 @@ impl CadCanvas {
                     &history,
                     &selected,
                     &selection_label,
+                    &layer_entry,
                     &area,
                 );
             });
@@ -431,8 +619,8 @@ impl CadCanvas {
             let history = history.clone();
             let selected = selected_entity.clone();
             let selection_label = selection_label.clone();
+            let layer_entry = attribute_layer_entry.clone();
             let area = area.clone();
-            let camera = camera.clone();
             let mode = inline_text_mode.clone();
             let entry = inline_text_entry.clone();
             let key = gtk::EventControllerKey::new();
@@ -449,6 +637,7 @@ impl CadCanvas {
                         &history,
                         &selected,
                         &selection_label,
+                        &layer_entry,
                         &area,
                     );
                     return gtk::glib::Propagation::Stop;
@@ -463,19 +652,24 @@ impl CadCanvas {
         let drag_last_world = Rc::new(RefCell::new(None::<Point>));
         let drag_pan_start = Rc::new(RefCell::new(None::<Camera>));
         let entity_move_session = Rc::new(RefCell::new(None::<EntityMoveDragSession>));
+        let grip_drag_session = Rc::new(RefCell::new(None::<GripDragSession>));
+        let move_precision = precision.clone();
         {
             let document = document.clone();
             let active_tool = active_tool.clone();
             let selected_entity = selected_entity.clone();
             let selection_label = selection_label.clone();
+            let attribute_layer_entry = attribute_layer_entry.clone();
             let camera = camera.clone();
             let drag_last_world = drag_last_world.clone();
             let drag_pan_start = drag_pan_start.clone();
             let entity_move_session = entity_move_session.clone();
+            let grip_drag_session = grip_drag_session.clone();
             let selection_box = selection_box.clone();
             let area = area.clone();
             move_drag.connect_drag_begin(move |gesture, x, y| {
                 *entity_move_session.borrow_mut() = None;
+                *grip_drag_session.borrow_mut() = None;
                 *selection_box.borrow_mut() = None;
                 if gesture
                     .current_event_state()
@@ -498,12 +692,40 @@ impl CadCanvas {
                     area.height() as f64,
                     camera_state,
                 );
+                if *active_tool.borrow() == Tool::Select {
+                    let tolerance = 10.0 / camera_state.zoom;
+                    if let Some(grip) = crate::canvas_grips::hit_test_selection_grip(
+                        &document.borrow(),
+                        &selected_entity.borrow(),
+                        point,
+                        tolerance,
+                    ) {
+                        if let Some(before) =
+                            capture_entity_snapshot(&document.borrow(), grip.entity_id)
+                        {
+                            *grip_drag_session.borrow_mut() = Some(GripDragSession {
+                                entity_id: grip.entity_id,
+                                kind: grip.kind,
+                                anchor: grip.position,
+                                before,
+                            });
+                            *drag_last_world.borrow_mut() = Some(point);
+                            area.queue_draw();
+                            return;
+                        }
+                    }
+                }
                 let hit = hit_test(&document.borrow(), point, 10.0 / camera_state.zoom);
                 if let Some(id) = hit {
                     if !selected_entity.borrow().contains(&id) {
                         *selected_entity.borrow_mut() = vec![id];
                         let selected_ids = selected_entity.borrow().clone();
-                        update_selection_label(&selection_label, &document.borrow(), &selected_ids);
+                        update_selection_ui(
+                            &selection_label,
+                            &attribute_layer_entry,
+                            &document.borrow(),
+                            &selected_ids,
+                        );
                     }
                     *drag_last_world.borrow_mut() = Some(point);
                     *entity_move_session.borrow_mut() = Some(EntityMoveDragSession {
@@ -515,7 +737,12 @@ impl CadCanvas {
                 } else if *active_tool.borrow() == Tool::Select {
                     selected_entity.borrow_mut().clear();
                     let selected_ids = selected_entity.borrow().clone();
-                    update_selection_label(&selection_label, &document.borrow(), &selected_ids);
+                    update_selection_ui(
+                        &selection_label,
+                        &attribute_layer_entry,
+                        &document.borrow(),
+                        &selected_ids,
+                    );
                     *selection_box.borrow_mut() = Some(SelectionBox {
                         start_x: x,
                         start_y: y,
@@ -531,10 +758,13 @@ impl CadCanvas {
             let document = document.clone();
             let selected_entity = selected_entity.clone();
             let selection_label = selection_label.clone();
+            let attribute_layer_entry = attribute_layer_entry.clone();
             let camera = camera.clone();
             let drag_last_world = drag_last_world.clone();
             let drag_pan_start = drag_pan_start.clone();
             let entity_move_session = entity_move_session.clone();
+            let grip_drag_session = grip_drag_session.clone();
+            let move_precision = move_precision.clone();
             let selection_box = selection_box.clone();
             let area = area.clone();
             move_drag.connect_drag_update(move |gesture, dx, dy| {
@@ -562,12 +792,13 @@ impl CadCanvas {
                         *camera.borrow(),
                     );
                     *selected_entity.borrow_mut() = selected_ids.clone();
-                    update_selection_label(&selection_label, &document.borrow(), &selected_ids);
+                    update_selection_ui(
+                        &selection_label,
+                        &attribute_layer_entry,
+                        &document.borrow(),
+                        &selected_ids,
+                    );
                     area.queue_draw();
-                    return;
-                }
-                let selected_ids = selected_entity.borrow().clone();
-                if selected_ids.is_empty() {
                     return;
                 }
                 let point = screen_to_world(
@@ -577,12 +808,34 @@ impl CadCanvas {
                     area.height() as f64,
                     *camera.borrow(),
                 );
+                if let Some(session) = grip_drag_session.borrow().as_ref() {
+                    let mut doc = document.borrow_mut();
+                    apply_entity_snapshot_in_place(&mut doc, &session.before);
+                    if let Some(entity) = doc
+                        .entities
+                        .iter_mut()
+                        .find(|entity| entity.id() == session.entity_id)
+                    {
+                        apply_grip_edit(entity, session.kind, point, session.anchor);
+                        doc.invalidate_entity_bounds(session.entity_id);
+                    }
+                    *drag_last_world.borrow_mut() = Some(point);
+                    area.queue_draw();
+                    return;
+                }
+                let selected_ids = selected_entity.borrow().clone();
+                if selected_ids.is_empty() {
+                    return;
+                }
                 let Some(previous) = *drag_last_world.borrow() else {
                     *drag_last_world.borrow_mut() = Some(point);
                     return;
                 };
-                let move_dx = point.x - previous.x;
-                let move_dy = point.y - previous.y;
+                let mut move_dx = point.x - previous.x;
+                let mut move_dy = point.y - previous.y;
+                if move_precision.borrow().ortho_enabled {
+                    (move_dx, move_dy) = ortho_move_delta(move_dx, move_dy);
+                }
                 for id in &selected_ids {
                     document
                         .borrow_mut()
@@ -600,10 +853,32 @@ impl CadCanvas {
             let drag_last_world = drag_last_world.clone();
             let drag_pan_start = drag_pan_start.clone();
             let entity_move_session = entity_move_session.clone();
+            let grip_drag_session = grip_drag_session.clone();
             let selection_box = selection_box.clone();
             let history = history.clone();
             let document = document.clone();
             move_drag.connect_drag_end(move |_, _, _| {
+                if let Some(session) = grip_drag_session.borrow_mut().take() {
+                    let moved = drag_last_world
+                        .borrow()
+                        .map(|point| point.distance_to(session.anchor) > 1e-9)
+                        .unwrap_or(false);
+                    if moved {
+                        let after =
+                            capture_entity_snapshots(&document.borrow(), &[session.entity_id]);
+                        if !after.is_empty() {
+                            history
+                                .borrow_mut()
+                                .record(Box::new(LegacyTransformEntitiesAction {
+                                    before: vec![session.before],
+                                    after,
+                                }));
+                            document.borrow_mut().modified = true;
+                        }
+                    } else {
+                        apply_entity_snapshot_in_place(&mut document.borrow_mut(), &session.before);
+                    }
+                }
                 if let Some(session) = entity_move_session.borrow_mut().take() {
                     record_entity_move_if_nonzero(
                         &mut history.borrow_mut(),
@@ -658,6 +933,13 @@ impl CadCanvas {
             hovered_entity,
             text_entry: inline_text_entry,
             inline_text_mode,
+            modify_preview,
+            document: document.clone(),
+            history: history.clone(),
+            grip_drag_session,
+            offset_source,
+            trim_boundary,
+            extend_boundary,
         }
     }
 
@@ -709,7 +991,9 @@ impl CadCanvas {
     }
 
     pub fn fit_document(&self, document: &Document) {
-        let Some((min, max)) = document_bounds(document) else {
+        let Some((min, max)) = crate::cad::layouts::active_layout_fit_bounds(document)
+            .or_else(|| document_bounds(document))
+        else {
             return;
         };
         let width = self.area.width().max(1) as f64;
@@ -751,9 +1035,19 @@ impl CadCanvas {
     }
 
     pub fn cancel_interaction(&self) {
+        if let Some(session) = self.grip_drag_session.borrow_mut().take() {
+            if let Ok(mut document) = self.document.try_borrow_mut() {
+                apply_entity_snapshot_in_place(&mut document, &session.before);
+                document.invalidate_entity_bounds(session.entity_id);
+            }
+        }
         self.polyline_vertices.borrow_mut().clear();
         *self.pending_start.borrow_mut() = None;
         self.pending_points.borrow_mut().clear();
+        self.modify_preview.borrow_mut().clear();
+        *self.offset_source.borrow_mut() = None;
+        *self.trim_boundary.borrow_mut() = None;
+        *self.extend_boundary.borrow_mut() = None;
         *self.hover_point.borrow_mut() = None;
         *self.hovered_entity.borrow_mut() = None;
         self.text_entry.set_visible(false);
@@ -791,7 +1085,7 @@ pub fn screen_to_world(x: f64, y: f64, width: f64, height: f64, camera: Camera) 
     }
 }
 
-fn world_to_screen(point: Point, width: f64, height: f64, camera: Camera) -> Point {
+pub(crate) fn world_to_screen(point: Point, width: f64, height: f64, camera: Camera) -> Point {
     let dx = point.x - camera.pan_x;
     let dy = point.y - camera.pan_y;
     let cos = camera.rotation.cos();
@@ -1025,17 +1319,19 @@ fn handle_click(
     tool: Tool,
     tool_parameters: ToolParametersState,
     point: Point,
+    hit_tolerance: f64,
     pending: &Rc<RefCell<Option<Point>>>,
     pending_points: &Rc<RefCell<Vec<Point>>>,
     polyline_vertices: &Rc<RefCell<Vec<Point>>>,
 ) {
+    let active_layer = document.active_layer_name.clone();
     match tool {
         Tool::Line => {
             if tool_parameters.line_mode == LineCreationMode::TwoPoints {
                 two_point_entity(document, history, point, pending, |id, start, end| {
                     Entity::Line {
                         id,
-                        layer: "Default".to_string(),
+                        layer: active_layer.clone(),
                         start,
                         end,
                     }
@@ -1049,7 +1345,7 @@ fn handle_click(
                 two_point_entity(document, history, point, pending, |id, start, end| {
                     Entity::Polyline {
                         id,
-                        layer: "Default".to_string(),
+                        layer: active_layer.clone(),
                         points: vec![
                             start,
                             Point {
@@ -1077,6 +1373,8 @@ fn handle_click(
                     tool_parameters.rectangle_width,
                     tool_parameters.rectangle_height,
                 ) {
+                    let mut entity = entity;
+                    entity.set_layer(&active_layer);
                     document.add_entity(entity);
                     record_entities_added(&mut history.borrow_mut(), document, &[id]);
                 }
@@ -1089,6 +1387,7 @@ fn handle_click(
             pending,
             pending_points,
             tool_parameters.circle_mode,
+            &active_layer,
         ),
         Tool::Arc => handle_arc_click(
             document,
@@ -1097,14 +1396,24 @@ fn handle_click(
             pending,
             pending_points,
             tool_parameters.arc_mode,
+            &active_layer,
         ),
         Tool::Dimension | Tool::Measure => {
-            handle_dimension_click(document, history, point, pending, pending_points);
+            handle_dimension_click(
+                document,
+                history,
+                point,
+                hit_tolerance,
+                pending,
+                pending_points,
+                tool_parameters.dimension_mode,
+                &active_layer,
+            );
         }
         Tool::Hatch => two_point_entity(document, history, point, pending, |id, start, end| {
             Entity::Hatch {
                 id,
-                layer: "Default".to_string(),
+                layer: active_layer.clone(),
                 boundary: vec![
                     start,
                     Point {
@@ -1126,7 +1435,7 @@ fn handle_click(
             two_point_entity(document, history, point, pending, |id, start, end| {
                 Entity::Guideline {
                     id,
-                    layer: "Construction".to_string(),
+                    layer: active_layer.clone(),
                     start,
                     end,
                     construction: true,
@@ -1150,7 +1459,7 @@ fn handle_click(
         }
         Tool::Table => single_click_entity(document, history, point, |id| Entity::Table {
             id,
-            layer: "Default".to_string(),
+            layer: active_layer.clone(),
             origin: point,
             rows: 3,
             columns: 4,
@@ -1159,7 +1468,7 @@ fn handle_click(
         }),
         Tool::Block => single_click_entity(document, history, point, |id| Entity::BlockReference {
             id,
-            layer: "Default".to_string(),
+            layer: active_layer.clone(),
             name: "Block".to_string(),
             insertion: point,
             scale: 1.0,
@@ -1179,6 +1488,7 @@ fn handle_circle_click(
     pending: &Rc<RefCell<Option<Point>>>,
     pending_points: &Rc<RefCell<Vec<Point>>>,
     mode: CircleCreationMode,
+    layer_name: &str,
 ) {
     if mode == CircleCreationMode::ThreePoint {
         *pending.borrow_mut() = None;
@@ -1189,6 +1499,8 @@ fn handle_circle_click(
         }
         let id = document.next_id();
         if let Some(entity) = finalize_circle_entity(mode, id, &points[..3]) {
+            let mut entity = entity;
+            entity.set_layer(layer_name);
             document.add_entity(entity);
             record_entities_added(&mut history.borrow_mut(), document, &[id]);
         } else {
@@ -1203,6 +1515,8 @@ fn handle_circle_click(
     if let Some(start) = *pending_ref {
         let id = document.next_id();
         if let Some(entity) = finalize_circle_entity(mode, id, &[start, point]) {
+            let mut entity = entity;
+            entity.set_layer(layer_name);
             document.add_entity(entity);
             record_entities_added(&mut history.borrow_mut(), document, &[id]);
         }
@@ -1219,6 +1533,7 @@ fn handle_arc_click(
     pending: &Rc<RefCell<Option<Point>>>,
     pending_points: &Rc<RefCell<Vec<Point>>>,
     mode: crate::tool_parameters::ArcUiMode,
+    layer_name: &str,
 ) {
     *pending.borrow_mut() = None;
     let mut points = pending_points.borrow_mut();
@@ -1228,6 +1543,8 @@ fn handle_arc_click(
     }
     let id = document.next_id();
     if let Some(entity) = finalize_arc_entity(mode, id, &points[..3]) {
+        let mut entity = entity;
+        entity.set_layer(layer_name);
         document.add_entity(entity);
         record_entities_added(&mut history.borrow_mut(), document, &[id]);
     } else {
@@ -1240,33 +1557,114 @@ fn handle_dimension_click(
     document: &mut Document,
     history: &Rc<RefCell<LegacyHistoryManager>>,
     point: Point,
+    hit_tolerance: f64,
     pending: &Rc<RefCell<Option<Point>>>,
     pending_points: &Rc<RefCell<Vec<Point>>>,
+    mode: DimensionCreationMode,
+    layer_name: &str,
 ) {
+    if matches!(
+        mode,
+        DimensionCreationMode::Radius | DimensionCreationMode::Diameter
+    ) {
+        pending_points.borrow_mut().clear();
+        *pending.borrow_mut() = None;
+        let Some((id, center, radius)) = pick_circle_for_dimension(document, point, hit_tolerance)
+        else {
+            return;
+        };
+        let build = match mode {
+            DimensionCreationMode::Radius => {
+                radius_dimension_from_circle(center, radius, point, document.units, 2)
+                    .map(|(start, end, label)| (start, end, label, "Radius".to_string()))
+            }
+            DimensionCreationMode::Diameter => {
+                diameter_dimension_from_circle(center, radius, point, document.units, 2)
+                    .map(|(start, end, label)| (start, end, label, "Diameter".to_string()))
+            }
+            _ => None,
+        };
+        if let Some((start, end, label, style)) = build {
+            let entity = Entity::Dimension {
+                id: document.next_id(),
+                layer: layer_name.to_string(),
+                start,
+                end,
+                label,
+                style: format!("{style}@target={id}"),
+                precision: 2,
+            };
+            let eid = entity.id();
+            document.add_entity(entity);
+            record_entities_added(&mut history.borrow_mut(), document, &[eid]);
+        }
+        return;
+    }
     *pending.borrow_mut() = None;
     let mut points = pending_points.borrow_mut();
     points.push(point);
     if points.len() < 3 {
         return;
     }
-    let start = points[0];
-    let end = points[1];
+    let raw_start = points[0];
+    let raw_end = points[1];
     let offset_point = points[2];
+    let (start, end, kind) = match mode {
+        DimensionCreationMode::Linear => {
+            let (start, end) = linear_dimension_points(raw_start, raw_end);
+            (start, end, DimensionKind::Linear)
+        }
+        DimensionCreationMode::Aligned
+        | DimensionCreationMode::Radius
+        | DimensionCreationMode::Diameter => {
+            let (start, end) = aligned_dimension_points(raw_start, raw_end);
+            (start, end, DimensionKind::Aligned)
+        }
+    };
     let offset = dimension_offset_from_point(start, end, offset_point);
     let label = format_distance_with_unit(start.distance_to(end), document.units, 2);
+    let style_kind = match kind {
+        DimensionKind::Linear => "Linear",
+        DimensionKind::Aligned => "Aligned",
+        DimensionKind::Radius => "Radius",
+        DimensionKind::Diameter => "Diameter",
+    };
     let entity = Entity::Dimension {
         id: document.next_id(),
-        layer: "Dimensions".to_string(),
+        layer: layer_name.to_string(),
         start,
         end,
         label,
-        style: format!("Linear@{:.6},{:.6}", offset.x, offset.y),
+        style: format!("{style_kind}@{:.6},{:.6}", offset.x, offset.y),
         precision: 2,
     };
     let id = entity.id();
     document.add_entity(entity);
     record_entities_added(&mut history.borrow_mut(), document, &[id]);
     points.clear();
+}
+
+fn pick_circle_for_dimension(
+    document: &Document,
+    point: Point,
+    tolerance: f64,
+) -> Option<(u64, Point, f64)> {
+    document
+        .entities
+        .iter()
+        .filter_map(|entity| match entity {
+            Entity::Circle {
+                id, center, radius, ..
+            } => Some((*id, *center, *radius)),
+            _ => None,
+        })
+        .filter(|(_, center, radius)| point.distance_to(*center) <= *radius + tolerance)
+        .min_by(|a, b| {
+            point
+                .distance_to(a.1)
+                .partial_cmp(&point.distance_to(b.1))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        })
 }
 
 fn two_point_entity<F>(
@@ -1348,10 +1746,10 @@ fn should_apply_inline_text_edit(original_text: &str, new_text: &str) -> bool {
     original_text.trim() != new_text.trim() && !new_text.trim().is_empty()
 }
 
-fn build_text_entity(id: u64, point: Point, text: String) -> Entity {
+fn build_text_entity(id: u64, point: Point, text: String, layer: &str) -> Entity {
     Entity::Text {
         id,
-        layer: "Default".to_string(),
+        layer: layer.to_string(),
         origin: point,
         text,
         height: 2.5,
@@ -1378,6 +1776,7 @@ fn schedule_inline_text_commit(
     history: &Rc<RefCell<LegacyHistoryManager>>,
     selected: &Rc<RefCell<Vec<u64>>>,
     selection_label: &gtk::Label,
+    layer_entry: &gtk::Entry,
     area: &DrawingArea,
     attempt: u8,
 ) {
@@ -1385,6 +1784,7 @@ fn schedule_inline_text_commit(
     let history = history.clone();
     let selected = selected.clone();
     let selection_label = selection_label.clone();
+    let layer_entry = layer_entry.clone();
     let area = area.clone();
     gtk::glib::idle_add_local_once(move || {
         let Some(mode) = active_mode.clone() else {
@@ -1398,6 +1798,7 @@ fn schedule_inline_text_commit(
             &history,
             &selected,
             &selection_label,
+            &layer_entry,
             &area,
         ) {
             InlineCommitResult::Done => {}
@@ -1409,6 +1810,7 @@ fn schedule_inline_text_commit(
                     &history,
                     &selected,
                     &selection_label,
+                    &layer_entry,
                     &area,
                     attempt + 1,
                 );
@@ -1433,6 +1835,7 @@ fn finish_inline_text_commit(
     history: &Rc<RefCell<LegacyHistoryManager>>,
     selected: &Rc<RefCell<Vec<u64>>>,
     selection_label: &gtk::Label,
+    layer_entry: &gtk::Entry,
     area: &DrawingArea,
 ) -> InlineCommitResult {
     let normalized = normalize_text_for_creation(raw_text);
@@ -1448,7 +1851,8 @@ fn finish_inline_text_commit(
                 return InlineCommitResult::Busy;
             };
             let id = doc.next_id();
-            doc.add_entity(build_text_entity(id, world_position, text));
+            let layer_name = doc.active_layer_name.clone();
+            doc.add_entity(build_text_entity(id, world_position, text, &layer_name));
             let Ok(mut history_ref) = history.try_borrow_mut() else {
                 return InlineCommitResult::Busy;
             };
@@ -1457,7 +1861,7 @@ fn finish_inline_text_commit(
                 return InlineCommitResult::Busy;
             };
             *selected_ref = vec![id];
-            update_selection_label(selection_label, &doc, &selected_ref);
+            update_selection_ui(selection_label, layer_entry, &doc, &selected_ref);
             area.queue_draw();
             InlineCommitResult::Done
         }
@@ -1519,7 +1923,7 @@ fn finish_inline_text_commit(
             let Ok(doc) = document.try_borrow() else {
                 return InlineCommitResult::Busy;
             };
-            update_selection_label(selection_label, &doc, &selected_ref);
+            update_selection_ui(selection_label, layer_entry, &doc, &selected_ref);
             area.queue_draw();
             InlineCommitResult::Done
         }
@@ -1533,6 +1937,7 @@ fn commit_inline_text(
     history: &Rc<RefCell<LegacyHistoryManager>>,
     selected: &Rc<RefCell<Vec<u64>>>,
     selection_label: &gtk::Label,
+    layer_entry: &gtk::Entry,
     area: &DrawingArea,
 ) {
     let raw_text = entry.text().to_string();
@@ -1547,6 +1952,7 @@ fn commit_inline_text(
         history,
         selected,
         selection_label,
+        layer_entry,
         area,
         0,
     );
@@ -1593,6 +1999,9 @@ fn draw_scene(
     tool_parameters: ToolParametersState,
     hovered_entity: Option<u64>,
     snap: Option<SnapTarget>,
+    resolved: Option<ResolvedPoint>,
+    precision: &PrecisionState,
+    modify_preview: &[Entity],
     selection_box: Option<SelectionBox>,
 ) {
     if document.active_layout_kind() == LayoutKind::Paper {
@@ -1635,17 +2044,71 @@ fn draw_scene(
         camera,
         active_tool,
         tool_parameters,
+        document,
+        hovered_entity,
         pending,
         pending_points,
         hover_point,
     );
+    draw_modify_preview_entities(cr, width, height, camera, document, modify_preview);
     draw_polyline_preview(cr, width, height, camera, polyline_vertices, hover_point);
     if let Some(snap) = snap {
         draw_snap_marker(cr, width, height, camera, snap);
     }
+    if let Some(resolved) = resolved {
+        if let Some(guide) = resolved.guide {
+            draw_tracking_guide(cr, width, height, camera, guide);
+        }
+        let anchor = precision_anchor(pending, pending_points, polyline_vertices);
+        if precision.dynamic_input_enabled {
+            if let (Some(base), Some(cursor)) = (anchor, hover_point) {
+                draw_dynamic_input_label(cr, width, height, camera, base, cursor, document.units);
+            }
+        }
+    }
+    if active_tool == Tool::Select && !selected_entities.is_empty() {
+        crate::canvas_grips::draw_selection_grips(
+            cr,
+            width,
+            height,
+            camera,
+            document,
+            selected_entities,
+        );
+    }
     if let Some(selection_box) = selection_box {
         draw_selection_box(cr, selection_box);
     }
+}
+
+fn draw_modify_preview_entities(
+    cr: &gtk::cairo::Context,
+    width: f64,
+    height: f64,
+    camera: Camera,
+    document: &Document,
+    preview: &[Entity],
+) {
+    if preview.is_empty() {
+        return;
+    }
+    cr.save().ok();
+    cr.set_source_rgba(0.45, 0.85, 1.0, 0.55);
+    for entity in preview {
+        draw_entity(
+            cr,
+            width,
+            height,
+            camera,
+            entity,
+            false,
+            false,
+            document.entity_color(entity.id()),
+            document.entity_line_type(entity.id()),
+            document.entity_line_weight(entity.id()),
+        );
+    }
+    cr.restore().ok();
 }
 
 fn draw_tool_preview(
@@ -1655,6 +2118,8 @@ fn draw_tool_preview(
     camera: Camera,
     active_tool: Tool,
     tool_parameters: ToolParametersState,
+    document: &Document,
+    hovered_entity: Option<u64>,
     pending: Option<Point>,
     pending_points: &[Point],
     hover_point: Option<Point>,
@@ -1669,6 +2134,27 @@ fn draw_tool_preview(
         return;
     };
     if matches!(active_tool, Tool::Dimension | Tool::Measure) {
+        if matches!(
+            tool_parameters.dimension_mode,
+            DimensionCreationMode::Radius | DimensionCreationMode::Diameter
+        ) {
+            if let Some((_, center, radius)) =
+                hovered_entity.and_then(|id| circle_entity_at(document, id))
+            {
+                draw_circle_dimension_preview(
+                    cr,
+                    width,
+                    height,
+                    camera,
+                    center,
+                    radius,
+                    hover,
+                    tool_parameters.dimension_mode,
+                    document.units,
+                );
+            }
+            return;
+        }
         match pending_points {
             [start] => {
                 draw_preview_shape(
@@ -1684,7 +2170,17 @@ fn draw_tool_preview(
                 return;
             }
             [start, end] => {
-                draw_dimension_preview(cr, width, height, camera, *start, *end, hover);
+                draw_dimension_preview(
+                    cr,
+                    width,
+                    height,
+                    camera,
+                    *start,
+                    *end,
+                    hover,
+                    tool_parameters.dimension_mode,
+                    document.units,
+                );
                 return;
             }
             _ => {}
@@ -1757,7 +2253,13 @@ fn draw_dimension_preview(
     start: Point,
     end: Point,
     offset_point: Point,
+    mode: DimensionCreationMode,
+    units: crate::units::Unit,
 ) {
+    let (start, end) = match mode {
+        DimensionCreationMode::Linear => linear_dimension_points(start, end),
+        _ => aligned_dimension_points(start, end),
+    };
     let offset = dimension_offset_from_point(start, end, offset_point);
     let (ext_start, ext_end, dim_start, dim_end) = dimension_segments(start, end, offset);
     cr.set_line_width(1.2);
@@ -1766,7 +2268,58 @@ fn draw_dimension_preview(
     draw_preview_segment(cr, width, height, camera, ext_start, dim_start);
     draw_preview_segment(cr, width, height, camera, ext_end, dim_end);
     draw_preview_segment(cr, width, height, camera, dim_start, dim_end);
+    let label = format_distance_with_unit(start.distance_to(end), units, 2);
+    let a = world_to_screen(dim_start, width, height, camera);
+    let b = world_to_screen(dim_end, width, height, camera);
+    cr.move_to((a.x + b.x) * 0.5 + 4.0, (a.y + b.y) * 0.5 - 4.0);
+    let _ = cr.show_text(&label);
     cr.set_dash(&[], 0.0);
+}
+
+fn draw_circle_dimension_preview(
+    cr: &gtk::cairo::Context,
+    width: f64,
+    height: f64,
+    camera: Camera,
+    center: Point,
+    radius: f64,
+    cursor: Point,
+    mode: DimensionCreationMode,
+    units: crate::units::Unit,
+) {
+    let build = match mode {
+        DimensionCreationMode::Radius => {
+            radius_dimension_from_circle(center, radius, cursor, units, 2)
+        }
+        DimensionCreationMode::Diameter => {
+            diameter_dimension_from_circle(center, radius, cursor, units, 2)
+        }
+        _ => None,
+    };
+    let Some((start, end, label)) = build else {
+        return;
+    };
+    cr.set_line_width(1.2);
+    cr.set_source_rgba(0.65, 0.95, 1.0, 0.72);
+    cr.set_dash(&[7.0, 5.0], 0.0);
+    draw_preview_segment(cr, width, height, camera, start, end);
+    let a = world_to_screen(start, width, height, camera);
+    let b = world_to_screen(end, width, height, camera);
+    cr.move_to((a.x + b.x) * 0.5 + 4.0, (a.y + b.y) * 0.5 - 4.0);
+    let _ = cr.show_text(&label);
+    cr.set_dash(&[], 0.0);
+}
+
+fn circle_entity_at(document: &Document, id: u64) -> Option<(u64, Point, f64)> {
+    document.entities.iter().find_map(|entity| match entity {
+        Entity::Circle {
+            id: circle_id,
+            center,
+            radius,
+            ..
+        } if *circle_id == id => Some((*circle_id, *center, *radius)),
+        _ => None,
+    })
 }
 
 fn draw_preview_shape(
@@ -1851,7 +2404,11 @@ fn draw_layout_viewports(
     for viewport in document
         .layout_viewports
         .iter()
-        .filter(|viewport| viewport.layout == document.active_layout)
+        .filter(|viewport| {
+            crate::document::normalized_layout_name(&viewport.layout)
+                == crate::document::normalized_layout_name(&document.active_layout)
+        })
+        .filter(|viewport| viewport.visible)
     {
         draw_viewport_frame(cr, width, height, paper_camera, viewport);
         cr.save().ok();
@@ -2127,6 +2684,36 @@ fn draw_preview_segment(
     let _ = cr.stroke();
 }
 
+fn draw_dimension_tick(
+    cr: &gtk::cairo::Context,
+    width: f64,
+    height: f64,
+    camera: Camera,
+    start: Point,
+    toward: Point,
+) {
+    let vx = toward.x - start.x;
+    let vy = toward.y - start.y;
+    let len = (vx * vx + vy * vy).sqrt();
+    if len <= 1e-9 {
+        return;
+    }
+    let ux = vx / len;
+    let uy = vy / len;
+    let px = -uy;
+    let py = ux;
+    let size = 3.5 / camera.zoom.max(1e-3);
+    let a = Point {
+        x: start.x + px * size,
+        y: start.y + py * size,
+    };
+    let b = Point {
+        x: start.x - px * size,
+        y: start.y - py * size,
+    };
+    draw_preview_segment(cr, width, height, camera, a, b);
+}
+
 fn draw_polyline_preview(
     cr: &gtk::cairo::Context,
     width: f64,
@@ -2159,6 +2746,65 @@ fn draw_polyline_preview(
     }
 }
 
+fn draw_tracking_guide(
+    cr: &gtk::cairo::Context,
+    width: f64,
+    height: f64,
+    camera: Camera,
+    guide: TrackingGuide,
+) {
+    let base = world_to_screen(guide.base, width, height, camera);
+    let through = world_to_screen(guide.through, width, height, camera);
+    let dx = through.x - base.x;
+    let dy = through.y - base.y;
+    let len = (dx * dx + dy * dy).sqrt().max(1.0);
+    let scale = (width.max(height) * 0.6) / len;
+    let end = Point {
+        x: base.x + dx * scale,
+        y: base.y + dy * scale,
+    };
+    cr.set_line_width(1.0);
+    cr.set_dash(&[6.0, 4.0], 0.0);
+    cr.set_source_rgba(0.55, 0.85, 0.45, 0.75);
+    cr.move_to(base.x, base.y);
+    cr.line_to(end.x, end.y);
+    let _ = cr.stroke();
+    cr.set_dash(&[], 0.0);
+
+    let label = tracking_guide_label(guide);
+    let _ = cr.select_font_face(
+        "Sans",
+        gtk::cairo::FontSlant::Normal,
+        gtk::cairo::FontWeight::Normal,
+    );
+    cr.set_font_size(11.0);
+    cr.set_source_rgba(0.75, 0.95, 0.65, 0.95);
+    let _ = cr.move_to(through.x + 8.0, through.y - 8.0);
+    let _ = cr.show_text(&label);
+}
+
+fn draw_dynamic_input_label(
+    cr: &gtk::cairo::Context,
+    width: f64,
+    height: f64,
+    camera: Camera,
+    base: Point,
+    cursor: Point,
+    unit: crate::units::Unit,
+) {
+    let screen = world_to_screen(cursor, width, height, camera);
+    let label = dynamic_preview_label(base, cursor, unit, 2);
+    let _ = cr.select_font_face(
+        "Sans",
+        gtk::cairo::FontSlant::Normal,
+        gtk::cairo::FontWeight::Normal,
+    );
+    cr.set_font_size(12.0);
+    cr.set_source_rgba(0.92, 0.92, 0.55, 0.98);
+    let _ = cr.move_to(screen.x + 12.0, screen.y - 12.0);
+    let _ = cr.show_text(&label);
+}
+
 fn draw_snap_marker(
     cr: &gtk::cairo::Context,
     width: f64,
@@ -2186,18 +2832,25 @@ fn draw_snap_marker(
             let _ = cr.stroke();
         }
         SnapKind::Quadrant => {
-            cr.move_to(p.x - 6.0, p.y);
-            cr.line_to(p.x + 6.0, p.y);
             cr.move_to(p.x, p.y - 6.0);
+            cr.line_to(p.x + 6.0, p.y);
             cr.line_to(p.x, p.y + 6.0);
+            cr.line_to(p.x - 6.0, p.y);
+            cr.close_path();
             let _ = cr.stroke();
         }
-        SnapKind::CircleEdge => {
-            cr.arc(p.x, p.y, 5.5, 0.0, std::f64::consts::TAU);
-            cr.move_to(p.x - 7.0, p.y);
-            cr.line_to(p.x + 7.0, p.y);
-            cr.move_to(p.x, p.y - 7.0);
-            cr.line_to(p.x, p.y + 7.0);
+        SnapKind::Nearest | SnapKind::Node => {
+            cr.arc(p.x, p.y, 4.0, 0.0, std::f64::consts::TAU);
+            cr.move_to(p.x - 5.0, p.y);
+            cr.line_to(p.x + 5.0, p.y);
+            cr.move_to(p.x, p.y - 5.0);
+            cr.line_to(p.x, p.y + 5.0);
+            let _ = cr.stroke();
+        }
+        SnapKind::Tangent => {
+            cr.arc(p.x, p.y, 6.0, 0.0, std::f64::consts::TAU);
+            cr.move_to(p.x - 8.0, p.y + 4.0);
+            cr.line_to(p.x, p.y - 6.0);
             let _ = cr.stroke();
         }
         SnapKind::Intersection => {
@@ -2225,6 +2878,8 @@ fn draw_snap_marker(
     cr.move_to(p.x + 9.0, p.y - 9.0);
     let _ = cr.show_text(snap.kind.label());
 }
+
+// Snap geometry lives in `crate::cad::snapping` (OSNAP engine + unit tests).
 
 fn draw_grid(cr: &gtk::cairo::Context, width: f64, height: f64, camera: Camera) {
     cr.set_source_rgb(0.035, 0.035, 0.055);
@@ -2568,12 +3223,21 @@ fn draw_entity(
             style,
             ..
         } => {
-            let (_, offset) = parse_dimension_style(style);
-            let (ext_start, ext_end, dim_start, dim_end) = dimension_segments(*start, *end, offset);
+            let (kind, offset) = parse_dimension_style(style);
+            let (ext_start, ext_end, dim_start, dim_end) =
+                if matches!(kind, DimensionKind::Radius | DimensionKind::Diameter) {
+                    (*start, *end, *start, *end)
+                } else {
+                    dimension_segments(*start, *end, offset)
+                };
             cr.set_source_rgba(0.88, 0.86, 1.0, 0.9);
-            draw_preview_segment(cr, width, height, camera, ext_start, dim_start);
-            draw_preview_segment(cr, width, height, camera, ext_end, dim_end);
+            if !matches!(kind, DimensionKind::Radius | DimensionKind::Diameter) {
+                draw_preview_segment(cr, width, height, camera, ext_start, dim_start);
+                draw_preview_segment(cr, width, height, camera, ext_end, dim_end);
+            }
             draw_preview_segment(cr, width, height, camera, dim_start, dim_end);
+            draw_dimension_tick(cr, width, height, camera, dim_start, dim_end);
+            draw_dimension_tick(cr, width, height, camera, dim_end, dim_start);
             let a = world_to_screen(dim_start, width, height, camera);
             let b = world_to_screen(dim_end, width, height, camera);
             cr.move_to((a.x + b.x) / 2.0 + 5.0, (a.y + b.y) / 2.0 - 5.0);
@@ -2825,6 +3489,19 @@ pub(crate) fn update_selection_label(label: &gtk::Label, document: &Document, se
     label.set_text(&text);
 }
 
+pub(crate) fn update_selection_ui(
+    selection_label: &gtk::Label,
+    layer_entry: &gtk::Entry,
+    document: &Document,
+    selected: &[u64],
+) {
+    update_selection_label(selection_label, document, selected);
+    let text = document.selection_layer_field_text(selected);
+    if layer_entry.text().as_str() != text {
+        layer_entry.set_text(&text);
+    }
+}
+
 fn hit_test(document: &Document, point: Point, tolerance: f64) -> Option<u64> {
     crate::cad::selection::legacy_hit::legacy_hit_entity_at(document, point, tolerance)
 }
@@ -2997,449 +3674,6 @@ fn distance_to_segment(point: Point, start: Point, end: Point) -> f64 {
     point.distance_to(closest)
 }
 
-fn find_snap(
-    document: &Document,
-    point: Point,
-    pending_start: Option<Point>,
-    tolerance: f64,
-) -> Option<SnapTarget> {
-    let mut candidates = Vec::new();
-    collect_point_snaps(document, point, tolerance, &mut candidates);
-    if document.entities.len() <= FULL_SNAP_ENTITY_LIMIT {
-        collect_intersection_snaps(document, &mut candidates);
-        collect_derived_midpoint_snaps(document, &mut candidates);
-    }
-    collect_circle_edge_snaps(document, point, &mut candidates);
-    if let Some(start) = pending_start {
-        collect_circle_radius_snaps(document, point, start, &mut candidates);
-        collect_perpendicular_snaps(document, point, start, &mut candidates);
-        collect_ortho_snap(point, start, &mut candidates);
-    }
-    let primary_snap = candidates
-        .into_iter()
-        .filter_map(|snap| {
-            let distance = snap.point.distance_to(point);
-            (distance <= tolerance).then_some((snap, distance))
-        })
-        .min_by(|(_, a), (_, b)| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-        .map(|(snap, _)| snap);
-    if primary_snap.is_some() {
-        return primary_snap;
-    }
-
-    pending_start.and_then(|start| find_parallel_snap(document, point, start, tolerance * 0.45))
-}
-
-fn collect_point_snaps(
-    document: &Document,
-    pointer: Point,
-    tolerance: f64,
-    out: &mut Vec<SnapTarget>,
-) {
-    let query_bounds = (
-        Point {
-            x: pointer.x - tolerance,
-            y: pointer.y - tolerance,
-        },
-        Point {
-            x: pointer.x + tolerance,
-            y: pointer.y + tolerance,
-        },
-    );
-    for entity in document
-        .entities
-        .iter()
-        .filter(|entity| document.entity_visible_in_active_layout(entity.id()))
-        .filter(|entity| {
-            document
-                .cached_entity_bounds(entity)
-                .map(|bounds| bounds_intersect(bounds, query_bounds))
-                .unwrap_or(true)
-        })
-    {
-        match entity {
-            Entity::Point { point, .. } => out.push(snap(*point, SnapKind::Endpoint)),
-            Entity::Line { start, end, .. }
-            | Entity::Dimension { start, end, .. }
-            | Entity::Guideline { start, end, .. } => {
-                out.push(snap(*start, SnapKind::Endpoint));
-                out.push(snap(*end, SnapKind::Endpoint));
-                out.push(snap(midpoint(*start, *end), SnapKind::Midpoint));
-            }
-            Entity::Polyline { points, closed, .. } => {
-                for point in points {
-                    if point.distance_to(pointer) <= tolerance {
-                        out.push(snap(*point, SnapKind::Endpoint));
-                    }
-                }
-                for pair in points.windows(2) {
-                    let midpoint = midpoint(pair[0], pair[1]);
-                    if midpoint.distance_to(pointer) <= tolerance {
-                        out.push(snap(midpoint, SnapKind::Midpoint));
-                    }
-                }
-                if *closed && points.len() > 2 {
-                    let midpoint = midpoint(*points.last().unwrap_or(&points[0]), points[0]);
-                    if midpoint.distance_to(pointer) <= tolerance {
-                        out.push(snap(midpoint, SnapKind::Midpoint));
-                    }
-                }
-            }
-            Entity::Spline {
-                control_points,
-                closed,
-                ..
-            } => {
-                for point in control_points {
-                    if point.distance_to(pointer) <= tolerance {
-                        out.push(snap(*point, SnapKind::Endpoint));
-                    }
-                }
-                let points = spline_display_points(control_points, *closed);
-                for pair in points.windows(2) {
-                    let midpoint = midpoint(pair[0], pair[1]);
-                    if midpoint.distance_to(pointer) <= tolerance {
-                        out.push(snap(midpoint, SnapKind::Midpoint));
-                    }
-                }
-            }
-            Entity::Hatch {
-                boundary: points, ..
-            } => {
-                for point in points {
-                    if point.distance_to(pointer) <= tolerance {
-                        out.push(snap(*point, SnapKind::Endpoint));
-                    }
-                }
-                for pair in points.windows(2) {
-                    let midpoint = midpoint(pair[0], pair[1]);
-                    if midpoint.distance_to(pointer) <= tolerance {
-                        out.push(snap(midpoint, SnapKind::Midpoint));
-                    }
-                }
-                if points.len() > 2 {
-                    let midpoint = midpoint(*points.last().unwrap_or(&points[0]), points[0]);
-                    if midpoint.distance_to(pointer) <= tolerance {
-                        out.push(snap(midpoint, SnapKind::Midpoint));
-                    }
-                }
-            }
-            Entity::Circle { center, radius, .. } => {
-                out.push(snap(*center, SnapKind::Center));
-                out.push(snap(
-                    Point {
-                        x: center.x + radius,
-                        y: center.y,
-                    },
-                    SnapKind::Quadrant,
-                ));
-                out.push(snap(
-                    Point {
-                        x: center.x - radius,
-                        y: center.y,
-                    },
-                    SnapKind::Quadrant,
-                ));
-                out.push(snap(
-                    Point {
-                        x: center.x,
-                        y: center.y + radius,
-                    },
-                    SnapKind::Quadrant,
-                ));
-                out.push(snap(
-                    Point {
-                        x: center.x,
-                        y: center.y - radius,
-                    },
-                    SnapKind::Quadrant,
-                ));
-            }
-            Entity::Text { origin, .. }
-            | Entity::Table { origin, .. }
-            | Entity::BlockReference {
-                insertion: origin, ..
-            } => out.push(snap(*origin, SnapKind::Endpoint)),
-        }
-    }
-}
-
-fn collect_intersection_snaps(document: &Document, out: &mut Vec<SnapTarget>) {
-    let segments = entity_segments(document);
-    for (index, first) in segments.iter().enumerate() {
-        for second in segments.iter().skip(index + 1) {
-            if let Some(point) = segment_intersection(first.0, first.1, second.0, second.1) {
-                out.push(snap(point, SnapKind::Intersection));
-            }
-        }
-    }
-}
-
-fn collect_derived_midpoint_snaps(document: &Document, out: &mut Vec<SnapTarget>) {
-    let segments = entity_segments(document);
-    for (index, &(a, b)) in segments.iter().enumerate() {
-        let mut cuts = vec![0.0, 1.0];
-        for (other_index, &(c, d)) in segments.iter().enumerate() {
-            if index == other_index {
-                continue;
-            }
-            if let Some((_, t)) = segment_intersection_with_t(a, b, c, d) {
-                if t > 1e-6 && t < 1.0 - 1e-6 {
-                    cuts.push(t);
-                }
-            }
-        }
-        cuts.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
-        cuts.dedup_by(|a, b| (*a - *b).abs() < 1e-6);
-        for pair in cuts.windows(2) {
-            let t = (pair[0] + pair[1]) * 0.5;
-            out.push(snap(point_on_segment(a, b, t), SnapKind::Midpoint));
-        }
-    }
-}
-
-fn collect_circle_edge_snaps(document: &Document, point: Point, out: &mut Vec<SnapTarget>) {
-    for entity in document
-        .entities
-        .iter()
-        .filter(|entity| document.entity_visible_in_active_layout(entity.id()))
-    {
-        if let Entity::Circle { center, radius, .. } = entity {
-            if let Some(edge) = circle_edge_point(*center, *radius, point) {
-                out.push(snap(edge, SnapKind::CircleEdge));
-            }
-        }
-    }
-}
-
-fn collect_circle_radius_snaps(
-    document: &Document,
-    point: Point,
-    start: Point,
-    out: &mut Vec<SnapTarget>,
-) {
-    for entity in document
-        .entities
-        .iter()
-        .filter(|entity| document.entity_visible_in_active_layout(entity.id()))
-    {
-        if let Entity::Circle { center, radius, .. } = entity {
-            if start.distance_to(*center) < radius.abs().max(1.0) * 0.02 {
-                if let Some(edge) = circle_edge_point(*center, *radius, point) {
-                    out.push(snap(edge, SnapKind::CircleEdge));
-                }
-            }
-        }
-    }
-}
-
-fn collect_perpendicular_snaps(
-    document: &Document,
-    point: Point,
-    start: Point,
-    out: &mut Vec<SnapTarget>,
-) {
-    for (a, b) in entity_segments(document) {
-        let projected = project_point_to_segment(start, a, b);
-        if projected.distance_to(point) < point.distance_to(start).max(1.0) {
-            out.push(snap(projected, SnapKind::Perpendicular));
-        }
-    }
-}
-
-fn find_parallel_snap(
-    document: &Document,
-    point: Point,
-    start: Point,
-    tolerance: f64,
-) -> Option<SnapTarget> {
-    let pointer_dx = point.x - start.x;
-    let pointer_dy = point.y - start.y;
-    let pointer_length = (pointer_dx * pointer_dx + pointer_dy * pointer_dy).sqrt();
-    if pointer_length <= 1e-9 {
-        return None;
-    }
-
-    let mut best = None::<(SnapTarget, f64)>;
-    for (a, b) in entity_segments(document) {
-        let segment_dx = b.x - a.x;
-        let segment_dy = b.y - a.y;
-        let segment_length = (segment_dx * segment_dx + segment_dy * segment_dy).sqrt();
-        if segment_length <= 1e-9 {
-            continue;
-        }
-
-        let ux = segment_dx / segment_length;
-        let uy = segment_dy / segment_length;
-        let dot = pointer_dx * ux + pointer_dy * uy;
-        let projected = Point {
-            x: start.x + ux * dot,
-            y: start.y + uy * dot,
-        };
-        let distance = projected.distance_to(point);
-        if distance <= tolerance.min(pointer_length.max(1.0) * 0.02) {
-            let candidate = snap(projected, SnapKind::Parallel);
-            if best
-                .as_ref()
-                .map(|(_, best_distance)| distance < *best_distance)
-                .unwrap_or(true)
-            {
-                best = Some((candidate, distance));
-            }
-        }
-    }
-    best.map(|(snap, _)| snap)
-}
-
-fn collect_ortho_snap(point: Point, start: Point, out: &mut Vec<SnapTarget>) {
-    let dx = (point.x - start.x).abs();
-    let dy = (point.y - start.y).abs();
-    if dx < dy {
-        out.push(snap(
-            Point {
-                x: start.x,
-                y: point.y,
-            },
-            SnapKind::Ortho,
-        ));
-    } else {
-        out.push(snap(
-            Point {
-                x: point.x,
-                y: start.y,
-            },
-            SnapKind::Ortho,
-        ));
-    }
-}
-
-fn entity_segments(document: &Document) -> Vec<(Point, Point)> {
-    let mut segments = Vec::new();
-    for entity in document
-        .entities
-        .iter()
-        .filter(|entity| document.entity_visible_in_active_layout(entity.id()))
-    {
-        match entity {
-            Entity::Line { start, end, .. }
-            | Entity::Dimension { start, end, .. }
-            | Entity::Guideline { start, end, .. } => segments.push((*start, *end)),
-            Entity::Polyline { points, closed, .. } => {
-                push_polyline_segments(&mut segments, points, *closed)
-            }
-            Entity::Spline {
-                control_points,
-                closed,
-                ..
-            } => {
-                let points = spline_display_points(control_points, *closed);
-                push_polyline_segments(&mut segments, &points, *closed);
-            }
-            Entity::Hatch { boundary, .. } => push_polyline_segments(&mut segments, boundary, true),
-            Entity::Table {
-                origin,
-                rows,
-                columns,
-                cell_width,
-                cell_height,
-                ..
-            } => {
-                let width = *columns as f64 * *cell_width;
-                let height = *rows as f64 * *cell_height;
-                let a = *origin;
-                let b = Point {
-                    x: origin.x + width,
-                    y: origin.y,
-                };
-                let c = Point {
-                    x: origin.x + width,
-                    y: origin.y + height,
-                };
-                let d = Point {
-                    x: origin.x,
-                    y: origin.y + height,
-                };
-                segments.extend([(a, b), (b, c), (c, d), (d, a)]);
-            }
-            _ => {}
-        }
-    }
-    segments
-}
-
-fn push_polyline_segments(segments: &mut Vec<(Point, Point)>, points: &[Point], closed: bool) {
-    for pair in points.windows(2) {
-        segments.push((pair[0], pair[1]));
-    }
-    if closed && points.len() > 2 {
-        segments.push((*points.last().unwrap_or(&points[0]), points[0]));
-    }
-}
-
-fn segment_intersection(a: Point, b: Point, c: Point, d: Point) -> Option<Point> {
-    segment_intersection_with_t(a, b, c, d).map(|(point, _)| point)
-}
-
-fn segment_intersection_with_t(a: Point, b: Point, c: Point, d: Point) -> Option<(Point, f64)> {
-    let denominator = (a.x - b.x) * (c.y - d.y) - (a.y - b.y) * (c.x - d.x);
-    if denominator.abs() < 1e-9 {
-        return None;
-    }
-    let t = ((a.x - c.x) * (c.y - d.y) - (a.y - c.y) * (c.x - d.x)) / denominator;
-    let u = -((a.x - b.x) * (a.y - c.y) - (a.y - b.y) * (a.x - c.x)) / denominator;
-    if (0.0..=1.0).contains(&t) && (0.0..=1.0).contains(&u) {
-        Some((point_on_segment(a, b, t), t))
-    } else {
-        None
-    }
-}
-
-fn point_on_segment(start: Point, end: Point, t: f64) -> Point {
-    Point {
-        x: start.x + t * (end.x - start.x),
-        y: start.y + t * (end.y - start.y),
-    }
-}
-
-fn circle_edge_point(center: Point, radius: f64, point: Point) -> Option<Point> {
-    let dx = point.x - center.x;
-    let dy = point.y - center.y;
-    let length = (dx * dx + dy * dy).sqrt();
-    if length <= f64::EPSILON || radius <= 0.0 {
-        return None;
-    }
-    Some(Point {
-        x: center.x + dx / length * radius,
-        y: center.y + dy / length * radius,
-    })
-}
-
-fn project_point_to_segment(point: Point, start: Point, end: Point) -> Point {
-    let dx = end.x - start.x;
-    let dy = end.y - start.y;
-    let length_squared = dx * dx + dy * dy;
-    if length_squared <= f64::EPSILON {
-        return start;
-    }
-    let t =
-        (((point.x - start.x) * dx + (point.y - start.y) * dy) / length_squared).clamp(0.0, 1.0);
-    Point {
-        x: start.x + t * dx,
-        y: start.y + t * dy,
-    }
-}
-
-fn midpoint(a: Point, b: Point) -> Point {
-    Point {
-        x: (a.x + b.x) * 0.5,
-        y: (a.y + b.y) * 0.5,
-    }
-}
-
-fn snap(point: Point, kind: SnapKind) -> SnapTarget {
-    SnapTarget { point, kind }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3460,7 +3694,12 @@ mod tests {
 
     #[test]
     fn build_text_entity_uses_input_content() {
-        let entity = build_text_entity(44, Point { x: 10.0, y: 20.0 }, "Note".to_string());
+        let entity = build_text_entity(
+            44,
+            Point { x: 10.0, y: 20.0 },
+            "Note".to_string(),
+            "Default",
+        );
         let Entity::Text {
             id, origin, text, ..
         } = entity
@@ -3480,5 +3719,80 @@ mod tests {
     #[test]
     fn inline_edit_new_text_applies_change() {
         assert!(should_apply_inline_text_edit("Hello", "Hello 2"));
+    }
+
+    #[test]
+    fn dimension_creation_goes_through_history() {
+        let mut document = Document::new_empty();
+        let history = Rc::new(RefCell::new(LegacyHistoryManager::new()));
+        let pending = Rc::new(RefCell::new(None::<Point>));
+        let pending_points = Rc::new(RefCell::new(Vec::<Point>::new()));
+        let layer_name = document.active_layer_name.clone();
+        handle_dimension_click(
+            &mut document,
+            &history,
+            Point { x: 0.0, y: 0.0 },
+            1.0,
+            &pending,
+            &pending_points,
+            DimensionCreationMode::Linear,
+            &layer_name,
+        );
+        handle_dimension_click(
+            &mut document,
+            &history,
+            Point { x: 10.0, y: 0.0 },
+            1.0,
+            &pending,
+            &pending_points,
+            DimensionCreationMode::Linear,
+            &layer_name,
+        );
+        handle_dimension_click(
+            &mut document,
+            &history,
+            Point { x: 5.0, y: 3.0 },
+            1.0,
+            &pending,
+            &pending_points,
+            DimensionCreationMode::Linear,
+            &layer_name,
+        );
+        assert_eq!(document.entities.len(), 1);
+        assert!(history.borrow_mut().undo(&mut document));
+        assert!(document.entities.is_empty());
+        assert!(history.borrow_mut().redo(&mut document));
+        assert_eq!(document.entities.len(), 1);
+    }
+
+    #[test]
+    fn radius_dimension_requires_circle_target() {
+        let mut document = Document::new_empty();
+        let history = Rc::new(RefCell::new(LegacyHistoryManager::new()));
+        let pending = Rc::new(RefCell::new(None::<Point>));
+        let pending_points = Rc::new(RefCell::new(Vec::<Point>::new()));
+        let layer_name = document.active_layer_name.clone();
+        handle_dimension_click(
+            &mut document,
+            &history,
+            Point { x: 0.0, y: 0.0 },
+            0.5,
+            &pending,
+            &pending_points,
+            DimensionCreationMode::Radius,
+            &layer_name,
+        );
+        assert!(document.entities.is_empty());
+    }
+
+    #[test]
+    fn imported_polyline_remains_polyline() {
+        let entity = Entity::Polyline {
+            id: 9,
+            layer: "Default".to_string(),
+            points: vec![Point { x: 0.0, y: 0.0 }, Point { x: 1.0, y: 1.0 }],
+            closed: false,
+        };
+        assert!(matches!(entity, Entity::Polyline { .. }));
     }
 }

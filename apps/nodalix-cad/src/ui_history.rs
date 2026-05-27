@@ -4,14 +4,15 @@
 
 use crate::{
     cad::history::{
-        capture_entity_property_state, capture_entity_snapshots, entity_snapshot_for_add,
-        record_entity_property_changes, EntityPropertyChange, LegacyAddEntitiesAction,
-        LegacyPasteEntitiesAction, LegacyRemoveEntitiesAction,
+        capture_entity_property_state, capture_entity_snapshots, capture_layer_state,
+        entity_snapshot_for_add, record_entity_property_changes, EntityPropertyChange,
+        LegacyAddEntitiesAction, LegacyPasteEntitiesAction, LegacyRemoveEntitiesAction,
+        LegacyUpdateLayersAction,
     },
     canvas::{update_selection_label, CadCanvas},
     document::Entity,
     geometry::Point,
-    ui_context::UiCadContext,
+    ui_context::{UiCadContext, UiViewContext},
 };
 use gtk::prelude::*;
 use std::{cell::RefCell, rc::Rc};
@@ -97,9 +98,17 @@ pub(crate) fn delete_selected_entities(cad: &UiCadContext, ids: &[u64]) -> bool 
     if ids.is_empty() {
         return false;
     }
+    let ids = ids
+        .iter()
+        .copied()
+        .filter(|id| !cad.document.borrow().entity_layer_locked(*id))
+        .collect::<Vec<_>>();
+    if ids.is_empty() {
+        return false;
+    }
     let removed = {
         let document = cad.document.borrow();
-        capture_entity_snapshots(&document, ids)
+        capture_entity_snapshots(&document, &ids)
     };
     if removed.is_empty() {
         return false;
@@ -108,6 +117,25 @@ pub(crate) fn delete_selected_entities(cad: &UiCadContext, ids: &[u64]) -> bool 
         Box::new(LegacyRemoveEntitiesAction { removed }),
         &mut cad.document.borrow_mut(),
     );
+    true
+}
+
+pub(crate) fn update_layers_with_history<F>(cad: &UiCadContext, mut updater: F) -> bool
+where
+    F: FnMut(&mut crate::document::Document) -> bool,
+{
+    let before = capture_layer_state(&cad.document.borrow());
+    let changed = {
+        let mut document = cad.document.borrow_mut();
+        updater(&mut document)
+    };
+    if !changed {
+        return false;
+    }
+    let after = capture_layer_state(&cad.document.borrow());
+    cad.history
+        .borrow_mut()
+        .record(Box::new(LegacyUpdateLayersAction { before, after }));
     true
 }
 
@@ -209,10 +237,8 @@ pub(crate) fn perform_redo(cad: &UiCadContext) -> bool {
 
 pub(crate) fn refresh_after_history_change(
     cad: &UiCadContext,
-    canvas: &CadCanvas,
+    view: &UiViewContext,
     selection_label: &gtk::Label,
-    properties: &gtk::Box,
-    modified_label: &gtk::Label,
     selected_entity: &Rc<RefCell<Vec<u64>>>,
 ) {
     selected_entity.borrow_mut().retain(|id| {
@@ -225,10 +251,19 @@ pub(crate) fn refresh_after_history_change(
     if let Ok(document) = cad.document.try_borrow() {
         let selected = selected_entity.borrow();
         update_selection_label(selection_label, &document, &selected);
-        crate::ui::refresh_properties(properties, &document);
+        crate::ui::refresh_properties(&view.properties, &document);
+        crate::ui::sync_attribute_layer_entry(&view.attribute_layer_entry, &document, &selected);
+        crate::ui::refresh_layer_panel(
+            &view.layer_panel,
+            cad,
+            &view.canvas,
+            &view.properties,
+            selection_label,
+            &view.modified_label,
+        );
     }
-    modified_label.set_text("Modified");
-    canvas.widget().queue_draw();
+    view.modified_label.set_text("Modified");
+    view.canvas.widget().queue_draw();
 }
 
 #[cfg(test)]

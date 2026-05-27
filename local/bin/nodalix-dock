@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -eu
 
-APP_DIR="/home/dani/Projects/nodalix-os/apps/nodalix-dock"
+APP_DIR="/home/dani/Proyectos/nodalix-os/apps/nodalix-dock"
 RELEASE="$APP_DIR/target/release/nodalix-dock"
 DEBUG="$APP_DIR/target/debug/nodalix-dock"
 

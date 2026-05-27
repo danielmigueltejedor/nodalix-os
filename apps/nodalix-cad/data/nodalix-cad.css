@@ -4,10 +4,6 @@
 @define-color nodalix_muted rgba(226, 232, 240, 0.66);
 @define-color nodalix_card rgba(16, 20, 28, 0.78);
 
-* {
-  font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", "Adwaita Sans", sans-serif;
-}
-
 .cad-root {
   background: #080b10;
 }
@@ -144,6 +140,7 @@
 .status-bar label {
   color: @nodalix_muted;
   font-size: 12px;
+  font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", monospace;
 }
 
 .workflow-step {

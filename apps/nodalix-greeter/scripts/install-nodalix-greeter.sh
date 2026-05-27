@@ -25,6 +25,12 @@ install -Dm644 "config/greetd/config.nodalix-greeter.toml" "/usr/local/share/nod
 install -Dm644 "config/greetd/config.regreet-fallback.toml" "/usr/local/share/nodalix-greeter/config.regreet-fallback.toml"
 install -Dm644 "${REPO_DIR}/assets/brand/nodalix-logo-symbol.svg" "${BRAND_DIR}/nodalix-logo-symbol.svg"
 install -Dm644 "${REPO_DIR}/assets/brand/nodalix-logo.svg" "${BRAND_DIR}/nodalix-logo.svg"
+install -Dm644 "${REPO_DIR}/local/share/wayland-sessions/nodalix.desktop" \
+  /usr/local/share/wayland-sessions/nodalix.desktop
+install -Dm644 "${REPO_DIR}/local/share/wayland-sessions/hyprland-uwsm.desktop" \
+  /usr/local/share/wayland-sessions/hyprland-uwsm.desktop
+install -Dm644 "${REPO_DIR}/local/share/applications/hyprland-nodalix.desktop" \
+  /usr/local/share/applications/hyprland-nodalix.desktop
 chmod 755 "/usr/share/nodalix" "${BRAND_DIR}"
 chmod 644 "${BRAND_DIR}/nodalix-logo-symbol.svg" "${BRAND_DIR}/nodalix-logo.svg"
 
@@ -46,3 +52,5 @@ echo "  2. Back up /etc/greetd/config.toml."
 echo "  3. Test using the sample config:"
 echo "     /usr/local/share/nodalix-greeter/config.nodalix-greeter.toml"
 echo "  4. Keep /usr/local/share/nodalix-greeter/config.regreet-fallback.toml for rollback."
+echo "  5. If /etc/nodalix/greeter/config.toml already exists, set:"
+echo "     session_command = \"uwsm start nodalix.desktop\""

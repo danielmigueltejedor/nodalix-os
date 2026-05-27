@@ -5,8 +5,8 @@ if [ -x /usr/local/bin/nodalix-settings ]; then
   exec /usr/local/bin/nodalix-settings "$@"
 fi
 
-if [ -x "$HOME/Projects/nodalix-os/apps/nodalix-settings/target/debug/nodalix-settings" ]; then
-  exec "$HOME/Projects/nodalix-os/apps/nodalix-settings/target/debug/nodalix-settings" "$@"
+if [ -x "$HOME/Proyectos/nodalix-os/apps/nodalix-settings/target/debug/nodalix-settings" ]; then
+  exec "$HOME/Proyectos/nodalix-os/apps/nodalix-settings/target/debug/nodalix-settings" "$@"
 fi
 
 if command -v nodalix-settings-menu >/dev/null 2>&1; then

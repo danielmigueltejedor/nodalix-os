@@ -7,7 +7,7 @@ pub fn build(app: &adw::Application) {
 
     let window = adw::ApplicationWindow::builder()
         .application(app)
-        .title("Nodalix Settings")
+        .title("LixSettings")
         .default_width(1120)
         .default_height(760)
         .build();
@@ -21,7 +21,7 @@ pub fn build(app: &adw::Application) {
     sidebar.set_size_request(292, -1);
     root.append(&sidebar);
 
-    let title = gtk::Label::new(Some("Nodalix Settings"));
+    let title = gtk::Label::new(Some("LixSettings"));
     title.set_xalign(0.0);
     title.add_css_class("app-title");
     sidebar.append(&title);
@@ -31,10 +31,18 @@ pub fn build(app: &adw::Application) {
     search.add_css_class("sidebar-search");
     sidebar.append(&search);
 
+    let nav_scroll = gtk::ScrolledWindow::builder()
+        .hexpand(true)
+        .vexpand(true)
+        .overlay_scrolling(true)
+        .build();
+    nav_scroll.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
+
     let nav = gtk::ListBox::new();
     nav.add_css_class("nav-list");
     nav.set_selection_mode(gtk::SelectionMode::Single);
-    sidebar.append(&nav);
+    nav_scroll.set_child(Some(&nav));
+    sidebar.append(&nav_scroll);
 
     let content = gtk::Stack::new();
     content.add_css_class("content-stack");
@@ -59,7 +67,7 @@ pub fn build(app: &adw::Application) {
     if let Some(row) = nav.row_at_index(0) {
         nav.select_row(Some(&row));
     }
-    content.set_visible_child_name(PageId::Users.name());
+    content.set_visible_child_name(PageId::Home.name());
 
     window.present();
 }
@@ -86,7 +94,10 @@ fn nav_row(label: &str, icon: &str) -> gtk::ListBoxRow {
 
 fn load_css() {
     let provider = gtk::CssProvider::new();
-    provider.load_from_string(include_str!("../data/nodalix-settings.css"));
+    provider.load_from_string(concat!(
+        include_str!("../../../assets/styles/nodalix-fonts.css"),
+        include_str!("../data/nodalix-settings.css"),
+    ));
     if let Some(display) = gdk::Display::default() {
         gtk::style_context_add_provider_for_display(
             &display,

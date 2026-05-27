@@ -16,14 +16,24 @@ pub enum ArcUiMode {
     CenterStartEnd,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DimensionCreationMode {
+    Linear,
+    Aligned,
+    Radius,
+    Diameter,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ToolParametersState {
     pub circle_mode: CircleCreationMode,
     pub rectangle_mode: RectangleCreationMode,
     pub line_mode: LineCreationMode,
     pub arc_mode: ArcUiMode,
+    pub dimension_mode: DimensionCreationMode,
     pub rectangle_width: f64,
     pub rectangle_height: f64,
+    pub offset_distance: f64,
 }
 
 impl Default for ToolParametersState {
@@ -33,8 +43,10 @@ impl Default for ToolParametersState {
             rectangle_mode: RectangleCreationMode::TwoCorners,
             line_mode: LineCreationMode::TwoPoints,
             arc_mode: ArcUiMode::ThreePoint,
+            dimension_mode: DimensionCreationMode::Linear,
             rectangle_width: 100.0,
             rectangle_height: 50.0,
+            offset_distance: 10.0,
         }
     }
 }
@@ -248,6 +260,14 @@ mod tests {
         assert_eq!(state.circle_mode, CircleCreationMode::CenterRadius);
         state.circle_mode = CircleCreationMode::TwoPointDiameter;
         assert_eq!(state.circle_mode, CircleCreationMode::TwoPointDiameter);
+    }
+
+    #[test]
+    fn state_can_switch_dimension_mode() {
+        let mut state = ToolParametersState::default();
+        assert_eq!(state.dimension_mode, DimensionCreationMode::Linear);
+        state.dimension_mode = DimensionCreationMode::Diameter;
+        assert_eq!(state.dimension_mode, DimensionCreationMode::Diameter);
     }
 
     #[test]

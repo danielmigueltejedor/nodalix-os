@@ -3,9 +3,9 @@ set -u
 
 LOG="/tmp/nodalix-settings-toggle.log"
 
-APP_RELEASE="$HOME/Projects/nodalix-os/apps/nodalix-settings/target/release/nodalix-settings"
-APP_DEBUG="$HOME/Projects/nodalix-os/apps/nodalix-settings/target/debug/nodalix-settings"
-APP_DIR="$HOME/Projects/nodalix-os/apps/nodalix-settings"
+APP_RELEASE="$HOME/Proyectos/nodalix-os/apps/nodalix-settings/target/release/nodalix-settings"
+APP_DEBUG="$HOME/Proyectos/nodalix-os/apps/nodalix-settings/target/debug/nodalix-settings"
+APP_DIR="$HOME/Proyectos/nodalix-os/apps/nodalix-settings"
 
 echo "---- $(date) ----" >> "$LOG"
 

@@ -7,7 +7,7 @@ Nodalix native apps should look and feel like one OS, not a collection of unrela
 - Dark glass surfaces.
 - Rounded cards and islands.
 - Purple/accent highlights.
-- JetBrainsMono Nerd Font / JetBrains Mono / Nodalix font stack.
+- Inter for general UI; JetBrainsMono Nerd Font / JetBrains Mono only for monospace and technical surfaces (see `assets/styles/nodalix-fonts.css`).
 - Clear type hierarchy.
 - Compact but readable spacing.
 - Native Linux behavior.

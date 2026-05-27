@@ -15,7 +15,7 @@ HEIGHT = 760
 NODALIX_LOGO_CANDIDATES = [
     Path("/etc/nodalix/brand/nodalix-logo-symbol.svg"),
     Path("/usr/share/nodalix/brand/nodalix-logo-symbol.svg"),
-    Path("/home/dani/Projects/nodalix-os/assets/brand/nodalix-logo-symbol.svg"),
+    Path("/home/dani/Proyectos/nodalix-os/assets/brand/nodalix-logo-symbol.svg"),
 ]
 
 
@@ -151,14 +151,14 @@ def ai_summary():
 
 
 def bundles_summary():
-    out = sh("find ~/.local/bin ~/Projects/nodalix-os/local/bin -maxdepth 1 -type f -name 'nodalix-*' 2>/dev/null | sed 's#.*/##' | sort | head -n 18")
+    out = sh("find ~/.local/bin ~/Proyectos/nodalix-os/local/bin -maxdepth 1 -type f -name 'nodalix-*' 2>/dev/null | sed 's#.*/##' | sort | head -n 18")
     return out or "Sin componentes detectados"
 
 
 def setup_css():
     css = b"""
 * {
-  font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", monospace;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Adwaita Sans", "Cantarell", sans-serif;
   font-size: 13px;
   color: #cdd6f4;
 }
@@ -637,19 +637,19 @@ class NodalixMenu(Gtk.Window):
                 ("Logs Waybar", terminal("tail -n 160 /tmp/waybar.log"), None),
             ])
             self.card("󰊢", "Proyecto", "Repositorio local de Nodalix OS.", buttons=[
-                ("Abrir repo", "xdg-open ~/Projects/nodalix-os", "primary_button"),
-                ("Git status", terminal("cd ~/Projects/nodalix-os && git status --short"), None),
+                ("Abrir repo", "xdg-open ~/Proyectos/nodalix-os", "primary_button"),
+                ("Git status", terminal("cd ~/Proyectos/nodalix-os && git status --short"), None),
             ])
 
         elif self.active == "nodalix":
             self.header("Nodalix", "Centro de herramientas de Nodalix OS")
             self.card("N", "Command Bar", "Lanzador rápido principal de Nodalix.", buttons=[
                 ("Abrir", "nodalix-command-bar-toggle", "primary_button"),
-                ("Editar", "zed ~/Projects/nodalix-os/local/bin/nodalix-command-bar", None),
+                ("Editar", "zed ~/Proyectos/nodalix-os/local/bin/nodalix-command-bar", None),
             ])
             self.card("", "Nodalix Files", "Gestor de archivos propio integrado en la isla derecha.", buttons=[
                 ("Abrir", "nodalix-files-popup", "primary_button"),
-                ("Proyecto", "xdg-open ~/Projects/nodalix-os/apps/nodalix-files", None),
+                ("Proyecto", "xdg-open ~/Proyectos/nodalix-os/apps/nodalix-files", None),
             ])
             self.card("󰘳", "Configuración Hyprland", "Look & Feel, bindings, monitores y reglas de ventana.", buttons=[
                 ("looknfeel.lua", "zed ~/.config/hypr/looknfeel.lua", "primary_button"),
@@ -662,7 +662,7 @@ class NodalixMenu(Gtk.Window):
                 ("Reiniciar", "pkill waybar; waybar >/tmp/waybar.log 2>&1 &", None),
             ])
             self.card("󰊢", "Repositorio", "Estado Git y sincronización con GitHub.", buttons=[
-                ("Git status", terminal("cd ~/Projects/nodalix-os && git status --short"), "primary_button"),
+                ("Git status", terminal("cd ~/Proyectos/nodalix-os && git status --short"), "primary_button"),
                 ("Abrir GitHub", "xdg-open https://github.com/danielmigueltejedor/nodalix-os", None),
             ])
 
@@ -777,8 +777,8 @@ class NodalixMenu(Gtk.Window):
             self.header("Bundles", "Componentes, módulos y extras instalados")
             self.card("󰏗", "Componentes Nodalix", bundles_summary())
             self.card("󰚰", "Gestión de bundles", "Instalación, desinstalación y feedback visual.", buttons=[
-                ("Abrir repo", "xdg-open ~/Projects/nodalix-os", "primary_button"),
-                ("Scripts", "xdg-open ~/Projects/nodalix-os/local/bin", None),
+                ("Abrir repo", "xdg-open ~/Proyectos/nodalix-os", "primary_button"),
+                ("Scripts", "xdg-open ~/Proyectos/nodalix-os/local/bin", None),
             ])
 
         elif self.active == "security":

@@ -270,7 +270,10 @@ function parseSearchQuery(value: string): ParsedSearch {
       continue;
     }
     const raw = part.slice(1).trim().replace(/^\./, "").toLowerCase();
-    if (!raw) continue;
+    if (!raw) {
+      textParts.push(part);
+      continue;
+    }
     const expanded =
       raw === "jpg" || raw === "jpeg"
         ? ["jpg", "jpeg"]
@@ -406,8 +409,12 @@ export default function App() {
     };
   }, [debouncedSearchQuery, searchExtensions, searchRecursive]);
   const handleSearchChange = useCallback((value: string) => {
-    const parsed = parseSearchQuery(value);
-    setSearchQuery(parsed.text);
+    const endsWithSeparator = /\s$/.test(value);
+    const tokens = value.split(/\s+/).filter(Boolean);
+    const committedTokens = endsWithSeparator ? tokens : tokens.slice(0, -1);
+    const activeToken = endsWithSeparator ? "" : (tokens.at(-1) ?? "");
+    const parsed = parseSearchQuery(committedTokens.join(" "));
+    setSearchQuery([parsed.text, activeToken].filter(Boolean).join(" "));
     if (parsed.extensions.length) {
       setSearchExtensions((current) => {
         const next = [...current];
@@ -892,11 +899,11 @@ export default function App() {
 
   const preloadEntry = useCallback(
     (entry: FileEntry) => {
-      if (entry.is_dir && !entry.path.startsWith("nodalix://")) {
-        void preload(entry.path);
-      }
+      if (!entry.is_dir || entry.path.startsWith("nodalix://")) return;
+      if (searchQuery.trim() || searchExtensions.length > 0 || searchRecursive) return;
+      void preload(entry.path);
     },
-    [preload],
+    [preload, searchExtensions.length, searchQuery, searchRecursive],
   );
 
   const getRangeSelection = useCallback(
@@ -1944,15 +1951,7 @@ export default function App() {
           onContextMenu={showSidebarContextMenu}
           onDropPaths={handleSidebarDrop}
           onDropToItem={handleSidebarItemDrop}
-          onPreloadItem={(item) => {
-            if (
-              item.is_dir &&
-              !item.path.startsWith("nodalix://") &&
-              item.kind !== "trash"
-            ) {
-              void preload(item.path);
-            }
-          }}
+          onPreloadItem={() => {}}
           localsendAvailable={localsendAvailable}
           localsendDevices={localsendDevices}
           localsendScanning={localsendScanning}

@@ -1,6 +1,6 @@
 configuration {
   show-icons: true;
-  font: "JetBrainsMono Nerd Font 11";
+  font: "Inter 11";
 }
 
 * {
@@ -59,7 +59,7 @@ inputbar {
 prompt {
   background-color: @transparent;
   text-color: @accent;
-  font: "JetBrainsMono Nerd Font Bold 11";
+  font: "Inter Bold 11";
 }
 
 entry {
@@ -152,7 +152,7 @@ element-text {
   vertical-align: 0.5;
   horizontal-align: 0.0;
 
-  font: "JetBrainsMono Nerd Font 10";
+  font: "Inter 10";
 }
 
 message {

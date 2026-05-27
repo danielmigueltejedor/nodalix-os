@@ -2,7 +2,7 @@
 //!
 // TODO(phase-3): migrate to `HistoryAction` on `CADDocument` when adapter covers all entity kinds.
 
-use crate::document::{Document, Entity};
+use crate::document::{Document, Entity, Layer};
 
 /// Snapshot of a legacy entity plus per-entity metadata removed with it.
 #[derive(Clone, Debug)]
@@ -63,6 +63,10 @@ pub fn capture_entity_snapshots(document: &Document, ids: &[u64]) -> Vec<EntityS
 
 pub fn restore_entity_snapshot(document: &mut Document, snapshot: &EntitySnapshot) {
     let id = snapshot.entity.id();
+    if document.entities.iter().any(|entity| entity.id() == id) {
+        apply_entity_snapshot_in_place(document, snapshot);
+        return;
+    }
     document.entity_colors.remove(&id);
     document.entity_line_weights.remove(&id);
     document.entity_line_types.remove(&id);
@@ -78,6 +82,38 @@ pub fn restore_entity_snapshot(document: &mut Document, snapshot: &EntitySnapsho
     }
     let layout = snapshot.layout.as_deref();
     document.add_entity_on_layout(snapshot.entity.clone(), layout);
+}
+
+/// Replace an existing entity (rotate/scale/mirror undo/redo).
+pub fn apply_entity_snapshot_in_place(document: &mut Document, snapshot: &EntitySnapshot) {
+    let id = snapshot.entity.id();
+    let Some(entity) = document
+        .entities
+        .iter_mut()
+        .find(|entity| entity.id() == id)
+    else {
+        restore_entity_snapshot(document, snapshot);
+        return;
+    };
+    *entity = snapshot.entity.clone();
+    document.invalidate_entity_bounds(id);
+    document.entity_colors.remove(&id);
+    document.entity_line_weights.remove(&id);
+    document.entity_line_types.remove(&id);
+    document.entity_layouts.remove(&id);
+    if let Some(color) = &snapshot.color {
+        document.entity_colors.insert(id, color.clone());
+    }
+    if let Some(weight) = snapshot.line_weight {
+        document.entity_line_weights.insert(id, weight);
+    }
+    if let Some(line_type) = &snapshot.line_type {
+        document.entity_line_types.insert(id, line_type.clone());
+    }
+    if let Some(layout) = &snapshot.layout {
+        document.entity_layouts.insert(id, layout.clone());
+    }
+    document.modified = true;
 }
 
 /// Removes entities; undo restores full snapshots (all legacy entity kinds).
@@ -185,6 +221,46 @@ pub struct LegacyMoveEntitiesAction {
     pub dy: f64,
 }
 
+#[derive(Clone, Debug)]
+pub struct LayerStateSnapshot {
+    pub layers: Vec<Layer>,
+    pub active_layer_name: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct LegacyUpdateLayersAction {
+    pub before: LayerStateSnapshot,
+    pub after: LayerStateSnapshot,
+}
+
+pub fn capture_layer_state(document: &Document) -> LayerStateSnapshot {
+    LayerStateSnapshot {
+        layers: document.layers.clone(),
+        active_layer_name: document.active_layer_name.clone(),
+    }
+}
+
+pub fn apply_layer_state(document: &mut Document, snapshot: &LayerStateSnapshot) {
+    document.layers = snapshot.layers.clone();
+    document.active_layer_name = snapshot.active_layer_name.clone();
+    document.ensure_active_layer_exists();
+    document.modified = true;
+}
+
+impl LegacyHistoryAction for LegacyUpdateLayersAction {
+    fn description(&self) -> &'static str {
+        "Update layers"
+    }
+
+    fn apply(&self, document: &mut Document) {
+        apply_layer_state(document, &self.after);
+    }
+
+    fn undo(&self, document: &mut Document) {
+        apply_layer_state(document, &self.before);
+    }
+}
+
 const MOVE_DELTA_EPSILON: f64 = 1e-9;
 
 /// Records a completed canvas move (entities already translated in the document).
@@ -216,6 +292,59 @@ impl LegacyHistoryAction for LegacyMoveEntitiesAction {
             document.translate_entity(*id, -self.dx, -self.dy);
         }
     }
+}
+
+/// Full before/after entity snapshots for rotate, scale, mirror.
+pub struct LegacyTransformEntitiesAction {
+    pub before: Vec<EntitySnapshot>,
+    pub after: Vec<EntitySnapshot>,
+}
+
+impl LegacyHistoryAction for LegacyTransformEntitiesAction {
+    fn description(&self) -> &'static str {
+        "Transform entities"
+    }
+
+    fn apply(&self, document: &mut Document) {
+        for snapshot in &self.after {
+            apply_entity_snapshot_in_place(document, snapshot);
+        }
+    }
+
+    fn undo(&self, document: &mut Document) {
+        for snapshot in &self.before {
+            apply_entity_snapshot_in_place(document, snapshot);
+        }
+    }
+}
+
+pub fn record_entity_transform<F>(
+    history: &mut crate::cad::history::legacy_history_manager::LegacyHistoryManager,
+    document: &mut Document,
+    entity_ids: &[u64],
+    mut transform: F,
+) where
+    F: FnMut(&mut Entity),
+{
+    if entity_ids.is_empty() {
+        return;
+    }
+    let before = capture_entity_snapshots(document, entity_ids);
+    for id in entity_ids {
+        if document.entity_layer_locked(*id) {
+            continue;
+        }
+        if let Some(entity) = document.entities.iter_mut().find(|e| e.id() == *id) {
+            transform(entity);
+            document.invalidate_entity_bounds(*id);
+        }
+    }
+    document.modified = true;
+    let after = capture_entity_snapshots(document, entity_ids);
+    if before.is_empty() || after.is_empty() {
+        return;
+    }
+    history.record(Box::new(LegacyTransformEntitiesAction { before, after }));
 }
 
 /// Reversible entity property edits (layer, color, line style, text content).

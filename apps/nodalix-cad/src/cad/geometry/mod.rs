@@ -1,7 +1,11 @@
 pub mod construction;
 pub mod creation_modes;
+pub mod grips;
+pub mod modify;
+pub mod offset;
 pub mod point;
 pub mod transforms;
+pub mod trim_extend;
 pub mod vector;
 
 pub use construction::{
@@ -14,6 +18,22 @@ pub use construction::{
 pub use creation_modes::{
     ArcCreationMode, CircleCreationMode, LineCreationMode, RectangleCreationMode,
 };
+pub use grips::{
+    apply_grip_edit, clone_entities_offset, collect_grips, grip_is_editable, hit_test_grip,
+    translate_entities, Grip, GripKind,
+};
+pub use modify::{
+    angle_degrees_from_points, mirror_entity, mirror_point, rotate_entity, rotate_point,
+    scale_entity, scale_factor_from_points, scale_point, transform_entities_mirror,
+    transform_entities_rotate, transform_entities_scale,
+};
+pub use offset::{
+    entity_supports_offset, offset_circle, offset_entity_geometry, offset_line, offset_polyline,
+};
 pub use point::{BoundingBox2, Point2};
 pub use transforms::Transform2;
+pub use trim_extend::{
+    extend_line_to_boundary, line_line_intersection_infinite, line_segment_intersection,
+    trim_line_to_boundary,
+};
 pub use vector::Vector2;

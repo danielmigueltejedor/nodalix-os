@@ -13,6 +13,8 @@ pub struct Document {
     pub units: Unit,
     pub modified: bool,
     pub layers: Vec<Layer>,
+    #[serde(default = "default_active_layer_name")]
+    pub active_layer_name: String,
     pub entities: Vec<Entity>,
     pub imported_references: Vec<ImportedReference>,
     pub mesh_references: Vec<MeshReference>,
@@ -128,6 +130,8 @@ pub struct LayoutViewport {
     #[serde(default = "default_scale_model_units")]
     pub scale_model_units: f64,
     pub twist: f64,
+    #[serde(default = "default_viewport_visible")]
+    pub visible: bool,
     #[serde(default)]
     pub locked: bool,
     #[serde(default = "default_viewport_border_visible")]
@@ -272,6 +276,7 @@ impl Document {
                 Layer::new("Dimensions"),
                 Layer::new("Mesh Reference"),
             ],
+            active_layer_name: "Default".to_string(),
             entities: Vec::new(),
             imported_references: Vec::new(),
             mesh_references: Vec::new(),
@@ -318,7 +323,7 @@ impl Document {
 
     pub fn add_entity_on_layout(&mut self, entity: Entity, layout: Option<&str>) {
         let id = entity.id();
-        let layout = layout.unwrap_or(&self.active_layout).trim().to_string();
+        let layout = normalized_layout_name(layout.unwrap_or(&self.active_layout));
         if !layout.is_empty() {
             self.ensure_layout(&layout);
             if layout != "Model" {
@@ -326,8 +331,12 @@ impl Document {
             }
         }
         self.entities.push(entity);
-        self.entity_bounds_cache.borrow_mut().remove(&id);
+        self.invalidate_entity_bounds(id);
         self.modified = true;
+    }
+
+    pub fn invalidate_entity_bounds(&self, id: u64) {
+        self.entity_bounds_cache.borrow_mut().remove(&id);
     }
 
     pub fn ensure_layout(&mut self, name: &str) {
@@ -516,6 +525,7 @@ impl Document {
             scale_paper_units: 1.0,
             scale_model_units: (view_height / height.max(1.0)).max(1.0),
             twist: 0.0,
+            visible: true,
             locked: false,
             border_visible: true,
             visible_layers: Vec::new(),
@@ -584,7 +594,9 @@ impl Document {
     }
 
     pub fn entity_visible_in_active_layout(&self, id: u64) -> bool {
-        self.entity_layout(id) == self.active_layout
+        normalized_layout_name(self.entity_layout(id))
+            == normalized_layout_name(&self.active_layout)
+            && self.entity_layer_visible(id)
     }
 
     pub fn is_model_entity(&self, id: u64) -> bool {
@@ -600,6 +612,9 @@ impl Document {
     }
 
     pub fn translate_entity(&mut self, id: u64, dx: f64, dy: f64) {
+        if self.entity_layer_locked(id) {
+            return;
+        }
         if let Some(entity) = self.entities.iter_mut().find(|entity| entity.id() == id) {
             entity.translate(dx, dy);
             self.entity_bounds_cache.borrow_mut().remove(&id);
@@ -608,6 +623,9 @@ impl Document {
     }
 
     pub fn remove_entity(&mut self, id: u64) -> bool {
+        if self.entity_layer_locked(id) {
+            return false;
+        }
         let original_len = self.entities.len();
         self.entities.retain(|entity| entity.id() != id);
         let removed = self.entities.len() != original_len;
@@ -671,7 +689,7 @@ impl Document {
         self.paste_entities_translated(entities, target.x - center.x, target.y - center.y)
     }
 
-    fn paste_entities_translated(&mut self, entities: &[Entity], dx: f64, dy: f64) -> Vec<u64> {
+    pub fn paste_entities_translated(&mut self, entities: &[Entity], dx: f64, dy: f64) -> Vec<u64> {
         let mut pasted = Vec::with_capacity(entities.len());
         for entity in entities {
             let mut copy = entity.clone();
@@ -736,6 +754,232 @@ impl Document {
         self.layers.iter().find(|layer| layer.name == name)
     }
 
+    pub fn active_layer(&self) -> Option<&Layer> {
+        self.layers
+            .iter()
+            .find(|layer| layer.name == self.active_layer_name)
+    }
+
+    pub fn set_active_layer_name(&mut self, layer_name: &str) -> bool {
+        if self.layers.iter().any(|layer| layer.name == layer_name) {
+            self.active_layer_name = layer_name.to_string();
+            self.modified = true;
+            return true;
+        }
+        false
+    }
+
+    pub fn ensure_active_layer_exists(&mut self) {
+        if self.layers.is_empty() {
+            self.layers.push(Layer::new("Default"));
+        }
+        if !self
+            .layers
+            .iter()
+            .any(|layer| layer.name == self.active_layer_name)
+        {
+            self.active_layer_name = self
+                .layers
+                .first()
+                .map(|layer| layer.name.clone())
+                .unwrap_or_else(|| "Default".to_string());
+        }
+    }
+
+    pub fn create_layer(&mut self, name: &str) -> bool {
+        let name = name.trim();
+        if name.is_empty() || self.layers.iter().any(|layer| layer.name == name) {
+            return false;
+        }
+        self.layers.push(Layer::new(name));
+        self.modified = true;
+        true
+    }
+
+    pub fn rename_layer(&mut self, old_name: &str, new_name: &str) -> bool {
+        let new_name = new_name.trim();
+        if new_name.is_empty() || self.layers.iter().any(|layer| layer.name == new_name) {
+            return false;
+        }
+        let Some(layer) = self.layers.iter_mut().find(|layer| layer.name == old_name) else {
+            return false;
+        };
+        layer.name = new_name.to_string();
+        for entity in &mut self.entities {
+            if entity.layer() == old_name {
+                entity.set_layer(new_name);
+            }
+        }
+        if self.active_layer_name == old_name {
+            self.active_layer_name = new_name.to_string();
+        }
+        self.modified = true;
+        true
+    }
+
+    pub fn can_delete_layer(&self, layer_name: &str) -> bool {
+        self.layers.len() > 1
+            && self.layers.iter().any(|layer| layer.name == layer_name)
+            && !self
+                .entities
+                .iter()
+                .any(|entity| entity.layer() == layer_name)
+    }
+
+    pub fn delete_layer_if_empty(&mut self, layer_name: &str) -> bool {
+        if !self.can_delete_layer(layer_name) {
+            return false;
+        }
+        self.layers.retain(|layer| layer.name != layer_name);
+        self.ensure_active_layer_exists();
+        self.modified = true;
+        true
+    }
+
+    pub fn set_layer_visible(&mut self, layer_name: &str, visible: bool) -> bool {
+        let Some(layer) = self
+            .layers
+            .iter_mut()
+            .find(|layer| layer.name == layer_name)
+        else {
+            return false;
+        };
+        if layer.visible == visible {
+            return false;
+        }
+        layer.visible = visible;
+        self.modified = true;
+        true
+    }
+
+    pub fn set_layer_locked(&mut self, layer_name: &str, locked: bool) -> bool {
+        let Some(layer) = self
+            .layers
+            .iter_mut()
+            .find(|layer| layer.name == layer_name)
+        else {
+            return false;
+        };
+        if layer.locked == locked {
+            return false;
+        }
+        layer.locked = locked;
+        self.modified = true;
+        true
+    }
+
+    pub fn set_layer_color(&mut self, layer_name: &str, color: &str) -> bool {
+        let Some(layer) = self
+            .layers
+            .iter_mut()
+            .find(|layer| layer.name == layer_name)
+        else {
+            return false;
+        };
+        let normalized = normalize_color_value(color).unwrap_or_else(default_layer_color);
+        if layer.color == normalized {
+            return false;
+        }
+        layer.color = normalized;
+        self.modified = true;
+        true
+    }
+
+    pub fn set_layer_line_weight(&mut self, layer_name: &str, line_weight: f64) -> bool {
+        if !line_weight.is_finite() || line_weight <= 0.0 {
+            return false;
+        }
+        let Some(layer) = self
+            .layers
+            .iter_mut()
+            .find(|layer| layer.name == layer_name)
+        else {
+            return false;
+        };
+        let value = line_weight.max(0.01);
+        if (layer.line_weight - value).abs() < f64::EPSILON {
+            return false;
+        }
+        layer.line_weight = value;
+        self.modified = true;
+        true
+    }
+
+    pub fn set_layer_line_type(&mut self, layer_name: &str, line_type: &str) -> bool {
+        let Some(layer) = self
+            .layers
+            .iter_mut()
+            .find(|layer| layer.name == layer_name)
+        else {
+            return false;
+        };
+        let normalized = normalized_linetype(line_type);
+        if layer.line_type == normalized {
+            return false;
+        }
+        layer.line_type = normalized;
+        self.modified = true;
+        true
+    }
+
+    pub fn layer_visible(&self, layer_name: &str) -> bool {
+        self.layers
+            .iter()
+            .find(|layer| layer.name == layer_name)
+            .map(|layer| layer.visible)
+            .unwrap_or(true)
+    }
+
+    pub fn layer_locked(&self, layer_name: &str) -> bool {
+        self.layers
+            .iter()
+            .find(|layer| layer.name == layer_name)
+            .map(|layer| layer.locked)
+            .unwrap_or(false)
+    }
+
+    pub fn entity_layer_visible(&self, id: u64) -> bool {
+        self.entities
+            .iter()
+            .find(|entity| entity.id() == id)
+            .map(|entity| self.layer_visible(entity.layer()))
+            .unwrap_or(true)
+    }
+
+    pub fn entity_layer_locked(&self, id: u64) -> bool {
+        self.entities
+            .iter()
+            .find(|entity| entity.id() == id)
+            .map(|entity| self.layer_locked(entity.layer()))
+            .unwrap_or(false)
+    }
+
+    /// Text for the attribute-bar layer field: active layer when nothing is selected,
+    /// the entity layer for a single selection, or `(mixed)` when layers differ.
+    pub fn selection_layer_field_text(&self, selected: &[u64]) -> String {
+        if selected.is_empty() {
+            return self.active_layer_name.clone();
+        }
+        let layers: Vec<String> = selected
+            .iter()
+            .filter_map(|id| {
+                self.entities
+                    .iter()
+                    .find(|entity| entity.id() == *id)
+                    .map(|entity| entity.layer().to_string())
+            })
+            .collect();
+        if layers.is_empty() {
+            return self.active_layer_name.clone();
+        }
+        let first = &layers[0];
+        if layers.iter().all(|layer| layer == first) {
+            first.clone()
+        } else {
+            "(mixed)".to_string()
+        }
+    }
+
     pub fn ensure_layer_with_style(
         &mut self,
         name: &str,
@@ -765,6 +1009,9 @@ impl Document {
     }
 
     pub fn set_entity_color(&mut self, id: u64, color: &str) -> bool {
+        if self.entity_layer_locked(id) {
+            return false;
+        }
         if !self.entities.iter().any(|entity| entity.id() == id) {
             return false;
         }
@@ -803,6 +1050,9 @@ impl Document {
     }
 
     pub fn set_entity_layer(&mut self, id: u64, layer: &str) -> bool {
+        if self.entity_layer_locked(id) {
+            return false;
+        }
         if !self.layers.iter().any(|existing| existing.name == layer) {
             self.layers.push(Layer::new(layer));
         }
@@ -815,6 +1065,9 @@ impl Document {
     }
 
     pub fn set_entity_line_weight(&mut self, id: u64, line_weight: f64) -> bool {
+        if self.entity_layer_locked(id) {
+            return false;
+        }
         if !self.entities.iter().any(|entity| entity.id() == id) {
             return false;
         }
@@ -827,6 +1080,9 @@ impl Document {
     }
 
     pub fn clear_entity_line_weight(&mut self, id: u64) -> bool {
+        if self.entity_layer_locked(id) {
+            return false;
+        }
         if !self.entities.iter().any(|entity| entity.id() == id) {
             return false;
         }
@@ -838,6 +1094,9 @@ impl Document {
     }
 
     pub fn set_entity_line_type(&mut self, id: u64, line_type: &str) -> bool {
+        if self.entity_layer_locked(id) {
+            return false;
+        }
         if !self.entities.iter().any(|entity| entity.id() == id) {
             return false;
         }
@@ -851,6 +1110,9 @@ impl Document {
     }
 
     pub fn clear_entity_line_type(&mut self, id: u64) -> bool {
+        if self.entity_layer_locked(id) {
+            return false;
+        }
         if !self.entities.iter().any(|entity| entity.id() == id) {
             return false;
         }
@@ -862,6 +1124,9 @@ impl Document {
     }
 
     pub fn set_text_entity_text(&mut self, id: u64, value: &str) -> bool {
+        if self.entity_layer_locked(id) {
+            return false;
+        }
         if let Some(Entity::Text { text, .. }) =
             self.entities.iter_mut().find(|entity| entity.id() == id)
         {
@@ -882,7 +1147,16 @@ impl Document {
 
     pub fn open_nodcad(path: &Path) -> Result<Self, String> {
         let data = fs::read_to_string(path).map_err(|err| err.to_string())?;
-        serde_json::from_str(&data).map_err(|err| err.to_string())
+        let mut document: Self = serde_json::from_str(&data).map_err(|err| err.to_string())?;
+        document.ensure_active_layer_exists();
+        Ok(document)
+    }
+
+    pub fn entity_count_on_layer(&self, layer_name: &str) -> usize {
+        self.entities
+            .iter()
+            .filter(|entity| entity.layer() == layer_name)
+            .count()
     }
 
     /// Bridge to the new CAD core (`crate::cad`). Legacy UI/IO continues to use `Document` directly.
@@ -908,6 +1182,10 @@ fn normalize_color_value(value: &str) -> Option<String> {
 
 fn default_active_layout() -> String {
     "Model".to_string()
+}
+
+fn default_active_layer_name() -> String {
+    "Default".to_string()
 }
 
 fn default_layouts() -> Vec<Layout> {
@@ -936,13 +1214,13 @@ fn default_viewport_border_visible() -> bool {
     true
 }
 
-fn normalized_layout_name(name: &str) -> String {
-    let name = name.trim();
-    if name.is_empty() || name.eq_ignore_ascii_case("model") {
-        "Model".to_string()
-    } else {
-        name.to_string()
-    }
+fn default_viewport_visible() -> bool {
+    true
+}
+
+/// Normalize layout tab names (`Model` vs paper layouts).
+pub fn normalized_layout_name(name: &str) -> String {
+    crate::cad::layouts::normalize_layout_name(name)
 }
 
 fn parse_color_channels(value: &str) -> Option<(u8, u8, u8)> {
@@ -1227,5 +1505,347 @@ impl DrawingView {
             name: name.to_string(),
             view_type: view_type.to_string(),
         }
+    }
+}
+
+#[cfg(test)]
+mod layer_tests {
+    use super::*;
+    use crate::cad::history::{
+        apply_entity_property_state, apply_layer_state, capture_entity_property_state,
+        capture_layer_state, EntityPropertyChange, LegacyHistoryManager,
+        LegacyUpdateEntityPropertiesAction, LegacyUpdateLayersAction,
+    };
+    use crate::cad::selection::legacy_hit::legacy_hit_entity_at;
+    use crate::geometry::Point;
+
+    fn sample_line(doc: &mut Document, layer: &str) -> u64 {
+        let id = doc.next_id();
+        doc.add_entity(Entity::Line {
+            id,
+            layer: layer.to_string(),
+            start: Point { x: 0.0, y: 0.0 },
+            end: Point { x: 10.0, y: 0.0 },
+        });
+        id
+    }
+
+    #[test]
+    fn create_layer_adds_to_document() {
+        let mut doc = Document::new_empty();
+        assert!(doc.create_layer("Walls"));
+        assert!(doc.layers.iter().any(|layer| layer.name == "Walls"));
+    }
+
+    #[test]
+    fn rename_layer_updates_entities() {
+        let mut doc = Document::new_empty();
+        doc.create_layer("Old");
+        let id = sample_line(&mut doc, "Old");
+        assert!(doc.rename_layer("Old", "New"));
+        assert_eq!(
+            doc.entities.iter().find(|e| e.id() == id).unwrap().layer(),
+            "New"
+        );
+    }
+
+    #[test]
+    fn set_active_layer_name() {
+        let mut doc = Document::new_empty();
+        doc.create_layer("Walls");
+        assert!(doc.set_active_layer_name("Walls"));
+        assert_eq!(doc.active_layer_name, "Walls");
+    }
+
+    #[test]
+    fn cannot_delete_layer_with_entities() {
+        let mut doc = Document::new_empty();
+        doc.create_layer("Used");
+        sample_line(&mut doc, "Used");
+        assert!(!doc.can_delete_layer("Used"));
+        assert!(!doc.delete_layer_if_empty("Used"));
+    }
+
+    #[test]
+    fn delete_empty_layer() {
+        let mut doc = Document::new_empty();
+        doc.create_layer("Empty");
+        assert!(doc.can_delete_layer("Empty"));
+        assert!(doc.delete_layer_if_empty("Empty"));
+        assert!(!doc.layers.iter().any(|layer| layer.name == "Empty"));
+    }
+
+    #[test]
+    fn cannot_delete_only_layer() {
+        let mut doc = Document::new_empty();
+        doc.layers.retain(|layer| layer.name == "Default");
+        assert!(!doc.can_delete_layer("Default"));
+    }
+
+    #[test]
+    fn ensure_active_layer_exists_recovers_invalid_name() {
+        let mut doc = Document::new_empty();
+        doc.active_layer_name = "Missing".to_string();
+        doc.ensure_active_layer_exists();
+        assert!(doc
+            .layers
+            .iter()
+            .any(|layer| layer.name == doc.active_layer_name));
+    }
+
+    #[test]
+    fn new_entity_keeps_explicit_layer() {
+        let mut doc = Document::new_empty();
+        doc.set_active_layer_name("Walls");
+        let id = sample_line(&mut doc, "Walls");
+        assert_eq!(
+            doc.entities.iter().find(|e| e.id() == id).unwrap().layer(),
+            "Walls"
+        );
+    }
+
+    #[test]
+    fn save_load_preserves_layouts_and_viewports() {
+        let mut doc = Document::new_empty();
+        doc.ensure_layout("Layout1");
+        doc.add_entity_on_layout(
+            Entity::Line {
+                id: doc.next_id(),
+                layer: "Default".to_string(),
+                start: Point { x: 0.0, y: 0.0 },
+                end: Point { x: 1.0, y: 0.0 },
+            },
+            Some("Layout1"),
+        );
+        doc.add_layout_viewport(LayoutViewport {
+            id: 99,
+            layout: "Layout1".to_string(),
+            center: Point { x: 50.0, y: 50.0 },
+            width: 100.0,
+            height: 80.0,
+            view_center: Point::default(),
+            view_height: 100.0,
+            model_zoom: 1.0,
+            scale_paper_units: 1.0,
+            scale_model_units: 1.0,
+            twist: 0.0,
+            visible: true,
+            locked: false,
+            border_visible: true,
+            visible_layers: Vec::new(),
+            hidden_layers: Vec::new(),
+        });
+        let path = std::env::temp_dir().join("lixcad_layout_test.nodcad");
+        doc.save_nodcad(&path).expect("save");
+        let loaded = Document::open_nodcad(&path).expect("load");
+        assert!(loaded.layouts.iter().any(|l| l.name == "Layout1"));
+        assert_eq!(loaded.layout_viewports.len(), 1);
+        assert_eq!(loaded.layout_viewports[0].layout, "Layout1");
+        let _ = std::fs::remove_file(path);
+    }
+
+    #[test]
+    fn hidden_layer_not_visible_in_active_layout() {
+        let mut doc = Document::new_empty();
+        doc.create_layer("Hidden");
+        doc.set_layer_visible("Hidden", false);
+        let id = sample_line(&mut doc, "Hidden");
+        assert!(!doc.entity_visible_in_active_layout(id));
+    }
+
+    #[test]
+    fn hidden_layer_excluded_from_hit_test() {
+        let mut doc = Document::new_empty();
+        doc.create_layer("Hidden");
+        doc.set_layer_visible("Hidden", false);
+        sample_line(&mut doc, "Hidden");
+        let hit = legacy_hit_entity_at(&doc, Point { x: 5.0, y: 0.0 }, 1.0);
+        assert_eq!(hit, None);
+    }
+
+    #[test]
+    fn locked_layer_blocks_remove() {
+        let mut doc = Document::new_empty();
+        doc.create_layer("Locked");
+        doc.set_layer_locked("Locked", true);
+        let id = sample_line(&mut doc, "Locked");
+        assert!(!doc.remove_entity(id));
+        assert_eq!(doc.entities.len(), 1);
+    }
+
+    #[test]
+    fn locked_layer_blocks_translate() {
+        let mut doc = Document::new_empty();
+        doc.create_layer("Locked");
+        doc.set_layer_locked("Locked", true);
+        let id = sample_line(&mut doc, "Locked");
+        doc.translate_entity(id, 5.0, 0.0);
+        let Entity::Line { start, .. } = doc.entities[0] else {
+            panic!("expected line");
+        };
+        assert!((start.x).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn locked_layer_blocks_set_entity_layer() {
+        let mut doc = Document::new_empty();
+        doc.create_layer("Locked");
+        doc.create_layer("Other");
+        doc.set_layer_locked("Locked", true);
+        let id = sample_line(&mut doc, "Locked");
+        assert!(!doc.set_entity_layer(id, "Other"));
+    }
+
+    #[test]
+    fn locked_layer_blocks_color_weight_type_and_text() {
+        let mut doc = Document::new_empty();
+        doc.create_layer("Locked");
+        doc.set_layer_locked("Locked", true);
+        let id = doc.next_id();
+        doc.add_entity(Entity::Text {
+            id,
+            layer: "Locked".to_string(),
+            origin: Point { x: 1.0, y: 2.0 },
+            text: "A".to_string(),
+            height: 2.5,
+            rotation: 0.0,
+        });
+        assert!(!doc.set_entity_color(id, "#ff0000"));
+        assert!(!doc.set_entity_line_weight(id, 0.5));
+        assert!(!doc.set_entity_line_type(id, "Dashed"));
+        assert!(!doc.set_text_entity_text(id, "B"));
+    }
+
+    #[test]
+    fn bylayer_color_fallback() {
+        let mut doc = Document::new_empty();
+        doc.set_layer_color("Default", "#112233");
+        let id = sample_line(&mut doc, "Default");
+        assert_eq!(doc.entity_color(id), Some("#112233"));
+    }
+
+    #[test]
+    fn bylayer_line_weight_fallback() {
+        let mut doc = Document::new_empty();
+        doc.set_layer_line_weight("Default", 0.7);
+        let id = sample_line(&mut doc, "Default");
+        assert!((doc.entity_line_weight(id) - 0.7).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn bylayer_line_type_fallback() {
+        let mut doc = Document::new_empty();
+        doc.set_layer_line_type("Default", "Dashed");
+        let id = sample_line(&mut doc, "Default");
+        assert_eq!(doc.entity_line_type(id), "Dashed");
+    }
+
+    #[test]
+    fn entity_override_wins_over_layer() {
+        let mut doc = Document::new_empty();
+        doc.set_layer_color("Default", "#112233");
+        let id = sample_line(&mut doc, "Default");
+        doc.set_entity_color(id, "#aabbcc");
+        assert_eq!(doc.entity_color(id), Some("#aabbcc"));
+    }
+
+    #[test]
+    fn layer_create_undo_redo_via_history() {
+        let mut doc = Document::new_empty();
+        let mut history = LegacyHistoryManager::new();
+        let before = capture_layer_state(&doc);
+        assert!(doc.create_layer("Walls"));
+        let after = capture_layer_state(&doc);
+        history.record(Box::new(LegacyUpdateLayersAction { before, after }));
+        assert!(history.undo(&mut doc));
+        assert!(!doc.layers.iter().any(|layer| layer.name == "Walls"));
+        assert!(history.redo(&mut doc));
+        assert!(doc.layers.iter().any(|layer| layer.name == "Walls"));
+    }
+
+    #[test]
+    fn layer_rename_undo_redo() {
+        let mut doc = Document::new_empty();
+        doc.create_layer("Old");
+        let mut history = LegacyHistoryManager::new();
+        let before = capture_layer_state(&doc);
+        assert!(doc.rename_layer("Old", "New"));
+        let after = capture_layer_state(&doc);
+        history.record(Box::new(LegacyUpdateLayersAction { before, after }));
+        assert!(history.undo(&mut doc));
+        assert!(doc.layers.iter().any(|layer| layer.name == "Old"));
+        assert!(history.redo(&mut doc));
+        assert!(doc.layers.iter().any(|layer| layer.name == "New"));
+    }
+
+    #[test]
+    fn layer_visible_toggle_undo_redo() {
+        let mut doc = Document::new_empty();
+        let mut history = LegacyHistoryManager::new();
+        let before = capture_layer_state(&doc);
+        assert!(doc.set_layer_visible("Default", false));
+        let after = capture_layer_state(&doc);
+        history.record(Box::new(LegacyUpdateLayersAction { before, after }));
+        assert!(!doc.layer_visible("Default"));
+        assert!(history.undo(&mut doc));
+        assert!(doc.layer_visible("Default"));
+        assert!(history.redo(&mut doc));
+        assert!(!doc.layer_visible("Default"));
+    }
+
+    #[test]
+    fn layer_locked_toggle_undo_redo() {
+        let mut doc = Document::new_empty();
+        let mut history = LegacyHistoryManager::new();
+        let before = capture_layer_state(&doc);
+        assert!(doc.set_layer_locked("Default", true));
+        let after = capture_layer_state(&doc);
+        history.record(Box::new(LegacyUpdateLayersAction { before, after }));
+        assert!(history.undo(&mut doc));
+        assert!(!doc.layer_locked("Default"));
+        assert!(history.redo(&mut doc));
+        assert!(doc.layer_locked("Default"));
+    }
+
+    #[test]
+    fn layer_color_change_undo_redo() {
+        let mut doc = Document::new_empty();
+        let mut history = LegacyHistoryManager::new();
+        let before = capture_layer_state(&doc);
+        assert!(doc.set_layer_color("Default", "#ff00aa"));
+        let after = capture_layer_state(&doc);
+        history.record(Box::new(LegacyUpdateLayersAction { before, after }));
+        assert!(history.undo(&mut doc));
+        assert_ne!(doc.layers[0].color, "#ff00aa");
+        assert!(history.redo(&mut doc));
+        assert_eq!(doc.layers[0].color, "#ff00aa");
+    }
+
+    #[test]
+    fn move_entity_layer_undo_redo() {
+        let mut doc = Document::new_empty();
+        doc.create_layer("Target");
+        let id = sample_line(&mut doc, "Default");
+        let before = capture_entity_property_state(&doc, id).expect("entity");
+        assert!(doc.set_entity_layer(id, "Target"));
+        let after = capture_entity_property_state(&doc, id).expect("entity");
+        let mut history = LegacyHistoryManager::new();
+        history.record(Box::new(LegacyUpdateEntityPropertiesAction {
+            changes: vec![EntityPropertyChange {
+                entity_id: id,
+                before,
+                after,
+            }],
+        }));
+        assert!(history.undo(&mut doc));
+        assert_eq!(
+            doc.entities.iter().find(|e| e.id() == id).unwrap().layer(),
+            "Default"
+        );
+        assert!(history.redo(&mut doc));
+        assert_eq!(
+            doc.entities.iter().find(|e| e.id() == id).unwrap().layer(),
+            "Target"
+        );
     }
 }

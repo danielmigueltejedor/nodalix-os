@@ -1,5 +1,10 @@
 use crate::{geometry::Point, units::Unit};
 
+// NOTE:
+// Imported DWG/DXF exploded dimensions remain plain geometry entities.
+// Native dimensions authored in LixCAD use `Entity::Dimension`.
+// Future work: dimension reconstruction from imported geometry.
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DimensionKind {
     Linear,
@@ -78,6 +83,88 @@ pub fn parse_dimension_style(style: &str) -> (DimensionKind, Point) {
     (kind, offset)
 }
 
+pub fn linear_dimension_points(start: Point, end: Point) -> (Point, Point) {
+    let dx = (end.x - start.x).abs();
+    let dy = (end.y - start.y).abs();
+    if dx >= dy {
+        (
+            start,
+            Point {
+                x: end.x,
+                y: start.y,
+            },
+        )
+    } else {
+        (
+            start,
+            Point {
+                x: start.x,
+                y: end.y,
+            },
+        )
+    }
+}
+
+pub fn aligned_dimension_points(start: Point, end: Point) -> (Point, Point) {
+    (start, end)
+}
+
+pub fn radius_dimension_from_circle(
+    center: Point,
+    radius: f64,
+    cursor: Point,
+    unit: Unit,
+    precision: u8,
+) -> Option<(Point, Point, String)> {
+    if !radius.is_finite() || radius <= 0.0 {
+        return None;
+    }
+    let vx = cursor.x - center.x;
+    let vy = cursor.y - center.y;
+    let len = (vx * vx + vy * vy).sqrt();
+    let (ux, uy) = if len <= 1e-9 {
+        (1.0, 0.0)
+    } else {
+        (vx / len, vy / len)
+    };
+    let end = Point {
+        x: center.x + ux * radius,
+        y: center.y + uy * radius,
+    };
+    let label = format_radius_with_unit(radius, unit, precision);
+    Some((center, end, label))
+}
+
+pub fn diameter_dimension_from_circle(
+    center: Point,
+    radius: f64,
+    cursor: Point,
+    unit: Unit,
+    precision: u8,
+) -> Option<(Point, Point, String)> {
+    if !radius.is_finite() || radius <= 0.0 {
+        return None;
+    }
+    let vx = cursor.x - center.x;
+    let vy = cursor.y - center.y;
+    let len = (vx * vx + vy * vy).sqrt();
+    let (ux, uy) = if len <= 1e-9 {
+        (1.0, 0.0)
+    } else {
+        (vx / len, vy / len)
+    };
+    let a = Point {
+        x: center.x - ux * radius,
+        y: center.y - uy * radius,
+    };
+    let b = Point {
+        x: center.x + ux * radius,
+        y: center.y + uy * radius,
+    };
+    let label = format_diameter_with_unit(radius * 2.0, unit, precision);
+    Some((a, b, label))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -109,5 +196,56 @@ mod tests {
         let end = Point { x: 10.0, y: 0.0 };
         let offset = dimension_offset_from_point(start, end, Point { x: 5.0, y: 3.0 });
         assert!(offset.y > 2.9 && offset.y < 3.1);
+    }
+
+    #[test]
+    fn linear_dimension_geometry() {
+        let (a, b) = linear_dimension_points(Point { x: 0.0, y: 0.0 }, Point { x: 10.0, y: 3.0 });
+        assert!((a.y - b.y).abs() < 1e-9);
+    }
+
+    #[test]
+    fn aligned_dimension_geometry() {
+        let (a, b) = aligned_dimension_points(Point { x: 0.0, y: 0.0 }, Point { x: 10.0, y: 3.0 });
+        assert!((a.x - 0.0).abs() < 1e-9);
+        assert!((b.y - 3.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn radius_dimension_from_circle_builds_label() {
+        let (_, _, label) = radius_dimension_from_circle(
+            Point { x: 0.0, y: 0.0 },
+            25.0,
+            Point { x: 10.0, y: 0.0 },
+            Unit::Millimeters,
+            0,
+        )
+        .expect("radius dim");
+        assert_eq!(label, "R25 mm");
+    }
+
+    #[test]
+    fn diameter_dimension_from_circle_builds_label() {
+        let (_, _, label) = diameter_dimension_from_circle(
+            Point { x: 0.0, y: 0.0 },
+            25.0,
+            Point { x: 10.0, y: 0.0 },
+            Unit::Millimeters,
+            0,
+        )
+        .expect("diameter dim");
+        assert_eq!(label, "Ø50 mm");
+    }
+
+    #[test]
+    fn invalid_radius_target_fails() {
+        assert!(radius_dimension_from_circle(
+            Point { x: 0.0, y: 0.0 },
+            0.0,
+            Point { x: 1.0, y: 0.0 },
+            Unit::Millimeters,
+            0
+        )
+        .is_none());
     }
 }

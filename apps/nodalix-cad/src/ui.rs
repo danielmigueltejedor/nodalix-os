@@ -1,8 +1,10 @@
-use crate::tool_parameters::ArcUiMode;
+use crate::tool_parameters::{ArcUiMode, DimensionCreationMode};
 use crate::{
     cad::commands::command_registry::{CommandRegistry, ParsedCommand},
     cad::commands::{build_geometry_from_command_parts, GeometryBuildResult},
     cad::geometry::{CircleCreationMode, LineCreationMode, RectangleCreationMode},
+    cad::precision::PrecisionState,
+    cad::snapping::OsnapState,
     canvas::{update_selection_label, CadCanvas, CanvasInteractionContext},
     document::{Document, Entity},
     geometry::Point,
@@ -12,7 +14,7 @@ use crate::{
         clear_document_history, delete_selected_entities, document_active_layout,
         duplicate_entity_with_history, paste_entities_at, perform_redo, perform_undo,
         refresh_after_history_change, try_add_entity_with_history,
-        update_entity_properties_with_history, DocumentBusy,
+        update_entity_properties_with_history, update_layers_with_history, DocumentBusy,
     },
     units::Unit,
 };
@@ -104,6 +106,10 @@ pub fn build(app: &adw::Application) {
         bar: document_tabs_bar.clone(),
     };
 
+    let attribute_layer_entry = gtk::Entry::new();
+    attribute_layer_entry.set_placeholder_text(Some("Layer"));
+    attribute_layer_entry.add_css_class("attribute-entry");
+
     let canvas = CadCanvas::new(
         CanvasInteractionContext {
             document: cad.document.clone(),
@@ -111,29 +117,43 @@ pub fn build(app: &adw::Application) {
             selected_entity: cad.selected_entity.clone(),
             history: cad.history.clone(),
             tool_parameters: cad.tool_parameters.clone(),
+            osnap: cad.osnap.clone(),
+            precision: cad.precision.clone(),
             inline_text_entry: inline_text_entry.clone(),
+            attribute_layer_entry: attribute_layer_entry.clone(),
         },
         selection_label.clone(),
     );
     let tool_context = tool_context_panel(*active_tool.borrow(), &cad, &canvas);
     let properties = properties_panel(&cad.document.borrow());
-    let attributes = attribute_bar(
-        selection_label.clone(),
-        cad.clone(),
-        canvas.widget().clone(),
-        properties.clone(),
-        modified_label.clone(),
-    );
-    let right_panel = right_panel(attributes, properties.clone());
     let layout_tabs = gtk::Box::new(gtk::Orientation::Horizontal, 6);
     layout_tabs.add_css_class("layout-tabs-bar");
+    let layer_panel = gtk::Box::new(gtk::Orientation::Vertical, 8);
+    layer_panel.add_css_class("layer-panel");
 
-    let view = UiViewContext {
+    let view = Rc::new(UiViewContext {
         canvas: canvas.clone(),
         properties: properties.clone(),
         layout_tabs: layout_tabs.clone(),
         modified_label: modified_label.clone(),
-    };
+        layer_panel: layer_panel.clone(),
+        attribute_layer_entry: attribute_layer_entry.clone(),
+    });
+    let attributes = attribute_bar(selection_label.clone(), cad.clone(), view.clone());
+    let right_panel = right_panel(attributes, properties.clone(), layer_panel.clone());
+    refresh_layer_panel(
+        &view.layer_panel,
+        &cad,
+        &view.canvas,
+        &view.properties,
+        &selection_label,
+        &view.modified_label,
+    );
+    sync_attribute_layer_entry(
+        &view.attribute_layer_entry,
+        &cad.document.borrow(),
+        &cad.selected_entity.borrow(),
+    );
 
     let toolbar = top_toolbar(&window, &cad, &document_tabs_ctx, &view);
     attach_toolbar_context_menu(
@@ -171,9 +191,8 @@ pub fn build(app: &adw::Application) {
         window.clone(),
         canvas.clone(),
         cad.clone(),
+        view.clone(),
         selection_label.clone(),
-        properties.clone(),
-        modified_label.clone(),
         active_tool.clone(),
         tool_label.clone(),
         tool_context.clone(),
@@ -184,11 +203,9 @@ pub fn build(app: &adw::Application) {
     canvas_overlay.set_child(Some(canvas.widget()));
     canvas_overlay.add_overlay(canvas.inline_text_editor());
     let command_bar = floating_command_bar(
-        canvas.clone(),
         cad.clone(),
+        view.clone(),
         selection_label.clone(),
-        properties.clone(),
-        modified_label.clone(),
         active_tool.clone(),
         tool_label.clone(),
         tool_context.clone(),
@@ -205,20 +222,38 @@ pub fn build(app: &adw::Application) {
         canvas.clone(),
         properties.clone(),
     );
-    refresh_document_tabs(&document_tabs_ctx, &cad, &view);
+    refresh_document_tabs(&document_tabs_ctx, &cad, &*view);
     root.append(&layout_tabs);
     root.append(&horizontal_scroll(&tool_context));
+    let osnap_status = gtk::Label::new(None);
+    osnap_status.add_css_class("status-label");
+    sync_osnap_status_label(&osnap_status, &cad.osnap.borrow());
+    root.append(&osnap_toolbar(
+        cad.clone(),
+        canvas.clone(),
+        osnap_status.clone(),
+    ));
+    let precision_status = gtk::Label::new(None);
+    precision_status.add_css_class("status-label");
+    sync_precision_status_label(&precision_status, &cad.precision.borrow());
+    root.append(&precision_toolbar(
+        cad.clone(),
+        canvas.clone(),
+        precision_status.clone(),
+    ));
     root.append(&status_bar(
         cursor_label,
         tool_label,
         modified_label.clone(),
         cad.document.clone(),
+        osnap_status,
+        precision_status,
     ));
 
     attach_keyboard_shortcuts(
         &window,
         &cad,
-        &view,
+        &*view,
         selection_label.clone(),
         active_tool.clone(),
     );
@@ -894,6 +929,285 @@ fn app_icon(name: &str, size: i32) -> gtk::Image {
     crate::assets::load_icon_image(name, size)
 }
 
+fn layer_icon_button(icon_name: &str, tooltip: &str, size: i32) -> gtk::Button {
+    let button = gtk::Button::new();
+    button.set_tooltip_text(Some(tooltip));
+    button.add_css_class("layer-icon-button");
+    button.set_child(Some(&app_icon(icon_name, size)));
+    button
+}
+
+fn osnap_toggle_button(
+    icon_name: &str,
+    label: &str,
+    tooltip: &str,
+    active: bool,
+) -> gtk::ToggleButton {
+    let button = gtk::ToggleButton::new();
+    button.set_tooltip_text(Some(tooltip));
+    button.set_active(active);
+    button.add_css_class("osnap-toggle");
+    let content = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+    content.append(&app_icon(icon_name, 16));
+    let text = gtk::Label::new(Some(label));
+    text.add_css_class("osnap-toggle-label");
+    content.append(&text);
+    button.set_child(Some(&content));
+    button
+}
+
+fn sync_osnap_status_label(label: &gtk::Label, state: &OsnapState) {
+    label.set_text(&osnap_status_text(state));
+}
+
+fn osnap_status_text(state: &OsnapState) -> String {
+    if !state.enabled {
+        return "OSNAP: off".to_string();
+    }
+    let mut parts = Vec::new();
+    if state.endpoint {
+        parts.push("END");
+    }
+    if state.midpoint {
+        parts.push("MID");
+    }
+    if state.center {
+        parts.push("CEN");
+    }
+    if state.intersection {
+        parts.push("INT");
+    }
+    if state.quadrant {
+        parts.push("QUAD");
+    }
+    if state.nearest {
+        parts.push("NEAR");
+    }
+    if state.node {
+        parts.push("NODE");
+    }
+    if state.perpendicular {
+        parts.push("PERP");
+    }
+    if parts.is_empty() {
+        "OSNAP: on (none)".to_string()
+    } else {
+        format!("OSNAP: {}", parts.join(" · "))
+    }
+}
+
+fn osnap_toolbar(cad: UiCadContext, canvas: CadCanvas, status_label: gtk::Label) -> gtk::Box {
+    let bar = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    bar.add_css_class("osnap-bar");
+    bar.set_margin_start(12);
+    bar.set_margin_end(12);
+    bar.set_margin_top(4);
+    bar.set_margin_bottom(4);
+
+    let state = cad.osnap.borrow().clone();
+    let master = osnap_toggle_button(
+        "snap-toggle",
+        "OSNAP",
+        "Toggle object snap (F3)",
+        state.enabled,
+    );
+    let end = osnap_toggle_button("snap-endpoint", "END", "Endpoint snap", state.endpoint);
+    let mid = osnap_toggle_button("snap-midpoint", "MID", "Midpoint snap", state.midpoint);
+    let cen = osnap_toggle_button("snap-center", "CEN", "Center snap", state.center);
+    let int = osnap_toggle_button(
+        "snap-intersection",
+        "INT",
+        "Intersection snap",
+        state.intersection,
+    );
+    let quad = osnap_toggle_button("snap-quadrant", "QUAD", "Quadrant snap", state.quadrant);
+    let near = osnap_toggle_button("snap-nearest", "NEAR", "Nearest snap", state.nearest);
+    let node = osnap_toggle_button("snap-node", "NODE", "Node snap (points, text)", state.node);
+
+    let wire_toggle = |button: &gtk::ToggleButton, mutator: fn(&mut OsnapState, bool)| {
+        let cad = cad.clone();
+        let canvas = canvas.clone();
+        let status_label = status_label.clone();
+        button.connect_toggled(move |btn| {
+            let active = btn.is_active();
+            {
+                let mut state = cad.osnap.borrow_mut();
+                mutator(&mut state, active);
+            }
+            sync_osnap_status_label(&status_label, &cad.osnap.borrow());
+            canvas.widget().queue_draw();
+        });
+    };
+
+    wire_toggle(&master, |s, v| s.enabled = v);
+    wire_toggle(&end, |s, v| s.endpoint = v);
+    wire_toggle(&mid, |s, v| s.midpoint = v);
+    wire_toggle(&cen, |s, v| s.center = v);
+    wire_toggle(&int, |s, v| s.intersection = v);
+    wire_toggle(&quad, |s, v| s.quadrant = v);
+    wire_toggle(&near, |s, v| s.nearest = v);
+    wire_toggle(&node, |s, v| s.node = v);
+
+    bar.append(&master);
+    bar.append(&end);
+    bar.append(&mid);
+    bar.append(&cen);
+    bar.append(&int);
+    bar.append(&quad);
+    bar.append(&near);
+    bar.append(&node);
+    bar
+}
+
+fn sync_precision_status_label(label: &gtk::Label, state: &PrecisionState) {
+    let mut parts = Vec::new();
+    parts.push(if state.ortho_enabled {
+        "ORTHO"
+    } else {
+        "ortho off"
+    });
+    parts.push(if state.polar_enabled {
+        "POLAR"
+    } else {
+        "polar off"
+    });
+    parts.push(if state.dynamic_input_enabled {
+        "DYN"
+    } else {
+        "dyn off"
+    });
+    label.set_text(&parts.join(" · "));
+}
+
+fn precision_toolbar(cad: UiCadContext, canvas: CadCanvas, status_label: gtk::Label) -> gtk::Box {
+    let bar = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    bar.add_css_class("precision-bar");
+    bar.set_margin_start(12);
+    bar.set_margin_end(12);
+    bar.set_margin_top(2);
+    bar.set_margin_bottom(4);
+
+    let state = cad.precision.borrow().clone();
+    let ortho = osnap_toggle_button(
+        "precision/precision-ortho",
+        "ORTHO",
+        "Orthogonal mode — lock cursor to horizontal/vertical (F8)",
+        state.ortho_enabled,
+    );
+    let polar = osnap_toggle_button(
+        "precision/precision-polar",
+        "POLAR",
+        "Polar tracking — snap cursor to standard angles (F10)",
+        state.polar_enabled,
+    );
+    let dynamic = osnap_toggle_button(
+        "precision/precision-dynamic-input",
+        "DYN",
+        "Dynamic input — show length and angle near cursor (F12)",
+        state.dynamic_input_enabled,
+    );
+
+    let wire = |button: &gtk::ToggleButton, mutator: fn(&mut PrecisionState, bool)| {
+        let cad = cad.clone();
+        let canvas = canvas.clone();
+        let status_label = status_label.clone();
+        button.connect_toggled(move |btn| {
+            let active = btn.is_active();
+            {
+                let mut state = cad.precision.borrow_mut();
+                mutator(&mut state, active);
+            }
+            sync_precision_status_label(&status_label, &cad.precision.borrow());
+            canvas.widget().queue_draw();
+        });
+    };
+
+    wire(&ortho, |s, v| s.ortho_enabled = v);
+    wire(&polar, |s, v| s.polar_enabled = v);
+    wire(&dynamic, |s, v| s.dynamic_input_enabled = v);
+
+    bar.append(&ortho);
+    bar.append(&polar);
+    bar.append(&dynamic);
+    bar
+}
+
+fn try_execute_osnap_command(
+    command: &str,
+    osnap: &Rc<RefCell<OsnapState>>,
+    history: &gtk::Label,
+) -> bool {
+    match command {
+        "osnap" => {
+            let enabled = {
+                let mut state = osnap.borrow_mut();
+                state.enabled = !state.enabled;
+                state.enabled
+            };
+            history.set_text(if enabled { "OSNAP: on" } else { "OSNAP: off" });
+            true
+        }
+        "osnap on" => {
+            osnap.borrow_mut().enabled = true;
+            history.set_text("OSNAP: on");
+            true
+        }
+        "osnap off" => {
+            osnap.borrow_mut().enabled = false;
+            history.set_text("OSNAP: off");
+            true
+        }
+        "snap end" => {
+            toggle_osnap_mode(osnap, |s| &mut s.endpoint);
+            history.set_text("SNAP END toggled");
+            true
+        }
+        "snap mid" => {
+            toggle_osnap_mode(osnap, |s| &mut s.midpoint);
+            history.set_text("SNAP MID toggled");
+            true
+        }
+        "snap cen" => {
+            toggle_osnap_mode(osnap, |s| &mut s.center);
+            history.set_text("SNAP CEN toggled");
+            true
+        }
+        "snap int" => {
+            toggle_osnap_mode(osnap, |s| &mut s.intersection);
+            history.set_text("SNAP INT toggled");
+            true
+        }
+        "snap near" => {
+            toggle_osnap_mode(osnap, |s| &mut s.nearest);
+            history.set_text("SNAP NEAR toggled");
+            true
+        }
+        "snap node" => {
+            toggle_osnap_mode(osnap, |s| &mut s.node);
+            history.set_text("SNAP NODE toggled");
+            true
+        }
+        _ => false,
+    }
+}
+
+fn toggle_osnap_mode(osnap: &Rc<RefCell<OsnapState>>, field: fn(&mut OsnapState) -> &mut bool) {
+    let mut state = osnap.borrow_mut();
+    let value = field(&mut state);
+    *value = !*value;
+}
+
+pub(crate) fn sync_attribute_layer_entry(
+    entry: &gtk::Entry,
+    document: &Document,
+    selected: &[u64],
+) {
+    let text = document.selection_layer_field_text(selected);
+    if entry.text().as_str() != text {
+        entry.set_text(&text);
+    }
+}
+
 fn is_native_document(path: &Path) -> bool {
     path.extension()
         .and_then(|value| value.to_str())
@@ -948,7 +1262,7 @@ fn tool_palette(
     palette
 }
 
-fn right_panel(attributes: gtk::Box, properties: gtk::Box) -> gtk::Box {
+fn right_panel(attributes: gtk::Box, properties: gtk::Box, layer_panel: gtk::Box) -> gtk::Box {
     let panel = gtk::Box::new(gtk::Orientation::Vertical, 12);
     panel.add_css_class("right-panel");
     panel.append(&panel_header(
@@ -960,6 +1274,13 @@ fn right_panel(attributes: gtk::Box, properties: gtk::Box) -> gtk::Box {
     let separator = gtk::Separator::new(gtk::Orientation::Horizontal);
     separator.add_css_class("panel-separator");
     panel.append(&separator);
+
+    panel.append(&panel_header("Layers", "Gestión de capas"));
+    let layer_scroll = gtk::ScrolledWindow::new();
+    layer_scroll.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
+    layer_scroll.set_vexpand(true);
+    layer_scroll.set_child(Some(&layer_panel));
+    panel.append(&layer_scroll);
 
     panel.append(&panel_header("Documento", "Estado, capas y referencias"));
     let scroll = gtk::ScrolledWindow::new();
@@ -988,9 +1309,7 @@ fn panel_header(title: &str, subtitle: &str) -> gtk::Box {
 fn attribute_bar(
     selection_label: gtk::Label,
     cad: UiCadContext,
-    canvas: gtk::DrawingArea,
-    properties: gtk::Box,
-    modified_label: gtk::Label,
+    view: Rc<UiViewContext>,
 ) -> gtk::Box {
     let bar = gtk::Box::new(gtk::Orientation::Vertical, 10);
     bar.add_css_class("attribute-bar");
@@ -999,10 +1318,7 @@ fn attribute_bar(
     let group = gtk::Box::new(gtk::Orientation::Vertical, 6);
     group.add_css_class("attribute-group");
 
-    let layer = gtk::Entry::new();
-    layer.set_placeholder_text(Some("Layer"));
-    layer.set_text("Default");
-    layer.add_css_class("attribute-entry");
+    let layer = view.attribute_layer_entry.clone();
 
     let lineweight = gtk::Entry::new();
     lineweight.set_placeholder_text(Some("Lineweight"));
@@ -1057,6 +1373,7 @@ fn attribute_bar(
     apply.add_css_class("context-chip");
     {
         let cad = cad.clone();
+        let view = view.clone();
         let selection_label = selection_label.clone();
         let layer = layer.clone();
         let lineweight = lineweight.clone();
@@ -1064,9 +1381,6 @@ fn attribute_bar(
         let red = red.clone();
         let green = green.clone();
         let blue = blue.clone();
-        let canvas = canvas.clone();
-        let properties = properties.clone();
-        let modified_label = modified_label.clone();
         apply.connect_clicked(move |_| {
             let color_value = rgb_hex(&red, &green, &blue);
             let line_weight = parse_lineweight_value(lineweight.text().as_str());
@@ -1080,10 +1394,8 @@ fn attribute_bar(
             };
             apply_selected_attributes(
                 &cad,
+                &view,
                 &selection_label,
-                &properties,
-                &canvas,
-                &modified_label,
                 Some(layer.text().as_str()),
                 Some(&color_value),
                 line_weight,
@@ -1096,18 +1408,14 @@ fn attribute_bar(
     reset_color.add_css_class("context-chip");
     {
         let cad = cad.clone();
+        let view = view.clone();
         let selection_label = selection_label.clone();
-        let properties = properties.clone();
-        let canvas = canvas.clone();
-        let modified_label = modified_label.clone();
         let layer = layer.clone();
         reset_color.connect_clicked(move |_| {
             apply_selected_attributes(
                 &cad,
+                &view,
                 &selection_label,
-                &properties,
-                &canvas,
-                &modified_label,
                 Some(layer.text().as_str()),
                 Some("default"),
                 None,
@@ -1174,7 +1482,7 @@ fn refresh_layout_tabs(
                 document.borrow_mut().set_active_layout(&name);
                 refresh_properties(&properties, &document.borrow());
                 refresh_layout_tabs(&bar, document.clone(), canvas.clone(), properties.clone());
-                canvas.widget().queue_draw();
+                canvas.fit_document(&document.borrow());
             });
         }
         {
@@ -1352,10 +1660,8 @@ fn parse_positive_f64(value: &str) -> Option<f64> {
 
 fn apply_selected_attributes(
     cad: &UiCadContext,
+    view: &UiViewContext,
     selection_label: &gtk::Label,
-    properties: &gtk::Box,
-    canvas: &gtk::DrawingArea,
-    modified_label: &gtk::Label,
     layer_name: Option<&str>,
     color_value: Option<&str>,
     line_weight: Option<f64>,
@@ -1363,14 +1669,35 @@ fn apply_selected_attributes(
 ) {
     let selected_ids = cad.selected_entity.borrow().clone();
     if selected_ids.is_empty() {
+        if let Some(layer_name) = layer_name {
+            let trimmed = layer_name.trim();
+            if trimmed.is_empty() || trimmed == "(mixed)" {
+                return;
+            }
+            if update_layers_with_history(cad, |doc| doc.set_active_layer_name(trimmed)) {
+                let doc = cad.document.borrow();
+                sync_attribute_layer_entry(&view.attribute_layer_entry, &doc, &[]);
+                refresh_layer_panel(
+                    &view.layer_panel,
+                    cad,
+                    &view.canvas,
+                    &view.properties,
+                    selection_label,
+                    &view.modified_label,
+                );
+                view.modified_label.set_text("Modified");
+                view.canvas.widget().queue_draw();
+            }
+        }
         return;
     }
 
     let changed = update_entity_properties_with_history(cad, &selected_ids, |doc, id| {
         let mut entity_changed = false;
         if let Some(layer_name) = layer_name {
-            if !layer_name.trim().is_empty() {
-                entity_changed |= doc.set_entity_layer(id, layer_name.trim());
+            let trimmed = layer_name.trim();
+            if !trimmed.is_empty() && trimmed != "(mixed)" {
+                entity_changed |= doc.set_entity_layer(id, trimmed);
             }
         }
         if let Some(color_value) = color_value {
@@ -1389,10 +1716,12 @@ fn apply_selected_attributes(
 
     if changed {
         let doc = cad.document.borrow();
-        update_selection_label(selection_label, &doc, &cad.selected_entity.borrow());
-        refresh_properties(properties, &doc);
-        modified_label.set_text("Modified");
-        canvas.queue_draw();
+        let selected = cad.selected_entity.borrow();
+        update_selection_label(selection_label, &doc, &selected);
+        sync_attribute_layer_entry(&view.attribute_layer_entry, &doc, &selected);
+        refresh_properties(&view.properties, &doc);
+        view.modified_label.set_text("Modified");
+        view.canvas.widget().queue_draw();
     }
 }
 
@@ -1413,7 +1742,10 @@ fn refresh_tool_context(panel: &gtk::Box, tool: Tool, cad: &UiCadContext, canvas
 
     match tool {
         Tool::Select => {
-            compact_note(panel, "Pick, drag, box-select. Del removes selection.");
+            compact_note(
+                panel,
+                "Pick, drag, box-select. Drag grip to edit entity. Del removes selection.",
+            );
             context_buttons(panel, &["Move", "Copy", "Rotate"]);
         }
         Tool::Polyline => {
@@ -1447,7 +1779,7 @@ fn refresh_tool_context(panel: &gtk::Box, tool: Tool, cad: &UiCadContext, canvas
             context_entry(panel, "Precision", "0.00");
             context_entry(panel, "Arrow", "Closed filled");
             context_entry(panel, "Text height", "2.5 mm");
-            context_buttons(panel, &["Linear", "Aligned", "Radius"]);
+            add_mode_controls(panel, tool, cad, canvas);
         }
         Tool::Text => {
             context_entry(panel, "Text style", "Technical");
@@ -1463,6 +1795,91 @@ fn refresh_tool_context(panel: &gtk::Box, tool: Tool, cad: &UiCadContext, canvas
             );
             context_entry(panel, "Base point", "Pick on canvas");
             context_entry(panel, "Distance", "By cursor");
+        }
+        Tool::Move => {
+            compact_note(
+                panel,
+                "Select entities first. Base point, then destination.",
+            );
+            context_entry(panel, "Mode", "Move selection");
+            context_buttons(panel, &["Ortho", "Polar", "OSNAP"]);
+        }
+        Tool::Copy => {
+            compact_note(
+                panel,
+                "Select entities first. Base point, then destination.",
+            );
+            context_entry(panel, "Mode", "Copy selection");
+            context_entry(panel, "Multiple copies", "TODO");
+            context_buttons(panel, &["Ortho", "Polar", "OSNAP"]);
+        }
+        Tool::Rotate => {
+            compact_note(
+                panel,
+                "Select entities first. Base point, then angle point.",
+            );
+            context_entry(panel, "Angle", "By cursor / polar");
+            context_buttons(panel, &["Ortho", "Polar", "OSNAP"]);
+        }
+        Tool::Scale => {
+            compact_note(
+                panel,
+                "Select entities first. Base point, then factor point.",
+            );
+            context_entry(panel, "Factor", "By cursor distance");
+            context_buttons(panel, &["Ortho", "Polar", "OSNAP"]);
+        }
+        Tool::Mirror => {
+            compact_note(
+                panel,
+                "Select entities first. Two points define mirror axis.",
+            );
+            context_entry(panel, "Mode", "Transform original");
+            context_buttons(panel, &["OSNAP"]);
+        }
+        Tool::Offset => {
+            compact_note(
+                panel,
+                "Click line/circle/polyline, move to side, click to create offset.",
+            );
+            let distance_row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+            let distance_entry = gtk::Entry::new();
+            distance_entry.set_placeholder_text(Some("Distance"));
+            distance_entry.set_width_chars(8);
+            distance_entry.set_text(&format!(
+                "{:.4}",
+                cad.tool_parameters.borrow().offset_distance
+            ));
+            {
+                let cad = cad.clone();
+                distance_entry.connect_changed(move |entry| {
+                    if let Some(value) = parse_positive_f64(entry.text().as_str()) {
+                        cad.tool_parameters.borrow_mut().offset_distance = value;
+                    }
+                });
+            }
+            distance_row.append(&field_label("Offset Distance"));
+            distance_row.append(&distance_entry);
+            panel.append(&distance_row);
+            context_entry(panel, "Through point", "TODO");
+            context_entry(panel, "Erase source", "TODO");
+            context_buttons(panel, &["OSNAP"]);
+        }
+        Tool::Trim => {
+            compact_note(
+                panel,
+                "Click cutting edge, then click the side of the entity to trim.",
+            );
+            context_entry(panel, "Boundary", "Explicit edge");
+            context_buttons(panel, &["OSNAP"]);
+        }
+        Tool::Extend => {
+            compact_note(
+                panel,
+                "Click boundary edge, then click the entity segment to extend.",
+            );
+            context_entry(panel, "Boundary", "Explicit edge");
+            context_buttons(panel, &["OSNAP"]);
         }
         Tool::Block => {
             context_entry(panel, "Block name", "New block");
@@ -1836,6 +2253,95 @@ fn add_mode_controls(panel: &gtk::Box, tool: Tool, cad: &UiCadContext, canvas: &
             row.insert(&disabled, -1);
             panel.append(&row);
         }
+        Tool::Dimension => {
+            section_title(panel, "Dimension mode");
+            let row = gtk::FlowBox::new();
+            row.set_selection_mode(gtk::SelectionMode::None);
+            row.set_column_spacing(6);
+            row.set_row_spacing(6);
+            let mode = cad.tool_parameters.borrow().dimension_mode;
+            row.insert(
+                &mode_button(
+                    "tool-modes/dimension-linear",
+                    "Linear",
+                    "Linear dimension with offset",
+                    mode == DimensionCreationMode::Linear,
+                    {
+                        let cad = cad.clone();
+                        let panel = panel.clone();
+                        let canvas = canvas.clone();
+                        move || {
+                            cad.tool_parameters.borrow_mut().dimension_mode =
+                                DimensionCreationMode::Linear;
+                            canvas.cancel_interaction();
+                            refresh_tool_context(&panel, Tool::Dimension, &cad, &canvas);
+                        }
+                    },
+                ),
+                -1,
+            );
+            row.insert(
+                &mode_button(
+                    "tool-modes/dimension-aligned",
+                    "Aligned",
+                    "Aligned dimension parallel to segment",
+                    mode == DimensionCreationMode::Aligned,
+                    {
+                        let cad = cad.clone();
+                        let panel = panel.clone();
+                        let canvas = canvas.clone();
+                        move || {
+                            cad.tool_parameters.borrow_mut().dimension_mode =
+                                DimensionCreationMode::Aligned;
+                            canvas.cancel_interaction();
+                            refresh_tool_context(&panel, Tool::Dimension, &cad, &canvas);
+                        }
+                    },
+                ),
+                -1,
+            );
+            row.insert(
+                &mode_button(
+                    "tool-modes/dimension-radius",
+                    "Radius",
+                    "Radius dimension from circle",
+                    mode == DimensionCreationMode::Radius,
+                    {
+                        let cad = cad.clone();
+                        let panel = panel.clone();
+                        let canvas = canvas.clone();
+                        move || {
+                            cad.tool_parameters.borrow_mut().dimension_mode =
+                                DimensionCreationMode::Radius;
+                            canvas.cancel_interaction();
+                            refresh_tool_context(&panel, Tool::Dimension, &cad, &canvas);
+                        }
+                    },
+                ),
+                -1,
+            );
+            row.insert(
+                &mode_button(
+                    "tool-modes/dimension-diameter",
+                    "Diameter",
+                    "Diameter dimension from circle",
+                    mode == DimensionCreationMode::Diameter,
+                    {
+                        let cad = cad.clone();
+                        let panel = panel.clone();
+                        let canvas = canvas.clone();
+                        move || {
+                            cad.tool_parameters.borrow_mut().dimension_mode =
+                                DimensionCreationMode::Diameter;
+                            canvas.cancel_interaction();
+                            refresh_tool_context(&panel, Tool::Dimension, &cad, &canvas);
+                        }
+                    },
+                ),
+                -1,
+            );
+            panel.append(&row);
+        }
         _ => {}
     }
 }
@@ -2008,11 +2514,293 @@ fn property(panel: &gtk::Box, label: &str, value: &str) {
     panel.append(&row);
 }
 
+pub(crate) fn refresh_layer_panel(
+    panel: &gtk::Box,
+    cad: &UiCadContext,
+    canvas: &CadCanvas,
+    properties: &gtk::Box,
+    selection_label: &gtk::Label,
+    modified_label: &gtk::Label,
+) {
+    while let Some(child) = panel.first_child() {
+        panel.remove(&child);
+    }
+
+    let create_row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    let create_entry = gtk::Entry::new();
+    create_entry.set_placeholder_text(Some("New layer"));
+    let create_btn = layer_icon_button("layer-add", "Create layer", 16);
+    {
+        let cad = cad.clone();
+        let panel = panel.clone();
+        let canvas = canvas.clone();
+        let properties = properties.clone();
+        let selection_label = selection_label.clone();
+        let modified_label = modified_label.clone();
+        let create_entry_for_click = create_entry.clone();
+        create_btn.connect_clicked(move |_| {
+            let name = create_entry_for_click.text().to_string();
+            if update_layers_with_history(&cad, |doc| doc.create_layer(name.trim())) {
+                refresh_layer_panel(
+                    &panel,
+                    &cad,
+                    &canvas,
+                    &properties,
+                    &selection_label,
+                    &modified_label,
+                );
+                refresh_properties(&properties, &cad.document.borrow());
+                modified_label.set_text("Modified");
+                canvas.widget().queue_draw();
+            }
+        });
+    }
+    create_row.append(&create_entry);
+    create_row.append(&create_btn);
+    panel.append(&create_row);
+
+    let move_row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+    let move_entry = gtk::Entry::new();
+    move_entry.set_placeholder_text(Some("Move selection to layer"));
+    let move_btn = gtk::Button::with_label("Move");
+    {
+        let cad = cad.clone();
+        let canvas = canvas.clone();
+        let properties = properties.clone();
+        let selection_label = selection_label.clone();
+        let modified_label = modified_label.clone();
+        let move_entry_for_click = move_entry.clone();
+        move_btn.connect_clicked(move |_| {
+            let target = move_entry_for_click.text().to_string();
+            let ids = cad.selected_entity.borrow().clone();
+            if ids.is_empty() {
+                return;
+            }
+            let changed = update_entity_properties_with_history(&cad, &ids, |doc, id| {
+                doc.set_entity_layer(id, target.trim())
+            });
+            if changed {
+                update_selection_label(&selection_label, &cad.document.borrow(), &ids);
+                refresh_properties(&properties, &cad.document.borrow());
+                modified_label.set_text("Modified");
+                canvas.widget().queue_draw();
+            }
+        });
+    }
+    move_row.append(&move_entry);
+    move_row.append(&move_btn);
+    panel.append(&move_row);
+
+    for layer in cad.document.borrow().layers.clone() {
+        let row = gtk::Box::new(gtk::Orientation::Vertical, 4);
+        row.add_css_class("layer-row");
+        let top = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+        let is_active = cad.document.borrow().active_layer_name == layer.name;
+        let active = layer_icon_button(
+            if is_active { "layer-active" } else { "layer" },
+            if is_active {
+                "Active layer"
+            } else {
+                "Set active layer"
+            },
+            16,
+        );
+        let visible = layer_icon_button(
+            if layer.visible { "eye" } else { "eye-off" },
+            if layer.visible {
+                "Hide layer"
+            } else {
+                "Show layer"
+            },
+            16,
+        );
+        let locked = layer_icon_button(
+            if layer.locked { "lock" } else { "unlock" },
+            if layer.locked {
+                "Unlock layer"
+            } else {
+                "Lock layer"
+            },
+            16,
+        );
+        let delete = layer_icon_button("layer-delete", "Delete empty layer", 16);
+        delete.set_sensitive(cad.document.borrow().can_delete_layer(&layer.name));
+        let count = cad
+            .document
+            .borrow()
+            .entities
+            .iter()
+            .filter(|entity| entity.layer() == layer.name)
+            .count();
+        top.append(&active);
+        top.append(&visible);
+        top.append(&locked);
+        top.append(&gtk::Label::new(Some(&format!("{} ({count})", layer.name))));
+        top.append(&delete);
+
+        let bottom = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+        let name_entry = gtk::Entry::new();
+        name_entry.set_text(&layer.name);
+        let color_entry = gtk::Entry::new();
+        color_entry.set_text(&layer.color);
+        let weight_entry = gtk::Entry::new();
+        weight_entry.set_text(&format!("{:.2}", layer.line_weight));
+        let type_entry = gtk::Entry::new();
+        type_entry.set_text(&layer.line_type);
+        bottom.append(&name_entry);
+        bottom.append(&color_entry);
+        bottom.append(&weight_entry);
+        bottom.append(&type_entry);
+
+        {
+            let cad = cad.clone();
+            let panel = panel.clone();
+            let canvas = canvas.clone();
+            let properties = properties.clone();
+            let selection_label = selection_label.clone();
+            let modified_label = modified_label.clone();
+            let layer_name = layer.name.clone();
+            active.connect_clicked(move |_| {
+                if update_layers_with_history(&cad, |doc| doc.set_active_layer_name(&layer_name)) {
+                    refresh_layer_panel(
+                        &panel,
+                        &cad,
+                        &canvas,
+                        &properties,
+                        &selection_label,
+                        &modified_label,
+                    );
+                    refresh_properties(&properties, &cad.document.borrow());
+                    canvas.widget().queue_draw();
+                }
+            });
+        }
+        {
+            let cad = cad.clone();
+            let panel = panel.clone();
+            let canvas = canvas.clone();
+            let properties = properties.clone();
+            let selection_label = selection_label.clone();
+            let modified_label = modified_label.clone();
+            let layer_name = layer.name.clone();
+            visible.connect_clicked(move |_| {
+                let target = !cad.document.borrow().layer_visible(&layer_name);
+                if update_layers_with_history(&cad, |doc| {
+                    doc.set_layer_visible(&layer_name, target)
+                }) {
+                    refresh_layer_panel(
+                        &panel,
+                        &cad,
+                        &canvas,
+                        &properties,
+                        &selection_label,
+                        &modified_label,
+                    );
+                    refresh_properties(&properties, &cad.document.borrow());
+                    canvas.widget().queue_draw();
+                }
+            });
+        }
+        {
+            let cad = cad.clone();
+            let panel = panel.clone();
+            let canvas = canvas.clone();
+            let properties = properties.clone();
+            let selection_label = selection_label.clone();
+            let modified_label = modified_label.clone();
+            let layer_name = layer.name.clone();
+            locked.connect_clicked(move |_| {
+                let target = !cad.document.borrow().layer_locked(&layer_name);
+                if update_layers_with_history(&cad, |doc| doc.set_layer_locked(&layer_name, target))
+                {
+                    refresh_layer_panel(
+                        &panel,
+                        &cad,
+                        &canvas,
+                        &properties,
+                        &selection_label,
+                        &modified_label,
+                    );
+                    refresh_properties(&properties, &cad.document.borrow());
+                    canvas.widget().queue_draw();
+                }
+            });
+        }
+        {
+            let cad = cad.clone();
+            let panel = panel.clone();
+            let canvas = canvas.clone();
+            let properties = properties.clone();
+            let selection_label = selection_label.clone();
+            let modified_label = modified_label.clone();
+            let layer_name = layer.name.clone();
+            delete.connect_clicked(move |_| {
+                if update_layers_with_history(&cad, |doc| doc.delete_layer_if_empty(&layer_name)) {
+                    refresh_layer_panel(
+                        &panel,
+                        &cad,
+                        &canvas,
+                        &properties,
+                        &selection_label,
+                        &modified_label,
+                    );
+                    refresh_properties(&properties, &cad.document.borrow());
+                    canvas.widget().queue_draw();
+                }
+            });
+        }
+        {
+            let cad = cad.clone();
+            let panel = panel.clone();
+            let canvas = canvas.clone();
+            let properties = properties.clone();
+            let selection_label = selection_label.clone();
+            let modified_label = modified_label.clone();
+            let old_name = layer.name.clone();
+            let color_entry = color_entry.clone();
+            let weight_entry = weight_entry.clone();
+            let type_entry = type_entry.clone();
+            name_entry.connect_activate(move |entry| {
+                let new_name = entry.text().to_string();
+                let changed = update_layers_with_history(&cad, |doc| {
+                    let mut any = false;
+                    any |= doc.rename_layer(&old_name, new_name.trim());
+                    any |= doc.set_layer_color(new_name.trim(), color_entry.text().as_str());
+                    any |= doc.set_layer_line_weight(
+                        new_name.trim(),
+                        weight_entry.text().as_str().parse::<f64>().unwrap_or(0.25),
+                    );
+                    any |= doc.set_layer_line_type(new_name.trim(), type_entry.text().as_str());
+                    any
+                });
+                if changed {
+                    refresh_layer_panel(
+                        &panel,
+                        &cad,
+                        &canvas,
+                        &properties,
+                        &selection_label,
+                        &modified_label,
+                    );
+                    refresh_properties(&properties, &cad.document.borrow());
+                    canvas.widget().queue_draw();
+                }
+            });
+        }
+
+        row.append(&top);
+        row.append(&bottom);
+        panel.append(&row);
+    }
+}
+
 fn status_bar(
     cursor_label: gtk::Label,
     tool_label: gtk::Label,
     modified_label: gtk::Label,
     document: Rc<RefCell<Document>>,
+    osnap_status: gtk::Label,
+    precision_status: gtk::Label,
 ) -> gtk::Box {
     let status = gtk::Box::new(gtk::Orientation::Horizontal, 18);
     status.add_css_class("status-bar");
@@ -2030,9 +2818,8 @@ fn status_bar(
         document.borrow().metadata.scale_factor
     ))));
     status.append(&tool_label);
-    status.append(&gtk::Label::new(Some(
-        "Snap: endpoint · midpoint · center · perpendicular",
-    )));
+    status.append(&osnap_status);
+    status.append(&precision_status);
     status.append(&modified_label);
     status
 }
@@ -2063,25 +2850,28 @@ fn attach_canvas_context_menu(
     window: adw::ApplicationWindow,
     canvas: CadCanvas,
     cad: UiCadContext,
+    view: Rc<UiViewContext>,
     selection_label: gtk::Label,
-    properties: gtk::Box,
-    modified_label: gtk::Label,
     active_tool: Rc<RefCell<Tool>>,
     tool_label: gtk::Label,
     tool_context: gtk::Box,
 ) {
     let document = cad.document.clone();
     let selected_entity = cad.selected_entity.clone();
+    let properties = view.properties.clone();
+    let modified_label = view.modified_label.clone();
     let click = gtk::GestureClick::new();
     click.set_button(3);
     let controller_area = canvas.widget().clone();
     let area = controller_area.clone();
+    let layer_entry = view.attribute_layer_entry.clone();
     click.connect_pressed(move |_, _, x, y| {
         let hit = canvas.entity_at_screen(&document.borrow(), x, y);
         if let Some(id) = hit {
             *selected_entity.borrow_mut() = vec![id];
-            update_selection_label(
+            crate::canvas::update_selection_ui(
                 &selection_label,
+                &layer_entry,
                 &document.borrow(),
                 &selected_entity.borrow(),
             );
@@ -2115,20 +2905,16 @@ fn attach_canvas_context_menu(
                     }),
                     menu_item("Delete", {
                         let cad = cad.clone();
-                        let canvas = canvas.clone();
+                        let view = view.clone();
                         let selected_entity = selected_entity.clone();
                         let selection_label = selection_label.clone();
-                        let properties = properties.clone();
-                        let modified_label = modified_label.clone();
                         move || {
                             if delete_selected_entities(&cad, &[id]) {
                                 selected_entity.borrow_mut().clear();
                                 refresh_after_history_change(
                                     &cad,
-                                    &canvas,
+                                    &view,
                                     &selection_label,
-                                    &properties,
-                                    &modified_label,
                                     &selected_entity,
                                 );
                             }
@@ -2353,11 +3139,9 @@ fn open_text_edit_dialog(
 }
 
 fn floating_command_bar(
-    canvas: CadCanvas,
     cad: UiCadContext,
+    view: Rc<UiViewContext>,
     selection_label: gtk::Label,
-    properties: gtk::Box,
-    modified_label: gtk::Label,
     active_tool: Rc<RefCell<Tool>>,
     tool_label: gtk::Label,
     tool_context: gtk::Box,
@@ -2399,11 +3183,9 @@ fn floating_command_bar(
     }
 
     {
-        let canvas = canvas.clone();
         let cad = cad.clone();
+        let view = view.clone();
         let selection_label = selection_label.clone();
-        let properties = properties.clone();
-        let modified_label = modified_label.clone();
         let active_tool = active_tool.clone();
         let tool_label = tool_label.clone();
         let tool_context = tool_context.clone();
@@ -2417,11 +3199,9 @@ fn floating_command_bar(
             schedule_command_execution(
                 raw_command,
                 CommandExecutionContext {
-                    canvas: canvas.clone(),
                     cad: cad.clone(),
+                    view: view.clone(),
                     selection_label: selection_label.clone(),
-                    properties: properties.clone(),
-                    modified_label: modified_label.clone(),
                     active_tool: active_tool.clone(),
                     tool_label: tool_label.clone(),
                     tool_context: tool_context.clone(),
@@ -2610,7 +3390,7 @@ fn execute_geometry_command(
 
 fn add_command_entity(
     cad: &UiCadContext,
-    entity: Entity,
+    mut entity: Entity,
     active_layout: String,
     selection_label: &gtk::Label,
     properties: &gtk::Box,
@@ -2619,6 +3399,8 @@ fn add_command_entity(
     message: &'static str,
     command_status: &gtk::Label,
 ) {
+    let active_layer = cad.document.borrow().active_layer_name.clone();
+    entity.set_layer(&active_layer);
     match try_add_entity_with_history(cad, entity.clone(), &active_layout) {
         Ok(id) => {
             *cad.selected_entity.borrow_mut() = vec![id];
@@ -2657,11 +3439,9 @@ fn add_command_entity(
 
 #[derive(Clone)]
 struct CommandExecutionContext {
-    canvas: CadCanvas,
     cad: UiCadContext,
+    view: Rc<UiViewContext>,
     selection_label: gtk::Label,
-    properties: gtk::Box,
-    modified_label: gtk::Label,
     active_tool: Rc<RefCell<Tool>>,
     tool_label: gtk::Label,
     tool_context: gtk::Box,
@@ -2688,11 +3468,9 @@ fn run_scheduled_command(raw_command: String, ctx: CommandExecutionContext, atte
     }
     execute_command(
         &raw_command,
-        &ctx.canvas,
         &ctx.cad,
+        &ctx.view,
         &ctx.selection_label,
-        &ctx.properties,
-        &ctx.modified_label,
         &ctx.active_tool,
         &ctx.tool_label,
         &ctx.tool_context,
@@ -2706,7 +3484,7 @@ fn tool_from_registry_id(tool_id: &str) -> Tool {
         "polyline" => Tool::Polyline,
         "rectangle" => Tool::Rectangle,
         "circle" => Tool::Circle,
-        "move" => Tool::Modify,
+        "move" => Tool::Move,
         "select" => Tool::Select,
         "pan" => Tool::Pan,
         _ => Tool::Select,
@@ -2719,7 +3497,7 @@ fn registry_tool_message(tool_id: &str) -> &'static str {
         "polyline" => "PLINE: specify next point, Enter finishes",
         "rectangle" => "RECTANGLE: specify first corner",
         "circle" => "CIRCLE: specify center point",
-        "move" => "MODIFY: drag selected geometry",
+        "move" => "MOVE: specify base point",
         _ => "Tool activated",
     }
 }
@@ -2728,16 +3506,15 @@ fn registry_tool_message(tool_id: &str) -> &'static str {
 /// parameterized geometry commands and layout/view aliases.
 fn try_execute_registry_command(
     raw_command: &str,
-    canvas: &CadCanvas,
     cad: &UiCadContext,
+    view: &UiViewContext,
     selection_label: &gtk::Label,
-    properties: &gtk::Box,
-    modified_label: &gtk::Label,
     active_tool: &Rc<RefCell<Tool>>,
     tool_label: &gtk::Label,
     tool_context: &gtk::Box,
     history: &gtk::Label,
 ) -> bool {
+    let canvas = &view.canvas;
     let selected_entity = &cad.selected_entity;
     if !CommandRegistry::is_registry_delegated(raw_command) {
         return false;
@@ -2763,28 +3540,14 @@ fn try_execute_registry_command(
             }
             if delete_selected_entities(cad, &selected_ids) {
                 selected_entity.borrow_mut().clear();
-                refresh_after_history_change(
-                    cad,
-                    canvas,
-                    selection_label,
-                    properties,
-                    modified_label,
-                    selected_entity,
-                );
+                refresh_after_history_change(cad, view, selection_label, selected_entity);
                 history.set_text("DELETE: entity erased");
             }
             true
         }
         ParsedCommand::Undo => {
             if perform_undo(cad) {
-                refresh_after_history_change(
-                    cad,
-                    canvas,
-                    selection_label,
-                    properties,
-                    modified_label,
-                    selected_entity,
-                );
+                refresh_after_history_change(cad, view, selection_label, selected_entity);
                 history.set_text("UNDO");
             } else {
                 history.set_text("UNDO: nothing to undo");
@@ -2793,14 +3556,7 @@ fn try_execute_registry_command(
         }
         ParsedCommand::Redo => {
             if perform_redo(cad) {
-                refresh_after_history_change(
-                    cad,
-                    canvas,
-                    selection_label,
-                    properties,
-                    modified_label,
-                    selected_entity,
-                );
+                refresh_after_history_change(cad, view, selection_label, selected_entity);
                 history.set_text("REDO");
             } else {
                 history.set_text("REDO: nothing to redo");
@@ -2813,16 +3569,17 @@ fn try_execute_registry_command(
 
 fn execute_command(
     raw_command: &str,
-    canvas: &CadCanvas,
     cad: &UiCadContext,
+    view: &UiViewContext,
     selection_label: &gtk::Label,
-    properties: &gtk::Box,
-    modified_label: &gtk::Label,
     active_tool: &Rc<RefCell<Tool>>,
     tool_label: &gtk::Label,
     tool_context: &gtk::Box,
     history: &gtk::Label,
 ) {
+    let canvas = &view.canvas;
+    let properties = &view.properties;
+    let modified_label = &view.modified_label;
     let document = &cad.document;
     let selected_entity = &cad.selected_entity;
     let command = raw_command.trim().to_ascii_lowercase();
@@ -2831,13 +3588,82 @@ fn execute_command(
         return;
     }
 
+    if try_execute_osnap_command(&command, &cad.osnap, history) {
+        canvas.widget().queue_draw();
+        return;
+    }
+
+    {
+        let selected = cad.selected_entity.borrow().clone();
+        if crate::canvas_modify::try_execute_modify_command(
+            &command,
+            &mut cad.document.borrow_mut(),
+            &cad.history,
+            &selected,
+            Some(history),
+        ) {
+            refresh_after_history_change(cad, view, selection_label, &cad.selected_entity);
+            canvas.widget().queue_draw();
+            return;
+        }
+    }
+
+    {
+        let selected = cad.selected_entity.borrow().clone();
+        match crate::canvas_offset::try_execute_offset_command(
+            &command,
+            &mut cad.document.borrow_mut(),
+            &cad.history,
+            &selected,
+            &mut cad.tool_parameters.borrow_mut(),
+            Some(history),
+        ) {
+            crate::canvas_offset::OffsetCommandResult::NotHandled => {}
+            crate::canvas_offset::OffsetCommandResult::Applied => {
+                refresh_after_history_change(cad, view, selection_label, &cad.selected_entity);
+                canvas.widget().queue_draw();
+                return;
+            }
+            crate::canvas_offset::OffsetCommandResult::SetDistance => {
+                set_active_tool(
+                    active_tool,
+                    tool_label,
+                    tool_context,
+                    cad,
+                    canvas,
+                    Tool::Offset,
+                );
+                canvas.widget().queue_draw();
+                return;
+            }
+            crate::canvas_offset::OffsetCommandResult::Handled => {
+                canvas.widget().queue_draw();
+                return;
+            }
+        }
+    }
+
+    if let Some(activation) = crate::canvas_trim_extend::try_execute_trim_extend_command(&command) {
+        let tool = match activation {
+            crate::canvas_trim_extend::ToolActivation::Trim => Tool::Trim,
+            crate::canvas_trim_extend::ToolActivation::Extend => Tool::Extend,
+        };
+        set_active_tool(active_tool, tool_label, tool_context, cad, canvas, tool);
+        let msg = match tool {
+            Tool::Trim => "TRIM: pick cutting edge, then entity side",
+            Tool::Extend => "EXTEND: pick boundary, then entity to extend",
+            _ => "Tool activated",
+        };
+        history.set_text(msg);
+        canvas.widget().queue_draw();
+        return;
+    }
+
     if try_execute_registry_command(
         raw_command,
-        canvas,
         cad,
+        view,
         selection_label,
-        properties,
-        modified_label,
         active_tool,
         tool_label,
         tool_context,
@@ -2965,7 +3791,7 @@ fn execute_command(
             );
             history.set_text("SELECT: pick an entity");
         }
-        "m" | "move" | "modify" | "mo" => {
+        "modify" | "mo" => {
             set_active_tool(
                 active_tool,
                 tool_label,
@@ -2975,6 +3801,105 @@ fn execute_command(
                 Tool::Modify,
             );
             history.set_text("MODIFY: drag selected geometry");
+        }
+        "move" => {
+            set_active_tool(
+                active_tool,
+                tool_label,
+                tool_context,
+                cad,
+                canvas,
+                Tool::Move,
+            );
+            history.set_text("MOVE: pick base point, then destination");
+        }
+        "m" => {
+            set_active_tool(
+                active_tool,
+                tool_label,
+                tool_context,
+                cad,
+                canvas,
+                Tool::Modify,
+            );
+            history.set_text("MODIFY: drag selected geometry");
+        }
+        "copy" => {
+            set_active_tool(
+                active_tool,
+                tool_label,
+                tool_context,
+                cad,
+                canvas,
+                Tool::Copy,
+            );
+            history.set_text("COPY: pick base point, then destination");
+        }
+        "rotate" | "ro" => {
+            set_active_tool(
+                active_tool,
+                tool_label,
+                tool_context,
+                cad,
+                canvas,
+                Tool::Rotate,
+            );
+            history.set_text("ROTATE: pick base point, then angle");
+        }
+        "scale" | "sc" => {
+            set_active_tool(
+                active_tool,
+                tool_label,
+                tool_context,
+                cad,
+                canvas,
+                Tool::Scale,
+            );
+            history.set_text("SCALE: pick base point, then scale factor");
+        }
+        "mirror" | "mi" => {
+            set_active_tool(
+                active_tool,
+                tool_label,
+                tool_context,
+                cad,
+                canvas,
+                Tool::Mirror,
+            );
+            history.set_text("MIRROR: pick axis start, then axis end");
+        }
+        "offset" => {
+            set_active_tool(
+                active_tool,
+                tool_label,
+                tool_context,
+                cad,
+                canvas,
+                Tool::Offset,
+            );
+            history.set_text("OFFSET: pick entity, then side point");
+        }
+        "trim" | "tr" => {
+            set_active_tool(
+                active_tool,
+                tool_label,
+                tool_context,
+                cad,
+                canvas,
+                Tool::Trim,
+            );
+            history.set_text("TRIM: pick cutting edge, then entity side");
+        }
+        "extend" | "ex" => {
+            set_active_tool(
+                active_tool,
+                tool_label,
+                tool_context,
+                cad,
+                canvas,
+                Tool::Extend,
+            );
+            history.set_text("EXTEND: pick boundary, then entity to extend");
         }
         "d" | "dim" | "dimension" | "linear" => {
             set_active_tool(
@@ -3237,21 +4162,14 @@ fn execute_command(
             }
             if delete_selected_entities(cad, &selected_ids) {
                 selected_entity.borrow_mut().clear();
-                refresh_after_history_change(
-                    cad,
-                    canvas,
-                    selection_label,
-                    properties,
-                    modified_label,
-                    selected_entity,
-                );
+                refresh_after_history_change(cad, view, selection_label, selected_entity);
                 history.set_text("DELETE: entity erased");
             }
         }
-        "copy" | "duplicate" | "co" | "cp" => {
+        "duplicate" | "dup" => {
             let selected_ids = selected_entity.borrow().clone();
             if selected_ids.is_empty() {
-                history.set_text("COPY: no entity selected");
+                history.set_text("DUPLICATE: no entity selected");
                 return;
             }
             let mut copies = Vec::new();
@@ -3270,8 +4188,19 @@ fn execute_command(
                 refresh_properties(properties, &document.borrow());
                 modified_label.set_text("Modified");
                 canvas.widget().queue_draw();
-                history.set_text("COPY: duplicated selection");
+                history.set_text("DUPLICATE: offset copy of selection");
             }
+        }
+        "co" | "cp" => {
+            set_active_tool(
+                active_tool,
+                tool_label,
+                tool_context,
+                cad,
+                canvas,
+                Tool::Copy,
+            );
+            history.set_text("COPY: pick base point, then destination");
         }
         _ => {
             history.set_text(&format!("Unknown command: {}", raw_command.trim()));
@@ -3481,9 +4410,9 @@ fn attach_keyboard_shortcuts(
     active_tool: Rc<RefCell<Tool>>,
 ) {
     let cad = cad.clone();
+    let view = view.clone();
     let clipboard = cad.clipboard.clone();
     let canvas = view.canvas.clone();
-    let properties = view.properties.clone();
     let modified_label = view.modified_label.clone();
     let keys = gtk::EventControllerKey::new();
     keys.set_propagation_phase(gtk::PropagationPhase::Capture);
@@ -3506,10 +4435,8 @@ fn attach_keyboard_shortcuts(
                     cad.selected_entity.borrow_mut().clear();
                     refresh_after_history_change(
                         &cad,
-                        &canvas,
+                        &view,
                         &selection_label,
-                        &properties,
-                        &modified_label,
                         &cad.selected_entity,
                     );
                 }
@@ -3521,10 +4448,8 @@ fn attach_keyboard_shortcuts(
                     if perform_redo(&cad) {
                         refresh_after_history_change(
                             &cad,
-                            &canvas,
+                            &view,
                             &selection_label,
-                            &properties,
-                            &modified_label,
                             &cad.selected_entity,
                         );
                         gtk::glib::Propagation::Stop
@@ -3534,10 +4459,8 @@ fn attach_keyboard_shortcuts(
                 } else if perform_undo(&cad) {
                     refresh_after_history_change(
                         &cad,
-                        &canvas,
+                        &view,
                         &selection_label,
-                        &properties,
-                        &modified_label,
                         &cad.selected_entity,
                     );
                     gtk::glib::Propagation::Stop
@@ -3549,16 +4472,46 @@ fn attach_keyboard_shortcuts(
                 if perform_redo(&cad) {
                     refresh_after_history_change(
                         &cad,
-                        &canvas,
+                        &view,
                         &selection_label,
-                        &properties,
-                        &modified_label,
                         &cad.selected_entity,
                     );
                     gtk::glib::Propagation::Stop
                 } else {
                     gtk::glib::Propagation::Proceed
                 }
+            }
+            gdk::Key::F3 => {
+                {
+                    let mut state = cad.osnap.borrow_mut();
+                    state.enabled = !state.enabled;
+                }
+                canvas.widget().queue_draw();
+                gtk::glib::Propagation::Stop
+            }
+            gdk::Key::F8 => {
+                {
+                    let mut state = cad.precision.borrow_mut();
+                    state.ortho_enabled = !state.ortho_enabled;
+                }
+                canvas.widget().queue_draw();
+                gtk::glib::Propagation::Stop
+            }
+            gdk::Key::F10 => {
+                {
+                    let mut state = cad.precision.borrow_mut();
+                    state.polar_enabled = !state.polar_enabled;
+                }
+                canvas.widget().queue_draw();
+                gtk::glib::Propagation::Stop
+            }
+            gdk::Key::F12 => {
+                {
+                    let mut state = cad.precision.borrow_mut();
+                    state.dynamic_input_enabled = !state.dynamic_input_enabled;
+                }
+                canvas.widget().queue_draw();
+                gtk::glib::Propagation::Stop
             }
             gdk::Key::c if ctrl => {
                 let ids = cad.selected_entity.borrow().clone();
@@ -3573,14 +4526,7 @@ fn attach_keyboard_shortcuts(
                 let target = *canvas.cursor().borrow();
                 let ids = paste_entities_at(&cad, &entities, target);
                 *cad.selected_entity.borrow_mut() = ids;
-                refresh_after_history_change(
-                    &cad,
-                    &canvas,
-                    &selection_label,
-                    &properties,
-                    &modified_label,
-                    &cad.selected_entity,
-                );
+                refresh_after_history_change(&cad, &view, &selection_label, &cad.selected_entity);
                 gtk::glib::Propagation::Stop
             }
             gdk::Key::Return | gdk::Key::KP_Enter => {
@@ -3876,7 +4822,10 @@ fn show_info(window: &adw::ApplicationWindow, title: &str, text: &str) {
 
 fn load_css() {
     let provider = gtk::CssProvider::new();
-    provider.load_from_string(include_str!("../data/nodalix-cad.css"));
+    provider.load_from_string(concat!(
+        include_str!("../../../assets/styles/nodalix-fonts.css"),
+        include_str!("../data/nodalix-cad.css"),
+    ));
     if let Some(display) = gdk::Display::default() {
         gtk::style_context_add_provider_for_display(
             &display,

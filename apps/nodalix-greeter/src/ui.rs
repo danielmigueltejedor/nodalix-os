@@ -74,7 +74,12 @@ pub fn build(
 
 fn load_css(config: &theme::GreeterConfig) {
     let provider = gtk::CssProvider::new();
-    let css = format!("{}\n{}", theme::load_css(), config.css_overrides());
+    let css = format!(
+        "{}\n{}\n{}",
+        include_str!("../../../assets/styles/nodalix-fonts.css"),
+        theme::load_css(),
+        config.css_overrides()
+    );
     provider.load_from_string(&css);
 
     if let Some(display) = gdk::Display::default() {

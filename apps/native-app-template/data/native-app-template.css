@@ -3,10 +3,6 @@
 @define-color nodalix_muted rgba(235, 228, 255, 0.62);
 @define-color nodalix_card rgba(24, 21, 34, 0.72);
 
-* {
-  font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", "Adwaita Sans", sans-serif;
-}
-
 .app-root {
   padding: 28px;
   background: linear-gradient(135deg, rgba(12, 10, 18, 1.0), rgba(7, 7, 12, 1.0));

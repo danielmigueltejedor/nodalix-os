@@ -67,6 +67,20 @@ if [ -d "$ROOT/config/nodalix" ]; then
   link_config "$ROOT/config/nodalix" "$HOME/.config/nodalix"
 fi
 
+echo "==> Instalando entradas de sesión Wayland (usuario local)..."
+
+mkdir -p "$HOME/.local/share/wayland-sessions" "$HOME/.local/share/applications"
+for session in nodalix.desktop hyprland-uwsm.desktop; do
+  if [ -f "$ROOT/local/share/wayland-sessions/$session" ]; then
+    ln -sfn "$ROOT/local/share/wayland-sessions/$session" \
+      "$HOME/.local/share/wayland-sessions/$session"
+  fi
+done
+if [ -f "$ROOT/local/share/applications/hyprland-nodalix.desktop" ]; then
+  ln -sfn "$ROOT/local/share/applications/hyprland-nodalix.desktop" \
+    "$HOME/.local/share/applications/hyprland-nodalix.desktop"
+fi
+
 echo "==> Enlazando scripts..."
 
 for f in "$ROOT"/local/bin/*; do

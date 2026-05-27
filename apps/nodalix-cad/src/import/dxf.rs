@@ -1,5 +1,6 @@
 use crate::{
-    document::{Document, Entity, Layer, LayoutViewport, PaperSetup},
+    cad::layouts::{layout_debug_log, normalize_layout_name},
+    document::{normalized_layout_name, Document, Entity, Layer, LayoutViewport, PaperSetup},
     geometry::Point,
 };
 use std::collections::BTreeMap;
@@ -24,11 +25,24 @@ pub fn import_dxf(path: &Path, document: &mut Document) -> Result<ImportSummary,
     let layout_owners = detect_layout_owner_map(&pairs);
     let block_definitions = parse_block_definitions(&pairs);
     for layout in &detected_layouts {
-        document.ensure_layout(layout);
-        if let Some(paper) = layout_papers.get(layout).cloned() {
-            document.set_layout_paper(layout, paper);
+        let name = normalized_layout_name(layout);
+        document.ensure_layout(&name);
+        if let Some(paper) = layout_papers
+            .get(layout)
+            .or_else(|| layout_papers.get(&name))
+            .cloned()
+        {
+            document.set_layout_paper(&name, paper);
         }
+        layout_debug_log(&format!("layout detected name={name}"));
     }
+    let paper_layouts: Vec<String> = detected_layouts
+        .iter()
+        .map(|name| normalized_layout_name(name))
+        .filter(|name| name != "Model")
+        .collect();
+    let single_paper_layout = (paper_layouts.len() == 1).then(|| paper_layouts[0].clone());
+    let mut paper_layout_hint = single_paper_layout.clone();
     let mut imported = 0usize;
     let mut unsupported: BTreeMap<String, usize> = BTreeMap::new();
     let Some((mut i, end)) = section_bounds(&pairs, "ENTITIES") else {
@@ -59,13 +73,25 @@ pub fn import_dxf(path: &Path, document: &mut Document) -> Result<ImportSummary,
         match entity_type.as_str() {
             "LINE" => {
                 if let Some(entity) = parse_line(chunk, document.next_id()) {
-                    add_imported_entity(document, entity, chunk, &layout_owners);
+                    add_imported_entity(
+                        document,
+                        entity,
+                        chunk,
+                        &layout_owners,
+                        paper_layout_hint.as_deref(),
+                    );
                     imported += 1;
                 }
             }
             "LWPOLYLINE" => {
                 if let Some(entity) = parse_lwpolyline(chunk, document.next_id()) {
-                    add_imported_entity(document, entity, chunk, &layout_owners);
+                    add_imported_entity(
+                        document,
+                        entity,
+                        chunk,
+                        &layout_owners,
+                        paper_layout_hint.as_deref(),
+                    );
                     imported += 1;
                 }
             }
@@ -83,55 +109,104 @@ pub fn import_dxf(path: &Path, document: &mut Document) -> Result<ImportSummary,
                     i += 1;
                 }
                 if let Some(entity) = parse_polyline(chunk, &vertex_chunks, document.next_id()) {
-                    add_imported_entity(document, entity, chunk, &layout_owners);
+                    add_imported_entity(
+                        document,
+                        entity,
+                        chunk,
+                        &layout_owners,
+                        paper_layout_hint.as_deref(),
+                    );
                     imported += 1;
                 }
             }
             "CIRCLE" => {
                 if let Some(entity) = parse_circle(chunk, document.next_id()) {
-                    add_imported_entity(document, entity, chunk, &layout_owners);
+                    add_imported_entity(
+                        document,
+                        entity,
+                        chunk,
+                        &layout_owners,
+                        paper_layout_hint.as_deref(),
+                    );
                     imported += 1;
                 }
             }
             "ARC" => {
                 if let Some(entity) = parse_arc(chunk, document.next_id()) {
-                    add_imported_entity(document, entity, chunk, &layout_owners);
+                    add_imported_entity(
+                        document,
+                        entity,
+                        chunk,
+                        &layout_owners,
+                        paper_layout_hint.as_deref(),
+                    );
                     imported += 1;
                 }
             }
             "ELLIPSE" => {
                 if let Some(entity) = parse_ellipse(chunk, document.next_id()) {
-                    add_imported_entity(document, entity, chunk, &layout_owners);
+                    add_imported_entity(
+                        document,
+                        entity,
+                        chunk,
+                        &layout_owners,
+                        paper_layout_hint.as_deref(),
+                    );
                     imported += 1;
                 }
             }
             "SPLINE" => {
                 if let Some(entity) = parse_spline(chunk, document.next_id()) {
-                    add_imported_entity(document, entity, chunk, &layout_owners);
+                    add_imported_entity(
+                        document,
+                        entity,
+                        chunk,
+                        &layout_owners,
+                        paper_layout_hint.as_deref(),
+                    );
                     imported += 1;
                 }
             }
             "HATCH" => {
                 if let Some(entity) = parse_hatch(chunk, document.next_id()) {
-                    add_imported_entity(document, entity, chunk, &layout_owners);
+                    add_imported_entity(
+                        document,
+                        entity,
+                        chunk,
+                        &layout_owners,
+                        paper_layout_hint.as_deref(),
+                    );
                     imported += 1;
                 }
             }
             "DIMENSION" => {
                 if let Some(entity) = parse_dimension(chunk, document.next_id()) {
-                    add_imported_entity(document, entity, chunk, &layout_owners);
+                    add_imported_entity(
+                        document,
+                        entity,
+                        chunk,
+                        &layout_owners,
+                        paper_layout_hint.as_deref(),
+                    );
                     imported += 1;
                 }
             }
             "VIEWPORT" => {
                 if let Some(viewport) = parse_viewport(chunk, document.next_id(), &layout_owners) {
+                    paper_layout_hint = Some(viewport.layout.clone());
                     document.add_layout_viewport(viewport);
                     imported += 1;
                 }
             }
             "TEXT" | "MTEXT" | "ATTRIB" => {
                 if let Some(entity) = parse_text(chunk, document.next_id()) {
-                    add_imported_entity(document, entity, chunk, &layout_owners);
+                    add_imported_entity(
+                        document,
+                        entity,
+                        chunk,
+                        &layout_owners,
+                        paper_layout_hint.as_deref(),
+                    );
                     imported += 1;
                 }
             }
@@ -139,11 +214,23 @@ pub fn import_dxf(path: &Path, document: &mut Document) -> Result<ImportSummary,
                 if let Some(inserted) = expand_insert(chunk, document.next_id(), &block_definitions)
                 {
                     for entity in inserted {
-                        add_imported_entity(document, entity, chunk, &layout_owners);
+                        add_imported_entity(
+                            document,
+                            entity,
+                            chunk,
+                            &layout_owners,
+                            paper_layout_hint.as_deref(),
+                        );
                         imported += 1;
                     }
                 } else if let Some(entity) = parse_insert(chunk, document.next_id()) {
-                    add_imported_entity(document, entity, chunk, &layout_owners);
+                    add_imported_entity(
+                        document,
+                        entity,
+                        chunk,
+                        &layout_owners,
+                        paper_layout_hint.as_deref(),
+                    );
                     imported += 1;
                 } else {
                     *unsupported.entry(entity_type).or_default() += 1;
@@ -213,11 +300,17 @@ fn add_imported_entity(
     entity: Entity,
     pairs: &[(String, String)],
     layout_owners: &BTreeMap<String, String>,
+    paper_layout_hint: Option<&str>,
 ) {
     let id = entity.id();
-    let layout = entity_layout_name(document, pairs, layout_owners);
+    let layout = entity_layout_name(pairs, layout_owners, paper_layout_hint);
     ensure_layer(document, entity.layer());
     document.add_entity_on_layout(entity, Some(&layout));
+    if layout != "Model" {
+        layout_debug_log(&format!(
+            "entity assigned layout={layout} paper=true id={id}"
+        ));
+    }
     if let Some(color) = dxf_color_value(pairs) {
         document.set_entity_color(id, color);
     }
@@ -344,22 +437,44 @@ fn detect_layout_names(pairs: &[(String, String)]) -> Vec<String> {
         }
 
         let chunk = &pairs[start..i];
-        let mut in_layout_section = false;
-        for (code, value) in chunk {
-            if code == "100" && value.eq_ignore_ascii_case("AcDbLayout") {
-                in_layout_section = true;
-                continue;
-            }
-            if in_layout_section && (code == "1" || code == "2") {
-                let name = value.trim();
-                if !name.is_empty() && !names.iter().any(|existing| existing == name) {
-                    names.push(name.to_string());
-                }
-                break;
+        if let Some(name) = layout_tab_name_from_chunk(chunk) {
+            let name = normalized_layout_name(&name);
+            if !names.iter().any(|existing| existing == &name) {
+                names.push(name);
             }
         }
     }
+    if !names.iter().any(|name| name == "Model") {
+        names.insert(0, "Model".to_string());
+    }
     names
+}
+
+fn layout_tab_name_from_chunk(chunk: &[(String, String)]) -> Option<String> {
+    let mut in_layout_section = false;
+    let mut tab_name = None::<String>;
+    let mut block_name = None::<String>;
+    for (code, value) in chunk {
+        if code == "100" && value.eq_ignore_ascii_case("AcDbLayout") {
+            in_layout_section = true;
+            continue;
+        }
+        if !in_layout_section {
+            continue;
+        }
+        if code == "1" && tab_name.is_none() {
+            let value = value.trim();
+            if !value.is_empty() {
+                tab_name = Some(value.to_string());
+            }
+        } else if code == "2" && block_name.is_none() {
+            let value = value.trim();
+            if !value.is_empty() && !value.starts_with('*') {
+                block_name = Some(value.to_string());
+            }
+        }
+    }
+    tab_name.or(block_name)
 }
 
 fn detect_layout_papers(pairs: &[(String, String)]) -> BTreeMap<String, PaperSetup> {
@@ -461,7 +576,7 @@ fn detect_layout_owner_map(pairs: &[(String, String)]) -> BTreeMap<String, Strin
             }
         }
         if let (Some(owner), Some(name)) = (owner, name) {
-            owners.insert(owner, name);
+            owners.insert(owner, normalized_layout_name(&name));
         }
     }
     owners
@@ -482,27 +597,24 @@ fn paper_preset(width: f64, height: f64) -> &'static str {
 }
 
 fn entity_layout_name(
-    document: &Document,
     pairs: &[(String, String)],
     layout_owners: &BTreeMap<String, String>,
+    paper_layout_hint: Option<&str>,
 ) -> String {
     if let Some(layout) = text_value(pairs, "410") {
-        return layout;
+        return normalized_layout_name(&layout);
     }
 
     if let Some(owner) = text_value(pairs, "330") {
         if let Some(layout) = layout_owners.get(&owner.to_ascii_uppercase()) {
-            return layout.clone();
+            return normalized_layout_name(layout);
         }
     }
 
     if integer_value(pairs, "67") == Some(1) {
-        return document
-            .layouts
-            .iter()
-            .find(|layout| layout.name != "Model")
-            .map(|layout| layout.name.clone())
-            .unwrap_or_else(|| "Layout 1".to_string());
+        if let Some(layout) = paper_layout_hint {
+            return normalized_layout_name(layout);
+        }
     }
 
     "Model".to_string()
@@ -527,15 +639,17 @@ fn parse_viewport(
     id: u64,
     layout_owners: &BTreeMap<String, String>,
 ) -> Option<LayoutViewport> {
+    let viewport_number = integer_value(pairs, "69").unwrap_or(1);
+    if viewport_number <= 1 {
+        return None;
+    }
     let layout = text_value(pairs, "410")
         .or_else(|| {
             text_value(pairs, "330")
                 .and_then(|owner| layout_owners.get(&owner.to_ascii_uppercase()).cloned())
         })
-        .unwrap_or_else(|| "Layout 1".to_string());
-    if layout == "Model" {
-        return None;
-    }
+        .map(|name| normalized_layout_name(&name))
+        .filter(|name| name != "Model")?;
     let center = Point {
         x: number_value(pairs, "10")?,
         y: number_value(pairs, "20")?,
@@ -548,6 +662,15 @@ fn parse_viewport(
     };
     let view_height = number_value(pairs, "45").unwrap_or(height).abs().max(1.0);
     let twist = number_value(pairs, "51").unwrap_or(0.0).to_radians();
+    let flags = integer_value(pairs, "90").unwrap_or(0);
+    let visible = flags & 512 != 512;
+    let locked = flags & 16384 == 16384;
+    layout_debug_log(&format!(
+        "viewport imported layout={layout} center=({:.3},{:.3}) scale={:.6}",
+        center.x,
+        center.y,
+        height / view_height.max(1.0)
+    ));
     Some(LayoutViewport {
         id,
         layout,
@@ -560,9 +683,8 @@ fn parse_viewport(
         scale_paper_units: 1.0,
         scale_model_units: (view_height / height.max(1.0)).max(1.0),
         twist,
-        locked: integer_value(pairs, "90")
-            .map(|flags| flags & 16384 == 16384)
-            .unwrap_or(false),
+        visible,
+        locked,
         border_visible: true,
         visible_layers: Vec::new(),
         hidden_layers: Vec::new(),
@@ -1116,7 +1238,120 @@ fn group_pairs(data: &str) -> Vec<(String, String)> {
 
 #[cfg(test)]
 mod tests {
-    use super::normalize_dxf_text;
+    use super::{
+        entity_layout_name, group_pairs, layout_tab_name_from_chunk, normalize_dxf_text,
+        parse_viewport,
+    };
+    use crate::document::Document;
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn entity_layout_from_group_410() {
+        let pairs = vec![
+            ("67".to_string(), "1".to_string()),
+            ("410".to_string(), "Layout1".to_string()),
+        ];
+        assert_eq!(
+            entity_layout_name(&pairs, &BTreeMap::new(), None),
+            "Layout1"
+        );
+    }
+
+    #[test]
+    fn entity_model_space_without_paper_flag() {
+        let pairs = vec![("8".to_string(), "0".to_string())];
+        assert_eq!(entity_layout_name(&pairs, &BTreeMap::new(), None), "Model");
+    }
+
+    #[test]
+    fn paper_entity_uses_layout_hint_when_missing_410() {
+        let pairs = vec![("67".to_string(), "1".to_string())];
+        assert_eq!(
+            entity_layout_name(&pairs, &BTreeMap::new(), Some("Layout2")),
+            "Layout2"
+        );
+    }
+
+    #[test]
+    fn viewport_import_skips_paper_space_viewport_number_one() {
+        let pairs = vec![
+            ("69".to_string(), "1".to_string()),
+            ("10".to_string(), "0".to_string()),
+            ("20".to_string(), "0".to_string()),
+            ("40".to_string(), "100".to_string()),
+            ("41".to_string(), "80".to_string()),
+            ("410".to_string(), "Layout1".to_string()),
+        ];
+        assert!(parse_viewport(&pairs, 1, &BTreeMap::new()).is_none());
+    }
+
+    #[test]
+    fn viewport_import_creates_layout_viewport() {
+        let pairs = vec![
+            ("69".to_string(), "2".to_string()),
+            ("10".to_string(), "50".to_string()),
+            ("20".to_string(), "40".to_string()),
+            ("40".to_string(), "100".to_string()),
+            ("41".to_string(), "80".to_string()),
+            ("12".to_string(), "10".to_string()),
+            ("22".to_string(), "20".to_string()),
+            ("45".to_string(), "200".to_string()),
+            ("410".to_string(), "Layout1".to_string()),
+        ];
+        let viewport = parse_viewport(&pairs, 9, &BTreeMap::new()).unwrap();
+        assert_eq!(viewport.layout, "Layout1");
+        assert!((viewport.view_height - 200.0).abs() < 1e-6);
+        assert!((viewport.model_zoom - 0.4).abs() < 1e-6);
+    }
+
+    #[test]
+    fn layout_tab_name_prefers_group_one() {
+        let chunk = vec![
+            ("100".to_string(), "AcDbLayout".to_string()),
+            ("1".to_string(), "Layout1".to_string()),
+            ("2".to_string(), "Layout1_Paper".to_string()),
+        ];
+        assert_eq!(
+            layout_tab_name_from_chunk(&chunk).as_deref(),
+            Some("Layout1")
+        );
+    }
+
+    #[test]
+    fn dxf_import_assigns_layout_from_group_410() {
+        let dxf = "\
+0\nLINE\n8\n0\n10\n0\n20\n0\n11\n10\n21\n0\n67\n1\n410\nLayout1\n\
+0\nLINE\n8\n0\n10\n0\n20\n0\n11\n5\n21\n5\n\
+0\nEOF\n";
+        let mut doc = Document::new_empty();
+        let pairs = group_pairs(dxf);
+        let mut owners = BTreeMap::new();
+        let layout = entity_layout_name(&pairs[0..12], &owners, None);
+        assert_eq!(layout, "Layout1");
+        doc.ensure_layout("Layout1");
+        doc.add_entity_on_layout(
+            crate::document::Entity::Line {
+                id: 1,
+                layer: "0".to_string(),
+                start: crate::geometry::Point { x: 0.0, y: 0.0 },
+                end: crate::geometry::Point { x: 10.0, y: 0.0 },
+            },
+            Some("Layout1"),
+        );
+        doc.add_entity_on_layout(
+            crate::document::Entity::Line {
+                id: 2,
+                layer: "0".to_string(),
+                start: crate::geometry::Point { x: 0.0, y: 0.0 },
+                end: crate::geometry::Point { x: 5.0, y: 5.0 },
+            },
+            None,
+        );
+        doc.set_active_layout("Layout1");
+        assert!(doc.entity_visible_in_active_layout(1));
+        assert!(!doc.entity_visible_in_active_layout(2));
+        let _ = owners;
+    }
 
     #[test]
     fn normalizes_autocad_mtext_format_codes() {

@@ -14,7 +14,7 @@ now = datetime.now()
 text = now.strftime("%a %d").replace(".", "")
 
 print(json.dumps({
-    "text": "󰃭 " + text,
+    "text": "󰃭  " + text,
     "tooltip": "Calendario · próximamente",
     "class": "normal"
 }, ensure_ascii=False))

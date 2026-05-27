@@ -61,3 +61,8 @@ dist/
 *.deb
 *.pkg.tar.zst
 *.AppImage
+
+# Local build/runtime artifacts
+**/.cargo/
+**/crash_report.txt
+crash_report.txt

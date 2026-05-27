@@ -1,0 +1,24 @@
+/* Canonical Nodalix OS UI font stacks.
+   GTK-compatible: do not use :root, CSS variables, var(), :is(), :where() or :has().
+*/
+
+* {
+  font-family: "Inter", "Adwaita Sans", "Cantarell", "Noto Sans", sans-serif;
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: "Inter", "Adwaita Sans", "Cantarell", "Noto Sans", sans-serif;
+}
+
+code,
+pre,
+kbd,
+samp,
+.monospace,
+.terminal,
+.log {
+  font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", monospace;
+}

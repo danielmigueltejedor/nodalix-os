@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Hyprland (Nodalix)
+Comment=Hyprland compositor via the official start-hyprland wrapper
+# Hyprland warns if launched as bare "Hyprland"; start-hyprland sets up the session env.
+Exec=/usr/bin/start-hyprland
+TryExec=/usr/bin/start-hyprland
+Type=Application
+DesktopNames=Hyprland

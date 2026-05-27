@@ -1,10 +1,6 @@
 @define-color nodalix_accent #cba6f7;
 @define-color nodalix_text rgba(255, 255, 255, 0.94);
 
-* {
-  font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", "Adwaita Sans", sans-serif;
-}
-
 .dock-window {
   background: transparent;
 }

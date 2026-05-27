@@ -5,8 +5,8 @@ if command -v nodalix-bt-menu >/dev/null 2>&1; then
   exec nodalix-bt-menu
 fi
 
-if [ -x "$HOME/Projects/nodalix-os/local/bin/nodalix-bt-menu" ]; then
-  exec "$HOME/Projects/nodalix-os/local/bin/nodalix-bt-menu"
+if [ -x "$HOME/Proyectos/nodalix-os/local/bin/nodalix-bt-menu" ]; then
+  exec "$HOME/Proyectos/nodalix-os/local/bin/nodalix-bt-menu"
 fi
 
 notify-send "Nodalix" "No encuentro nodalix-bt-menu"

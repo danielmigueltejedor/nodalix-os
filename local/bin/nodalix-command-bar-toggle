@@ -4,10 +4,10 @@ set -euo pipefail
 APP_NAME="nodalix-command-bar"
 APP_TITLE="Nodalix Command Bar"
 
-APP_RELEASE="$HOME/Projects/nodalix-os/apps/nodalix-command-bar/target/release/nodalix-command-bar"
-APP_DEBUG="$HOME/Projects/nodalix-os/apps/nodalix-command-bar/target/debug/nodalix-command-bar"
-APP_SOURCE="$HOME/Projects/nodalix-os/apps/nodalix-command-bar/src/nodalix-command-bar"
-APP_DIR="$HOME/Projects/nodalix-os/apps/nodalix-command-bar"
+APP_RELEASE="$HOME/Proyectos/nodalix-os/apps/nodalix-command-bar/target/release/nodalix-command-bar"
+APP_DEBUG="$HOME/Proyectos/nodalix-os/apps/nodalix-command-bar/target/debug/nodalix-command-bar"
+APP_SOURCE="$HOME/Proyectos/nodalix-os/apps/nodalix-command-bar/src/nodalix-command-bar"
+APP_DIR="$HOME/Proyectos/nodalix-os/apps/nodalix-command-bar"
 
 # If already open, close it.
 if hyprctl clients -j 2>/dev/null | jq -e '

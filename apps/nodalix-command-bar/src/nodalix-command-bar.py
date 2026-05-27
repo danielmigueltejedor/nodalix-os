@@ -216,7 +216,10 @@ def confirm_dangerous_action(item):
 
 
 def setup_css():
-    css = (APP_DIR / "data/nodalix-command-bar.css").read_bytes()
+    repo_root = APP_DIR.parent.parent
+    fonts_css = (repo_root / "assets/styles/nodalix-fonts.css").read_bytes()
+    app_css = (APP_DIR / "data/nodalix-command-bar.css").read_bytes()
+    css = fonts_css + app_css
 
     provider = Gtk.CssProvider()
     provider.load_from_data(css)
