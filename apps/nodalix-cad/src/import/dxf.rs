@@ -1,5 +1,5 @@
 use crate::{
-    document::{Document, Entity, Layer},
+    document::{Document, Entity, Layer, LayoutViewport, PaperSetup},
     geometry::Point,
 };
 use std::collections::BTreeMap;
@@ -10,13 +10,24 @@ use super::ImportSummary;
 const ARC_SEGMENTS: usize = 48;
 const ELLIPSE_SEGMENTS: usize = 72;
 
+#[derive(Clone, Debug)]
+struct BlockDefinition {
+    base: Point,
+    entities: Vec<Entity>,
+}
+
 pub fn import_dxf(path: &Path, document: &mut Document) -> Result<ImportSummary, String> {
     let data = fs::read_to_string(path).map_err(|err| err.to_string())?;
     let pairs = group_pairs(&data);
     let detected_layouts = detect_layout_names(&pairs);
+    let layout_papers = detect_layout_papers(&pairs);
     let layout_owners = detect_layout_owner_map(&pairs);
+    let block_definitions = parse_block_definitions(&pairs);
     for layout in &detected_layouts {
-        document.ensure_layout(&layout);
+        document.ensure_layout(layout);
+        if let Some(paper) = layout_papers.get(layout).cloned() {
+            document.set_layout_paper(layout, paper);
+        }
     }
     let mut imported = 0usize;
     let mut unsupported: BTreeMap<String, usize> = BTreeMap::new();
@@ -112,14 +123,31 @@ pub fn import_dxf(path: &Path, document: &mut Document) -> Result<ImportSummary,
                     imported += 1;
                 }
             }
-            "TEXT" | "MTEXT" => {
+            "VIEWPORT" => {
+                if let Some(viewport) = parse_viewport(chunk, document.next_id(), &layout_owners) {
+                    document.add_layout_viewport(viewport);
+                    imported += 1;
+                }
+            }
+            "TEXT" | "MTEXT" | "ATTRIB" => {
                 if let Some(entity) = parse_text(chunk, document.next_id()) {
                     add_imported_entity(document, entity, chunk, &layout_owners);
                     imported += 1;
                 }
             }
             "INSERT" => {
-                *unsupported.entry(entity_type).or_default() += 1;
+                if let Some(inserted) = expand_insert(chunk, document.next_id(), &block_definitions)
+                {
+                    for entity in inserted {
+                        add_imported_entity(document, entity, chunk, &layout_owners);
+                        imported += 1;
+                    }
+                } else if let Some(entity) = parse_insert(chunk, document.next_id()) {
+                    add_imported_entity(document, entity, chunk, &layout_owners);
+                    imported += 1;
+                } else {
+                    *unsupported.entry(entity_type).or_default() += 1;
+                }
             }
             _ => {}
         }
@@ -218,6 +246,88 @@ fn section_bounds(pairs: &[(String, String)], section_name: &str) -> Option<(usi
     None
 }
 
+fn parse_block_definitions(pairs: &[(String, String)]) -> BTreeMap<String, BlockDefinition> {
+    let mut blocks = BTreeMap::new();
+    let Some((mut i, end)) = section_bounds(pairs, "BLOCKS") else {
+        return blocks;
+    };
+    while i + 1 < end {
+        if pairs[i].0 != "0" || !pairs[i].1.eq_ignore_ascii_case("BLOCK") {
+            i += 1;
+            continue;
+        }
+        i += 1;
+        let block_start = i;
+        while i + 1 < end && !(pairs[i].0 == "0" && pairs[i].1.eq_ignore_ascii_case("ENDBLK")) {
+            i += 1;
+        }
+        let block_pairs = &pairs[block_start..i];
+        let Some(name) = text_value(block_pairs, "2") else {
+            i += 1;
+            continue;
+        };
+        let base = Point {
+            x: number_value(block_pairs, "10").unwrap_or(0.0),
+            y: number_value(block_pairs, "20").unwrap_or(0.0),
+        };
+        let entities = parse_block_entities(block_pairs);
+        if !entities.is_empty() {
+            blocks.insert(
+                name.to_ascii_uppercase(),
+                BlockDefinition { base, entities },
+            );
+        }
+        i += 1;
+    }
+    blocks
+}
+
+fn parse_block_entities(pairs: &[(String, String)]) -> Vec<Entity> {
+    let mut entities = Vec::new();
+    let mut i = 0usize;
+    while i + 1 < pairs.len() {
+        if pairs[i].0 != "0" {
+            i += 1;
+            continue;
+        }
+        let entity_type = pairs[i].1.to_ascii_uppercase();
+        i += 1;
+        let start = i;
+        while i + 1 < pairs.len() && pairs[i].0 != "0" {
+            i += 1;
+        }
+        let chunk = &pairs[start..i];
+        match entity_type.as_str() {
+            "LINE" => parse_line(chunk, 0)
+                .into_iter()
+                .for_each(|entity| entities.push(entity)),
+            "LWPOLYLINE" => parse_lwpolyline(chunk, 0)
+                .into_iter()
+                .for_each(|entity| entities.push(entity)),
+            "CIRCLE" => parse_circle(chunk, 0)
+                .into_iter()
+                .for_each(|entity| entities.push(entity)),
+            "ARC" => parse_arc(chunk, 0)
+                .into_iter()
+                .for_each(|entity| entities.push(entity)),
+            "ELLIPSE" => parse_ellipse(chunk, 0)
+                .into_iter()
+                .for_each(|entity| entities.push(entity)),
+            "SPLINE" => parse_spline(chunk, 0)
+                .into_iter()
+                .for_each(|entity| entities.push(entity)),
+            "HATCH" => parse_hatch(chunk, 0)
+                .into_iter()
+                .for_each(|entity| entities.push(entity)),
+            "TEXT" | "MTEXT" | "ATTRIB" => parse_text(chunk, 0)
+                .into_iter()
+                .for_each(|entity| entities.push(entity)),
+            _ => {}
+        }
+    }
+    entities
+}
+
 fn detect_layout_names(pairs: &[(String, String)]) -> Vec<String> {
     let mut names = Vec::new();
     let mut i = 0usize;
@@ -250,6 +360,65 @@ fn detect_layout_names(pairs: &[(String, String)]) -> Vec<String> {
         }
     }
     names
+}
+
+fn detect_layout_papers(pairs: &[(String, String)]) -> BTreeMap<String, PaperSetup> {
+    let mut papers = BTreeMap::new();
+    let mut i = 0usize;
+    while i + 1 < pairs.len() {
+        if pairs[i].0 != "0" || !pairs[i].1.eq_ignore_ascii_case("LAYOUT") {
+            i += 1;
+            continue;
+        }
+
+        i += 1;
+        let start = i;
+        while i + 1 < pairs.len() && pairs[i].0 != "0" {
+            i += 1;
+        }
+
+        let chunk = &pairs[start..i];
+        let mut in_layout_section = false;
+        let mut name = None::<String>;
+        for (code, value) in chunk {
+            if code == "100" && value.eq_ignore_ascii_case("AcDbLayout") {
+                in_layout_section = true;
+                continue;
+            }
+            if in_layout_section && name.is_none() && (code == "1" || code == "2") {
+                let value = value.trim();
+                if !value.is_empty() {
+                    name = Some(value.to_string());
+                }
+            }
+        }
+        let Some(name) = name else {
+            continue;
+        };
+        let width = (number_value(chunk, "11").unwrap_or(297.0)
+            - number_value(chunk, "10").unwrap_or(0.0))
+        .abs();
+        let height = (number_value(chunk, "21").unwrap_or(210.0)
+            - number_value(chunk, "20").unwrap_or(0.0))
+        .abs();
+        if width > 1.0 && height > 1.0 {
+            papers.insert(
+                name,
+                PaperSetup {
+                    width,
+                    height,
+                    unit: "mm".to_string(),
+                    orientation: if height > width {
+                        "portrait".to_string()
+                    } else {
+                        "landscape".to_string()
+                    },
+                    preset: paper_preset(width, height).to_string(),
+                },
+            );
+        }
+    }
+    papers
 }
 
 fn detect_layout_owner_map(pairs: &[(String, String)]) -> BTreeMap<String, String> {
@@ -298,6 +467,20 @@ fn detect_layout_owner_map(pairs: &[(String, String)]) -> BTreeMap<String, Strin
     owners
 }
 
+fn paper_preset(width: f64, height: f64) -> &'static str {
+    let short = width.min(height).round() as i32;
+    let long = width.max(height).round() as i32;
+    match (short, long) {
+        (210, 297) => "A4",
+        (297, 420) => "A3",
+        (420, 594) => "A2",
+        (594, 841) => "A1",
+        (841, 1189) => "A0",
+        (216, 279) => "Letter",
+        _ => "Custom",
+    }
+}
+
 fn entity_layout_name(
     document: &Document,
     pairs: &[(String, String)],
@@ -337,6 +520,53 @@ fn dxf_color_value(pairs: &[(String, String)]) -> Option<&'static str> {
         8 | 9 => Some("#6b7280"),
         _ => None,
     }
+}
+
+fn parse_viewport(
+    pairs: &[(String, String)],
+    id: u64,
+    layout_owners: &BTreeMap<String, String>,
+) -> Option<LayoutViewport> {
+    let layout = text_value(pairs, "410")
+        .or_else(|| {
+            text_value(pairs, "330")
+                .and_then(|owner| layout_owners.get(&owner.to_ascii_uppercase()).cloned())
+        })
+        .unwrap_or_else(|| "Layout 1".to_string());
+    if layout == "Model" {
+        return None;
+    }
+    let center = Point {
+        x: number_value(pairs, "10")?,
+        y: number_value(pairs, "20")?,
+    };
+    let width = number_value(pairs, "40").unwrap_or(1.0).abs().max(1.0);
+    let height = number_value(pairs, "41").unwrap_or(1.0).abs().max(1.0);
+    let view_center = Point {
+        x: number_value(pairs, "12").unwrap_or(0.0),
+        y: number_value(pairs, "22").unwrap_or(0.0),
+    };
+    let view_height = number_value(pairs, "45").unwrap_or(height).abs().max(1.0);
+    let twist = number_value(pairs, "51").unwrap_or(0.0).to_radians();
+    Some(LayoutViewport {
+        id,
+        layout,
+        center,
+        width,
+        height,
+        view_center,
+        view_height,
+        model_zoom: height / view_height.max(1.0),
+        scale_paper_units: 1.0,
+        scale_model_units: (view_height / height.max(1.0)).max(1.0),
+        twist,
+        locked: integer_value(pairs, "90")
+            .map(|flags| flags & 16384 == 16384)
+            .unwrap_or(false),
+        border_visible: true,
+        visible_layers: Vec::new(),
+        hidden_layers: Vec::new(),
+    })
 }
 
 fn parse_lwpolyline(pairs: &[(String, String)], id: u64) -> Option<Entity> {
@@ -530,7 +760,10 @@ fn parse_dimension(pairs: &[(String, String)], id: u64) -> Option<Entity> {
         layer,
         start,
         end,
-        label: text_value(pairs, "1").unwrap_or_else(|| format!("{:.2}", start.distance_to(end))),
+        label: text_value(pairs, "1")
+            .map(|value| normalize_dxf_text(&value))
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| format!("{:.2}", start.distance_to(end))),
         style: text_value(pairs, "3").unwrap_or_else(|| "Imported".to_string()),
         precision: 2,
     })
@@ -538,6 +771,7 @@ fn parse_dimension(pairs: &[(String, String)], id: u64) -> Option<Entity> {
 
 fn parse_text(pairs: &[(String, String)], id: u64) -> Option<Entity> {
     let layer = text_value(pairs, "8").unwrap_or_else(|| "Default".to_string());
+    let raw_text = joined_text_value(pairs);
     Some(Entity::Text {
         id,
         layer,
@@ -545,12 +779,206 @@ fn parse_text(pairs: &[(String, String)], id: u64) -> Option<Entity> {
             x: number_value(pairs, "10")?,
             y: number_value(pairs, "20")?,
         },
-        text: text_value(pairs, "1")
-            .or_else(|| text_value(pairs, "3"))
-            .unwrap_or_default(),
+        text: normalize_dxf_text(&raw_text),
         height: number_value(pairs, "40").unwrap_or(2.5),
         rotation: number_value(pairs, "50").unwrap_or(0.0),
     })
+}
+
+fn joined_text_value(pairs: &[(String, String)]) -> String {
+    let chunks = pairs
+        .iter()
+        .filter_map(|(code, value)| (code == "1" || code == "3").then_some(value.as_str()))
+        .collect::<Vec<_>>();
+    if chunks.is_empty() {
+        return String::new();
+    }
+    chunks.join("")
+}
+
+fn normalize_dxf_text(raw: &str) -> String {
+    let mut output = String::new();
+    let chars = raw.chars().collect::<Vec<_>>();
+    let mut i = 0usize;
+
+    while i < chars.len() {
+        let ch = chars[i];
+        if ch == '{' || ch == '}' {
+            i += 1;
+            continue;
+        }
+        if ch != '\\' {
+            output.push(ch);
+            i += 1;
+            continue;
+        }
+
+        i += 1;
+        if i >= chars.len() {
+            break;
+        }
+        let command = chars[i];
+        i += 1;
+        match command {
+            'P' => output.push(' '),
+            '~' => output.push(' '),
+            '\\' => output.push('\\'),
+            '{' => output.push('{'),
+            '}' => output.push('}'),
+            'L' | 'l' | 'O' | 'o' | 'K' | 'k' => {}
+            'S' | 's' => {
+                let start = i;
+                while i < chars.len() && chars[i] != ';' {
+                    i += 1;
+                }
+                let stacked = chars[start..i]
+                    .iter()
+                    .collect::<String>()
+                    .replace(['#', '^'], "/");
+                output.push_str(&stacked);
+                if i < chars.len() && chars[i] == ';' {
+                    i += 1;
+                }
+            }
+            'A' | 'a' | 'C' | 'c' | 'F' | 'f' | 'H' | 'h' | 'Q' | 'q' | 'T' | 't' | 'W' | 'w'
+            | 'p' => {
+                while i < chars.len() && chars[i] != ';' {
+                    i += 1;
+                }
+                if i < chars.len() && chars[i] == ';' {
+                    i += 1;
+                }
+            }
+            other if other.is_ascii_alphabetic() => {
+                while i < chars.len() && chars[i] != ';' {
+                    i += 1;
+                }
+                if i < chars.len() && chars[i] == ';' {
+                    i += 1;
+                }
+            }
+            other => output.push(other),
+        }
+    }
+
+    output
+        .replace("%%c", "diameter ")
+        .replace("%%C", "diameter ")
+        .replace("%%d", "deg")
+        .replace("%%D", "deg")
+        .replace("%%p", "+/-")
+        .replace("%%P", "+/-")
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn parse_insert(pairs: &[(String, String)], id: u64) -> Option<Entity> {
+    Some(Entity::BlockReference {
+        id,
+        layer: text_value(pairs, "8").unwrap_or_else(|| "Default".to_string()),
+        name: text_value(pairs, "2")?,
+        insertion: Point {
+            x: number_value(pairs, "10")?,
+            y: number_value(pairs, "20")?,
+        },
+        scale: number_value(pairs, "41").unwrap_or(1.0),
+        rotation: number_value(pairs, "50").unwrap_or(0.0).to_radians(),
+    })
+}
+
+fn expand_insert(
+    pairs: &[(String, String)],
+    first_id: u64,
+    block_definitions: &BTreeMap<String, BlockDefinition>,
+) -> Option<Vec<Entity>> {
+    let name = text_value(pairs, "2")?;
+    let block = block_definitions.get(&name.to_ascii_uppercase())?;
+    let insertion = Point {
+        x: number_value(pairs, "10").unwrap_or(0.0),
+        y: number_value(pairs, "20").unwrap_or(0.0),
+    };
+    let scale_x = number_value(pairs, "41").unwrap_or(1.0);
+    let scale_y = number_value(pairs, "42").unwrap_or(scale_x);
+    let rotation = number_value(pairs, "50").unwrap_or(0.0).to_radians();
+    let mut next_id = first_id;
+    let entities = block
+        .entities
+        .iter()
+        .cloned()
+        .map(|mut entity| {
+            entity.set_id_for_import(next_id);
+            next_id = next_id.saturating_add(1);
+            transform_entity_for_insert(
+                &mut entity,
+                block.base,
+                insertion,
+                scale_x,
+                scale_y,
+                rotation,
+            );
+            entity
+        })
+        .collect::<Vec<_>>();
+    (!entities.is_empty()).then_some(entities)
+}
+
+fn transform_entity_for_insert(
+    entity: &mut Entity,
+    base: Point,
+    insertion: Point,
+    scale_x: f64,
+    scale_y: f64,
+    rotation: f64,
+) {
+    let transform = |point: &mut Point| {
+        let x = (point.x - base.x) * scale_x;
+        let y = (point.y - base.y) * scale_y;
+        let cos = rotation.cos();
+        let sin = rotation.sin();
+        point.x = insertion.x + x * cos - y * sin;
+        point.y = insertion.y + x * sin + y * cos;
+    };
+    match entity {
+        Entity::Point { point, .. } | Entity::Text { origin: point, .. } => transform(point),
+        Entity::BlockReference {
+            insertion: point, ..
+        } => transform(point),
+        Entity::Line { start, end, .. }
+        | Entity::Dimension { start, end, .. }
+        | Entity::Guideline { start, end, .. } => {
+            transform(start);
+            transform(end);
+        }
+        Entity::Polyline { points, .. }
+        | Entity::Spline {
+            control_points: points,
+            ..
+        } => {
+            for point in points {
+                transform(point);
+            }
+        }
+        Entity::Hatch { boundary, .. } => {
+            for point in boundary {
+                transform(point);
+            }
+        }
+        Entity::Circle { center, radius, .. } => {
+            transform(center);
+            *radius *= scale_x.abs().max(scale_y.abs());
+        }
+        Entity::Table {
+            origin,
+            cell_width,
+            cell_height,
+            ..
+        } => {
+            transform(origin);
+            *cell_width *= scale_x.abs();
+            *cell_height *= scale_y.abs();
+        }
+    }
 }
 
 fn ensure_layer(document: &mut Document, layer: &str) {
@@ -684,4 +1112,21 @@ fn group_pairs(data: &str) -> Vec<(String, String)> {
         pairs.push((code.trim().to_string(), value.trim().to_string()));
     }
     pairs
+}
+
+#[cfg(test)]
+mod tests {
+    use super::normalize_dxf_text;
+
+    #[test]
+    fn normalizes_autocad_mtext_format_codes() {
+        assert_eq!(
+            normalize_dxf_text(r"\pxqc;{\fISOCPEUR|b1|i1|c0|p34;W1.4;CAD}"),
+            "W1.4;CAD"
+        );
+        assert_eq!(
+            normalize_dxf_text(r"\pxqc;Escala\P\pxqc;Fecha"),
+            "Escala Fecha"
+        );
+    }
 }

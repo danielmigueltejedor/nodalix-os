@@ -1,4 +1,6 @@
 mod app;
+mod assets;
+mod cad;
 mod canvas;
 mod document;
 mod drawing;
@@ -7,8 +9,11 @@ mod geometry;
 mod import;
 mod mesh;
 mod reverse;
+mod tool_parameters;
 mod tools;
 mod ui;
+mod ui_context;
+mod ui_history;
 mod units;
 
 fn main() {

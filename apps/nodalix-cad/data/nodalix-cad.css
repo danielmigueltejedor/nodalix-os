@@ -43,8 +43,20 @@
 
 .tool-button {
   min-height: 34px;
+  min-width: 36px;
   padding: 5px 11px;
   font-size: 12px;
+}
+
+.toolbar-symbol,
+.toolbar-symbol {
+  color: @nodalix_text;
+  font-weight: 800;
+}
+
+.app-icon {
+  color: inherit;
+  opacity: 0.94;
 }
 
 .tool-button:hover,
@@ -104,7 +116,8 @@
 }
 
 .tool-context-panel {
-  margin: 0 10px 4px;
+  margin: 0 8px 4px;
+  padding: 10px 10px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.035);
 }
@@ -150,8 +163,28 @@ entry {
 }
 
 .context-entry {
-  min-height: 30px;
+  min-height: 26px;
   font-size: 12px;
+}
+
+.tool-param-chip {
+  min-height: 22px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.tool-param-chip .prop-label {
+  color: alpha(@nodalix_text, 0.66);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.tool-param-chip .prop-value {
+  color: @nodalix_text;
+  font-size: 10px;
+  font-weight: 850;
 }
 
 .context-chip {
@@ -200,7 +233,7 @@ entry {
 
 .document-tab {
   min-height: 30px;
-  padding: 4px 14px;
+  padding: 4px 8px;
   border-radius: 8px 8px 0 0;
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-bottom-color: rgba(255, 255, 255, 0.04);
@@ -208,6 +241,28 @@ entry {
   color: @nodalix_muted;
   font-size: 12px;
   font-weight: 800;
+}
+
+.document-tab-title {
+  padding: 0 8px;
+  background: transparent;
+  border: 0;
+  color: inherit;
+}
+
+.document-tab-close {
+  min-width: 22px;
+  min-height: 22px;
+  padding: 0;
+  border-radius: 999px;
+  border: 0;
+  background: transparent;
+  color: alpha(@nodalix_text, 0.72);
+}
+
+.document-tab-close:hover {
+  background: alpha(@nodalix_warm, 0.20);
+  color: @nodalix_text;
 }
 
 .document-tab-active {
@@ -316,6 +371,12 @@ entry {
   background: rgba(255, 255, 255, 0.08);
   color: @nodalix_text;
   font-size: 12px;
+}
+
+.command-suggestions {
+  color: alpha(@nodalix_text, 0.56);
+  font-size: 10px;
+  font-weight: 650;
 }
 
 .view-compass {
