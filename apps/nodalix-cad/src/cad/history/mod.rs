@@ -11,8 +11,9 @@ pub use legacy_actions::{
     capture_layer_state, entity_snapshot_for_add, record_entities_added,
     record_entity_move_if_nonzero, record_entity_property_changes, record_entity_transform,
     restore_entity_snapshot, EntityPropertyChange, EntityPropertyState, EntitySnapshot,
-    LayerStateSnapshot, LegacyAddEntitiesAction, LegacyHistoryAction, LegacyMoveEntitiesAction,
-    LegacyPasteEntitiesAction, LegacyRemoveEntitiesAction, LegacyTransformEntitiesAction,
-    LegacyUpdateEntityPropertiesAction, LegacyUpdateLayersAction,
+    LayerStateSnapshot, LegacyAddEntitiesAction, LegacyHistoryAction,
+    LegacyModifyAndAddEntitiesAction, LegacyMoveEntitiesAction, LegacyPasteEntitiesAction,
+    LegacyRemoveEntitiesAction, LegacyTransformEntitiesAction, LegacyUpdateEntityPropertiesAction,
+    LegacyUpdateLayersAction,
 };
 pub use legacy_history_manager::LegacyHistoryManager;

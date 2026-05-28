@@ -66,3 +66,9 @@ dist/
 **/.cargo/
 **/crash_report.txt
 crash_report.txt
+
+# Local backup files
+*.bak
+*.bak-*
+*.backup
+*.backup-*

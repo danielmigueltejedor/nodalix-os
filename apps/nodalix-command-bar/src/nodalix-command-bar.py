@@ -252,6 +252,171 @@ def exec_basename(exec_cmd):
     return Path(parts[0]).name.lower()
 
 
+
+
+APP_BLOCKLIST_BASES = {
+    "assistant6",
+    "avahi-discover",
+    "bssh",
+    "bvnc",
+    "cliamp",
+    "cmake-gui",
+    "designer6",
+    "electron37",
+    "imv",
+    "imv-dir",
+    "java",
+    "jconsole",
+    "jshell",
+    "linguist6",
+    "lstopo",
+    "pinentry-qt",
+    "pinentry-qt5",
+    "qdbusviewer6",
+    "qv4l2",
+    "qvidcap",
+    "rofi-theme-selector",
+    "uuctl",
+    "xgps",
+    "xgpsspeed",
+    "yad-icon-browser",
+    "yad-settings",
+}
+
+APP_EQUIV_BASES = {
+    "baobab": "disk-usage",
+    "bitwarden-desktop": "passwords",
+    "ghostty": "terminal",
+    "gnome-calendar": "calendar",
+    "gnome-clocks": "clock",
+    "gnome-connections": "connections",
+    "gnome-disks": "disks",
+    "gnome-logs": "logs",
+    "loupe": "photos",
+    "meld": "diff",
+    "mpv": "media-player",
+    "openrgb": "rgb",
+    "papers": "documents",
+    "pavucontrol": "sound",
+    "qalculate-gtk": "calculator",
+    "simple-scan": "scanner",
+    "steam": "steam",
+    "steam-rx9070xt": "steam",
+    "system-config-printer": "printers",
+    "thunderbird": "mail",
+    "zen": "browser",
+    "zen-bin": "browser",
+}
+
+PREFERRED_NODALIX_PREFIXES = (
+    "nodalix-",
+    "com.nodalia.",
+)
+
+def desktop_file_id(path):
+    try:
+        return Path(path).name.lower()
+    except Exception:
+        return ""
+
+def app_exec_signature(exec_cmd):
+    try:
+        parts = shlex.split(str(exec_cmd))
+    except Exception:
+        parts = str(exec_cmd).split()
+
+    if not parts:
+        return ""
+
+    # Soporta wrappers tipo: env GSK_RENDERER=gl app
+    if parts[0] == "env":
+        parts = [p for p in parts[1:] if "=" not in p]
+        if not parts:
+            return ""
+
+    base = Path(parts[0]).name.lower()
+    group = APP_EQUIV_BASES.get(base)
+
+    if group:
+        return "app-group:" + group
+
+    # Para webapps Chromium, conservar argumentos: cada webapp es una app distinta.
+    if base in {"chromium", "chrome", "google-chrome", "zen", "zen-bin"}:
+        return "exec:" + " ".join(parts).lower()
+
+    # Para apps normales, deduplicar por ejecutable + argumentos ya limpios.
+    return "exec:" + " ".join(parts).lower()
+
+def app_priority(item):
+    path = str(item.get("desktop_file", ""))
+    file_id = desktop_file_id(path)
+    title = str(item.get("title", "")).lower()
+
+    score = 0
+
+    if "/.local/share/applications/" in path:
+        score += 30
+
+    if file_id.startswith(PREFERRED_NODALIX_PREFIXES):
+        score += 100
+
+    if "nodalix" in file_id:
+        score += 80
+
+    if "/usr/share/applications/" in path:
+        score += 10
+
+    # Preferir el lanzador Steam optimizado.
+    if "steam-rx9070xt" in str(item.get("command", "")):
+        score += 120
+
+    # Evitar nombres genéricos cuando hay alias Nodalix más claros.
+    if title in {
+        "document viewer",
+        "image viewer",
+        "disk usage analyzer",
+        "volume control",
+        "print settings",
+        "text editor",
+        "logs",
+        "disks",
+        "calendar",
+        "clocks",
+        "connections",
+    }:
+        score -= 20
+
+    return score
+
+def should_hide_app(item):
+    base = str(item.get("exec_base", "")).lower()
+    title = str(item.get("title", "")).lower()
+    path = str(item.get("desktop_file", "")).lower()
+
+    if base in APP_BLOCKLIST_BASES:
+        return True
+
+    if "vnc server browser" in title:
+        return True
+
+    if "openjdk java" in title:
+        return True
+
+    if "avahi" in title:
+        return True
+
+    if "qt v4l2" in title:
+        return True
+
+    if "pinentry" in title:
+        return True
+
+    if path.endswith("mimeinfo.cache"):
+        return True
+
+    return False
+
+
 def focus_existing_app(item):
     base = item.get("exec_base", "").lower()
 
@@ -524,6 +689,8 @@ def parse_desktop_file(path):
         "category": category,
         "wmclass": wmclass or "",
         "exec_base": base,
+        "desktop_file": str(path),
+        "exec_signature": app_exec_signature(exec_cmd),
     }
 
 
@@ -537,8 +704,8 @@ def load_apps():
         Path("/usr/share/applications"),
     ]
 
-    apps = []
-    seen = set()
+    by_signature = {}
+    by_title = {}
 
     for d in dirs:
         if not d.exists():
@@ -550,14 +717,34 @@ def load_apps():
             if not item:
                 continue
 
-            key = item["title"].lower()
-
-            if key in seen:
+            if should_hide_app(item):
                 continue
 
-            seen.add(key)
-            apps.append(item)
+            signature = item.get("exec_signature") or item["title"].lower()
+            title_key = item["title"].strip().lower()
 
+            current = by_signature.get(signature)
+
+            if current is None or app_priority(item) > app_priority(current):
+                by_signature[signature] = item
+
+            current_title = by_title.get(title_key)
+            chosen = by_signature.get(signature, item)
+
+            if current_title is None or app_priority(chosen) > app_priority(current_title):
+                by_title[title_key] = chosen
+
+    # Segunda pasada: dedupe final por título, manteniendo el mejor candidato.
+    final = {}
+
+    for item in by_signature.values():
+        title_key = item["title"].strip().lower()
+        current = final.get(title_key)
+
+        if current is None or app_priority(item) > app_priority(current):
+            final[title_key] = item
+
+    apps = list(final.values())
     apps.sort(key=lambda x: x["title"].lower())
     return apps
 

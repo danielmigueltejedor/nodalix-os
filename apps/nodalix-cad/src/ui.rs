@@ -2,7 +2,9 @@ use crate::tool_parameters::{ArcUiMode, DimensionCreationMode};
 use crate::{
     cad::commands::command_registry::{CommandRegistry, ParsedCommand},
     cad::commands::{build_geometry_from_command_parts, GeometryBuildResult},
-    cad::geometry::{CircleCreationMode, LineCreationMode, RectangleCreationMode},
+    cad::geometry::{
+        CircleCreationMode, HatchPatternKind, LineCreationMode, RectangleCreationMode,
+    },
     cad::precision::PrecisionState,
     cad::snapping::OsnapState,
     canvas::{update_selection_label, CadCanvas, CanvasInteractionContext},
@@ -1881,6 +1883,75 @@ fn refresh_tool_context(panel: &gtk::Box, tool: Tool, cad: &UiCadContext, canvas
             context_entry(panel, "Boundary", "Explicit edge");
             context_buttons(panel, &["OSNAP"]);
         }
+        Tool::Fillet => {
+            compact_note(panel, "Click first line, then second line at the corner.");
+            let radius_row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+            let radius_entry = gtk::Entry::new();
+            radius_entry.set_placeholder_text(Some("Radius"));
+            radius_entry.set_width_chars(8);
+            radius_entry.set_text(&format!(
+                "{:.4}",
+                cad.tool_parameters.borrow().fillet_radius
+            ));
+            {
+                let cad = cad.clone();
+                radius_entry.connect_changed(move |entry| {
+                    if let Some(value) = parse_positive_f64(entry.text().as_str()) {
+                        cad.tool_parameters.borrow_mut().fillet_radius = value;
+                    }
+                });
+            }
+            radius_row.append(&field_label("Fillet Radius"));
+            radius_row.append(&radius_entry);
+            panel.append(&radius_row);
+            context_buttons(panel, &["OSNAP"]);
+        }
+        Tool::Chamfer => {
+            compact_note(panel, "Click first line, then second line at the corner.");
+            let d1_row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+            let d1_entry = gtk::Entry::new();
+            d1_entry.set_placeholder_text(Some("Distance 1"));
+            d1_entry.set_width_chars(8);
+            d1_entry.set_text(&format!(
+                "{:.4}",
+                cad.tool_parameters.borrow().chamfer_distance_1
+            ));
+            {
+                let cad = cad.clone();
+                d1_entry.connect_changed(move |entry| {
+                    if let Ok(value) = entry.text().parse::<f64>() {
+                        if value >= 0.0 && value.is_finite() {
+                            cad.tool_parameters.borrow_mut().chamfer_distance_1 = value;
+                        }
+                    }
+                });
+            }
+            d1_row.append(&field_label("Chamfer D1"));
+            d1_row.append(&d1_entry);
+            panel.append(&d1_row);
+            let d2_row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+            let d2_entry = gtk::Entry::new();
+            d2_entry.set_placeholder_text(Some("Distance 2"));
+            d2_entry.set_width_chars(8);
+            d2_entry.set_text(&format!(
+                "{:.4}",
+                cad.tool_parameters.borrow().chamfer_distance_2
+            ));
+            {
+                let cad = cad.clone();
+                d2_entry.connect_changed(move |entry| {
+                    if let Ok(value) = entry.text().parse::<f64>() {
+                        if value >= 0.0 && value.is_finite() {
+                            cad.tool_parameters.borrow_mut().chamfer_distance_2 = value;
+                        }
+                    }
+                });
+            }
+            d2_row.append(&field_label("Chamfer D2"));
+            d2_row.append(&d2_entry);
+            panel.append(&d2_row);
+            context_buttons(panel, &["OSNAP"]);
+        }
         Tool::Block => {
             context_entry(panel, "Block name", "New block");
             context_entry(panel, "Insertion", "Pick point");
@@ -1888,10 +1959,69 @@ fn refresh_tool_context(panel: &gtk::Box, tool: Tool, cad: &UiCadContext, canvas
             context_buttons(panel, &["Create", "Insert", "Explode"]);
         }
         Tool::Hatch => {
-            context_entry(panel, "Pattern", "ANSI31");
-            context_entry(panel, "Scale", "1.0");
-            context_entry(panel, "Angle", "0 deg");
-            context_buttons(panel, &["Pick boundary", "Associative"]);
+            compact_note(
+                panel,
+                "Click closed polyline or circle, then click again to create hatch.",
+            );
+            let pattern_row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+            let pattern_combo = gtk::ComboBoxText::new();
+            pattern_combo.append_text("Solid");
+            pattern_combo.append_text("ANSI31");
+            let active_index = match cad.tool_parameters.borrow().hatch_pattern {
+                HatchPatternKind::Solid => 0,
+                HatchPatternKind::Ansi31 => 1,
+            };
+            pattern_combo.set_active(Some(active_index));
+            {
+                let cad = cad.clone();
+                pattern_combo.connect_changed(move |combo| {
+                    let pattern = match combo.active() {
+                        Some(1) => HatchPatternKind::Ansi31,
+                        _ => HatchPatternKind::Solid,
+                    };
+                    cad.tool_parameters.borrow_mut().hatch_pattern = pattern;
+                });
+            }
+            pattern_row.append(&field_label("Pattern"));
+            pattern_row.append(&pattern_combo);
+            panel.append(&pattern_row);
+
+            let scale_row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+            let scale_entry = gtk::Entry::new();
+            scale_entry.set_placeholder_text(Some("Scale"));
+            scale_entry.set_width_chars(8);
+            scale_entry.set_text(&format!("{:.4}", cad.tool_parameters.borrow().hatch_scale));
+            {
+                let cad = cad.clone();
+                scale_entry.connect_changed(move |entry| {
+                    if let Some(value) = parse_positive_f64(entry.text().as_str()) {
+                        cad.tool_parameters.borrow_mut().hatch_scale = value;
+                    }
+                });
+            }
+            scale_row.append(&field_label("Scale"));
+            scale_row.append(&scale_entry);
+            panel.append(&scale_row);
+
+            let angle_row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+            let angle_entry = gtk::Entry::new();
+            angle_entry.set_placeholder_text(Some("Angle"));
+            angle_entry.set_width_chars(8);
+            angle_entry.set_text(&format!("{:.2}", cad.tool_parameters.borrow().hatch_angle));
+            {
+                let cad = cad.clone();
+                angle_entry.connect_changed(move |entry| {
+                    if let Ok(value) = entry.text().parse::<f64>() {
+                        if value.is_finite() {
+                            cad.tool_parameters.borrow_mut().hatch_angle = value;
+                        }
+                    }
+                });
+            }
+            angle_row.append(&field_label("Angle"));
+            angle_row.append(&angle_entry);
+            panel.append(&angle_row);
+            context_buttons(panel, &["OSNAP"]);
         }
         Tool::Table => {
             context_entry(panel, "Rows", "3");
@@ -3643,6 +3773,48 @@ fn execute_command(
         }
     }
 
+    if crate::canvas_hatch::try_execute_hatch_command(
+        &command,
+        &mut cad.tool_parameters.borrow_mut(),
+    )
+    .is_some()
+    {
+        set_active_tool(
+            active_tool,
+            tool_label,
+            tool_context,
+            cad,
+            canvas,
+            Tool::Hatch,
+        );
+        history.set_text("HATCH: click boundary, click again to confirm");
+        canvas.widget().queue_draw();
+        return;
+    }
+
+    if let Some(outcome) = crate::canvas_fillet_chamfer::try_execute_fillet_chamfer_command(
+        &command,
+        &mut cad.tool_parameters.borrow_mut(),
+    ) {
+        let tool = match outcome {
+            crate::canvas_fillet_chamfer::FilletChamferCommandOutcome::ActivateFillet => {
+                Tool::Fillet
+            }
+            crate::canvas_fillet_chamfer::FilletChamferCommandOutcome::ActivateChamfer => {
+                Tool::Chamfer
+            }
+        };
+        set_active_tool(active_tool, tool_label, tool_context, cad, canvas, tool);
+        let msg = match tool {
+            Tool::Fillet => "FILLET: pick first line, then second line",
+            Tool::Chamfer => "CHAMFER: pick first line, then second line",
+            _ => "Tool activated",
+        };
+        history.set_text(msg);
+        canvas.widget().queue_draw();
+        return;
+    }
+
     if let Some(activation) = crate::canvas_trim_extend::try_execute_trim_extend_command(&command) {
         let tool = match activation {
             crate::canvas_trim_extend::ToolActivation::Trim => Tool::Trim,
@@ -3901,6 +4073,28 @@ fn execute_command(
             );
             history.set_text("EXTEND: pick boundary, then entity to extend");
         }
+        "fillet" | "f" => {
+            set_active_tool(
+                active_tool,
+                tool_label,
+                tool_context,
+                cad,
+                canvas,
+                Tool::Fillet,
+            );
+            history.set_text("FILLET: pick first line, then second line");
+        }
+        "chamfer" | "cha" => {
+            set_active_tool(
+                active_tool,
+                tool_label,
+                tool_context,
+                cad,
+                canvas,
+                Tool::Chamfer,
+            );
+            history.set_text("CHAMFER: pick first line, then second line");
+        }
         "d" | "dim" | "dimension" | "linear" => {
             set_active_tool(
                 active_tool,
@@ -3932,7 +4126,7 @@ fn execute_command(
                 canvas,
                 Tool::Hatch,
             );
-            history.set_text("HATCH: create hatch boundary");
+            history.set_text("HATCH: click boundary, click again to confirm");
         }
         "tbl" | "table" => {
             set_active_tool(

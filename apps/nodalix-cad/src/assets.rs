@@ -62,6 +62,12 @@ fn icon_path_candidates(dir: &Path, name: &str) -> Vec<PathBuf> {
     if name.starts_with("modify-") {
         paths.push(dir.join("modify").join(format!("{name}.svg")));
     }
+    if name.starts_with("draw-") {
+        paths.push(dir.join("draw").join(format!("{name}.svg")));
+    }
+    if name.starts_with("hatch-") {
+        paths.push(dir.join("hatch").join(format!("{name}.svg")));
+    }
     if name.starts_with("precision-") {
         paths.push(dir.join("precision").join(format!("{name}.svg")));
     }
@@ -139,6 +145,14 @@ mod tests {
     }
 
     #[test]
+    fn hatch_icons_resolve() {
+        for name in ["draw-hatch", "hatch-solid", "hatch-ansi31"] {
+            let path = icon_path(name);
+            assert!(path.is_file(), "missing icon: {}", path.display());
+        }
+    }
+
+    #[test]
     fn modify_icons_resolve() {
         for name in [
             "modify-rotate",
@@ -149,6 +163,8 @@ mod tests {
             "modify-offset",
             "modify-trim",
             "modify-extend",
+            "modify-fillet",
+            "modify-chamfer",
         ] {
             let path = icon_path(name);
             assert!(path.is_file(), "missing icon: {}", path.display());

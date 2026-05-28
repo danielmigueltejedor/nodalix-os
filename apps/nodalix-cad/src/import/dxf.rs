@@ -857,13 +857,16 @@ fn parse_spline(pairs: &[(String, String)], id: u64) -> Option<Entity> {
 fn parse_hatch(pairs: &[(String, String)], id: u64) -> Option<Entity> {
     let layer = text_value(pairs, "8").unwrap_or_else(|| "Default".to_string());
     let points = collect_hatch_boundary_points(pairs);
+    let pattern = text_value(pairs, "2").unwrap_or_else(|| "SOLID".to_string());
+    let solid = pattern.eq_ignore_ascii_case("SOLID");
     (points.len() >= 3).then_some(Entity::Hatch {
         id,
         layer,
         boundary: points,
-        pattern: text_value(pairs, "2").unwrap_or_else(|| "SOLID".to_string()),
+        pattern,
         scale: number_value(pairs, "41").unwrap_or(1.0),
         angle: number_value(pairs, "52").unwrap_or(0.0),
+        solid,
     })
 }
 

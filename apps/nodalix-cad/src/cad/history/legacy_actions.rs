@@ -318,6 +318,37 @@ impl LegacyHistoryAction for LegacyTransformEntitiesAction {
     }
 }
 
+/// Modifies existing entities and adds new ones (fillet/chamfer corner geometry).
+pub struct LegacyModifyAndAddEntitiesAction {
+    pub before: Vec<EntitySnapshot>,
+    pub after: Vec<EntitySnapshot>,
+    pub added: Vec<EntitySnapshot>,
+}
+
+impl LegacyHistoryAction for LegacyModifyAndAddEntitiesAction {
+    fn description(&self) -> &'static str {
+        "Modify and add entities"
+    }
+
+    fn apply(&self, document: &mut Document) {
+        for snapshot in &self.after {
+            apply_entity_snapshot_in_place(document, snapshot);
+        }
+        for snapshot in &self.added {
+            restore_entity_snapshot(document, snapshot);
+        }
+    }
+
+    fn undo(&self, document: &mut Document) {
+        for snapshot in &self.added {
+            document.remove_entity(snapshot.entity.id());
+        }
+        for snapshot in &self.before {
+            apply_entity_snapshot_in_place(document, snapshot);
+        }
+    }
+}
+
 pub fn record_entity_transform<F>(
     history: &mut crate::cad::history::legacy_history_manager::LegacyHistoryManager,
     document: &mut Document,

@@ -1,5 +1,6 @@
 use crate::{
     cad::commands::{build_geometry_from_command_parts, GeometryBuildResult},
+    cad::geometry::hatch::HatchPatternKind,
     cad::geometry::{
         arc_from_three_points, arc_to_polyline_points, circle_from_three_points,
         circle_from_two_diameter_points, line_from_two_points, rectangle_from_center_size,
@@ -34,6 +35,12 @@ pub struct ToolParametersState {
     pub rectangle_width: f64,
     pub rectangle_height: f64,
     pub offset_distance: f64,
+    pub fillet_radius: f64,
+    pub chamfer_distance_1: f64,
+    pub chamfer_distance_2: f64,
+    pub hatch_pattern: HatchPatternKind,
+    pub hatch_scale: f64,
+    pub hatch_angle: f64,
 }
 
 impl Default for ToolParametersState {
@@ -47,6 +54,12 @@ impl Default for ToolParametersState {
             rectangle_width: 100.0,
             rectangle_height: 50.0,
             offset_distance: 10.0,
+            fillet_radius: 10.0,
+            chamfer_distance_1: 10.0,
+            chamfer_distance_2: 10.0,
+            hatch_pattern: HatchPatternKind::Solid,
+            hatch_scale: 2.0,
+            hatch_angle: 45.0,
         }
     }
 }

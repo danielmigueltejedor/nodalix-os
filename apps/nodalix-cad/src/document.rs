@@ -197,6 +197,8 @@ pub enum Entity {
         pattern: String,
         scale: f64,
         angle: f64,
+        #[serde(default)]
+        solid: bool,
     },
     Table {
         id: u64,

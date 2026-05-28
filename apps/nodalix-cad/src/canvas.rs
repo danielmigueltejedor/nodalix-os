@@ -4,7 +4,10 @@ use crate::{
         dimension_segments, format_distance_with_unit, linear_dimension_points,
         parse_dimension_style, radius_dimension_from_circle, DimensionKind,
     },
-    cad::geometry::{apply_grip_edit, CircleCreationMode, LineCreationMode, RectangleCreationMode},
+    cad::geometry::{
+        apply_grip_edit, generate_ansi31_lines, hatch_is_solid, CircleCreationMode,
+        LineCreationMode, RectangleCreationMode,
+    },
     cad::history::{
         apply_entity_snapshot_in_place, capture_entity_snapshot, capture_entity_snapshots,
         record_entities_added, record_entity_move_if_nonzero, EntitySnapshot, LegacyHistoryManager,
@@ -104,6 +107,9 @@ pub struct CadCanvas {
     offset_source: Rc<RefCell<Option<u64>>>,
     trim_boundary: Rc<RefCell<Option<crate::canvas_trim_extend::TrimBoundary>>>,
     extend_boundary: Rc<RefCell<Option<crate::canvas_trim_extend::TrimBoundary>>>,
+    fillet_first_selection: Rc<RefCell<Option<crate::canvas_fillet_chamfer::CornerSelection>>>,
+    chamfer_first_selection: Rc<RefCell<Option<crate::canvas_fillet_chamfer::CornerSelection>>>,
+    hatch_boundary_selection: Rc<RefCell<Option<crate::canvas_hatch::HatchBoundarySelection>>>,
 }
 
 #[derive(Clone, Debug)]
@@ -159,6 +165,9 @@ impl CadCanvas {
         let offset_source = Rc::new(RefCell::new(None::<u64>));
         let trim_boundary = Rc::new(RefCell::new(None));
         let extend_boundary = Rc::new(RefCell::new(None));
+        let fillet_first_selection = Rc::new(RefCell::new(None));
+        let chamfer_first_selection = Rc::new(RefCell::new(None));
+        let hatch_boundary_selection = Rc::new(RefCell::new(None));
         let pending_start = Rc::new(RefCell::new(None));
         let pending_points = Rc::new(RefCell::new(Vec::<Point>::new()));
         let polyline_vertices = Rc::new(RefCell::new(Vec::<Point>::new()));
@@ -231,6 +240,9 @@ impl CadCanvas {
         let click_offset_source = offset_source.clone();
         let click_trim_boundary = trim_boundary.clone();
         let click_extend_boundary = extend_boundary.clone();
+        let click_fillet_first = fillet_first_selection.clone();
+        let click_chamfer_first = chamfer_first_selection.clone();
+        let click_hatch_boundary = hatch_boundary_selection.clone();
         click.connect_pressed(move |_, n_press, x, y| {
             queue_area.grab_focus();
             let point = screen_to_world(
@@ -345,6 +357,49 @@ impl CadCanvas {
                         |doc, p, tol| crate::canvas_trim_extend::pick_edge_at(doc, p, tol),
                     );
                     click_modify_preview.borrow_mut().clear();
+                } else if tool == Tool::Fillet {
+                    let tolerance = 10.0 / click_camera.borrow().zoom;
+                    let params = *click_tool_parameters.borrow();
+                    let _ = crate::canvas_fillet_chamfer::handle_fillet_chamfer_click(
+                        &mut click_document.borrow_mut(),
+                        &click_history,
+                        point,
+                        tolerance,
+                        &click_fillet_first,
+                        false,
+                        params.chamfer_distance_1,
+                        params.chamfer_distance_2,
+                        params.fillet_radius,
+                    );
+                    click_modify_preview.borrow_mut().clear();
+                } else if tool == Tool::Chamfer {
+                    let tolerance = 10.0 / click_camera.borrow().zoom;
+                    let params = *click_tool_parameters.borrow();
+                    let _ = crate::canvas_fillet_chamfer::handle_fillet_chamfer_click(
+                        &mut click_document.borrow_mut(),
+                        &click_history,
+                        point,
+                        tolerance,
+                        &click_chamfer_first,
+                        true,
+                        params.chamfer_distance_1,
+                        params.chamfer_distance_2,
+                        params.fillet_radius,
+                    );
+                    click_modify_preview.borrow_mut().clear();
+                } else if tool == Tool::Hatch {
+                    let tolerance = 10.0 / click_camera.borrow().zoom;
+                    let params = *click_tool_parameters.borrow();
+                    let _ = crate::canvas_hatch::handle_hatch_click(
+                        &mut click_document.borrow_mut(),
+                        &click_history,
+                        point,
+                        tolerance,
+                        &click_hatch_boundary,
+                        &params,
+                        |doc, p, tol| hit_test(doc, p, tol),
+                    );
+                    click_modify_preview.borrow_mut().clear();
                 } else {
                     handle_click(
                         &mut click_document.borrow_mut(),
@@ -384,6 +439,9 @@ impl CadCanvas {
             let offset_source = offset_source.clone();
             let trim_boundary = trim_boundary.clone();
             let extend_boundary = extend_boundary.clone();
+            let fillet_first_selection = fillet_first_selection.clone();
+            let chamfer_first_selection = chamfer_first_selection.clone();
+            let hatch_boundary_selection = hatch_boundary_selection.clone();
             let area = area.clone();
             let text_entry = inline_text_entry.clone();
             motion.connect_motion(move |_, x, y| {
@@ -516,6 +574,70 @@ impl CadCanvas {
                     } else {
                         modify_preview.borrow_mut().clear();
                     }
+                } else if tool == Tool::Fillet {
+                    let pending_first = *fillet_first_selection.borrow();
+                    if let Some(first) = pending_first {
+                        let tolerance = 10.0 / camera.zoom;
+                        if let Some(second) = crate::canvas_trim_extend::pick_edge_at(
+                            &document.borrow(),
+                            resolved.point,
+                            tolerance,
+                        ) {
+                            let params = tool_parameters.borrow();
+                            let preview = crate::canvas_fillet_chamfer::build_fillet_preview(
+                                &document.borrow(),
+                                first.edge,
+                                second,
+                                first.pick,
+                                resolved.point,
+                                params.fillet_radius,
+                            );
+                            *modify_preview.borrow_mut() = preview.unwrap_or_default();
+                        } else {
+                            modify_preview.borrow_mut().clear();
+                        }
+                    } else {
+                        modify_preview.borrow_mut().clear();
+                    }
+                } else if tool == Tool::Chamfer {
+                    let pending_first = *chamfer_first_selection.borrow();
+                    if let Some(first) = pending_first {
+                        let tolerance = 10.0 / camera.zoom;
+                        if let Some(second) = crate::canvas_trim_extend::pick_edge_at(
+                            &document.borrow(),
+                            resolved.point,
+                            tolerance,
+                        ) {
+                            let params = tool_parameters.borrow();
+                            let preview = crate::canvas_fillet_chamfer::build_chamfer_preview(
+                                &document.borrow(),
+                                first.edge,
+                                second,
+                                first.pick,
+                                resolved.point,
+                                params.chamfer_distance_1,
+                                params.chamfer_distance_2,
+                            );
+                            *modify_preview.borrow_mut() = preview.unwrap_or_default();
+                        } else {
+                            modify_preview.borrow_mut().clear();
+                        }
+                    } else {
+                        modify_preview.borrow_mut().clear();
+                    }
+                } else if tool == Tool::Hatch {
+                    let pending_hatch = hatch_boundary_selection.borrow().clone();
+                    if let Some(selection) = pending_hatch {
+                        let params = tool_parameters.borrow();
+                        let preview = crate::canvas_hatch::build_hatch_preview(
+                            &document.borrow(),
+                            &selection,
+                            &params,
+                        );
+                        *modify_preview.borrow_mut() = preview.into_iter().collect();
+                    } else {
+                        modify_preview.borrow_mut().clear();
+                    }
                 }
                 let needs_preview_redraw = anchor.is_some()
                     || matches!(
@@ -528,6 +650,9 @@ impl CadCanvas {
                             | Tool::Offset
                             | Tool::Trim
                             | Tool::Extend
+                            | Tool::Fillet
+                            | Tool::Chamfer
+                            | Tool::Hatch
                     )
                     || !matches!(tool, Tool::Select | Tool::Modify);
                 if needs_preview_redraw
@@ -940,6 +1065,9 @@ impl CadCanvas {
             offset_source,
             trim_boundary,
             extend_boundary,
+            fillet_first_selection,
+            chamfer_first_selection,
+            hatch_boundary_selection,
         }
     }
 
@@ -1048,6 +1176,9 @@ impl CadCanvas {
         *self.offset_source.borrow_mut() = None;
         *self.trim_boundary.borrow_mut() = None;
         *self.extend_boundary.borrow_mut() = None;
+        *self.fillet_first_selection.borrow_mut() = None;
+        *self.chamfer_first_selection.borrow_mut() = None;
+        *self.hatch_boundary_selection.borrow_mut() = None;
         *self.hover_point.borrow_mut() = None;
         *self.hovered_entity.borrow_mut() = None;
         self.text_entry.set_visible(false);
@@ -1410,27 +1541,10 @@ fn handle_click(
                 &active_layer,
             );
         }
-        Tool::Hatch => two_point_entity(document, history, point, pending, |id, start, end| {
-            Entity::Hatch {
-                id,
-                layer: active_layer.clone(),
-                boundary: vec![
-                    start,
-                    Point {
-                        x: end.x,
-                        y: start.y,
-                    },
-                    end,
-                    Point {
-                        x: start.x,
-                        y: end.y,
-                    },
-                ],
-                pattern: "ANSI31".to_string(),
-                scale: 1.0,
-                angle: 45.0,
-            }
-        }),
+        Tool::Hatch => {
+            *pending.borrow_mut() = None;
+            pending_points.borrow_mut().clear();
+        }
         Tool::Guideline | Tool::Parametric => {
             two_point_entity(document, history, point, pending, |id, start, end| {
                 Entity::Guideline {
@@ -3172,6 +3286,65 @@ fn project_mesh_point(point: Point3, scale: f64, translation: Point3) -> Point {
     }
 }
 
+fn draw_hatch_entity(
+    cr: &gtk::cairo::Context,
+    width: f64,
+    height: f64,
+    camera: Camera,
+    boundary: &[Point],
+    pattern: &str,
+    scale: f64,
+    angle: f64,
+    solid: bool,
+    color: Option<&str>,
+    is_preview: bool,
+) {
+    if boundary.len() < 3 {
+        return;
+    }
+    let fill_alpha = if is_preview { 0.22 } else { 0.30 };
+    let line_alpha = if is_preview { 0.55 } else { 0.85 };
+    let line_width = if is_preview { 1.2 } else { 1.0 };
+    let apply_stroke_color = |cr: &gtk::cairo::Context| {
+        if let Some((r, g, b)) = parse_hex_color(color.unwrap_or_default()) {
+            cr.set_source_rgba(r, g, b, line_alpha);
+        } else if is_preview {
+            cr.set_source_rgba(0.45, 0.85, 1.0, line_alpha);
+        } else {
+            cr.set_source_rgba(0.64, 0.67, 0.72, line_alpha);
+        }
+    };
+    if hatch_is_solid(pattern, solid) {
+        if let Some((r, g, b)) = parse_hex_color(color.unwrap_or_default()) {
+            cr.set_source_rgba(r, g, b, fill_alpha);
+        } else if is_preview {
+            cr.set_source_rgba(0.45, 0.85, 1.0, fill_alpha);
+        } else {
+            cr.set_source_rgba(0.64, 0.67, 0.72, 0.28);
+        }
+        append_points_path(cr, width, height, camera, boundary, true);
+        cr.close_path();
+        let _ = cr.fill_preserve();
+        apply_stroke_color(cr);
+        cr.set_line_width(line_width);
+        let _ = cr.stroke();
+        return;
+    }
+    let lines = generate_ansi31_lines(boundary, scale.max(0.1), angle);
+    if lines.is_empty() {
+        return;
+    }
+    cr.set_line_width(line_width * 0.9);
+    apply_stroke_color(cr);
+    for (start, end) in lines {
+        let screen_start = world_to_screen(start, width, height, camera);
+        let screen_end = world_to_screen(end, width, height, camera);
+        cr.move_to(screen_start.x, screen_start.y);
+        cr.line_to(screen_end.x, screen_end.y);
+    }
+    let _ = cr.stroke();
+}
+
 fn draw_entity(
     cr: &gtk::cairo::Context,
     width: f64,
@@ -3288,24 +3461,16 @@ fn draw_entity(
             cr.move_to(p.x, p.y);
             let _ = cr.show_text(text);
         }
-        Entity::Hatch { boundary, .. } => {
-            if !boundary.is_empty() {
-                if let Some((r, g, b)) = parse_hex_color(color.unwrap_or_default()) {
-                    cr.set_source_rgba(r, g, b, 0.30);
-                } else {
-                    cr.set_source_rgba(0.64, 0.67, 0.72, 0.28);
-                }
-                append_points_path(cr, width, height, camera, boundary, true);
-                cr.close_path();
-                let _ = cr.fill_preserve();
-                if let Some((r, g, b)) = parse_hex_color(color.unwrap_or_default()) {
-                    cr.set_source_rgba(r, g, b, 0.70);
-                } else {
-                    cr.set_source_rgba(0.64, 0.67, 0.72, 0.60);
-                }
-                let _ = cr.stroke();
-            }
-        }
+        Entity::Hatch {
+            boundary,
+            pattern,
+            scale,
+            angle,
+            solid,
+            ..
+        } => draw_hatch_entity(
+            cr, width, height, camera, boundary, pattern, *scale, *angle, *solid, color, false,
+        ),
         Entity::Table {
             origin,
             rows,

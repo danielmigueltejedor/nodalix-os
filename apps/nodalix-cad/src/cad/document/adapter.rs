@@ -419,6 +419,7 @@ fn cad_entity_to_legacy(entity: &CADEntity, layers: &[Layer]) -> Option<LegacyEn
             pattern: e.pattern.clone(),
             scale: e.scale,
             angle: e.angle,
+            solid: e.pattern.eq_ignore_ascii_case("SOLID"),
         }),
         CADEntity::BlockReference(e) => Some(LegacyEntity::BlockReference {
             id,

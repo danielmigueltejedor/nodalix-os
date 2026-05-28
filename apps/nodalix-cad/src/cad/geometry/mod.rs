@@ -1,6 +1,8 @@
 pub mod construction;
 pub mod creation_modes;
+pub mod fillet_chamfer;
 pub mod grips;
+pub mod hatch;
 pub mod modify;
 pub mod offset;
 pub mod point;
@@ -18,9 +20,14 @@ pub use construction::{
 pub use creation_modes::{
     ArcCreationMode, CircleCreationMode, LineCreationMode, RectangleCreationMode,
 };
+pub use fillet_chamfer::{chamfer_line_line, fillet_line_line, ChamferResult, FilletResult};
 pub use grips::{
     apply_grip_edit, clone_entities_offset, collect_grips, grip_is_editable, hit_test_grip,
     translate_entities, Grip, GripKind,
+};
+pub use hatch::{
+    generate_ansi31_lines, hatch_boundary_from_entity, hatch_is_solid, point_in_polygon,
+    polygon_area, polyline_is_closed, HatchPatternKind,
 };
 pub use modify::{
     angle_degrees_from_points, mirror_entity, mirror_point, rotate_entity, rotate_point,

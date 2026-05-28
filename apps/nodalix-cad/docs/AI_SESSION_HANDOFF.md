@@ -830,3 +830,166 @@ c96fcbdee78a5d77006bd3aa3da24a61d8bcc2b79f94a476d85619beb37b3390
 - Extend: short horizontal + vertical boundary ahead → extend to boundary → undo/redo
 - Locked boundary OK; locked target blocked; hidden not pickable
 - Regression: Offset (no RefCell panic), Move/Copy, grips, layouts, OSNAP/ORTHO/POLAR/DYN, text, dimensions, layers, `line 0,0 100,100`
+
+---
+
+## Session 2026-05-28 — Phase 3.26 FILLET / CHAMFER
+
+### Goal
+
+Initial **FILLET** and **CHAMFER** for two lines (line-line): trim both lines, add chamfer segment or fillet arc (as open **polyline**, no `Entity::Arc` in document model), preview, undo/redo via `LegacyModifyAndAddEntitiesAction`.
+
+### Changes made
+
+- **`src/cad/geometry/fillet_chamfer.rs`:** `chamfer_line_line`, `fillet_line_line` + pure tests
+- **`src/cad/history/legacy_actions.rs`:** `LegacyModifyAndAddEntitiesAction` (modify snapshots + added entity snapshots)
+- **`src/canvas_fillet_chamfer.rs`:** two-click flow, preview, apply, command parser
+- **`src/tool_parameters.rs`:** `fillet_radius`, `chamfer_distance_1`, `chamfer_distance_2`
+- **`src/tools.rs`:** `Tool::Fillet`, `Tool::Chamfer` + icons
+- **`src/canvas.rs`:** click/motion preview; `fillet_first_selection` / `chamfer_first_selection` (copy `*borrow()` before mut)
+- **`src/ui.rs`:** parameter panels, commands
+- **`assets/icons/modify/modify-fillet.svg`**, **`modify-chamfer.svg`**
+
+### Flow
+
+1. Activate Fillet or Chamfer (toolbar or command).
+2. **Click 1:** first line/segment + pick point stored in `CornerSelection`.
+3. **Hover:** preview trimmed lines + chamfer line or fillet arc polyline.
+4. **Click 2:** second line; one `LegacyModifyAndAddEntitiesAction`; selection cleared.
+
+### Fillet arc representation
+
+No `Entity::Arc` in `document::Entity` — fillet uses **`Entity::Polyline`** with points from `arc_to_polyline_points` (~16 segments).
+
+### Policies
+
+- **Hidden:** not selectable (`line_candidate`).
+- **Locked:** either line blocks operation (both are modified).
+- **Preview:** not in history.
+
+### Commands
+
+| Command | Action |
+|---------|--------|
+| `fillet`, `f` | Activate Fillet |
+| `fillet 10`, `f 10` | Set radius 10, activate |
+| `chamfer`, `cha` | Activate Chamfer |
+| `chamfer 10 10`, `cha 10 10` | Set D1/D2, activate |
+
+### Not in this phase
+
+- Multiple fillet/chamfer; polyline-wide corner; circle/arc fillet; real arc entity.
+
+### Validation
+
+| Command | Result |
+|---------|--------|
+| `cargo check` | OK |
+| `cargo test` | **260 passed** |
+| `cargo fmt --check` | OK |
+| `cargo clippy` | OK (warnings) |
+| `cargo build --release` | OK |
+
+### Final hash
+
+```text
+28370d30e8ae08bcdbf57e7226758e766f2086cf7abca09082f27444859eacf9
+```
+
+### Manual tests
+
+- Chamfer / Fillet on perpendicular L → preview → apply → Ctrl+Z / Ctrl+Y
+- Locked line aborts; hidden not pickable
+- Regression: Trim/Extend, Offset, Move/Copy, grips, layouts, OSNAP, text, dimensions
+
+---
+
+## Session 2026-05-28 — Phase 3.27 HATCH (Solid + ANSI31)
+
+### Goal
+
+Basic **HATCH**: solid fill and initial **ANSI31** diagonal pattern on closed polyline / rectangle / circle (48-segment polygon boundary). Pick boundary → preview → confirm. History via `LegacyAddEntitiesAction`. No pick-point island detection yet.
+
+### Diagnosis (initial)
+
+- **`Entity::Hatch`** already existed: `boundary`, `pattern` (string), `scale`, `angle`.
+- Render was fill-only (semi-transparent polygon), no ANSI31 lines.
+- Old `Tool::Hatch` used `two_point_entity` rectangle boundary — removed.
+- DXF import had `parse_hatch`; export hatch still TODO.
+
+### Model
+
+- Added `#[serde(default)] solid: bool` on `Entity::Hatch`.
+- Pattern strings: **`SOLID`**, **`ANSI31`**; tool uses `HatchPatternKind` (`Solid` / `Ansi31`).
+- `hatch_is_solid(pattern, solid)` — `solid` flag or pattern name `SOLID`.
+
+### New modules
+
+- **`src/cad/geometry/hatch.rs`:** boundary helpers, `polygon_area`, `point_in_polygon`, `generate_ansi31_lines` (bbox grid + clip to polygon).
+- **`src/canvas_hatch.rs`:** two-click flow, preview, `apply_hatch`, command parser, tests.
+
+### Tool flow
+
+1. Activate Hatch (toolbar `draw-hatch`, or `h` / `hatch` / `bhatch`).
+2. Tool Parameters: Pattern (Solid / ANSI31), Scale, Angle.
+3. **Click 1:** closed polyline or circle boundary (visible; locked boundary OK).
+4. **Hover:** preview hatch in `modify_preview` (not in document / history).
+5. **Click 2:** create hatch on **active layer** via `LegacyAddEntitiesAction`.
+
+### Policies
+
+- **Hidden boundary:** not selectable (`boundary_candidate` / layout visibility).
+- **Locked boundary:** allowed (boundary not modified).
+- **Active layer locked:** blocks creation (`active_layer_allows_hatch`).
+
+### Render
+
+- **`draw_hatch_entity`:** SOLID → polygon fill + light stroke; ANSI31 → clipped diagonal segments (`generate_ansi31_lines`). Works in model and layouts (same entity draw path).
+
+### Commands
+
+| Command | Action |
+|---------|--------|
+| `hatch`, `h`, `bhatch` | Activate Hatch |
+| `hatch solid` | Pattern Solid + activate |
+| `hatch ansi31` | Pattern ANSI31 + activate |
+| `hatch ansi31 2.0 45` | ANSI31 + scale + angle + activate |
+
+### DXF/DWG
+
+- Import: existing `parse_hatch` kept; sets `solid` when pattern is `SOLID`.
+- Export: not extended (TODO documented in prior phases).
+
+### Icons
+
+- `assets/icons/draw/draw-hatch.svg` (toolbar)
+- `assets/icons/hatch/hatch-solid.svg`, `hatch-ansi31.svg`
+- `assets.rs`: `draw-` / `hatch-` subdir resolution + `hatch_icons_resolve` test
+
+### Not in this phase
+
+- Pick internal point, islands, associative hatch, PAT files, explode, full DXF hatch.
+
+### Validation
+
+| Command | Result |
+|---------|--------|
+| `cargo check` | OK |
+| `cargo test` | **279 passed** |
+| `cargo fmt --check` | OK |
+| `cargo clippy` | OK (warnings) |
+| `cargo build --release` | OK |
+
+### Final hash
+
+```text
+3ac5ddb22b0c279113ac2807b8488b72f3527aa4ac5bf36eaa141dace0b07b19
+```
+
+### Manual tests
+
+- Solid hatch on closed rectangle → undo/redo
+- ANSI31 on rectangle; change scale/angle in panel
+- Circle boundary (approximate polygon)
+- Locked boundary OK; hidden not pickable; active layer locked blocks create
+- Regression: Fillet/Chamfer, Trim/Extend, Offset, Move/Copy, grips, layouts, OSNAP/ORTHO/POLAR/DYN, text, dimensions, layers, command bar
