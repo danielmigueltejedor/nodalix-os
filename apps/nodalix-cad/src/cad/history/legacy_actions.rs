@@ -2,7 +2,7 @@
 //!
 // TODO(phase-3): migrate to `HistoryAction` on `CADDocument` when adapter covers all entity kinds.
 
-use crate::document::{Document, Entity, Layer};
+use crate::document::{BlockDefinition, Document, Entity, Layer};
 
 /// Snapshot of a legacy entity plus per-entity metadata removed with it.
 #[derive(Clone, Debug)]
@@ -376,6 +376,97 @@ pub fn record_entity_transform<F>(
         return;
     }
     history.record(Box::new(LegacyTransformEntitiesAction { before, after }));
+}
+
+/// Create block from selection: removes source entities, stores definition, adds reference.
+pub struct LegacyCreateBlockFromSelectionAction {
+    pub block_name: String,
+    pub previous_block: Option<BlockDefinition>,
+    pub new_block: BlockDefinition,
+    pub removed: Vec<EntitySnapshot>,
+    pub reference: EntitySnapshot,
+}
+
+impl LegacyHistoryAction for LegacyCreateBlockFromSelectionAction {
+    fn description(&self) -> &'static str {
+        "Create block from selection"
+    }
+
+    fn apply(&self, document: &mut Document) {
+        for snapshot in &self.removed {
+            document.remove_entity(snapshot.entity.id());
+        }
+        document.insert_block_definition(self.new_block.clone());
+        restore_entity_snapshot(document, &self.reference);
+    }
+
+    fn undo(&self, document: &mut Document) {
+        document.remove_entity(self.reference.entity.id());
+        document.remove_block_definition(&self.block_name);
+        if let Some(previous) = &self.previous_block {
+            document.insert_block_definition(previous.clone());
+        }
+        for snapshot in &self.removed {
+            restore_entity_snapshot(document, snapshot);
+        }
+    }
+}
+
+pub fn record_create_block_from_selection(
+    history: &mut crate::cad::history::legacy_history_manager::LegacyHistoryManager,
+    block_name: String,
+    previous_block: Option<BlockDefinition>,
+    new_block: BlockDefinition,
+    removed: Vec<EntitySnapshot>,
+    reference: EntitySnapshot,
+) {
+    history.record(Box::new(LegacyCreateBlockFromSelectionAction {
+        block_name,
+        previous_block,
+        new_block,
+        removed,
+        reference,
+    }));
+}
+
+/// Explode block reference into model-space entities.
+pub struct LegacyExplodeBlockReferenceAction {
+    pub reference: EntitySnapshot,
+    pub exploded: Vec<EntitySnapshot>,
+}
+
+impl LegacyHistoryAction for LegacyExplodeBlockReferenceAction {
+    fn description(&self) -> &'static str {
+        "Explode block reference"
+    }
+
+    fn apply(&self, document: &mut Document) {
+        document.remove_entity(self.reference.entity.id());
+        for snapshot in &self.exploded {
+            restore_entity_snapshot(document, snapshot);
+        }
+    }
+
+    fn undo(&self, document: &mut Document) {
+        for snapshot in &self.exploded {
+            document.remove_entity(snapshot.entity.id());
+        }
+        restore_entity_snapshot(document, &self.reference);
+    }
+}
+
+pub fn record_explode_block_reference(
+    history: &mut crate::cad::history::legacy_history_manager::LegacyHistoryManager,
+    reference: EntitySnapshot,
+    exploded: Vec<EntitySnapshot>,
+) {
+    if exploded.is_empty() {
+        return;
+    }
+    history.record(Box::new(LegacyExplodeBlockReferenceAction {
+        reference,
+        exploded,
+    }));
 }
 
 /// Reversible entity property edits (layer, color, line style, text content).
@@ -987,6 +1078,7 @@ mod tests {
                 name: "MyBlock".to_string(),
                 insertion: Point { x: 10.0, y: 20.0 },
                 scale: 2.0,
+                scale_y: None,
                 rotation: 45.0,
             },
         );

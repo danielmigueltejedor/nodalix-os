@@ -1,3 +1,4 @@
+pub mod blocks;
 pub mod construction;
 pub mod creation_modes;
 pub mod fillet_chamfer;
@@ -10,6 +11,11 @@ pub mod transforms;
 pub mod trim_extend;
 pub mod vector;
 
+pub use blocks::{
+    block_reference_hit_distance, block_reference_world_bounds, block_scale_y,
+    explode_block_reference, instanced_entities, normalize_block_name, selection_bbox_center,
+    MAX_BLOCK_RENDER_DEPTH,
+};
 pub use construction::{
     arc_from_three_points, arc_to_polyline_points, circle_from_center_diameter,
     circle_from_center_radius, circle_from_three_points, circle_from_two_diameter_points,

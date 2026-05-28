@@ -68,6 +68,12 @@ fn icon_path_candidates(dir: &Path, name: &str) -> Vec<PathBuf> {
     if name.starts_with("hatch-") {
         paths.push(dir.join("hatch").join(format!("{name}.svg")));
     }
+    if name.starts_with("block-") {
+        paths.push(dir.join("block").join(format!("{name}.svg")));
+    }
+    if name == "block-insert" {
+        paths.push(dir.join("block").join("block-insert.svg"));
+    }
     if name.starts_with("precision-") {
         paths.push(dir.join("precision").join(format!("{name}.svg")));
     }
@@ -147,6 +153,25 @@ mod tests {
     #[test]
     fn hatch_icons_resolve() {
         for name in ["draw-hatch", "hatch-solid", "hatch-ansi31"] {
+            let path = icon_path(name);
+            assert!(path.is_file(), "missing icon: {}", path.display());
+        }
+    }
+
+    #[test]
+    fn export_pdf_icon_resolves() {
+        let path = icon_path("export-pdf");
+        assert!(path.is_file(), "missing icon: {}", path.display());
+    }
+
+    #[test]
+    fn block_icons_resolve() {
+        for name in [
+            "block-insert",
+            "block-create",
+            "block-explode",
+            "block-manager",
+        ] {
             let path = icon_path(name);
             assert!(path.is_file(), "missing icon: {}", path.display());
         }

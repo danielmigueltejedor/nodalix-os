@@ -41,6 +41,9 @@ pub struct ToolParametersState {
     pub hatch_pattern: HatchPatternKind,
     pub hatch_scale: f64,
     pub hatch_angle: f64,
+    pub block_scale: f64,
+    pub block_scale_y: f64,
+    pub block_rotation: f64,
 }
 
 impl Default for ToolParametersState {
@@ -60,6 +63,9 @@ impl Default for ToolParametersState {
             hatch_pattern: HatchPatternKind::Solid,
             hatch_scale: 2.0,
             hatch_angle: 45.0,
+            block_scale: 1.0,
+            block_scale_y: 1.0,
+            block_rotation: 0.0,
         }
     }
 }

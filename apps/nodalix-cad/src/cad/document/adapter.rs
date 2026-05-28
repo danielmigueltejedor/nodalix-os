@@ -430,6 +430,7 @@ fn cad_entity_to_legacy(entity: &CADEntity, layers: &[Layer]) -> Option<LegacyEn
                 y: e.insertion.y,
             },
             scale: e.scale,
+            scale_y: None,
             rotation: e.rotation,
         }),
     }

@@ -51,7 +51,7 @@ pub fn legacy_hit_entity_at(document: &Document, point: Point, tolerance: f64) -
         {
             continue;
         }
-        if let Some(distance) = legacy_hit_distance(entity, point) {
+        if let Some(distance) = legacy_hit_distance(document, entity, point) {
             if distance <= tolerance {
                 let id = entity.id();
                 if best.as_ref().map(|(_, d)| distance < *d).unwrap_or(true) {
@@ -70,7 +70,7 @@ fn parse_legacy_entity_id(entity_id: &str) -> Option<u64> {
         .and_then(|value| value.parse().ok())
 }
 
-fn legacy_hit_distance(entity: &Entity, point: Point) -> Option<f64> {
+fn legacy_hit_distance(document: &Document, entity: &Entity, point: Point) -> Option<f64> {
     match entity {
         Entity::Point { point: p, .. } => Some(point.distance_to(*p)),
         Entity::Dimension { start, end, .. } | Entity::Guideline { start, end, .. } => {
@@ -82,11 +82,19 @@ fn legacy_hit_distance(entity: &Entity, point: Point) -> Option<f64> {
             closed,
             ..
         } => polyline_distance(point, control_points, *closed),
-        Entity::Text { origin, .. }
-        | Entity::Table { origin, .. }
-        | Entity::BlockReference {
-            insertion: origin, ..
-        } => Some(point.distance_to(*origin)),
+        Entity::Text { origin, .. } | Entity::Table { origin, .. } => {
+            Some(point.distance_to(*origin))
+        }
+        Entity::BlockReference {
+            name,
+            insertion,
+            scale,
+            scale_y,
+            rotation,
+            ..
+        } => crate::cad::geometry::blocks::block_reference_hit_distance(
+            document, name, *insertion, *scale, *scale_y, *rotation, point,
+        ),
         Entity::Hatch { boundary, .. } => polyline_distance(point, boundary, true),
         Entity::Line { .. } | Entity::Circle { .. } => None,
     }

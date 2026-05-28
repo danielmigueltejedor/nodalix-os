@@ -35,8 +35,17 @@ pub struct Document {
     pub entity_layouts: BTreeMap<u64, String>,
     #[serde(default)]
     pub layout_viewports: Vec<LayoutViewport>,
+    #[serde(default)]
+    pub block_definitions: BTreeMap<String, BlockDefinition>,
     #[serde(skip, default)]
     entity_bounds_cache: RefCell<BTreeMap<u64, (Point, Point)>>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct BlockDefinition {
+    pub name: String,
+    pub base_point: Point,
+    pub entities: Vec<Entity>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -215,6 +224,8 @@ pub enum Entity {
         name: String,
         insertion: Point,
         scale: f64,
+        #[serde(default)]
+        scale_y: Option<f64>,
         rotation: f64,
     },
     Guideline {
@@ -306,8 +317,34 @@ impl Document {
             layouts: default_layouts(),
             entity_layouts: BTreeMap::new(),
             layout_viewports: Vec::new(),
+            block_definitions: BTreeMap::new(),
             entity_bounds_cache: RefCell::new(BTreeMap::new()),
         }
+    }
+
+    pub fn block_definition_key(name: &str) -> String {
+        name.trim().to_ascii_uppercase()
+    }
+
+    pub fn block_definition(&self, name: &str) -> Option<&BlockDefinition> {
+        self.block_definitions
+            .get(&Self::block_definition_key(name))
+    }
+
+    pub fn insert_block_definition(&mut self, definition: BlockDefinition) {
+        let key = Self::block_definition_key(&definition.name);
+        self.block_definitions.insert(key, definition);
+        self.modified = true;
+    }
+
+    pub fn remove_block_definition(&mut self, name: &str) -> Option<BlockDefinition> {
+        let removed = self
+            .block_definitions
+            .remove(&Self::block_definition_key(name));
+        if removed.is_some() {
+            self.modified = true;
+        }
+        removed
     }
 
     pub fn next_id(&self) -> u64 {
@@ -1032,9 +1069,26 @@ impl Document {
         if let Some(bounds) = self.entity_bounds_cache.borrow().get(&id).copied() {
             return Some(bounds);
         }
-        let bounds = entity_bounds(entity)?;
+        let bounds = self.entity_bounds_for(entity)?;
         self.entity_bounds_cache.borrow_mut().insert(id, bounds);
         Some(bounds)
+    }
+
+    pub fn entity_bounds_for(&self, entity: &Entity) -> Option<(Point, Point)> {
+        if let Entity::BlockReference {
+            name,
+            insertion,
+            scale,
+            scale_y,
+            rotation,
+            ..
+        } = entity
+        {
+            return crate::cad::geometry::blocks::block_reference_world_bounds(
+                self, name, *insertion, *scale, *scale_y, *rotation,
+            );
+        }
+        entity_bounds(entity)
     }
 
     pub fn entity_summary(&self, id: u64) -> Option<String> {

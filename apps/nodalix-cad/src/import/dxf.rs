@@ -1,6 +1,9 @@
 use crate::{
     cad::layouts::{layout_debug_log, normalize_layout_name},
-    document::{normalized_layout_name, Document, Entity, Layer, LayoutViewport, PaperSetup},
+    document::{
+        normalized_layout_name, BlockDefinition as DocumentBlockDefinition, Document, Entity,
+        Layer, LayoutViewport, PaperSetup,
+    },
     geometry::Point,
 };
 use std::collections::BTreeMap;
@@ -12,7 +15,7 @@ const ARC_SEGMENTS: usize = 48;
 const ELLIPSE_SEGMENTS: usize = 72;
 
 #[derive(Clone, Debug)]
-struct BlockDefinition {
+struct DxfBlockDefinition {
     base: Point,
     entities: Vec<Entity>,
 }
@@ -24,6 +27,13 @@ pub fn import_dxf(path: &Path, document: &mut Document) -> Result<ImportSummary,
     let layout_papers = detect_layout_papers(&pairs);
     let layout_owners = detect_layout_owner_map(&pairs);
     let block_definitions = parse_block_definitions(&pairs);
+    for (name, def) in &block_definitions {
+        document.insert_block_definition(DocumentBlockDefinition {
+            name: name.clone(),
+            base_point: def.base,
+            entities: def.entities.clone(),
+        });
+    }
     for layout in &detected_layouts {
         let name = normalized_layout_name(layout);
         document.ensure_layout(&name);
@@ -211,7 +221,17 @@ pub fn import_dxf(path: &Path, document: &mut Document) -> Result<ImportSummary,
                 }
             }
             "INSERT" => {
-                if let Some(inserted) = expand_insert(chunk, document.next_id(), &block_definitions)
+                if let Some(entity) = parse_insert(chunk, document.next_id()) {
+                    add_imported_entity(
+                        document,
+                        entity,
+                        chunk,
+                        &layout_owners,
+                        paper_layout_hint.as_deref(),
+                    );
+                    imported += 1;
+                } else if let Some(inserted) =
+                    expand_insert(chunk, document.next_id(), &block_definitions)
                 {
                     for entity in inserted {
                         add_imported_entity(
@@ -223,15 +243,6 @@ pub fn import_dxf(path: &Path, document: &mut Document) -> Result<ImportSummary,
                         );
                         imported += 1;
                     }
-                } else if let Some(entity) = parse_insert(chunk, document.next_id()) {
-                    add_imported_entity(
-                        document,
-                        entity,
-                        chunk,
-                        &layout_owners,
-                        paper_layout_hint.as_deref(),
-                    );
-                    imported += 1;
                 } else {
                     *unsupported.entry(entity_type).or_default() += 1;
                 }
@@ -339,7 +350,7 @@ fn section_bounds(pairs: &[(String, String)], section_name: &str) -> Option<(usi
     None
 }
 
-fn parse_block_definitions(pairs: &[(String, String)]) -> BTreeMap<String, BlockDefinition> {
+fn parse_block_definitions(pairs: &[(String, String)]) -> BTreeMap<String, DxfBlockDefinition> {
     let mut blocks = BTreeMap::new();
     let Some((mut i, end)) = section_bounds(pairs, "BLOCKS") else {
         return blocks;
@@ -367,7 +378,7 @@ fn parse_block_definitions(pairs: &[(String, String)]) -> BTreeMap<String, Block
         if !entities.is_empty() {
             blocks.insert(
                 name.to_ascii_uppercase(),
-                BlockDefinition { base, entities },
+                DxfBlockDefinition { base, entities },
             );
         }
         i += 1;
@@ -1008,6 +1019,15 @@ fn parse_insert(pairs: &[(String, String)], id: u64) -> Option<Entity> {
             y: number_value(pairs, "20")?,
         },
         scale: number_value(pairs, "41").unwrap_or(1.0),
+        scale_y: {
+            let scale_x = number_value(pairs, "41").unwrap_or(1.0);
+            let scale_y = number_value(pairs, "42").unwrap_or(scale_x);
+            if (scale_y - scale_x).abs() > f64::EPSILON {
+                Some(scale_y)
+            } else {
+                None
+            }
+        },
         rotation: number_value(pairs, "50").unwrap_or(0.0).to_radians(),
     })
 }
@@ -1015,7 +1035,7 @@ fn parse_insert(pairs: &[(String, String)], id: u64) -> Option<Entity> {
 fn expand_insert(
     pairs: &[(String, String)],
     first_id: u64,
-    block_definitions: &BTreeMap<String, BlockDefinition>,
+    block_definitions: &BTreeMap<String, DxfBlockDefinition>,
 ) -> Option<Vec<Entity>> {
     let name = text_value(pairs, "2")?;
     let block = block_definitions.get(&name.to_ascii_uppercase())?;

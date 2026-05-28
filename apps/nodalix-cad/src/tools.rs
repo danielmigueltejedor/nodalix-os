@@ -55,7 +55,7 @@ impl Tool {
             (Tool::Extend, "modify-extend", "Extend"),
             (Tool::Fillet, "modify-fillet", "Fillet"),
             (Tool::Chamfer, "modify-chamfer", "Chamfer"),
-            (Tool::Block, "block", "Blocks"),
+            (Tool::Block, "block-insert", "Blocks"),
             (Tool::Hatch, "draw-hatch", "Hatch"),
             (Tool::Table, "table", "Table"),
             (Tool::Parametric, "parametric", "Parametric"),

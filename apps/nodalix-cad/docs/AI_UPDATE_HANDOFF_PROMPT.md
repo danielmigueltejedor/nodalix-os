@@ -39,5 +39,6 @@ Rules:
 ## Cuándo usarlo
 
 - Al cerrar una **fase grande** (p. ej. 3.18 Layers).
+- Al cerrar un **checkpoint de fase** (p. ej. **3.30 LixCAD 2D Core Tools Baseline**): `cargo clean`, full test suite, install, actualizar hash, añadir sección “Fase 3.30” + smoke checklist + deuda clasificada — **sin features nuevas**.
 - Antes de cambiar de máquina o de herramienta de IA.
 - Cuando notes que el contexto del chat ya está “sucio” o contradictorio.

@@ -153,10 +153,16 @@ pub fn scale_entity(entity: &mut Entity, base: Point, factor: f64) {
             *cell_height *= factor;
         }
         Entity::BlockReference {
-            insertion, scale, ..
+            insertion,
+            scale,
+            scale_y,
+            ..
         } => {
             *insertion = scale_point(*insertion, base, factor);
             *scale *= factor;
+            if let Some(scale_y) = scale_y {
+                *scale_y *= factor;
+            }
         }
     }
 }

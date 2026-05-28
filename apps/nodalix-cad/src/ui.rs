@@ -728,6 +728,29 @@ fn top_toolbar(
     }
     bar.append(&export_svg);
 
+    let export_pdf = toolbar_button("Export PDF");
+    {
+        let window = window.clone();
+        let document = document.clone();
+        export_pdf.connect_clicked(move |_| {
+            choose_file(&window, "Export PDF", gtk::FileChooserAction::Save, {
+                let window = window.clone();
+                let document = document.clone();
+                move |path| {
+                    let options = crate::export::PdfExportOptions::for_document(
+                        &document.borrow(),
+                        crate::export::PdfExportTarget::ActiveView,
+                    );
+                    match crate::export::export_pdf(&document.borrow(), &path, options) {
+                        Ok(()) => show_info(&window, "PDF exported", &path.display().to_string()),
+                        Err(error) => show_error(&window, "PDF export failed", &error),
+                    }
+                }
+            });
+        });
+    }
+    bar.append(&export_pdf);
+
     let undo_button = toolbar_button("Undo");
     {
         let cad = cad.clone();
@@ -904,6 +927,7 @@ fn toolbar_icon_name(label: &str) -> Option<&'static str> {
         "Export DXF" => Some("export-dxf"),
         "Export DWG" => Some("export-dwg"),
         "Export SVG" => Some("export-svg"),
+        "Export PDF" => Some("export-pdf"),
         "Settings" => Some("settings"),
         "Scale factor" => Some("scale"),
         "View: Top" => Some("view-top"),
@@ -1953,10 +1977,72 @@ fn refresh_tool_context(panel: &gtk::Box, tool: Tool, cad: &UiCadContext, canvas
             context_buttons(panel, &["OSNAP"]);
         }
         Tool::Block => {
-            context_entry(panel, "Block name", "New block");
-            context_entry(panel, "Insertion", "Pick point");
-            context_entry(panel, "Scale", "1.000");
-            context_buttons(panel, &["Create", "Insert", "Explode"]);
+            compact_note(
+                panel,
+                "Commands: block <name> (selection), insert <name>, explode. Click to place insert.",
+            );
+            let name_row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+            let name_combo = gtk::ComboBoxText::new();
+            let pending_name = canvas.block_insert_pending_name();
+            for (index, key) in cad.document.borrow().block_definitions.keys().enumerate() {
+                name_combo.append_text(key);
+                if pending_name.as_deref() == Some(key.as_str()) {
+                    name_combo.set_active(Some(index as u32));
+                }
+            }
+            {
+                let canvas = canvas.clone();
+                name_combo.connect_changed(move |combo| {
+                    if let Some(name) = combo.active_text() {
+                        let name = name.to_string();
+                        if !name.trim().is_empty() {
+                            canvas.begin_block_insert(name);
+                        }
+                    }
+                });
+            }
+            name_row.append(&field_label("Block"));
+            name_row.append(&name_combo);
+            panel.append(&name_row);
+
+            let scale_row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+            let scale_entry = gtk::Entry::new();
+            scale_entry.set_width_chars(8);
+            scale_entry.set_text(&format!("{:.4}", cad.tool_parameters.borrow().block_scale));
+            {
+                let cad = cad.clone();
+                scale_entry.connect_changed(move |entry| {
+                    if let Some(value) = parse_positive_f64(entry.text().as_str()) {
+                        cad.tool_parameters.borrow_mut().block_scale = value;
+                        cad.tool_parameters.borrow_mut().block_scale_y = value;
+                    }
+                });
+            }
+            scale_row.append(&field_label("Scale"));
+            scale_row.append(&scale_entry);
+            panel.append(&scale_row);
+
+            let angle_row = gtk::Box::new(gtk::Orientation::Horizontal, 6);
+            let angle_entry = gtk::Entry::new();
+            angle_entry.set_width_chars(8);
+            angle_entry.set_text(&format!(
+                "{:.2}",
+                cad.tool_parameters.borrow().block_rotation
+            ));
+            {
+                let cad = cad.clone();
+                angle_entry.connect_changed(move |entry| {
+                    if let Ok(value) = entry.text().parse::<f64>() {
+                        if value.is_finite() {
+                            cad.tool_parameters.borrow_mut().block_rotation = value;
+                        }
+                    }
+                });
+            }
+            angle_row.append(&field_label("Rotation °"));
+            angle_row.append(&angle_entry);
+            panel.append(&angle_row);
+            context_buttons(panel, &["OSNAP"]);
         }
         Tool::Hatch => {
             compact_note(
@@ -3773,6 +3859,16 @@ fn execute_command(
         }
     }
 
+    if let Some(target) = crate::export::try_parse_export_command(&command) {
+        let options = crate::export::PdfExportOptions::for_document(&cad.document.borrow(), target);
+        let path = crate::export::default_export_path();
+        match crate::export::export_pdf(&cad.document.borrow(), &path, options) {
+            Ok(()) => history.set_text(&format!("PDF exported: {}", path.display())),
+            Err(error) => history.set_text(&format!("PDF export failed: {error}")),
+        }
+        return;
+    }
+
     if crate::canvas_hatch::try_execute_hatch_command(
         &command,
         &mut cad.tool_parameters.borrow_mut(),
@@ -3829,6 +3925,83 @@ fn execute_command(
         history.set_text(msg);
         canvas.widget().queue_draw();
         return;
+    }
+
+    {
+        let selected_ids = cad.selected_entity.borrow().clone();
+        if let Some(outcome) =
+            crate::canvas_blocks::try_execute_block_command(&command, &selected_ids)
+        {
+            use crate::canvas_blocks::BlockCommandOutcome;
+            match outcome {
+                BlockCommandOutcome::CreateFromSelection { block_name } => {
+                    match crate::canvas_blocks::create_block_from_selection(
+                        &mut cad.document.borrow_mut(),
+                        &mut cad.history.borrow_mut(),
+                        &block_name,
+                        &selected_ids,
+                    ) {
+                        Ok(id) => {
+                            *cad.selected_entity.borrow_mut() = vec![id];
+                            history.set_text(&format!("BLOCK: created {block_name}"));
+                        }
+                        Err(msg) => history.set_text(&format!("BLOCK: {msg}")),
+                    }
+                    refresh_after_history_change(cad, view, selection_label, &cad.selected_entity);
+                    canvas.widget().queue_draw();
+                    return;
+                }
+                BlockCommandOutcome::ActivateInsert { block_name } => {
+                    if cad
+                        .document
+                        .borrow()
+                        .block_definition(&block_name)
+                        .is_none()
+                    {
+                        history.set_text(&format!("INSERT: unknown block {block_name}"));
+                        return;
+                    }
+                    canvas.begin_block_insert(block_name.clone());
+                    set_active_tool(
+                        active_tool,
+                        tool_label,
+                        tool_context,
+                        cad,
+                        canvas,
+                        Tool::Block,
+                    );
+                    history.set_text(&format!("INSERT {block_name}: click insertion point"));
+                    canvas.widget().queue_draw();
+                    return;
+                }
+                BlockCommandOutcome::Explode => {
+                    let ref_id = selected_ids.iter().find(|id| {
+                        cad.document.borrow().entities.iter().any(|entity| {
+                            entity.id() == **id
+                                && matches!(entity, crate::document::Entity::BlockReference { .. })
+                        })
+                    });
+                    let Some(ref_id) = ref_id.copied() else {
+                        history.set_text("EXPLODE: select a block reference");
+                        return;
+                    };
+                    let new_ids = crate::canvas_blocks::explode_selected_block_reference(
+                        &mut cad.document.borrow_mut(),
+                        &mut cad.history.borrow_mut(),
+                        ref_id,
+                    );
+                    if let Some(ids) = new_ids {
+                        *cad.selected_entity.borrow_mut() = ids;
+                        history.set_text("EXPLODE: ok");
+                    } else {
+                        history.set_text("EXPLODE: failed (locked layer or empty block)");
+                    }
+                    refresh_after_history_change(cad, view, selection_label, &cad.selected_entity);
+                    canvas.widget().queue_draw();
+                    return;
+                }
+            }
+        }
     }
 
     if try_execute_registry_command(

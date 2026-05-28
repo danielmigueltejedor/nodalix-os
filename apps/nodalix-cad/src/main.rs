@@ -2,6 +2,7 @@ mod app;
 mod assets;
 mod cad;
 mod canvas;
+mod canvas_blocks;
 mod canvas_fillet_chamfer;
 mod canvas_grips;
 mod canvas_hatch;

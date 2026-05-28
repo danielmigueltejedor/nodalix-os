@@ -3,7 +3,7 @@
 > **Living document** for starting new AI sessions without dragging dirty chat context.  
 > Update after major phases using `docs/AI_UPDATE_HANDOFF_PROMPT.md`.
 
-**Last updated:** 2026-05-28 (Offset RefCell fix)
+**Last updated:** 2026-05-28 (Phase 3.30 — LixCAD 2D Core Tools Baseline)
 
 ---
 
@@ -22,17 +22,20 @@ Assets at runtime: `~/.local/share/nodalix-cad/assets/`.
 ## 2. Current stable state
 
 - **LixCAD** is a 2D CAD desktop app in **Rust + GTK4/libadwaita**.
-- Single binary crate (`src/main.rs`); **no `[lib]`** yet — unit tests compile into the same GTK-linked test binary (**178 tests**).
+- Single binary crate (`src/main.rs`); **no `[lib]`** yet — unit tests compile into the same GTK-linked test binary (**308 tests** as of Phase 3.30).
 - **Dual model:** legacy `Document` (`src/document.rs`) remains the source of truth for UI/canvas; parallel **`src/cad/*`** core is being introduced gradually (entities, geometry, history, selection, commands, layers module stubs).
 - **UI/canvas** still hold substantial legacy logic (`src/ui.rs`, `src/canvas.rs`); migration is incremental — **do not big-bang refactor**.
-- **Recent milestone:** Phase **3.21** — OSNAP toolbar icons fixed; **Rotate / Scale / Mirror** modify tools with live preview, command bar, undo/redo via `LegacyTransformEntitiesAction`.
+- **Baseline name:** **LixCAD 2D Core Tools Baseline** (Phase 3 closed at 3.30).
+- **Recent milestone:** Phase **3.29** — PDF export; Phase **3.30** — stabilization checkpoint (no new features).
 - Layers (3.18), OSNAP (3.19), Ortho/Polar/DYN (3.20) remain intact.
 
-**Last known release hash** (2026-05-27, after 3.21 install):
+**Last known release hash** (2026-05-28, after Phase 3.30 `cargo clean` + install):
 
 ```text
-89e62a19087d849d5b888c83acd878298a5f91f67118b97d630166794a4151e0
+a34023f0de472f36d1c1fda5e5ea794ca07d559ad271789dd4a70c099476981d
 ```
+
+Includes uncommitted Phase 3.28 (blocks) + 3.29 (PDF, `cairo-rs`) in working tree on branch `feature/nodalix-greeter`. Prior hash `0e725780…` was 3.29-only without blocks sources in tree.
 
 (`target/release/nodalix-cad` and `~/.local/bin/lixcad` must match after install.)
 
@@ -993,3 +996,392 @@ Basic **HATCH**: solid fill and initial **ANSI31** diagonal pattern on closed po
 - Circle boundary (approximate polygon)
 - Locked boundary OK; hidden not pickable; active layer locked blocks create
 - Regression: Fillet/Chamfer, Trim/Extend, Offset, Move/Copy, grips, layouts, OSNAP/ORTHO/POLAR/DYN, text, dimensions, layers, command bar
+
+---
+
+## Session 2026-05-28 — Phase 3.28 BLOCKS (BlockDefinition + BlockReference)
+
+### Goal
+
+Real basic blocks: definitions in document, insert/create/explode commands, instanced render, hit-test, history, save/load, DXF INSERT/BLOCK mapping (no regression).
+
+### Diagnosis (initial)
+
+- `Entity::BlockReference` existed (placeholder render: marker + name).
+- No `Document::block_definitions` table.
+- DXF had local block table; INSERT often expanded to flat geometry.
+- Block tool click created fake references without definitions.
+
+### Model (`document.rs`)
+
+- `BlockDefinition { name, base_point, entities }`
+- `Document.block_definitions: BTreeMap<String, BlockDefinition>` (`#[serde(default)]`)
+- `BlockReference`: kept `scale` (uniform X); added `scale_y: Option<f64>` (`#[serde(default)]`)
+- Helpers: `block_definition`, `insert_block_definition`, `entity_bounds_for` (block-aware)
+
+### Geometry (`cad/geometry/blocks.rs`)
+
+- Transform / instancing / explode / world bounds / hit distance
+- `MAX_BLOCK_RENDER_DEPTH` + visited set (self-reference → empty)
+- **Create-block base point:** center of selection bounding box; entities stored relative to base; one `BlockReference` at base replaces selection
+
+### Canvas / commands (`canvas_blocks.rs`, `canvas.rs`, `ui.rs`)
+
+| Command | Action |
+|---------|--------|
+| `block <name>` | Create definition from selection → replace with reference (history) |
+| `insert <name>` / `i <name>` | Activate Block tool + pending insert; click places reference |
+| `explode` / `x` | Explode selected `BlockReference` (history) |
+
+- Insert preview via `modify_preview` (not in history)
+- Tool panel: block combo (definitions), scale, rotation °
+- Toolbar icon: `block-insert` → `assets/icons/block/block-insert.svg`
+
+### History (`legacy_actions.rs`)
+
+- `LegacyCreateBlockFromSelectionAction`
+- `LegacyExplodeBlockReferenceAction`
+- Insert uses `record_entities_added`
+- Explode assigns new entity ids `> max(reference_id, max existing)` to avoid id reuse on undo
+
+### Render / selection
+
+- `BlockReference` draws instanced internal entities (transform: insertion − base, scale, rotation)
+- Hit-test: transformed internal geometry / bounds (`legacy_hit` + `block_reference_hit_distance`)
+- Hidden layer: not visible / not pickable (`entity_visible_in_active_layout`)
+
+### DXF (`import/dxf.rs`)
+
+- Parsed blocks merged into `document.block_definitions`
+- INSERT: try `parse_insert` → `BlockReference` first, else `expand_insert` fallback
+- Export INSERT unchanged (uniform scale on 41/42/43)
+
+### Icons
+
+- `assets/icons/block/block-create.svg`, `block-insert.svg`, `block-explode.svg`, `block-manager.svg`
+- `assets.rs`: `block-` subdir resolution + `block_icons_resolve` test
+
+### Not in this phase
+
+- Dynamic blocks, attributes, ByBlock, XREF, nested edit UI, Block Manager dialog (TODO)
+
+### Validation
+
+| Command | Result |
+|---------|--------|
+| `cargo check` | OK |
+| `cargo test` | **295 passed** |
+| `cargo fmt --check` | OK |
+| `cargo clippy` | OK (warnings; `-D warnings` not gated) |
+| `cargo build --release` | OK |
+
+### Final hash
+
+```text
+3ac5ddb22b0c279113ac2807b8488b72f3527aa4ac5bf36eaa141dace0b07b19
+```
+
+### Manual tests
+
+- `block DoorSymbol` with line+circle selected → reference at bbox center → undo/redo
+- `insert DoorSymbol` → click → preview → place → undo/redo
+- Select reference → `explode` or `x` → geometry → undo/redo
+- Regression: hatch, fillet/chamfer, trim/extend, offset, layouts, move/copy, grips, OSNAP/ORTHO/POLAR/DYN, text, dimensions, layers, command bar
+
+---
+
+## Session 2026-05-28 — Phase 3.29 PDF export / basic plot
+
+### Goal
+
+Export **Model Space** or **active layout** (paper + viewports) to PDF: white background, visible layers, lineweights/colors (entity override → layer → default), hatch/blocks/text/dimensions via shared canvas draw path.
+
+### Diagnosis (initial)
+
+- `export/pdf.rs` was only `export_pdf_placeholder()`.
+- Canvas already uses **Cairo** (`draw_entity`, hatch, blocks via `instanced_entities`, dimensions, layouts/viewports).
+- SVG export exists but is minimal (line/circle/polyline only).
+- No plot manager, CTB, or printer integration.
+
+### API (`src/export/pdf.rs`)
+
+- `PdfExportOptions` / `PdfExportTarget` (`ActiveView`, `ModelSpace`, `ActiveLayout`)
+- `export_pdf(document, path, options) -> Result<(), String>` — **does not mutate** `Document`
+- Helpers: `mm_to_pt`, `fit_camera_for_bounds`, `model_space_bounds`, `layout_export_bounds`, `try_parse_export_command`
+- Dependency: `cairo-rs` 0.20 with `pdf` feature (aligned with gtk4’s cairo)
+
+### Render strategy
+
+- Reuses **`draw_entity`** from `canvas.rs` (now `pub(crate)`).
+- **`export_draw_layout_content`** + **`export_draw_viewports_for_layout`** (extracted from layout viewport loop).
+- Export camera = same `Camera` + `world_to_screen` as canvas (fit-to-page in PDF points).
+- Hidden layers: excluded via `entity_layer_visible` in bounds and draw loops.
+- Locked layers: still exported (visibility only).
+
+### Model Space
+
+- Default page **A4 landscape** (297×210 mm) unless options override.
+- Fit content in margin (default 10 mm).
+- Command: `pdf`, `exportpdf`, `pdf model`, `pdf layout`.
+
+### Active layout (paper)
+
+- Page size from layout `PaperSetup` (fallback A4).
+- Paper-space entities + **viewports** (model geometry clipped/transformed, same as canvas).
+
+### UI
+
+- Toolbar **Export PDF** (FileChooser save, like DXF/SVG).
+- Command bar: `pdf` → `~/Documents/lixcad-export.pdf` (or `$HOME/lixcad-export.pdf`).
+- Icon: `assets/icons/export-pdf.svg`
+
+### Not in this phase
+
+- Plot Manager, CTB/STB, batch plot, multi-layout PDF, viewport layer overrides, pick-point hatch plot.
+
+### Validation
+
+| Command | Result |
+|---------|--------|
+| `cargo check` | OK |
+| `cargo test` | **308 passed** |
+| `cargo fmt --check` | OK |
+| `cargo clippy` | OK (warnings) |
+| `cargo build --release` | OK |
+
+### Final hash (superseded by Phase 3.30)
+
+```text
+0e725780e2a8fca5c85e4bb615f2444b487c5a1cb897deb7faf16fcb8bdf0464
+```
+
+→ Current baseline: **`a34023f0…`** (see §2 and Phase 3.30).
+
+### Manual tests
+
+- Model: line + circle + text + hatch → `pdf` → open PDF
+- Paper layout with viewport → Export PDF from toolbar
+- Hidden layer → entity absent in PDF
+- Block insert + hatch visible in PDF
+- Regression: blocks, hatch, layouts, text, dimensions, command bar
+
+---
+
+## Phase 3.30 — LixCAD 2D Core Tools Baseline
+
+### Goal
+
+Close **Phase 3** as a verifiable stabilization checkpoint before **Phase 4**. No large features; documentation, full clean validation, icon/command audit, and manual smoke checklist.
+
+### Verification (2026-05-28)
+
+| Check | Result |
+|-------|--------|
+| Path | `/home/dani/Proyectos/nodalix-os/apps/nodalix-cad` |
+| Branch | `feature/nodalix-greeter` |
+| `cargo clean` | Executed |
+| `cargo check` | OK |
+| `cargo test` | **308 passed** |
+| `cargo fmt --check` | OK |
+| `cargo clippy` | OK (warnings; `-D warnings` not gated) |
+| `cargo build --release` | OK |
+| Install | `~/.local/bin/lixcad` + `~/.local/share/nodalix-cad/assets/` |
+
+### Final hash (Phase 3.30)
+
+```text
+a34023f0de472f36d1c1fda5e5ea794ca07d559ad271789dd4a70c099476981d
+```
+
+`target/release/nodalix-cad` and `~/.local/bin/lixcad` match after install.
+
+### Phase 3 capabilities closed (3.18 → 3.29)
+
+| Area | Phases |
+|------|--------|
+| Layers (panel, hidden/locked, ByLayer) | 3.18 |
+| OSNAP | 3.19 |
+| ORTHO / POLAR / DYN | 3.20 |
+| Rotate / Scale / Mirror | 3.21 |
+| Move / Copy + grips | 3.22 |
+| OFFSET | 3.23 |
+| Layouts / viewports | 3.24 |
+| TRIM / EXTEND | 3.25 |
+| FILLET / CHAMFER | 3.26 |
+| HATCH | 3.27 |
+| BLOCKS (definition + insert + explode) | 3.28 |
+| PDF export | 3.29 |
+| Text inline, dimensions, history, command bar | Throughout |
+
+### Fase 3 Core Tools Smoke Test
+
+Manual checklist (run after install; mark pass/fail in your notes).
+
+#### Draw / command bar
+
+- [ ] `line 0,0 100,100`
+- [ ] `circle 2p 0,0 100,0`
+- [ ] `rectangle 0,0 100,50`
+- [ ] `pline 0,0 100,0 100,100`
+
+#### Text
+
+- [ ] Text tool → inline create
+- [ ] Select → double-click text → inline edit
+- [ ] Undo / redo
+
+#### Dimensions
+
+- [ ] Linear, aligned, radius, diameter
+- [ ] Undo / redo
+
+#### Layers
+
+- [ ] Create layer, set active
+- [ ] Hide / show, lock / unlock
+- [ ] ByLayer color on entity
+
+#### Precision
+
+- [ ] OSNAP END / MID / CEN / INT (toolbar toggles)
+- [ ] ORTHO, POLAR, DYN label while drawing
+
+#### Modify
+
+- [ ] Move, copy, rotate, scale, mirror (tool + command bar where supported)
+- [ ] Offset, trim, extend, fillet, chamfer
+
+#### Hatch
+
+- [ ] Solid and ANSI31; circle boundary
+- [ ] Undo / redo
+
+#### Blocks
+
+- [ ] `block TestBlock` (with selection)
+- [ ] `insert TestBlock` + click
+- [ ] `explode` / `x` + undo / redo
+
+#### Layouts
+
+- [ ] Model tab vs layout tab
+- [ ] Viewport shows model; paper entities visible
+
+#### PDF
+
+- [ ] `pdf` → open `~/Documents/lixcad-export.pdf`
+- [ ] `pdf model`, `pdf layout` on paper tab
+- [ ] Hidden layer absent in export
+
+### Command bar reference (Phase 3.30)
+
+Commands are case-insensitive unless noted. “Activate tool” = switches tool only; “Execute” = immediate geometry/history.
+
+| Command | Aliases | Behavior |
+|---------|---------|----------|
+| **Draw** | | |
+| line | l | `line p1 p2` Execute; bare `line` Activate |
+| pline / polyline | pl | Activate; multi-point on canvas |
+| rectangle | rect, rec, r | `rect x1,y1 x2,y2` Execute; bare Activate |
+| circle | c, ci | `circle 2p …`, `circle 3p …`, etc. Execute; bare Activate |
+| arc | | Tool on canvas (polyline approx.); center-arc command limited |
+| point | | Tool / entity |
+| text | | Activate → inline entry |
+| dimension | | Activate tool |
+| **Modify** | | |
+| move | m | `move base target` Execute |
+| copy | co, cp | `copy base target` Execute |
+| rotate | ro | `rotate base angle°` Execute |
+| scale | sc | `scale base factor` Execute |
+| mirror | mi | `mirror p1 p2` Execute (axis) |
+| offset | o | `offset distance` or pick mode; `offset` Activate |
+| trim | tr | Activate tool |
+| extend | ex | Activate tool |
+| fillet | f | `fillet [radius]` Activate (+ optional radius) |
+| chamfer | cha | Activate tool |
+| **Hatch / blocks** | | |
+| hatch | h, bhatch | `hatch solid`, `hatch ansi31 [scale] [angle]` Activate |
+| block | | `block Name` Execute (needs selection) |
+| insert | i | `insert Name` → click placement |
+| explode | x | Execute (BlockReference selected) |
+| **PDF** | | |
+| pdf / exportpdf | plot | Export to default path |
+| pdf model | | Model space → A4 PDF |
+| pdf layout / pdf paper | | Active layout PDF |
+| **View / layout** | | |
+| fit / zoomextents | ze, extents | Fit view |
+| zoomin | z, zi | Zoom in |
+| zoomout | zo | Zoom out |
+| reset | | Reset view |
+| layout &lt;name&gt; | | Switch layout |
+| vpscale / viewportscale | | Viewport scale (paper) |
+| **History / edit** | | |
+| undo | u | Undo |
+| redo | | Redo |
+| delete | e, del, erase | Delete selection |
+| **OSNAP** | | Toolbar + `osnap` status (see `try_execute_osnap_command`) |
+| **Registry bare** | line, pline, circle, move, select, pan | Activate only (no coordinates) |
+
+Parameterized geometry parsing lives in `ui.rs` `execute_command` match and `cad/commands/geometry_construction.rs`.
+
+### Icon audit (Phase 3.30)
+
+`cargo test assets::` — all pass. Key sets:
+
+- OSNAP: `assets/icons/snaps/snap-*.svg`
+- Precision: `assets/icons/precision/precision-*.svg`
+- Modify: `assets/icons/modify/modify-*.svg`
+- Hatch: `draw-hatch`, `hatch-solid`, `hatch-ansi31`
+- Blocks: `assets/icons/block/block-*.svg`
+- Export: `export-pdf.svg`, `export-dxf.svg`, etc.
+- Layers: `layer-*.svg` (panel)
+
+### Known bugs / limitations (not blocking Phase 4 start)
+
+- Copy offset / mirror “through point” / “erase source” UI chips marked TODO (not implemented).
+- Arc center command not fully supported (`geometry_construction.rs`).
+- DXF export hatch not extended; DWG via DXF bridge only.
+- `legacy_hit` converts full document per pick (performance).
+- Dual history: `LegacyHistoryManager` + `undo_stack` fallback (keep both).
+
+### Technical debt classification
+
+#### Critical before Phase 4
+
+- None identified in Phase 3.30 audit that blocks daily 2D CAD use on the baseline checklist.
+
+#### Important but not blocking
+
+- DXF/DWG roundtrip fidelity (import OK; export partial).
+- DWG native read/write (external converter).
+- Migrate all edits off `undo_stack` snapshot fallback.
+- `CADDocument` adapter incomplete for some entity kinds (Point, Spline, Table, Guideline).
+- Plot Manager / CTB/STB / advanced PDF options.
+
+#### Future enhancement
+
+- Block attributes, dynamic blocks, Block Manager UI.
+- Dimension styles / text styles.
+- Viewport edit mode, layer overrides in viewports.
+- Spatial index for hit-test.
+- Autosave / recovery.
+- Renderer trait unification (`cad/rendering/renderer.rs`).
+- Full `CanvasRenderer` extraction from `canvas.rs`.
+
+### Git status note (Phase 3.30)
+
+Working tree on `feature/nodalix-greeter` contains Phase 3.28–3.29 work (blocks, PDF, `cairo-rs`) not necessarily committed. **Recommend commit or PR before Phase 4** to freeze baseline hash.
+
+### Phase 4 entry criteria
+
+Start **Phase 4.1 — Stabilization / QA / DXF-DWG Roundtrip Audit** when:
+
+1. Phase 3.30 smoke checklist executed once on installed `lixcad`.
+2. Phase 3.28–3.29 changes committed with hash recorded.
+3. No regressions on the checklist above.
+
+### Recommended next phase
+
+**Phase 4.1 — Stabilization / QA / DXF-DWG Roundtrip Audit**
+
+Focus: roundtrip tests, export gaps, DWG path, property palette depth — not new drawing tools.

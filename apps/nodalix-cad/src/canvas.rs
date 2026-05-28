@@ -5,8 +5,8 @@ use crate::{
         parse_dimension_style, radius_dimension_from_circle, DimensionKind,
     },
     cad::geometry::{
-        apply_grip_edit, generate_ansi31_lines, hatch_is_solid, CircleCreationMode,
-        LineCreationMode, RectangleCreationMode,
+        apply_grip_edit, generate_ansi31_lines, hatch_is_solid, instanced_entities,
+        CircleCreationMode, LineCreationMode, RectangleCreationMode,
     },
     cad::history::{
         apply_entity_snapshot_in_place, capture_entity_snapshot, capture_entity_snapshots,
@@ -110,6 +110,7 @@ pub struct CadCanvas {
     fillet_first_selection: Rc<RefCell<Option<crate::canvas_fillet_chamfer::CornerSelection>>>,
     chamfer_first_selection: Rc<RefCell<Option<crate::canvas_fillet_chamfer::CornerSelection>>>,
     hatch_boundary_selection: Rc<RefCell<Option<crate::canvas_hatch::HatchBoundarySelection>>>,
+    block_insert_pending: Rc<RefCell<Option<crate::canvas_blocks::BlockInsertPending>>>,
 }
 
 #[derive(Clone, Debug)]
@@ -168,6 +169,7 @@ impl CadCanvas {
         let fillet_first_selection = Rc::new(RefCell::new(None));
         let chamfer_first_selection = Rc::new(RefCell::new(None));
         let hatch_boundary_selection = Rc::new(RefCell::new(None));
+        let block_insert_pending = Rc::new(RefCell::new(None));
         let pending_start = Rc::new(RefCell::new(None));
         let pending_points = Rc::new(RefCell::new(Vec::<Point>::new()));
         let polyline_vertices = Rc::new(RefCell::new(Vec::<Point>::new()));
@@ -243,6 +245,7 @@ impl CadCanvas {
         let click_fillet_first = fillet_first_selection.clone();
         let click_chamfer_first = chamfer_first_selection.clone();
         let click_hatch_boundary = hatch_boundary_selection.clone();
+        let click_block_insert_pending = block_insert_pending.clone();
         click.connect_pressed(move |_, n_press, x, y| {
             queue_area.grab_focus();
             let point = screen_to_world(
@@ -387,6 +390,16 @@ impl CadCanvas {
                         params.fillet_radius,
                     );
                     click_modify_preview.borrow_mut().clear();
+                } else if tool == Tool::Block {
+                    let params = *click_tool_parameters.borrow();
+                    let _ = crate::canvas_blocks::handle_block_insert_click(
+                        &mut click_document.borrow_mut(),
+                        &click_history,
+                        point,
+                        &click_block_insert_pending,
+                        &params,
+                    );
+                    click_modify_preview.borrow_mut().clear();
                 } else if tool == Tool::Hatch {
                     let tolerance = 10.0 / click_camera.borrow().zoom;
                     let params = *click_tool_parameters.borrow();
@@ -442,8 +455,10 @@ impl CadCanvas {
             let fillet_first_selection = fillet_first_selection.clone();
             let chamfer_first_selection = chamfer_first_selection.clone();
             let hatch_boundary_selection = hatch_boundary_selection.clone();
+            let block_insert_pending = block_insert_pending.clone();
             let area = area.clone();
             let text_entry = inline_text_entry.clone();
+            let cursor_motion = cursor.clone();
             motion.connect_motion(move |_, x, y| {
                 *pointer.borrow_mut() = Some((x, y));
                 let camera = *camera.borrow();
@@ -638,6 +653,21 @@ impl CadCanvas {
                     } else {
                         modify_preview.borrow_mut().clear();
                     }
+                } else if tool == Tool::Block {
+                    let pending_insert = block_insert_pending.borrow().clone();
+                    if let Some(insert) = pending_insert {
+                        let params = tool_parameters.borrow();
+                        let preview_point = hover_point.borrow().unwrap_or(*cursor_motion.borrow());
+                        *modify_preview.borrow_mut() =
+                            crate::canvas_blocks::build_block_insert_preview(
+                                &document.borrow(),
+                                &insert.block_name,
+                                preview_point,
+                                &params,
+                            );
+                    } else {
+                        modify_preview.borrow_mut().clear();
+                    }
                 }
                 let needs_preview_redraw = anchor.is_some()
                     || matches!(
@@ -653,6 +683,7 @@ impl CadCanvas {
                             | Tool::Fillet
                             | Tool::Chamfer
                             | Tool::Hatch
+                            | Tool::Block
                     )
                     || !matches!(tool, Tool::Select | Tool::Modify);
                 if needs_preview_redraw
@@ -1068,6 +1099,7 @@ impl CadCanvas {
             fillet_first_selection,
             chamfer_first_selection,
             hatch_boundary_selection,
+            block_insert_pending,
         }
     }
 
@@ -1162,6 +1194,19 @@ impl CadCanvas {
         self.area.queue_draw();
     }
 
+    pub fn begin_block_insert(&self, block_name: String) {
+        *self.block_insert_pending.borrow_mut() =
+            Some(crate::canvas_blocks::BlockInsertPending { block_name });
+        self.area.queue_draw();
+    }
+
+    pub fn block_insert_pending_name(&self) -> Option<String> {
+        self.block_insert_pending
+            .borrow()
+            .as_ref()
+            .map(|pending| pending.block_name.clone())
+    }
+
     pub fn cancel_interaction(&self) {
         if let Some(session) = self.grip_drag_session.borrow_mut().take() {
             if let Ok(mut document) = self.document.try_borrow_mut() {
@@ -1179,6 +1224,7 @@ impl CadCanvas {
         *self.fillet_first_selection.borrow_mut() = None;
         *self.chamfer_first_selection.borrow_mut() = None;
         *self.hatch_boundary_selection.borrow_mut() = None;
+        *self.block_insert_pending.borrow_mut() = None;
         *self.hover_point.borrow_mut() = None;
         *self.hovered_entity.borrow_mut() = None;
         self.text_entry.set_visible(false);
@@ -1580,14 +1626,10 @@ fn handle_click(
             cell_width: 18.0,
             cell_height: 7.0,
         }),
-        Tool::Block => single_click_entity(document, history, point, |id| Entity::BlockReference {
-            id,
-            layer: active_layer.clone(),
-            name: "Block".to_string(),
-            insertion: point,
-            scale: 1.0,
-            rotation: 0.0,
-        }),
+        Tool::Block => {
+            *pending.borrow_mut() = None;
+            pending_points.borrow_mut().clear();
+        }
         _ => {
             *pending.borrow_mut() = None;
             pending_points.borrow_mut().clear();
@@ -2144,6 +2186,7 @@ fn draw_scene(
             height,
             camera,
             entity,
+            document,
             selected_entities.contains(&entity.id()),
             hovered_entity == Some(entity.id()),
             document.entity_color(entity.id()),
@@ -2215,6 +2258,7 @@ fn draw_modify_preview_entities(
             height,
             camera,
             entity,
+            document,
             false,
             false,
             document.entity_color(entity.id()),
@@ -2508,6 +2552,66 @@ fn draw_preview_shape(
     cr.set_dash(&[], 0.0);
 }
 
+pub(crate) fn export_entity_visible_for_layout(
+    document: &Document,
+    entity_id: u64,
+    layout_name: &str,
+) -> bool {
+    if !document.entity_layer_visible(entity_id) {
+        return false;
+    }
+    crate::document::normalized_layout_name(document.entity_layout(entity_id))
+        == crate::document::normalized_layout_name(layout_name)
+}
+
+pub(crate) fn export_draw_layout_content(
+    cr: &gtk::cairo::Context,
+    page_width: f64,
+    page_height: f64,
+    document: &Document,
+    camera: Camera,
+    layout_name: &str,
+) {
+    let layout_name = crate::document::normalized_layout_name(layout_name);
+    let is_paper = document
+        .layouts
+        .iter()
+        .find(|layout| crate::document::normalized_layout_name(&layout.name) == layout_name)
+        .is_some_and(|layout| layout.kind == LayoutKind::Paper);
+    if is_paper {
+        export_draw_viewports_for_layout(
+            cr,
+            page_width,
+            page_height,
+            document,
+            camera,
+            &layout_name,
+        );
+    }
+    for entity in &document.entities {
+        let id = entity.id();
+        if !export_entity_visible_for_layout(document, id, &layout_name) {
+            continue;
+        }
+        if is_paper && document.is_model_entity(id) {
+            continue;
+        }
+        draw_entity(
+            cr,
+            page_width,
+            page_height,
+            camera,
+            entity,
+            document,
+            false,
+            false,
+            document.entity_color(id),
+            document.entity_line_type(id),
+            document.entity_line_weight(id),
+        );
+    }
+}
+
 fn draw_layout_viewports(
     cr: &gtk::cairo::Context,
     width: f64,
@@ -2515,13 +2619,29 @@ fn draw_layout_viewports(
     document: &Document,
     paper_camera: Camera,
 ) {
+    export_draw_viewports_for_layout(
+        cr,
+        width,
+        height,
+        document,
+        paper_camera,
+        &document.active_layout,
+    );
+}
+
+pub(crate) fn export_draw_viewports_for_layout(
+    cr: &gtk::cairo::Context,
+    width: f64,
+    height: f64,
+    document: &Document,
+    paper_camera: Camera,
+    layout_name: &str,
+) {
+    let layout_name = crate::document::normalized_layout_name(layout_name);
     for viewport in document
         .layout_viewports
         .iter()
-        .filter(|viewport| {
-            crate::document::normalized_layout_name(&viewport.layout)
-                == crate::document::normalized_layout_name(&document.active_layout)
-        })
+        .filter(|viewport| crate::document::normalized_layout_name(&viewport.layout) == layout_name)
         .filter(|viewport| viewport.visible)
     {
         draw_viewport_frame(cr, width, height, paper_camera, viewport);
@@ -2550,6 +2670,7 @@ fn draw_layout_viewports(
                 height,
                 paper_camera,
                 &transformed,
+                document,
                 false,
                 false,
                 document.entity_color(entity.id()),
@@ -3345,12 +3466,13 @@ fn draw_hatch_entity(
     let _ = cr.stroke();
 }
 
-fn draw_entity(
+pub(crate) fn draw_entity(
     cr: &gtk::cairo::Context,
     width: f64,
     height: f64,
     camera: Camera,
     entity: &Entity,
+    document: &Document,
     selected: bool,
     hovered: bool,
     color: Option<&str>,
@@ -3498,14 +3620,52 @@ fn draw_entity(
             let _ = cr.stroke();
         }
         Entity::BlockReference {
-            insertion, name, ..
+            name,
+            insertion,
+            scale,
+            scale_y,
+            rotation,
+            ..
         } => {
-            let p = world_to_screen(*insertion, width, height, camera);
-            cr.set_source_rgba(0.96, 0.76, 0.45, 0.92);
-            cr.rectangle(p.x - 8.0, p.y - 8.0, 16.0, 16.0);
-            let _ = cr.stroke();
-            cr.move_to(p.x + 12.0, p.y + 4.0);
-            let _ = cr.show_text(name);
+            let instances = instanced_entities(
+                document,
+                name,
+                *insertion,
+                *scale,
+                *scale_y,
+                *rotation,
+                0,
+                &mut std::collections::BTreeSet::new(),
+            );
+            if instances.is_empty() {
+                let p = world_to_screen(*insertion, width, height, camera);
+                cr.set_source_rgba(0.96, 0.76, 0.45, 0.92);
+                cr.rectangle(p.x - 8.0, p.y - 8.0, 16.0, 16.0);
+                let _ = cr.stroke();
+                cr.move_to(p.x + 12.0, p.y + 4.0);
+                let _ = cr.show_text(name);
+            } else {
+                for child in instances {
+                    let child_color = document
+                        .entity_color(child.id())
+                        .or(color)
+                        .map(|s| s.to_string());
+                    let child_color = child_color.as_deref();
+                    draw_entity(
+                        cr,
+                        width,
+                        height,
+                        camera,
+                        &child,
+                        document,
+                        selected,
+                        hovered,
+                        child_color,
+                        document.entity_line_type(child.id()),
+                        document.entity_line_weight(child.id()),
+                    );
+                }
+            }
         }
     }
     cr.set_dash(&[], 0.0);
