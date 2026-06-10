@@ -53,6 +53,7 @@ import {
   listNetworkLocations,
   normalizePath,
   parentPath,
+  searchDirectory,
   startupBundle,
 } from "./lib/files";
 import type { FolderStyle } from "./lib/folderCustomization";
@@ -80,6 +81,7 @@ type ModalKind =
 const sortKeys: SortKey[] = ["name", "modified", "created", "type", "size"];
 const DISKS_PATH = "nodalix://disks";
 const NETWORK_PATH = "nodalix://network";
+const AUTO_REFRESH_MS = 30_000;
 type FilterType = "all" | "folders" | "files";
 
 export type AccentName =
@@ -241,6 +243,77 @@ function typeSortValue(entry: FileEntry, specialDirs: SpecialDirs | null) {
     : "";
 }
 
+interface ParsedSearch {
+  text: string;
+  extensions: string[];
+  labels: string[];
+  recursive: boolean;
+}
+
+function parseSearchQuery(value: string): ParsedSearch {
+  const textParts: string[] = [];
+  const extensions: string[] = [];
+  let recursive = false;
+  for (const part of value.trim().split(/\s+/).filter(Boolean)) {
+    const normalizedToken = part.toLowerCase();
+    if (
+      normalizedToken === "//" ||
+      normalizedToken === "/all" ||
+      normalizedToken === "/recursive" ||
+      normalizedToken === "/deep"
+    ) {
+      recursive = true;
+      continue;
+    }
+    if (!part.startsWith("/") || part.length < 2) {
+      textParts.push(part);
+      continue;
+    }
+    const raw = part.slice(1).trim().replace(/^\./, "").toLowerCase();
+    if (!raw) {
+      textParts.push(part);
+      continue;
+    }
+    const expanded =
+      raw === "jpg" || raw === "jpeg"
+        ? ["jpg", "jpeg"]
+        : raw === "image" || raw === "images" || raw === "img"
+          ? [
+              "png",
+              "jpg",
+              "jpeg",
+              "gif",
+              "webp",
+              "svg",
+              "bmp",
+              "avif",
+              "tif",
+              "tiff",
+              "heic",
+              "heif",
+            ]
+          : [raw];
+    for (const ext of expanded) {
+      if (!extensions.includes(ext)) extensions.push(ext);
+    }
+  }
+  return {
+    text: textParts.join(" ").trim(),
+    extensions,
+    labels: [
+      ...extensions.map((ext) => `.${ext}`),
+      ...(recursive ? ["subcarpetas"] : []),
+    ],
+    recursive,
+  };
+}
+
+function entryExtension(entry: FileEntry): string {
+  const name = entry.name.toLowerCase();
+  const index = name.lastIndexOf(".");
+  return index > 0 ? name.slice(index + 1) : "";
+}
+
 function useDebouncedValue<T>(value: T, delayMs: number): T {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -303,11 +376,69 @@ export default function App() {
     null,
   );
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchExtensions, setSearchExtensions] = useState<string[]>([]);
+  const [searchRecursive, setSearchRecursive] = useState(false);
+  const [recursiveSearchEntries, setRecursiveSearchEntries] = useState<
+    FileEntry[] | null
+  >(null);
+  const [recursiveSearchLoading, setRecursiveSearchLoading] = useState(false);
+  const [recursiveSearchError, setRecursiveSearchError] = useState<string | null>(
+    null,
+  );
+  const recursiveSearchRequestRef = useRef(0);
   const [virtualEntries, setVirtualEntries] = useState<FileEntry[] | null>(
     null,
   );
   const [virtualError, setVirtualError] = useState<string | null>(null);
-  const debouncedSearchQuery = useDebouncedValue(searchQuery, 90);
+  const debouncedSearchQuery = useDebouncedValue(searchQuery, 450);
+  const parsedSearch = useMemo(() => {
+    const parsed = parseSearchQuery(debouncedSearchQuery);
+    const extensions = [...searchExtensions];
+    for (const ext of parsed.extensions) {
+      if (!extensions.includes(ext)) extensions.push(ext);
+    }
+    const recursive = searchRecursive || parsed.recursive;
+    return {
+      text: parsed.text,
+      extensions,
+      labels: [
+        ...extensions.map((ext) => `.${ext}`),
+        ...(recursive ? ["subcarpetas"] : []),
+      ],
+      recursive,
+    };
+  }, [debouncedSearchQuery, searchExtensions, searchRecursive]);
+  const handleSearchChange = useCallback((value: string) => {
+    const endsWithSeparator = /\s$/.test(value);
+    const tokens = value.split(/\s+/).filter(Boolean);
+    const committedTokens = endsWithSeparator ? tokens : tokens.slice(0, -1);
+    const activeToken = endsWithSeparator ? "" : (tokens.at(-1) ?? "");
+    const parsed = parseSearchQuery(committedTokens.join(" "));
+    setSearchQuery([parsed.text, activeToken].filter(Boolean).join(" "));
+    if (parsed.extensions.length) {
+      setSearchExtensions((current) => {
+        const next = [...current];
+        for (const ext of parsed.extensions) {
+          if (!next.includes(ext)) next.push(ext);
+        }
+        return next;
+      });
+    }
+    if (parsed.recursive) setSearchRecursive(true);
+  }, []);
+  const removeSearchFilter = useCallback((filter: string) => {
+    if (filter === "subcarpetas") {
+      setSearchRecursive(false);
+      return;
+    }
+    const ext = filter.trim().replace(/^\./, "").toLowerCase();
+    setSearchExtensions((current) => current.filter((value) => value !== ext));
+  }, []);
+  const clearSearchState = useCallback(() => {
+    setSearchQuery("");
+    setSearchExtensions([]);
+    setSearchRecursive(false);
+  }, []);
   const [sortKey, setSortKey] = useState<SortKey>(() =>
     readStored("nodalix-files.sortKey", sortKeys, "name"),
   );
@@ -359,6 +490,12 @@ export default function App() {
   const isDisksView = cwd === DISKS_PATH;
   const isNetworkView = cwd === NETWORK_PATH;
   const isVirtualView = isDisksView || isNetworkView;
+  const isRecursiveSearch =
+    !isVirtualView &&
+    parsedSearch.recursive &&
+    (parsedSearch.text.length >= 2 ||
+      (parsedSearch.extensions.length > 0 && parsedSearch.text.length >= 1) ||
+      (parsedSearch.extensions.length > 0 && parsedSearch.text.length === 0));
   const currentIsTrash = isTrashPath(cwd, specialDirs);
   const pathLabels = useMemo(
     () => (specialDirs?.trash ? { [specialDirs.trash]: "Papelera" } : {}),
@@ -493,7 +630,7 @@ export default function App() {
     if (!ready || !activeTab) return;
     setSelectedPaths(new Set());
     setLastSelectedPath(null);
-    setSearchQuery("");
+    clearSearchState();
     if (activeTab.path === DISKS_PATH || activeTab.path === NETWORK_PATH) {
       setVirtualError(null);
       const loader =
@@ -515,6 +652,7 @@ export default function App() {
   useEffect(() => {
     if (!ready || !activeTab) return;
     const refresh = () => {
+      if (document.visibilityState !== "visible") return;
       if (activeTab.path === DISKS_PATH || activeTab.path === NETWORK_PATH) {
         const loader =
           activeTab.path === DISKS_PATH ? listDisks : listNetworkLocations;
@@ -529,29 +667,9 @@ export default function App() {
       invalidate(activeTab.path);
       void load(activeTab.path, { silent: true });
     };
-    const timer = window.setInterval(refresh, 5000);
+    const timer = window.setInterval(refresh, AUTO_REFRESH_MS);
     return () => window.clearInterval(timer);
-  }, [activeTab?.path, invalidate, load, ready]);
-
-  useEffect(() => {
-    if (!ready) return;
-    const paths = sidebarItems
-      .filter(
-        (item) =>
-          item.custom &&
-          item.is_dir &&
-          !item.path.startsWith("nodalix://") &&
-          item.kind !== "trash",
-      )
-      .map((item) => item.path);
-    if (paths.length === 0) return;
-    const timer = window.setTimeout(() => {
-      for (const [index, path] of paths.slice(0, 4).entries()) {
-        window.setTimeout(() => void preload(path), index * 180);
-      }
-    }, 450);
-    return () => window.clearTimeout(timer);
-  }, [preload, ready, sidebarItems]);
+  }, [activeTab?.path, clearSearchState, invalidate, load, ready]);
 
   useEffect(() => {
     if (!filtersOpen) return;
@@ -580,6 +698,44 @@ export default function App() {
   }, [filtersOpen]);
 
   useEffect(() => {
+    const q = parsedSearch.text;
+    if (
+      !ready ||
+      !parsedSearch.recursive ||
+      (q.length < 2 && parsedSearch.extensions.length === 0) ||
+      isVirtualView ||
+      !cwd ||
+      cwd.startsWith("nodalix://")
+    ) {
+      recursiveSearchRequestRef.current += 1;
+      setRecursiveSearchEntries(null);
+      setRecursiveSearchLoading(false);
+      setRecursiveSearchError(null);
+      return;
+    }
+
+    const requestId = ++recursiveSearchRequestRef.current;
+    setRecursiveSearchLoading(true);
+    setRecursiveSearchError(null);
+    setRecursiveSearchEntries([]);
+    void searchDirectory(cwd, q, showHiddenFiles, parsedSearch.extensions)
+      .then((results) => {
+        if (requestId !== recursiveSearchRequestRef.current) return;
+        setRecursiveSearchEntries(results);
+      })
+      .catch((e) => {
+        if (requestId !== recursiveSearchRequestRef.current) return;
+        setRecursiveSearchEntries([]);
+        setRecursiveSearchError(e instanceof Error ? e.message : String(e));
+      })
+      .finally(() => {
+        if (requestId === recursiveSearchRequestRef.current) {
+          setRecursiveSearchLoading(false);
+        }
+      });
+  }, [cwd, isVirtualView, parsedSearch, ready, showHiddenFiles]);
+
+  useEffect(() => {
     if (!networkConnectOpen) return;
     const isInsidePanel = (target: EventTarget | null) => {
       if (!(target instanceof Node)) return false;
@@ -606,8 +762,10 @@ export default function App() {
   }, [networkConnectOpen]);
 
   const displayedEntries = useMemo(() => {
-    const q = debouncedSearchQuery.trim().toLowerCase();
-    const sourceEntries = virtualEntries ?? entries;
+    const q = parsedSearch.text.toLowerCase();
+    const sourceEntries = isRecursiveSearch
+      ? (recursiveSearchEntries ?? [])
+      : (virtualEntries ?? entries);
     // Linux hidden entries are dot-prefixed; hidden entries are removed from the visible model, not only styled.
     const visibleEntries =
       showHiddenFiles || virtualEntries
@@ -616,12 +774,18 @@ export default function App() {
     const filtered = q
       ? visibleEntries.filter((entry) => entry.name.toLowerCase().includes(q))
       : visibleEntries;
+    const extensionFiltered = parsedSearch.extensions.length
+      ? filtered.filter(
+          (entry) =>
+            !entry.is_dir && parsedSearch.extensions.includes(entryExtension(entry)),
+        )
+      : filtered;
     const typed =
       filterType === "folders"
-        ? filtered.filter((entry) => entry.is_dir)
+        ? extensionFiltered.filter((entry) => entry.is_dir)
         : filterType === "files"
-          ? filtered.filter((entry) => !entry.is_dir)
-          : filtered;
+          ? extensionFiltered.filter((entry) => !entry.is_dir)
+          : extensionFiltered;
     const direction = sortDirection === "asc" ? 1 : -1;
     return [...typed].sort((a, b) => {
       if (a.is_dir !== b.is_dir) return a.is_dir ? -1 : 1;
@@ -658,9 +822,11 @@ export default function App() {
         : result * direction;
     });
   }, [
-    debouncedSearchQuery,
     entries,
     filterType,
+    isRecursiveSearch,
+    parsedSearch,
+    recursiveSearchEntries,
     showHiddenFiles,
     sortDirection,
     sortKey,
@@ -733,11 +899,11 @@ export default function App() {
 
   const preloadEntry = useCallback(
     (entry: FileEntry) => {
-      if (entry.is_dir && !entry.path.startsWith("nodalix://")) {
-        void preload(entry.path);
-      }
+      if (!entry.is_dir || entry.path.startsWith("nodalix://")) return;
+      if (searchQuery.trim() || searchExtensions.length > 0 || searchRecursive) return;
+      void preload(entry.path);
     },
-    [preload],
+    [preload, searchExtensions.length, searchQuery, searchRecursive],
   );
 
   const getRangeSelection = useCallback(
@@ -791,7 +957,7 @@ export default function App() {
 
   const createNewFolder = useCallback(async () => {
     try {
-      setSearchQuery("");
+      clearSearchState();
       setFilterType("all");
       const name = uniqueName(entries, "Nueva carpeta");
       const created = await actions.newFolder(cwd, name);
@@ -803,11 +969,11 @@ export default function App() {
     } catch (e) {
       setActionError(e instanceof Error ? e.message : String(e));
     }
-  }, [actions, cwd, entries]);
+  }, [actions, clearSearchState, cwd, entries]);
 
   const createNewDocument = useCallback(async () => {
     try {
-      setSearchQuery("");
+      clearSearchState();
       setFilterType("all");
       const name = uniqueName(entries, "Documento sin título", ".txt");
       const created = await actions.newDocument(cwd, name);
@@ -819,7 +985,7 @@ export default function App() {
     } catch (e) {
       setActionError(e instanceof Error ? e.message : String(e));
     }
-  }, [actions, cwd, entries]);
+  }, [actions, clearSearchState, cwd, entries]);
 
   const submitNetworkConnection = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -1785,15 +1951,7 @@ export default function App() {
           onContextMenu={showSidebarContextMenu}
           onDropPaths={handleSidebarDrop}
           onDropToItem={handleSidebarItemDrop}
-          onPreloadItem={(item) => {
-            if (
-              item.is_dir &&
-              !item.path.startsWith("nodalix://") &&
-              item.kind !== "trash"
-            ) {
-              void preload(item.path);
-            }
-          }}
+          onPreloadItem={() => {}}
           localsendAvailable={localsendAvailable}
           localsendDevices={localsendDevices}
           localsendScanning={localsendScanning}
@@ -1810,6 +1968,7 @@ export default function App() {
             canGoBack={activeTab.historyIndex > 0}
             canGoForward={activeTab.historyIndex < activeTab.history.length - 1}
             searchQuery={searchQuery}
+            searchFilters={parsedSearch.labels}
             accentName={accentName}
             accentOptions={accentOptions}
             pathLabels={pathLabels}
@@ -1848,7 +2007,8 @@ export default function App() {
               setTabs((p) => [...p, t]);
               setActiveTabId(t.id);
             }}
-            onSearchChange={setSearchQuery}
+            onSearchChange={handleSearchChange}
+            onSearchFilterRemove={removeSearchFilter}
             onAccentChange={(value) =>
               setAccentName(value as typeof accentName)
             }
@@ -2119,14 +2279,27 @@ export default function App() {
             )}
             <FileGrid
             entries={displayedEntries}
-            loading={isVirtualView ? virtualEntries === null : loading}
-            error={isVirtualView ? virtualError : error}
+            loading={
+              isRecursiveSearch
+                ? recursiveSearchLoading
+                : isVirtualView
+                  ? virtualEntries === null
+                  : loading
+            }
+            error={
+              isRecursiveSearch
+                ? recursiveSearchError
+                : isVirtualView
+                  ? virtualError
+                  : error
+            }
             selectedPaths={selectedPaths}
             folderStyles={folderStyles}
             defaultFolderColor={accent.accent}
             specialDirs={specialDirs}
-            viewMode={viewMode}
+            viewMode={isRecursiveSearch ? "tree" : viewMode}
             zoom={zoom}
+            disableThumbnails={isRecursiveSearch}
             renamePath={inlineRenamePath}
             renameInitialName={inlineRenameInitial}
             onZoomChange={setZoom}

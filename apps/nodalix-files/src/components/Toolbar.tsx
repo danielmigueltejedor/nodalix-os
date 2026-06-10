@@ -33,6 +33,7 @@ interface ToolbarProps {
   canGoBack: boolean;
   canGoForward: boolean;
   searchQuery: string;
+  searchFilters: string[];
   accentName: string;
   accentOptions: AccentOption[];
   pathLabels?: Record<string, string>;
@@ -49,6 +50,7 @@ interface ToolbarProps {
   onTabReorder: (draggedTabId: string, targetTabId: string) => void;
   onNewTab: () => void;
   onSearchChange: (value: string) => void;
+  onSearchFilterRemove: (filter: string) => void;
   onAccentChange: (value: string) => void;
 }
 
@@ -82,6 +84,7 @@ export default function Toolbar({
   canGoBack,
   canGoForward,
   searchQuery,
+  searchFilters,
   accentName,
   accentOptions,
   pathLabels = {},
@@ -98,6 +101,7 @@ export default function Toolbar({
   onTabReorder,
   onNewTab,
   onSearchChange,
+  onSearchFilterRemove,
   onAccentChange,
 }: ToolbarProps) {
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
@@ -107,6 +111,7 @@ export default function Toolbar({
   const [draggingTabId, setDraggingTabId] = useState<string | null>(null);
   const settingsPanelRef = useRef<HTMLDivElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const multipleTabs = tabs.length > 1;
   const toggleSettings = useCallback(
     (event: ReactPointerEvent | ReactMouseEvent) => {
@@ -146,6 +151,15 @@ export default function Toolbar({
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [settingsOpen]);
+
+  useEffect(() => {
+    if (!searchOpen) return;
+    const frame = window.requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+      searchInputRef.current?.select();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [searchOpen]);
 
   const tabsRow = (
     <div className="nodalix-tabs-shell flex min-w-0 flex-1 items-center gap-1">
@@ -333,10 +347,29 @@ export default function Toolbar({
             <SearchIcon />
           </button>
           <label className="nodalix-search-expanded">
+            {searchFilters.map((filter) => (
+              <span key={filter} className="nodalix-search-filter-chip">
+                {filter}
+                <button
+                  type="button"
+                  aria-label={`Quitar filtro ${filter}`}
+                  title={`Quitar filtro ${filter}`}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onSearchFilterRemove(filter);
+                    searchInputRef.current?.focus();
+                  }}
+                >
+                  x
+                </button>
+              </span>
+            ))}
             <input
+              ref={searchInputRef}
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              placeholder="Buscar"
+              placeholder="Buscar aquí: c /.jpeg  |  /all para subcarpetas"
               className="min-w-0 flex-1 bg-transparent text-nodalix-text outline-none placeholder:text-nodalix-muted/70"
             />
           </label>

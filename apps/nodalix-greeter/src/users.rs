@@ -1,3 +1,4 @@
+use nodalix_profile::resolve_avatar;
 use std::{fs, path::PathBuf};
 
 #[derive(Clone, Debug)]
@@ -18,10 +19,15 @@ pub fn load_human_users() -> Vec<GreeterUser> {
         .filter_map(parse_passwd_line)
         .filter(is_human_user)
         .map(|entry| {
-            let avatar = find_avatar(&entry.username, &entry.home);
+            let profile = nodalix_profile::load_profile_for_home(&entry.home);
+            let display_name = profile
+                .display_name
+                .filter(|name| !name.trim().is_empty())
+                .unwrap_or_else(|| display_name(&entry.gecos, &entry.fallback_name));
+            let avatar = resolve_avatar(&entry.username, &entry.home);
             GreeterUser {
                 username: entry.username,
-                display_name: display_name(&entry.gecos, &entry.fallback_name),
+                display_name,
                 avatar,
             }
         })
@@ -51,17 +57,7 @@ pub fn demo_users() -> Vec<GreeterUser> {
 }
 
 pub fn initials(name: &str) -> String {
-    let mut initials = name
-        .split_whitespace()
-        .filter_map(|part| part.chars().next())
-        .take(2)
-        .collect::<String>();
-
-    if initials.is_empty() {
-        initials = name.chars().take(1).collect();
-    }
-
-    initials.to_uppercase()
+    nodalix_profile::initials_from_name(name)
 }
 
 #[derive(Debug)]
@@ -109,14 +105,4 @@ fn display_name(gecos: &str, username: &str) -> String {
     } else {
         full_name.to_string()
     }
-}
-
-fn find_avatar(username: &str, home: &PathBuf) -> Option<PathBuf> {
-    [
-        PathBuf::from(format!("/var/lib/AccountsService/icons/{username}")),
-        home.join(".face"),
-        home.join(".face.icon"),
-    ]
-    .into_iter()
-    .find(|path| path.is_file())
 }

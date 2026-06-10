@@ -1,0 +1,14 @@
+{
+  "username": "dani",
+  "visual": {
+    "color_scheme": "dark",
+    "accent_preset": "purple",
+    "density": "comfortable",
+    "corner_radius": "standard",
+    "transparency": "glass"
+  },
+  "shell": {
+    "active_bar": "nodalix-bar",
+    "control_center_compact": false
+  }
+}

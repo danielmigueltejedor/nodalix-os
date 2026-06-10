@@ -1,10 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
-
-# Avoid launching multiple lock instances
-pidof hyprlock >/dev/null 2>&1 && exit 0
-
-# Optional: pause notifications while locked
-makoctl mode -a do-not-disturb >/dev/null 2>&1 || true
-
-exec hyprlock
+export NODALIX_LOCK_TRIGGER="${NODALIX_LOCK_TRIGGER:-nodalix-system-lock}"
+exec nodalix-lock "$@"

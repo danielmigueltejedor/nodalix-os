@@ -21,7 +21,7 @@ When launched by greetd, the app reads `GREETD_SOCK`, authenticates the selected
 Default session command:
 
 ```sh
-uwsm start hyprland-uwsm.desktop
+uwsm start nodalix.desktop
 ```
 
 If `GREETD_SOCK` is missing and `--demo` was not passed, the app shows a friendly error screen instead of crashing.
@@ -50,6 +50,15 @@ Common config locations:
 
 If login succeeds but a Hyprland command-line/loading screen is visible briefly, the likely cause is output from the real session compositor or launcher being shown on the VT after the greeter compositor exits. The greeter now keeps its loading overlay in the success transition and treats greetd socket close after `StartSession` as success, but polishing the VT handoff may also require adjusting the system greetd/session command. This repository only provides examples; it does not edit `/etc` automatically.
 
+If Hyprland prints a warning that the session was **not** started via `start-hyprland`, greetd is still launching bare `Hyprland` for the greeter VT. Use:
+
+```toml
+[default_session]
+command = "/usr/bin/start-hyprland -- --config /etc/greetd/hyprland-nodalix-greeter.conf"
+```
+
+See `config/greetd/config.nodalix-greeter.toml`. Re-run `sudo scripts/install-nodalix-greeter.sh` to auto-patch `/etc/greetd/config.toml` when it still has the old `Hyprland --config …` line.
+
 ## Config
 
 Runtime config path:
@@ -62,9 +71,9 @@ Defaults:
 
 ```toml
 background = "/etc/nodalix/wallpapers/current/greeter-wallpaper.png"
-session_command = "uwsm start hyprland-uwsm.desktop"
+session_command = "uwsm start nodalix.desktop"
 accent_color = "#cba6f7"
-font_family = "JetBrainsMono Nerd Font"
+font_family = "Inter"
 default_user = ""
 logo_path = "/usr/share/nodalix/brand/nodalix-logo-symbol.svg"
 ```

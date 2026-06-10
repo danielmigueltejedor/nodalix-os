@@ -1,15 +1,15 @@
 use super::backends::FileConversionService;
 use super::config::load_conversion_config;
+use super::registry::ConversionCapability;
 use super::registry::{
     extensions_compatible_for_prompt, family_for_ext, normalize_ext, ConversionFamily,
     ConversionRegistry,
 };
-use super::registry::ConversionCapability;
 use super::tools::tool_map_for_frontend;
-use crate::platform;
 use serde::Serialize;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
+use std::thread;
 
 static SERVICE: OnceLock<Mutex<FileConversionService>> = OnceLock::new();
 
@@ -21,7 +21,13 @@ fn service() -> &'static Mutex<FileConversionService> {
 }
 
 pub fn init_conversion_backends() {
-    let _ = service().lock().expect("conversion service lock");
+    let _ = thread::Builder::new()
+        .name("nodalix-files-conversion-init".into())
+        .spawn(|| {
+            if let Ok(guard) = service().lock() {
+                drop(guard);
+            }
+        });
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -71,7 +77,10 @@ pub fn get_conversion_settings() -> ConversionSettings {
     }
 }
 
-pub fn preview_rename_conversion(old_path: &str, new_name: &str) -> Result<RenameConversionPreview, String> {
+pub fn preview_rename_conversion(
+    old_path: &str,
+    new_name: &str,
+) -> Result<RenameConversionPreview, String> {
     let trimmed = new_name.trim();
     if trimmed.is_empty() {
         return Err("El nuevo nombre no puede estar vacío".into());
@@ -86,7 +95,12 @@ pub fn preview_rename_conversion(old_path: &str, new_name: &str) -> Result<Renam
     }
     let meta = std::fs::symlink_metadata(&source).map_err(|e| e.to_string())?;
     if meta.is_dir() {
-        return simple_preview(old_path, trimmed, RenameConversionScenario::NoExtensionChange, false);
+        return simple_preview(
+            old_path,
+            trimmed,
+            RenameConversionScenario::NoExtensionChange,
+            false,
+        );
     }
 
     let old_name = source
@@ -107,6 +121,11 @@ pub fn preview_rename_conversion(old_path: &str, new_name: &str) -> Result<Renam
     let dest_path = path_to_string(&dest);
 
     if !extension_changed {
+        let config = service()
+            .lock()
+            .expect("conversion service lock")
+            .config()
+            .clone();
         return Ok(RenameConversionPreview {
             old_path: old_path.to_string(),
             old_name,
@@ -119,16 +138,8 @@ pub fn preview_rename_conversion(old_path: &str, new_name: &str) -> Result<Renam
             scenario: RenameConversionScenario::NoExtensionChange,
             capability: None,
             message: None,
-            ask_on_extension_change: service()
-                .lock()
-                .expect("conversion service lock")
-                .config()
-                .ask_on_extension_change,
-            keep_original: service()
-                .lock()
-                .expect("conversion service lock")
-                .config()
-                .keep_original,
+            ask_on_extension_change: config.ask_on_extension_change,
+            keep_original: config.keep_original,
         });
     }
 
@@ -140,7 +151,7 @@ pub fn preview_rename_conversion(old_path: &str, new_name: &str) -> Result<Renam
     let from = from_ext.clone().unwrap_or_default();
     let to = to_ext.clone().unwrap_or_default();
 
-    if let Some(mut capability) = ConversionRegistry::lookup(&from, &to, &tools, &config) {
+    if let Some(capability) = ConversionRegistry::lookup(&from, &to, &tools, &config) {
         if !capability.available {
             return Ok(RenameConversionPreview {
                 old_path: old_path.to_string(),
@@ -225,7 +236,11 @@ fn simple_preview(
 ) -> Result<RenameConversionPreview, String> {
     let source = PathBuf::from(old_path);
     let dest = source.parent().unwrap().join(new_name);
-    let config = service().lock().expect("conversion service lock").config().clone();
+    let config = service()
+        .lock()
+        .expect("conversion service lock")
+        .config()
+        .clone();
     Ok(RenameConversionPreview {
         old_path: old_path.to_string(),
         old_name: source
@@ -282,11 +297,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("notes.txt");
         fs::write(&file, b"hello").unwrap();
-        let preview = preview_rename_conversion(
-            &path_to_string(&file),
-            "notes.md",
-        )
-        .unwrap();
+        let preview = preview_rename_conversion(&path_to_string(&file), "notes.md").unwrap();
         assert!(preview.extension_changed);
         assert!(matches!(
             preview.scenario,

@@ -41,6 +41,41 @@ if Command Bar is closed -> open it
 if Command Bar is open   -> close it
 ```
 
+## Web search (Spotlight-style)
+
+When you type at least two characters, Command Bar adds web results via `ranking.py`:
+
+- **Buscar '<query>' en internet** — Google search in the default browser
+- **Abrir URL** — if the query looks like a URL (`https://…` or `example.com`)
+
+Web results are **not** forced to the top. Local matches (apps, actions, settings, windows) rank first; web search appears after relevant local results, or first when nothing local matches.
+
+`nodalix-launch-browser` reads `xdg-settings get default-web-browser` and launches that `.desktop` entry (typically Zen on Nodalix). It avoids `xdg-open`, which often opens Chromium when the `x-scheme-handler/https` MIME type points elsewhere.
+
+### Result ranking
+
+Ranking lives in `apps/nodalix-command-bar/src/ranking.py`:
+
+| Match type | Score (approx.) |
+|------------|-----------------|
+| App exact | 1000 |
+| App starts with query | 900 |
+| System action exact/starts | 850 |
+| Settings exact/starts | 800 |
+| App partial | 700 |
+| Action/settings partial | 650 |
+| Fuzzy local | 400–500 |
+| Web when locals exist | 100 |
+| Web when no locals | 1000 |
+
+Examples:
+
+- `curs` → Cursor (app), then other locals, then **Buscar 'curs' en internet**
+- `wifi` → Wi-Fi action/settings, then web search
+- `asdkjhaskjdh` → web search first (no local matches)
+
+Tests: `python3 apps/nodalix-command-bar/tests/test_ranking.py`
+
 ## Files
 
 ```text

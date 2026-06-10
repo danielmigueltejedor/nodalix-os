@@ -7,4 +7,6 @@ license = "MIT"
 [dependencies]
 adw = { package = "libadwaita", version = "0.7" }
 gtk = { package = "gtk4", version = "0.9", features = ["v4_12"] }
+nodalix-profile = { path = "../../crates/nodalix-profile" }
+nodalix-system-actions = { path = "../../crates/nodalix-system-actions" }
 

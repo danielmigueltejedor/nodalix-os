@@ -1,0 +1,66 @@
+{
+  "app": "nodalix-system",
+  "description": "System shell intents exposed by Nodalix OS.",
+  "intents": [
+    {
+      "id": "settings.openPanel",
+      "name": "Open Settings panel",
+      "description": "Open a Nodalix Settings panel by id.",
+      "permissions": [],
+      "examples": ["abre ajustes", "open privacy settings"],
+      "requiresConfirmation": false,
+      "backgroundCapable": true,
+      "modifiesUserData": false
+    },
+    {
+      "id": "system.lock",
+      "name": "Lock session",
+      "description": "Lock the current Hyprland session using nodalix-lock.",
+      "permissions": ["system.actions"],
+      "examples": ["bloquea la sesión", "lock my computer"],
+      "requiresConfirmation": false,
+      "backgroundCapable": true,
+      "modifiesUserData": false
+    },
+    {
+      "id": "system.suspend",
+      "name": "Suspend system",
+      "description": "Suspend the computer through systemd.",
+      "permissions": ["system.actions"],
+      "examples": ["suspende el equipo"],
+      "requiresConfirmation": true,
+      "backgroundCapable": true,
+      "modifiesUserData": false
+    },
+    {
+      "id": "system.poweroffConfirm",
+      "name": "Power off system",
+      "description": "Power off the computer after explicit confirmation.",
+      "permissions": ["system.actions"],
+      "examples": ["apaga el equipo"],
+      "requiresConfirmation": true,
+      "backgroundCapable": true,
+      "modifiesUserData": false
+    },
+    {
+      "id": "bar.restart",
+      "name": "Restart Nodalix Bar",
+      "description": "Restart the configured top bar using nodalix-session-bar with Waybar fallback.",
+      "permissions": ["system.actions"],
+      "examples": ["reinicia la barra"],
+      "requiresConfirmation": false,
+      "backgroundCapable": true,
+      "modifiesUserData": false
+    },
+    {
+      "id": "controlCenter.open",
+      "name": "Open Control Center",
+      "description": "Open Nodalix Control Center.",
+      "permissions": [],
+      "examples": ["abre control center", "abre centro de control"],
+      "requiresConfirmation": false,
+      "backgroundCapable": true,
+      "modifiesUserData": false
+    }
+  ]
+}

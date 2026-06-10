@@ -38,7 +38,7 @@ Logs timings to stderr (Rust) and browser console (React).
 
 ## Visual language
 
-Nodalix Files follows the shared Nodalix OS dark/glass typography style. The UI font stack is centered on JetBrains Mono / JetBrainsMono Nerd Font with Inter and system fallbacks for a compact, native-feeling interface.
+Nodalix Files follows the shared Nodalix OS dark/glass typography style. General UI uses Inter with system fallbacks; JetBrains Mono is reserved for monospace content (see `assets/styles/nodalix-fonts.css`).
 
 ## Build
 

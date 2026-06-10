@@ -24,6 +24,7 @@ interface FileItemProps {
   depth?: number;
   treeExpanded?: boolean;
   treeLoading?: boolean;
+  disableThumbnails?: boolean;
   renameInitialName?: string | null;
   onToggleTree?: (entry: FileEntry) => void;
   onSelect: (entry: FileEntry, additive: boolean, range: boolean) => void;
@@ -122,6 +123,7 @@ function FileItemInner({
   depth = 0,
   treeExpanded,
   treeLoading,
+  disableThumbnails = false,
   renameInitialName,
   onToggleTree,
   onSelect,
@@ -169,6 +171,7 @@ function FileItemInner({
     setThumbnailFailed(false);
     setThumbnailSrc(null);
     setThumbnailSource(null);
+    if (disableThumbnails) return;
     if (entry.is_dir || (!isImageKind(kind) && kind !== "document-pdf")) return;
     let cancelled = false;
 
@@ -194,7 +197,7 @@ function FileItemInner({
     return () => {
       cancelled = true;
     };
-  }, [entry.is_dir, entry.path, kind]);
+  }, [disableThumbnails, entry.is_dir, entry.path, kind]);
 
   const handleThumbnailError = useCallback(() => {
     if (thumbnailSource === "data") {

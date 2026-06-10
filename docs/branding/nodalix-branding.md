@@ -2,6 +2,13 @@
 
 This repository includes the native Nodalix branding assets used by the local system configuration.
 
+## UI typography
+
+Inter is the recommended UI font for Nodalix OS. Install it on Arch/CachyOS with `inter-font` (listed in `packages/desktop.txt`). If Inter is not installed, components fall back through the shared stack in `assets/styles/nodalix-fonts.css`.
+
+- General UI stack: **Inter**, SF Pro Display, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif (`assets/styles/nodalix-fonts.css`).
+- Monospace / terminals / code: **JetBrainsMono Nerd Font** (via fontconfig `monospace` alias).
+
 ## Native Nodalix glyph
 
 The native Nodalix icon is generated as a custom glyph inside a patched Nerd Font.

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if git -C "$HOME/Projects/nodalix-os" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  git -C "$HOME/Projects/nodalix-os" branch --show-current
+if git -C "$HOME/Proyectos/nodalix-os" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  git -C "$HOME/Proyectos/nodalix-os" branch --show-current
 else
   echo "local"
 fi

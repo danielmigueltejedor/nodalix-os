@@ -1,11 +1,22 @@
 
 * {
-  /* Native Nodalix glyph: U+E00B. Requires JetBrainsMono Nerd Font Nodalix; falls back to Nerd Font. */
-  font-family: "JetBrainsMono Nerd Font Nodalix", "JetBrainsMono Nerd Font", sans-serif;
+  font-family: "Inter", "SF Pro Display", "Segoe UI", "Roboto", "Ubuntu", "Cantarell", "Noto Sans", sans-serif;
   font-size: 13px;
   font-weight: 700;
   border: none;
   min-height: 0;
+}
+
+/* Native Nodalix glyph: U+E00B. Requires JetBrainsMono Nerd Font Nodalix. */
+#custom-nodalix-menu {
+  font-family: "JetBrainsMono Nerd Font Nodalix", "JetBrainsMono Nerd Font", monospace;
+}
+
+#custom-nodalix-settings,
+#bluetooth,
+#network,
+#pulseaudio {
+  font-family: "Symbols Nerd Font Mono", "JetBrainsMono Nerd Font", monospace;
 }
 
 window#waybar {

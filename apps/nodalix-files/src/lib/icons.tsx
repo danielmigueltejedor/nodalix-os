@@ -669,6 +669,35 @@ export function FileTypeIcon({
           <path d="M17 22h18M17 29h18M17 36h18M23 20v18M29 20v18" stroke="#1e1e2e" strokeOpacity="0.55" strokeWidth="1.7" />
         </svg>
       );
+    case "document-presentation":
+      return (
+        <svg className={className} viewBox="0 0 48 48" fill="none" aria-hidden>
+          <path d="M14 6h14l10 10v26a2 2 0 01-2 2H14a2 2 0 01-2-2V8a2 2 0 012-2z" fill="#fab387" fillOpacity="0.86" />
+          <path d="M28 6v10h10" fill="#f9e2af" fillOpacity="0.42" />
+          <rect x="17" y="23" width="15" height="10" rx="1.5" stroke="#1e1e2e" strokeOpacity="0.62" strokeWidth="2" />
+          <path d="M24.5 33v5M20 38h9" stroke="#1e1e2e" strokeOpacity="0.62" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      );
+    case "cad-dwg":
+    case "cad-dxf":
+    case "cad":
+      return (
+        <svg className={className} viewBox="0 0 48 48" fill="none" aria-hidden>
+          <path d="M12 7h24a3 3 0 013 3v28a3 3 0 01-3 3H12a3 3 0 01-3-3V10a3 3 0 013-3z" fill="#74c7ec" fillOpacity="0.82" />
+          <path d="M14 15h20M14 22h20M14 29h20M18 11v26M27 11v26" stroke="#1e1e2e" strokeOpacity="0.22" strokeWidth="1" />
+          <path d="M17 32l8-14 6 10h-5l-2 4h-7z" stroke="#1e1e2e" strokeOpacity="0.68" strokeWidth="2" strokeLinejoin="round" />
+          <text x="24" y="44" textAnchor="middle" fill="#11111b" fillOpacity="0.76" fontSize="7" fontWeight="900">
+            {kind === "cad-dwg" ? "DWG" : kind === "cad-dxf" ? "DXF" : "CAD"}
+          </text>
+        </svg>
+      );
+    case "model-3d":
+      return (
+        <svg className={className} viewBox="0 0 48 48" fill="none" aria-hidden>
+          <path d="M24 6l15 8.5v18L24 41 9 32.5v-18L24 6z" fill="#b4befe" fillOpacity="0.78" />
+          <path d="M24 6v17M9 14.5l15 8.5 15-8.5M16 19v9l8 4.5 8-4.5v-9" stroke="#1e1e2e" strokeOpacity="0.58" strokeWidth="2" strokeLinejoin="round" />
+        </svg>
+      );
     case "document":
       return (
         <svg className={className} viewBox="0 0 48 48" fill="none" aria-hidden>

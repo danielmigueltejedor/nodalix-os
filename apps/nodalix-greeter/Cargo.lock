@@ -569,9 +569,18 @@ dependencies = [
  "greetd_ipc",
  "gtk4",
  "libadwaita",
+ "nodalix-profile",
  "serde",
  "shell-words",
  "toml 0.8.23",
+]
+
+[[package]]
+name = "nodalix-profile"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

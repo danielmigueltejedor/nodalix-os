@@ -1,0 +1,26 @@
+{
+  "app": "nodalix-calendar-reminders",
+  "description": "Future calendar and reminder intents.",
+  "intents": [
+    {
+      "id": "calendar.createEvent",
+      "name": "Create calendar event",
+      "description": "Create a calendar event after showing date, time, location and source.",
+      "permissions": ["calendar.write"],
+      "examples": ["añade este evento al calendario"],
+      "requiresConfirmation": true,
+      "backgroundCapable": false,
+      "modifiesUserData": true
+    },
+    {
+      "id": "reminders.createReminder",
+      "name": "Create reminder",
+      "description": "Create a reminder after explicit confirmation.",
+      "permissions": ["reminders.write"],
+      "examples": ["recuérdame pagar la factura mañana"],
+      "requiresConfirmation": true,
+      "backgroundCapable": false,
+      "modifiesUserData": true
+    }
+  ]
+}

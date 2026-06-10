@@ -1,12 +1,13 @@
 use serde::Serialize;
-use std::collections::hash_map::DefaultHasher;
+use std::collections::{hash_map::DefaultHasher, VecDeque};
 use std::fs;
 use std::hash::{Hash, Hasher};
 use std::io::{self, Seek, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
-use std::time::UNIX_EPOCH;
+use std::time::{Duration, Instant, UNIX_EPOCH};
 
 #[derive(Serialize, Clone)]
 pub struct FileEntry {
@@ -162,6 +163,7 @@ struct Clipboard {
 
 static SPECIAL_DIRS: OnceLock<Result<SpecialDirs, String>> = OnceLock::new();
 static CLIPBOARD: Mutex<Option<Clipboard>> = Mutex::new(None);
+static SEARCH_GENERATION: AtomicU64 = AtomicU64::new(0);
 
 fn err(msg: impl Into<String>) -> String {
     msg.into()
@@ -467,11 +469,22 @@ fn file_type_details(path: &Path, is_dir: bool, is_symlink: bool) -> (String, Op
             "Presentación OpenDocument",
             "application/vnd.oasis.opendocument.presentation",
         ),
+        "dwg" => ("Dibujo AutoCAD DWG", "image/vnd.dwg"),
+        "dxf" => ("Intercambio CAD DXF", "image/vnd.dxf"),
+        "nodcad" | "lixcad" => ("Documento Lix CAD", "application/x-lixcad"),
+        "step" | "stp" => ("Modelo STEP", "model/step"),
+        "iges" | "igs" => ("Modelo IGES", "model/iges"),
+        "stl" => ("Malla STL", "model/stl"),
+        "obj" => ("Malla OBJ", "model/obj"),
+        "ply" => ("Malla PLY", "model/ply"),
         "jpg" | "jpeg" => ("Imagen JPEG", "image/jpeg"),
         "png" => ("Imagen PNG", "image/png"),
         "gif" => ("Imagen GIF", "image/gif"),
         "webp" => ("Imagen WebP", "image/webp"),
         "svg" => ("Imagen SVG", "image/svg+xml"),
+        "tif" | "tiff" => ("Imagen TIFF", "image/tiff"),
+        "heic" => ("Imagen HEIC", "image/heic"),
+        "heif" => ("Imagen HEIF", "image/heif"),
         "mp3" => ("Audio MP3", "audio/mpeg"),
         "flac" => ("Audio FLAC", "audio/flac"),
         "wav" => ("Audio WAV", "audio/wav"),
@@ -678,6 +691,154 @@ pub fn list_directory(path: String) -> Result<Vec<FileEntry>, String> {
     });
 
     Ok(entries)
+}
+
+#[tauri::command]
+pub fn search_directory(
+    path: String,
+    query: String,
+    show_hidden: bool,
+    extensions: Vec<String>,
+) -> Result<Vec<FileEntry>, String> {
+    const MAX_RESULTS: usize = 80;
+    const MAX_VISITED_DIRS: usize = 260;
+    const MAX_SEARCH_TIME: Duration = Duration::from_millis(900);
+
+    let needle = query.trim().to_ascii_lowercase();
+    let extensions: Vec<String> = extensions
+        .into_iter()
+        .map(|ext| ext.trim().trim_start_matches('.').to_ascii_lowercase())
+        .filter(|ext| !ext.is_empty())
+        .collect();
+    if needle.len() < 2 && extensions.is_empty() {
+        return Ok(Vec::new());
+    }
+    let generation = SEARCH_GENERATION.fetch_add(1, Ordering::Relaxed) + 1;
+
+    crate::platform::debug_log(&format!("search_directory {path} {needle}"));
+    let root = PathBuf::from(&path);
+    if !root.is_dir() {
+        return Err(err(format!("No es una carpeta: {path}")));
+    }
+
+    let lightweight = path_uses_slow_metadata(&root);
+    let started = Instant::now();
+    let mut queue = VecDeque::from([root]);
+    let mut entries = Vec::new();
+    let mut visited_dirs = 0usize;
+
+    while let Some(dir) = queue.pop_front() {
+        if SEARCH_GENERATION.load(Ordering::Relaxed) != generation {
+            return Ok(Vec::new());
+        }
+        if started.elapsed() >= MAX_SEARCH_TIME {
+            break;
+        }
+        visited_dirs += 1;
+        if visited_dirs > MAX_VISITED_DIRS || entries.len() >= MAX_RESULTS {
+            break;
+        }
+
+        let Ok(read_dir) = fs::read_dir(&dir) else {
+            continue;
+        };
+        for item in read_dir.flatten() {
+            let file_name = item.file_name().to_string_lossy().into_owned();
+            if file_name == "." || file_name == ".." {
+                continue;
+            }
+            if entries.len() >= MAX_RESULTS || started.elapsed() >= MAX_SEARCH_TIME {
+                break;
+            }
+            if !show_hidden && file_name.starts_with('.') {
+                continue;
+            }
+            if is_search_pruned_dir(&file_name) {
+                continue;
+            }
+
+            let Ok(file_type) = item.file_type() else {
+                continue;
+            };
+            let is_dir = file_type.is_dir();
+            let file_path = item.path();
+            if is_dir {
+                queue.push_back(file_path.clone());
+            }
+
+            if !needle.is_empty() && !file_name.to_ascii_lowercase().contains(&needle) {
+                continue;
+            }
+            if !extensions.is_empty() && !entry_matches_extensions(&file_path, &extensions) {
+                continue;
+            }
+
+            let metadata = if lightweight {
+                None
+            } else {
+                item.metadata().ok()
+            };
+            let size = if is_dir {
+                0
+            } else {
+                metadata.as_ref().map(|m| m.len()).unwrap_or(0)
+            };
+            let modified = metadata
+                .as_ref()
+                .and_then(|m| m.modified().ok())
+                .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+                .map(|d| d.as_secs());
+            let created = metadata
+                .as_ref()
+                .and_then(|m| m.created().ok())
+                .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+                .map(|d| d.as_secs())
+                .or(modified);
+
+            entries.push(FileEntry {
+                name: file_name,
+                path: path_to_string_fast(&file_path),
+                is_dir,
+                size,
+                modified,
+                created,
+                icon_kind: None,
+            });
+
+            if entries.len() >= MAX_RESULTS {
+                break;
+            }
+        }
+    }
+
+    entries.sort_by(|a, b| match (a.is_dir, b.is_dir) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => a.path.to_lowercase().cmp(&b.path.to_lowercase()),
+    });
+
+    Ok(entries)
+}
+
+fn entry_matches_extensions(path: &Path, extensions: &[String]) -> bool {
+    let ext = extension_lower(path);
+    extensions.iter().any(|candidate| candidate == &ext)
+}
+
+fn is_search_pruned_dir(name: &str) -> bool {
+    matches!(
+        name,
+        ".git"
+            | ".cache"
+            | ".cargo"
+            | ".npm"
+            | ".pnpm-store"
+            | ".rustup"
+            | "node_modules"
+            | "target"
+            | "dist"
+            | "build"
+    )
 }
 
 #[tauri::command]

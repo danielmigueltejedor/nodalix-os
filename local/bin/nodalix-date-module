@@ -1,12 +1,20 @@
 #!/usr/bin/env python3
 import json
+import locale
 from datetime import datetime
+
+for loc in ("es_ES.utf8", "es_ES.UTF-8", "es_ES", ""):
+    try:
+        locale.setlocale(locale.LC_TIME, loc)
+        break
+    except locale.Error:
+        continue
 
 now = datetime.now()
 text = now.strftime("%a %d").replace(".", "")
 
 print(json.dumps({
-    "text": "󰃭 " + text,
+    "text": "󰃭  " + text,
     "tooltip": "Calendario · próximamente",
     "class": "normal"
-}))
+}, ensure_ascii=False))

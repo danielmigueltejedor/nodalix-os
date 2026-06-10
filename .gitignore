@@ -45,3 +45,30 @@ broken-backups/
 # OS/editor
 .DS_Store
 *.swp
+
+# Build/cache artifacts
+target/
+node_modules/
+dist/
+.cache/
+*.log
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.7z
+*.rar
+*.deb
+*.pkg.tar.zst
+*.AppImage
+
+# Local build/runtime artifacts
+**/.cargo/
+**/crash_report.txt
+crash_report.txt
+
+# Local backup files
+*.bak
+*.bak-*
+*.backup
+*.backup-*

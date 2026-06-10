@@ -24,7 +24,6 @@ o.bind("SUPER + SHIFT + A", "ChatGPT", { webapp = "https://chatgpt.com" })
 o.bind("SUPER + SHIFT + ALT + A", "Grok", { webapp = "https://grok.com" })
 o.bind("SUPER + SHIFT + C", "Calendar", { webapp = "https://app.hey.com/calendar/weeks/" })
 
--- Email: Thunderbird instead of HEY webmail.
 o.bind("SUPER + SHIFT + E", "Thunderbird", { launch = "thunderbird", focus = "^thunderbird$" })
 
 o.bind("SUPER + SHIFT + Y", "YouTube", { webapp = "https://youtube.com/" })
@@ -49,5 +48,4 @@ o.bind("CTRL + ALT + 2", "Type @", "wtype @")
 -- Nodalix Command Bar
 hl.unbind("SUPER + SPACE")
 
--- Nodalix Command Bar
 o.bind("SUPER + SPACE", "Nodalix Command Bar", { launch = "nodalix-command-bar-toggle" })

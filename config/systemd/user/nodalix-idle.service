@@ -1,20 +1,19 @@
+# DEPRECATED — do not enable.
+#
+# This swayidle unit duplicated hypridle (Hyprland autostart) and caused multiple
+# hyprlock instances after idle unlock. Use ~/.config/hypr/hypridle.conf instead.
+#
+# Disable if still active:
+#   systemctl --user disable --now nodalix-idle.service
+
 [Unit]
-Description=Nodalix idle manager
-Documentation=man:swayidle(1)
-PartOf=graphical-session.target
-After=graphical-session.target
+Description=Nodalix idle manager (deprecated — use hypridle)
+Documentation=file:///dev/null
 
 [Service]
-Type=simple
-ExecStart=/usr/bin/swayidle -w \
-  timeout 300 'nodalix-launch-screensaver' \
-    resume 'nodalix-system-wake' \
-  timeout 600 'nodalix-system-lock' \
-    resume 'nodalix-system-wake' \
-  before-sleep 'nodalix-system-lock' \
-  after-resume 'nodalix-system-wake'
-Restart=on-failure
-RestartSec=2
+Type=oneshot
+ExecStart=/bin/true
+RemainAfterExit=no
 
 [Install]
-WantedBy=graphical-session.target
+# Intentionally empty — never enable this unit.

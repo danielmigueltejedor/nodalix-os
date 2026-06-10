@@ -1,0 +1,27 @@
+/* Canonical Nodalix OS UI font stacks.
+   Recommended: install Inter (Arch/CachyOS: inter-font) for the intended look.
+   Safe fallback stack if Inter is missing:
+   Inter, SF Pro Display, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, sans-serif
+   GTK-compatible: do not use :root, CSS variables, var(), :is(), :where() or :has().
+*/
+
+* {
+  font-family: "Inter", "SF Pro Display", "Segoe UI", "Roboto", "Ubuntu", "Cantarell", "Noto Sans", sans-serif;
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: "Inter", "SF Pro Display", "Segoe UI", "Roboto", "Ubuntu", "Cantarell", "Noto Sans", sans-serif;
+}
+
+code,
+pre,
+kbd,
+samp,
+.monospace,
+.terminal,
+.log {
+  font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", monospace;
+}

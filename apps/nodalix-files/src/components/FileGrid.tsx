@@ -37,6 +37,7 @@ interface FileGridProps {
   zoom: ZoomLevel;
   renamePath?: string | null;
   renameInitialName?: string | null;
+  disableThumbnails?: boolean;
   onZoomChange?: (zoom: ZoomLevel) => void;
   showHiddenFiles: boolean;
   emptyMessage?: string;
@@ -118,6 +119,7 @@ function FileGridInner({
   zoom,
   renamePath,
   renameInitialName,
+  disableThumbnails = false,
   onZoomChange,
   showHiddenFiles,
   emptyMessage = "Esta carpeta está vacía",
@@ -511,6 +513,7 @@ function FileGridInner({
                 specialDirs={specialDirs}
                 viewMode={viewMode}
                 zoom={zoom}
+                disableThumbnails={disableThumbnails}
                 renameInitialName={
                   renamePath === entry.path ? renameInitialName : null
                 }
@@ -562,6 +565,7 @@ function FileGridInner({
                     specialDirs={specialDirs}
                     viewMode={viewMode}
                     zoom={zoom}
+                    disableThumbnails={disableThumbnails}
                     renameInitialName={
                       renamePath === entry.path ? renameInitialName : null
                     }

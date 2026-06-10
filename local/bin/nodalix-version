@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ -f "$HOME/Projects/nodalix-os/VERSION" ]]; then
-  cat "$HOME/Projects/nodalix-os/VERSION"
+if [[ -f "$HOME/Proyectos/nodalix-os/VERSION" ]]; then
+  cat "$HOME/Proyectos/nodalix-os/VERSION"
 else
   echo "dev"
 fi

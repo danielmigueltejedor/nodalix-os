@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Open a URL in the system default browser (xdg-settings), not xdg-open's https handler.
+# Nodalix uses Zen Browser; xdg-open often launches Chromium when https is bound elsewhere.
+set -euo pipefail
+
+url="${1:-}"
+if [[ -z "$url" ]]; then
+  echo "Uso: nodalix-launch-browser <url>" >&2
+  exit 1
+fi
+
+find_desktop_file() {
+  local desktop="$1"
+  for dir in \
+    "${XDG_DATA_HOME:-$HOME/.local/share}/applications" \
+    "$HOME/.nix-profile/share/applications" \
+    /usr/local/share/applications \
+    /usr/share/applications; do
+    if [[ -f "$dir/$desktop" ]]; then
+      printf '%s\n' "$dir/$desktop"
+      return 0
+    fi
+  done
+  return 1
+}
+
+browser_exec_from_desktop() {
+  local desktop="$1"
+  local file
+  file="$(find_desktop_file "$desktop")" || return 1
+  sed -n 's/^Exec=\([^[:space:]]*\).*/\1/p' "$file" | head -1
+}
+
+default_desktop() {
+  if command -v xdg-settings >/dev/null 2>&1; then
+    xdg-settings get default-web-browser 2>/dev/null || true
+  fi
+}
+
+launch_detached() {
+  nohup "$@" >/dev/null 2>&1 &
+}
+
+desktop="$(default_desktop)"
+browser_exec=""
+
+if [[ -n "$desktop" ]]; then
+  browser_exec="$(browser_exec_from_desktop "$desktop" || true)"
+fi
+
+if [[ -z "$browser_exec" ]]; then
+  if command -v zen-browser >/dev/null 2>&1; then
+    browser_exec="zen-browser"
+  elif command -v nodalix >/dev/null 2>&1; then
+    launch_detached nodalix browser "$url"
+    exit 0
+  fi
+fi
+
+case "$(basename "$browser_exec")" in
+  zen-browser|zen|zen-bin)
+    launch_detached zen-browser --new-window "$url"
+    ;;
+  *)
+    if [[ -n "$browser_exec" ]] && command -v "$browser_exec" >/dev/null 2>&1; then
+      launch_detached "$browser_exec" "$url"
+    elif command -v zen-browser >/dev/null 2>&1; then
+      launch_detached zen-browser --new-window "$url"
+    elif command -v nodalix >/dev/null 2>&1; then
+      launch_detached nodalix browser "$url"
+    elif command -v xdg-open >/dev/null 2>&1; then
+      launch_detached xdg-open "$url"
+    else
+      echo "nodalix-launch-browser: no browser found for $url" >&2
+      exit 1
+    fi
+    ;;
+esac

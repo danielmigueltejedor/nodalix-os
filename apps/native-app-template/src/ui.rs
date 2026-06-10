@@ -39,7 +39,10 @@ pub fn build(app: &adw::Application) {
 
 fn load_css() {
     let provider = gtk::CssProvider::new();
-    provider.load_from_string(include_str!("../data/native-app-template.css"));
+    provider.load_from_string(concat!(
+        include_str!("../../../assets/styles/nodalix-fonts.css"),
+        include_str!("../data/native-app-template.css"),
+    ));
     if let Some(display) = gdk::Display::default() {
         gtk::style_context_add_provider_for_display(
             &display,

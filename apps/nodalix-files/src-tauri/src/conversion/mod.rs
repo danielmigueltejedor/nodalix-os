@@ -6,7 +6,7 @@ mod tools;
 
 pub use service::{
     convert_file, get_conversion_settings, init_conversion_backends, preview_rename_conversion,
-    ConversionSettings, RenameConversionPreview, RenameConversionScenario,
+    ConversionSettings, RenameConversionPreview,
 };
 
 #[tauri::command]

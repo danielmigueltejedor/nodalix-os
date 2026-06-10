@@ -10,6 +10,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock"] }
 gdk-pixbuf = "0.20"
 greetd_ipc = { version = "0.10", features = ["codec", "sync-codec"] }
 gtk = { package = "gtk4", version = "0.9", features = ["v4_12"] }
+nodalix-profile = { path = "../../crates/nodalix-profile" }
 serde = { version = "1", features = ["derive"] }
 shell-words = "1"
 toml = "0.8"

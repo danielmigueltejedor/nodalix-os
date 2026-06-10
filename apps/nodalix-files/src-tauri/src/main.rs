@@ -86,7 +86,23 @@ fn spawn_single_instance_server(app: tauri::AppHandle, listener: UnixListener) {
     });
 }
 
+fn stabilize_webkit_environment() {
+    if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+    }
+    if std::env::var_os("WEBKIT_DISABLE_COMPOSITING_MODE").is_none() {
+        std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+    }
+    if std::env::var_os("GSK_RENDERER").is_none() {
+        std::env::set_var("GSK_RENDERER", "cairo");
+    }
+    if std::env::var_os("LIBGL_ALWAYS_SOFTWARE").is_none() {
+        std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
+    }
+}
+
 fn main() {
+    stabilize_webkit_environment();
     app_start();
     conversion::init_conversion_backends();
     platform::debug_log("main");
@@ -146,6 +162,7 @@ fn main() {
             files::startup_bundle,
             files::get_special_dirs,
             files::list_directory,
+            files::search_directory,
             files::list_disks,
             files::list_network_locations,
             files::copy_text_to_clipboard,

@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+# Nodalix OS — validate lock, idle and system action tooling.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+FAIL=0
+
+check() {
+  local label="$1"
+  shift
+  if "$@" >/dev/null 2>&1; then
+    printf '  OK   %s\n' "$label"
+  else
+    printf '  FAIL %s\n' "$label"
+    FAIL=1
+  fi
+}
+
+info() {
+  printf '  INFO %s\n' "$1"
+}
+
+echo "==> Nodalix system validation"
+
+echo "-- Binaries"
+if command -v hyprlock >/dev/null 2>&1; then
+  info "hyprlock: $(hyprlock --version 2>&1 | head -1)"
+else
+  printf '  FAIL hyprlock not in PATH\n'
+  FAIL=1
+fi
+
+if command -v nodalix-lock >/dev/null 2>&1; then
+  lock_path="$(command -v nodalix-lock)"
+  resolved="$(readlink -f "$lock_path" 2>/dev/null || echo "$lock_path")"
+  info "nodalix-lock: $lock_path -> $resolved"
+  ls -l "$lock_path" 2>/dev/null || true
+  if [ -x "$lock_path" ]; then
+    printf '  OK   nodalix-lock is executable\n'
+  else
+    printf '  FAIL nodalix-lock not executable — run: %s/scripts/install-nodalix-lock.sh\n' "$ROOT"
+    FAIL=1
+  fi
+  if grep -q 'nodalix-lock.flock' "$resolved" 2>/dev/null; then
+    printf '  OK   official wrapper (flock + pgrep)\n'
+  else
+    printf '  WARN nodalix-lock is not the repo wrapper — run: %s/scripts/install-nodalix-lock.sh\n' "$ROOT"
+    FAIL=1
+  fi
+else
+  repo_lock="$ROOT/local/bin/nodalix-lock"
+  if [ -f "$repo_lock" ]; then
+    printf '  FAIL nodalix-lock not in PATH\n'
+    printf '        Run: %s/scripts/install-nodalix-lock.sh\n' "$ROOT"
+  else
+    printf '  FAIL nodalix-lock missing\n'
+  fi
+  FAIL=1
+fi
+
+check "hypridle in PATH" command -v hypridle
+check "systemctl in PATH" command -v systemctl
+check "loginctl in PATH" command -v loginctl
+
+echo "-- Running processes"
+if pgrep -a hypridle >/dev/null 2>&1; then
+  pgrep -a hypridle | sed 's/^/  /'
+else
+  info "hypridle not running (starts with Hyprland autostart)"
+fi
+
+if pgrep -x hyprlock >/dev/null 2>&1; then
+  info "hyprlock is running (expected only while locked)"
+else
+  info "hyprlock not running (expected when unlocked)"
+fi
+
+echo "-- Config"
+if [ -f "$HOME/.config/hypr/hypridle.conf" ]; then
+  printf '  OK   ~/.config/hypr/hypridle.conf\n'
+elif [ -f "$ROOT/config/hypr/hypridle.conf" ]; then
+  info "hypridle.conf in repo — link with install.sh"
+else
+  printf '  FAIL hypridle.conf not found\n'
+  FAIL=1
+fi
+
+if grep -RInE 'hl\.dispatch\(exec hypridle\)|hl\.exec_cmd\(' "$ROOT/local/share/nodalix/default/hypr" 2>/dev/null \
+  | grep -v 'hl\.dispatch(hl\.dsp\.exec_cmd' >/dev/null; then
+  printf '  WARN review hypr Lua autostart helpers for invalid dispatch\n'
+else
+  printf '  OK   hypr autostart helpers use hl.dsp.exec_cmd\n'
+fi
+
+echo
+if [ "$FAIL" -eq 0 ]; then
+  echo "Validation passed."
+  exit 0
+else
+  echo "Validation failed — fix items above, then run ./install.sh"
+  exit 1
+fi

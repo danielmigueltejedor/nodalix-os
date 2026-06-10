@@ -30,7 +30,12 @@ pub enum ConversionFamily {
 }
 
 pub fn normalize_ext(ext: &str) -> String {
-    match ext.trim().trim_start_matches('.').to_ascii_lowercase().as_str() {
+    match ext
+        .trim()
+        .trim_start_matches('.')
+        .to_ascii_lowercase()
+        .as_str()
+    {
         "jpeg" => "jpg".into(),
         "tif" => "tiff".into(),
         "yml" => "yaml".into(),
@@ -46,11 +51,12 @@ pub fn family_for_ext(ext: &str) -> ConversionFamily {
         "png" | "jpg" | "webp" | "bmp" | "tiff" | "gif" | "ico" | "avif" => ConversionFamily::Image,
         "heic" => ConversionFamily::Heic,
         "txt" | "md" | "csv" | "json" | "toml" | "yaml" => ConversionFamily::Text,
-        "docx" | "odt" | "pptx" | "xlsx" | ConversionFamily::Office,
+        "docx" | "odt" | "pptx" | "xlsx" => ConversionFamily::Office,
         "svg" => ConversionFamily::Vector,
         "pdf" => ConversionFamily::PdfRaster,
-        "mp4" | "mkv" | "webm" | "avi" | "mov" | "mp3" | "flac" | "wav" | "ogg" | "m4a"
-        | "aac" => ConversionFamily::VideoAudio,
+        "mp4" | "mkv" | "webm" | "avi" | "mov" | "mp3" | "flac" | "wav" | "ogg" | "m4a" | "aac" => {
+            ConversionFamily::VideoAudio
+        }
         _ => ConversionFamily::Unknown,
     }
 }
@@ -77,7 +83,12 @@ fn lossy_warnings(to_ext: &str) -> Vec<String> {
 pub struct ConversionRegistry;
 
 impl ConversionRegistry {
-    pub fn lookup(from_ext: &str, to_ext: &str, tools: &ToolAvailability, config: &ConversionConfig) -> Option<ConversionCapability> {
+    pub fn lookup(
+        from_ext: &str,
+        to_ext: &str,
+        tools: &ToolAvailability,
+        config: &ConversionConfig,
+    ) -> Option<ConversionCapability> {
         let from = normalize_ext(from_ext);
         let to = normalize_ext(to_ext);
         if from == to {
@@ -86,29 +97,91 @@ impl ConversionRegistry {
 
         let pair = (from.as_str(), to.as_str());
         let mut cap = match pair {
-            ("png", "jpg") => base_capability(&from, &to, "PNG → JPEG", "image (Rust)", false, true, false),
-            ("jpg", "png") => base_capability(&from, &to, "JPEG → PNG", "image (Rust)", true, false, false),
-            ("webp", "png") | ("webp", "jpg") => {
-                base_capability(&from, &to, &format!("WebP → {}", to.to_uppercase()), "image (Rust)", pair == ("webp", "png"), pair == ("webp", "jpg"), false)
+            ("png", "jpg") => {
+                base_capability(&from, &to, "PNG → JPEG", "image (Rust)", false, true, false)
             }
-            ("png", "webp") | ("jpg", "webp") => {
-                base_capability(&from, &to, &format!("{} → WebP", from.to_uppercase()), "image (Rust)", false, true, false)
+            ("jpg", "png") => {
+                base_capability(&from, &to, "JPEG → PNG", "image (Rust)", true, false, false)
             }
-            ("bmp", "png") => base_capability(&from, &to, "BMP → PNG", "image (Rust)", true, false, false),
-            ("tiff", "png") => base_capability(&from, &to, "TIFF → PNG", "image (Rust)", true, false, false),
-            ("txt", "md") => base_capability(&from, &to, "Texto → Markdown", "texto (interno)", true, false, false),
-            ("md", "txt") => base_capability(&from, &to, "Markdown → Texto", "texto (interno)", true, false, false),
+            ("webp", "png") | ("webp", "jpg") => base_capability(
+                &from,
+                &to,
+                &format!("WebP → {}", to.to_uppercase()),
+                "image (Rust)",
+                pair == ("webp", "png"),
+                pair == ("webp", "jpg"),
+                false,
+            ),
+            ("png", "webp") | ("jpg", "webp") => base_capability(
+                &from,
+                &to,
+                &format!("{} → WebP", from.to_uppercase()),
+                "image (Rust)",
+                false,
+                true,
+                false,
+            ),
+            ("bmp", "png") => {
+                base_capability(&from, &to, "BMP → PNG", "image (Rust)", true, false, false)
+            }
+            ("tiff", "png") => {
+                base_capability(&from, &to, "TIFF → PNG", "image (Rust)", true, false, false)
+            }
+            ("txt", "md") => base_capability(
+                &from,
+                &to,
+                "Texto → Markdown",
+                "texto (interno)",
+                true,
+                false,
+                false,
+            ),
+            ("md", "txt") => base_capability(
+                &from,
+                &to,
+                "Markdown → Texto",
+                "texto (interno)",
+                true,
+                false,
+                false,
+            ),
             ("csv", "txt") | ("json", "txt") | ("toml", "txt") | ("yaml", "txt") => {
-                base_capability(&from, &to, &format!("{} → Texto", from.to_uppercase()), "texto (interno)", true, false, false)
+                base_capability(
+                    &from,
+                    &to,
+                    &format!("{} → Texto", from.to_uppercase()),
+                    "texto (interno)",
+                    true,
+                    false,
+                    false,
+                )
             }
             ("docx", "pdf") | ("odt", "pdf") | ("pptx", "pdf") | ("xlsx", "pdf") => {
-                base_capability(&from, &to, &format!("{} → PDF", from.to_uppercase()), "LibreOffice", true, false, true)
+                base_capability(
+                    &from,
+                    &to,
+                    &format!("{} → PDF", from.to_uppercase()),
+                    "LibreOffice",
+                    true,
+                    false,
+                    true,
+                )
             }
-            ("svg", "png") => base_capability(&from, &to, "SVG → PNG", "rsvg-convert", true, false, true),
-            ("pdf", "png") => base_capability(&from, &to, "PDF → PNG", "pdftoppm", false, false, true),
-            ("heic", "jpg") | ("heic", "png") => {
-                base_capability(&from, &to, &format!("HEIC → {}", to.to_uppercase()), "ImageMagick/heif-convert", pair == ("heic", "png"), pair == ("heic", "jpg"), true)
+            ("svg", "png") => {
+                base_capability(&from, &to, "SVG → PNG", "rsvg-convert", true, false, true)
             }
+            ("pdf", "png") => {
+                base_capability(&from, &to, "PDF → PNG", "pdftoppm", false, false, true)
+            }
+            ("heic", "jpg") | ("heic", "png") => base_capability(
+                &from,
+                &to,
+                &format!("HEIC → {}", to.to_uppercase()),
+                "ImageMagick/heif-convert",
+                pair == ("heic", "png"),
+                pair == ("heic", "jpg"),
+                true,
+            ),
             _ => return None,
         };
 
@@ -120,17 +193,16 @@ impl ConversionRegistry {
 
         if cap.requires_external && !config.allow_external_tools {
             cap.available = false;
-            cap.unavailable_reason = Some(
-                "Las herramientas externas están desactivadas en la configuración.".into(),
-            );
+            cap.unavailable_reason =
+                Some("Las herramientas externas están desactivadas en la configuración.".into());
             return Some(cap);
         }
 
         cap.available = resolve_backend_available(&cap, tools);
         if !cap.available {
-            cap.unavailable_reason = cap.unavailable_reason.or_else(|| {
-                Some("No hay un conversor disponible en el sistema.".into())
-            });
+            cap.unavailable_reason = cap
+                .unavailable_reason
+                .or_else(|| Some("No hay un conversor disponible en el sistema.".into()));
         }
         Some(cap)
     }
@@ -141,7 +213,8 @@ impl ConversionRegistry {
         let from_family = family_for_ext(&from);
         let to_family = family_for_ext(&to);
 
-        if from_family == ConversionFamily::VideoAudio || to_family == ConversionFamily::VideoAudio {
+        if from_family == ConversionFamily::VideoAudio || to_family == ConversionFamily::VideoAudio
+        {
             return "Conversión no disponible todavía para vídeo/audio.".into();
         }
 
@@ -194,7 +267,14 @@ pub fn extensions_compatible_for_prompt(from_ext: &str, to_ext: &str) -> bool {
     if from == to {
         return false;
     }
-    if ConversionRegistry::lookup(&from, &to, &ToolAvailability::default_all_available(), &ConversionConfig::default()).is_some() {
+    if ConversionRegistry::lookup(
+        &from,
+        &to,
+        &ToolAvailability::default_all_available(),
+        &ConversionConfig::default(),
+    )
+    .is_some()
+    {
         return true;
     }
     family_for_ext(&from) == family_for_ext(&to)

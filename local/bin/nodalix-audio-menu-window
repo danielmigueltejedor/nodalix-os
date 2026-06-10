@@ -77,7 +77,7 @@ def open_advanced_sound_settings():
 def setup_css():
     css = b"""
 * {
-  font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", monospace;
+  font-family: "Inter", "SF Pro Display", "Segoe UI", "Roboto", "Ubuntu", "Cantarell", "Noto Sans", sans-serif;
   font-size: 13px;
   color: #cdd6f4;
 }

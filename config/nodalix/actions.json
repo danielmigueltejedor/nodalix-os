@@ -31,25 +31,6 @@
     "danger": false
   },
   {
-    "icon": "󰏫",
-    "title": "Editar acciones de Command Bar",
-    "subtitle": "Nodalix · actions.json",
-    "category": "Nodalix",
-    "search": "editar acciones command bar actions json nodalix configurar launcher",
-    "aliases": [
-      "acciones",
-      "editar acciones",
-      "actions",
-      "command bar config"
-    ],
-    "command": "zed ~/.config/nodalix/actions.json",
-    "requires": [
-      "zed"
-    ],
-    "hide_if_missing": true,
-    "danger": false
-  },
-  {
     "icon": "󰒓",
     "title": "Abrir Nodalix Settings",
     "subtitle": "Sistema · Nodalix Settings",
@@ -58,6 +39,62 @@
     "category": "Sistema",
     "danger": false,
     "aliases": []
+  },
+  {
+    "icon": "󰕮",
+    "title": "Abrir Nodalix Control Center",
+    "subtitle": "Sistema · controles rápidos",
+    "search": "control center centro control ajustes rapidos barra volumen red bluetooth energia nodalix",
+    "command": "nodalix-control-center",
+    "category": "Sistema",
+    "requires": [
+      "nodalix-control-center"
+    ],
+    "hide_if_missing": true,
+    "danger": false,
+    "aliases": [
+      "control center",
+      "centro de control",
+      "quick settings"
+    ]
+  },
+  {
+    "icon": "󰀻",
+    "title": "Reiniciar Nodalix Bar",
+    "subtitle": "Sistema · launcher con fallback Waybar",
+    "search": "reiniciar nodalix bar waybar barra topbar panel fallback restart",
+    "command": "nodalix-session-bar --restart",
+    "category": "Sistema",
+    "requires": [
+      "nodalix-session-bar"
+    ],
+    "hide_if_missing": true,
+    "danger": false,
+    "aliases": [
+      "reiniciar barra",
+      "restart bar",
+      "waybar",
+      "nodalix bar"
+    ]
+  },
+  {
+    "icon": "󰀻",
+    "title": "Cambiar Nodalix Bar / Waybar",
+    "subtitle": "Sistema · alternar barra principal",
+    "search": "cambiar alternar toggle nodalix bar waybar barra principal fallback",
+    "command": "nodalix-bar-toggle",
+    "category": "Sistema",
+    "requires": [
+      "nodalix-bar-toggle"
+    ],
+    "hide_if_missing": true,
+    "danger": false,
+    "aliases": [
+      "toggle bar",
+      "cambiar barra",
+      "waybar",
+      "nodalix bar"
+    ]
   },
   {
     "icon": "󰒡",
@@ -90,23 +127,30 @@
   },
   {
     "icon": "󰜉",
-    "title": "Recargar Waybar",
-    "subtitle": "Sistema · reiniciar barra superior",
-    "search": "reload recargar waybar barra topbar panel",
-    "command": "pkill waybar; waybar >/tmp/waybar.log 2>&1 &",
-    "category": "IA",
+    "title": "Recargar barra",
+    "subtitle": "Sistema · Nodalix Bar o Waybar fallback",
+    "search": "reload recargar reiniciar nodalix bar waybar barra topbar panel",
+    "command": "nodalix-session-bar --restart",
+    "category": "Sistema",
+    "requires": [
+      "nodalix-session-bar"
+    ],
     "danger": false,
-    "aliases": []
+    "aliases": [
+      "waybar",
+      "nodalix bar",
+      "restart bar"
+    ]
   },
   {
     "icon": "󰌾",
     "title": "Bloquear sesión",
-    "subtitle": "Seguridad · Hyprlock",
+    "subtitle": "Seguridad · Bloqueo Nodalix",
     "search": "bloquear lock pantalla seguridad hyprlock",
-    "command": "hyprlock",
+    "command": "nodalix-lock",
     "category": "Sistema",
     "requires": [
-      "hyprlock"
+      "nodalix-lock"
     ],
     "hide_if_missing": true,
     "danger": false,
@@ -118,7 +162,7 @@
     "subtitle": "Energía · systemctl suspend",
     "search": "suspender sleep dormir energia suspension",
     "command": "systemctl suspend",
-    "category": "IA",
+    "category": "Sistema",
     "danger": true,
     "confirm_message": "Vas a suspender el equipo ahora.",
     "aliases": []
@@ -129,7 +173,7 @@
     "subtitle": "Energía · systemctl reboot",
     "search": "reiniciar reboot energia sistema",
     "command": "systemctl reboot",
-    "category": "IA",
+    "category": "Sistema",
     "danger": true,
     "confirm_message": "Vas a reiniciar el equipo ahora.",
     "aliases": []
@@ -140,7 +184,7 @@
     "subtitle": "Energía · systemctl poweroff",
     "search": "apagar shutdown poweroff energia sistema",
     "command": "systemctl poweroff",
-    "category": "IA",
+    "category": "Sistema",
     "danger": true,
     "confirm_message": "Vas a apagar el equipo ahora.",
     "aliases": []
@@ -305,63 +349,6 @@
     "aliases": []
   },
   {
-    "icon": "󰄀",
-    "title": "Capturar zona",
-    "subtitle": "Captura · grim + slurp + satty",
-    "search": "screenshot captura zona recorte satty grim slurp",
-    "command": "grim -g \"$(slurp)\" - | satty --filename -",
-    "category": "Capturas",
-    "requires": [
-      "grim",
-      "slurp",
-      "satty"
-    ],
-    "hide_if_missing": true,
-    "danger": false,
-    "aliases": [
-      "captura",
-      "recorte",
-      "screenshot"
-    ]
-  },
-  {
-    "icon": "󰹑",
-    "title": "Capturar pantalla completa",
-    "subtitle": "Captura · guardar en Imágenes",
-    "search": "screenshot captura pantalla completa grim",
-    "command": "mkdir -p ~/Pictures/Screenshots && grim ~/Pictures/Screenshots/screenshot-$(date +%Y%m%d-%H%M%S).png",
-    "category": "Capturas",
-    "requires": [
-      "grim",
-      "slurp",
-      "satty"
-    ],
-    "hide_if_missing": true,
-    "danger": false,
-    "aliases": []
-  },
-  {
-    "icon": "󰅌",
-    "title": "Historial del portapapeles",
-    "subtitle": "Clipboard · cliphist",
-    "search": "clipboard portapapeles historial copiar cliphist",
-    "command": "cliphist list | rofi -dmenu | cliphist decode | wl-copy",
-    "category": "Capturas",
-    "requires": [
-      "cliphist",
-      "rofi",
-      "wl-copy",
-      "zed"
-    ],
-    "hide_if_missing": true,
-    "danger": false,
-    "aliases": [
-      "clipboard",
-      "copiar",
-      "portapapeles"
-    ]
-  },
-  {
     "icon": "󰖩",
     "title": "Abrir redes Wi-Fi",
     "subtitle": "Red · Impala si está instalado",
@@ -445,12 +432,12 @@
   {
     "icon": "󰓓",
     "title": "Abrir Steam",
-    "subtitle": "Gaming · Steam",
+    "subtitle": "Gaming · Steam optimizado RX 9070 XT",
     "search": "steam gaming juegos biblioteca",
-    "command": "steam",
+    "command": "steam-rx9070xt",
     "category": "Gaming",
     "requires": [
-      "steam"
+      "steam-rx9070xt"
     ],
     "hide_if_missing": true,
     "danger": false,
@@ -471,20 +458,6 @@
     "aliases": []
   },
   {
-    "icon": "󰨞",
-    "title": "Abrir Zed",
-    "subtitle": "Dev · Zed",
-    "search": "dev zed code editor programar",
-    "command": "zed",
-    "category": "Dev",
-    "requires": [
-      "zed"
-    ],
-    "hide_if_missing": true,
-    "danger": false,
-    "aliases": []
-  },
-  {
     "icon": "󰊤",
     "title": "Abrir GitHub",
     "subtitle": "Dev · GitHub web",
@@ -496,21 +469,31 @@
   },
   {
     "icon": "󰚩",
-    "title": "IA / OpenCode",
-    "subtitle": "IA · Próximamente",
-    "search": "ia ai opencode asistente voz pantalla",
-    "command": "notify-send \"Nodalix AI\" \"IA todavía no está implementada\"",
+    "title": "Ask Nodalix Assistant",
+    "subtitle": "Intelligence · asistente local-first",
+    "search": "ia ai assistant asistente nodalix intelligence pregunta preguntar donde vive jose correo concierto resumen",
+    "command": "alacritty -e nodalix-assistant ask",
     "category": "Dev",
+    "requires": [
+      "nodalix-assistant",
+      "alacritty"
+    ],
+    "hide_if_missing": true,
     "danger": false,
-    "aliases": []
+    "aliases": [
+      "assistant",
+      "asistente",
+      "intelligence",
+      "preguntar"
+    ]
   },
   {
     "icon": "󰟐",
     "title": "Abrir Home Assistant",
-    "subtitle": "Domótica · URL local por configurar",
+    "subtitle": "Domótica · Home Assistant",
     "search": "home assistant domotica hass casa nodalia",
-    "command": "xdg-open http://homeassistant.local:8123",
-    "category": "IA",
+    "command": "xdg-open https://homeassistant.getnodalia.com",
+    "category": "Domótica",
     "danger": false,
     "aliases": [
       "casa",
@@ -533,5 +516,89 @@
       "privacidad",
       "privacy"
     ]
+  },
+  {
+    "id": "screenshot-full",
+    "kind": "action",
+    "icon": "",
+    "title": "Capturar pantalla",
+    "subtitle": "Nodalix · guarda una captura completa",
+    "category": "Capturas",
+    "search": "capturar pantalla screenshot full captura completa imagen save guardar",
+    "tags": [
+      "screenshot",
+      "captura",
+      "pantalla",
+      "imagen"
+    ],
+    "command": "nodalix-screenshot-full",
+    "requires": [
+      "grim"
+    ],
+    "hide_if_missing": true
+  },
+  {
+    "id": "screenshot-area",
+    "kind": "action",
+    "icon": "󰹑",
+    "title": "Capturar zona",
+    "subtitle": "Nodalix · selecciona una zona y guarda la captura",
+    "category": "Capturas",
+    "search": "capturar zona screenshot area region seleccion slurp captura parcial",
+    "tags": [
+      "screenshot",
+      "captura",
+      "zona",
+      "selección"
+    ],
+    "command": "nodalix-screenshot-area",
+    "requires": [
+      "grim",
+      "slurp"
+    ],
+    "hide_if_missing": true
+  },
+  {
+    "id": "screenshot-full-copy",
+    "kind": "action",
+    "icon": "",
+    "title": "Capturar pantalla al portapapeles",
+    "subtitle": "Nodalix · copia una captura completa",
+    "category": "Capturas",
+    "search": "capturar pantalla portapapeles clipboard copy screenshot full copiar",
+    "tags": [
+      "screenshot",
+      "captura",
+      "portapapeles",
+      "copiar"
+    ],
+    "command": "nodalix-screenshot-full-copy",
+    "requires": [
+      "grim",
+      "wl-copy"
+    ],
+    "hide_if_missing": true
+  },
+  {
+    "id": "screenshot-area-copy",
+    "kind": "action",
+    "icon": "󰆞",
+    "title": "Capturar zona al portapapeles",
+    "subtitle": "Nodalix · selecciona una zona y la copia",
+    "category": "Capturas",
+    "search": "capturar zona portapapeles clipboard copy screenshot area region copiar",
+    "tags": [
+      "screenshot",
+      "captura",
+      "zona",
+      "portapapeles"
+    ],
+    "command": "nodalix-screenshot-area-copy",
+    "requires": [
+      "grim",
+      "slurp",
+      "wl-copy"
+    ],
+    "hide_if_missing": true
   }
 ]

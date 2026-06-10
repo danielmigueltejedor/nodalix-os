@@ -1,5 +1,14 @@
 mod app;
+mod assets;
+mod cad;
 mod canvas;
+mod canvas_blocks;
+mod canvas_fillet_chamfer;
+mod canvas_grips;
+mod canvas_hatch;
+mod canvas_modify;
+mod canvas_offset;
+mod canvas_trim_extend;
 mod document;
 mod drawing;
 mod export;
@@ -7,8 +16,11 @@ mod geometry;
 mod import;
 mod mesh;
 mod reverse;
+mod tool_parameters;
 mod tools;
 mod ui;
+mod ui_context;
+mod ui_history;
 mod units;
 
 fn main() {

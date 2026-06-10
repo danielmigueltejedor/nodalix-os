@@ -3,7 +3,7 @@ use super::registry::normalize_ext;
 use super::tools::{detect_tools, resolved_program, ToolAvailability};
 use crate::platform;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Command, Output, Stdio};
 
 #[derive(Debug)]
@@ -34,7 +34,13 @@ impl FileConversionService {
         &self.config
     }
 
-    pub fn convert(&self, source: &Path, dest: &Path, from_ext: &str, to_ext: &str) -> Result<(), String> {
+    pub fn convert(
+        &self,
+        source: &Path,
+        dest: &Path,
+        from_ext: &str,
+        to_ext: &str,
+    ) -> Result<(), String> {
         if dest.exists() {
             return Err(format!("Ya existe: {}", dest.display()));
         }
@@ -66,10 +72,7 @@ impl FileConversionService {
             ("csv", "txt") | ("json", "txt") | ("toml", "txt") | ("yaml", "txt") => {
                 copy_text_with_encoding_check(source, dest)
             }
-            ("docx", "pdf")
-            | ("odt", "pdf")
-            | ("pptx", "pdf")
-            | ("xlsx", "pdf") => {
+            ("docx", "pdf") | ("odt", "pdf") | ("pptx", "pdf") | ("xlsx", "pdf") => {
                 self.convert_office_to_pdf(source, dest)
             }
             ("svg", "png") => self.convert_svg_to_png(source, dest),
@@ -152,7 +155,9 @@ impl FileConversionService {
         if !output.success {
             return Err(format_command_failure(&output));
         }
-        let expected = out_dir.join(source.file_stem().unwrap_or_default()).with_extension("pdf");
+        let expected = out_dir
+            .join(source.file_stem().unwrap_or_default())
+            .with_extension("pdf");
         if expected == dest {
             if expected.exists() {
                 return Ok(());
@@ -215,10 +220,8 @@ impl FileConversionService {
     fn convert_heic(&self, source: &Path, dest: &Path, to_ext: &str) -> Result<(), String> {
         if self.tools.imagemagick {
             let program = resolved_program(&self.config, "magick", "magick");
-            let output = run_command_logged(
-                &program,
-                &[&path_to_string(source), &path_to_string(dest)],
-            )?;
+            let output =
+                run_command_logged(&program, &[&path_to_string(source), &path_to_string(dest)])?;
             if output.success && dest.exists() {
                 return Ok(());
             }
@@ -228,10 +231,8 @@ impl FileConversionService {
         }
         if self.tools.heif_convert {
             let program = resolved_program(&self.config, "heif-convert", "heif-convert");
-            let output = run_command_logged(
-                &program,
-                &[&path_to_string(source), &path_to_string(dest)],
-            )?;
+            let output =
+                run_command_logged(&program, &[&path_to_string(source), &path_to_string(dest)])?;
             if output.success && dest.exists() {
                 return Ok(());
             }

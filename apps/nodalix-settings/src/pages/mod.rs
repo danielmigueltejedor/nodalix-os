@@ -2,6 +2,8 @@ pub mod appearance;
 pub mod audio;
 pub mod bluetooth;
 pub mod displays;
+pub mod home;
+pub mod intelligence;
 pub mod network;
 pub mod power;
 pub mod session;
@@ -14,12 +16,13 @@ use gtk::prelude::*;
 
 #[derive(Clone, Copy)]
 pub enum PageId {
+    Home,
     Users,
     Appearance,
-    UserImage,
     Bluetooth,
     Wifi,
     Network,
+    Intelligence,
     Updates,
     Power,
     Displays,
@@ -31,12 +34,13 @@ pub enum PageId {
 impl PageId {
     pub fn name(self) -> &'static str {
         match self {
+            Self::Home => "home",
             Self::Users => "users",
             Self::Appearance => "appearance",
-            Self::UserImage => "user-image",
             Self::Bluetooth => "bluetooth",
             Self::Wifi => "wifi",
             Self::Network => "network",
+            Self::Intelligence => "intelligence",
             Self::Updates => "updates",
             Self::Power => "power",
             Self::Displays => "displays",
@@ -57,8 +61,14 @@ pub struct PageSpec {
 pub fn catalog() -> Vec<PageSpec> {
     vec![
         PageSpec {
+            id: PageId::Home,
+            label: "Inicio",
+            icon: "󰍛",
+            build: home::build_home_page,
+        },
+        PageSpec {
             id: PageId::Users,
-            label: "Usuarios",
+            label: "Perfil y usuarios",
             icon: "󰀄",
             build: users::build_users_page,
         },
@@ -67,12 +77,6 @@ pub fn catalog() -> Vec<PageSpec> {
             label: "Apariencia",
             icon: "󰸌",
             build: appearance::build_appearance_page,
-        },
-        PageSpec {
-            id: PageId::UserImage,
-            label: "Imagen de usuario",
-            icon: "󰄀",
-            build: users::build_user_image_page,
         },
         PageSpec {
             id: PageId::Bluetooth,
@@ -91,6 +95,12 @@ pub fn catalog() -> Vec<PageSpec> {
             label: "Red",
             icon: "󰈀",
             build: network::build_network_page,
+        },
+        PageSpec {
+            id: PageId::Intelligence,
+            label: "Intelligence",
+            icon: "󰚩",
+            build: intelligence::build_intelligence_page,
         },
         PageSpec {
             id: PageId::Updates,
@@ -153,11 +163,64 @@ pub fn page(title: &str, subtitle: &str) -> gtk::Box {
 }
 
 pub fn scrolled_page(content: gtk::Box) -> gtk::Widget {
-    let scrolled = gtk::ScrolledWindow::new();
-    scrolled.set_hexpand(true);
-    scrolled.set_vexpand(true);
+    let scrolled = gtk::ScrolledWindow::builder()
+        .hexpand(true)
+        .vexpand(true)
+        .overlay_scrolling(true)
+        .propagate_natural_height(true)
+        .build();
+    scrolled.set_policy(gtk::PolicyType::Never, gtk::PolicyType::Automatic);
     scrolled.set_child(Some(&content));
     scrolled.upcast()
+}
+
+pub fn power_profile_bar(status: &crate::widgets::StatusStrip) -> gtk::Box {
+    use crate::system::power;
+    use crate::widgets::{run_bg, SegmentedControl, SegmentedOption};
+
+    let wrap = gtk::Box::new(gtk::Orientation::Vertical, 10);
+    let options = [
+        SegmentedOption {
+            id: "performance",
+            icon: "󰓅",
+            label: "Rendimiento",
+        },
+        SegmentedOption {
+            id: "balanced",
+            icon: "󰾆",
+            label: "Equilibrado",
+        },
+        SegmentedOption {
+            id: "power-saver",
+            icon: "󰁹",
+            label: "Ahorro",
+        },
+    ];
+    let seg = SegmentedControl::new(&options);
+    let active = power::active_profile().trim().to_string();
+    if power::PROFILES.iter().any(|(id, _)| *id == active.as_str()) {
+        seg.set_active_id(&active);
+    } else {
+        seg.set_active_id("balanced");
+    }
+
+    let status = status.clone();
+    seg.connect_changed(move |id| {
+        let profile = id.to_string();
+        status.set_loading("Aplicando perfil de energía…");
+        let status = status.clone();
+        let profile_done = profile.clone();
+        run_bg(
+            move || power::set_profile(&profile),
+            move |result| match result {
+                Ok(()) => status.set_success(&format!("Perfil {profile_done} activo")),
+                Err(err) => status.set_error(&err),
+            },
+        );
+    });
+
+    wrap.append(&seg.root);
+    wrap
 }
 
 pub fn card(title: &str) -> gtk::Box {
@@ -168,6 +231,18 @@ pub fn card(title: &str) -> gtk::Box {
     label.add_css_class("card-title");
     card.append(&label);
     card
+}
+
+pub fn row_with_widget(label: &str, widget: &impl IsA<gtk::Widget>) -> gtk::Box {
+    let row = gtk::Box::new(gtk::Orientation::Horizontal, 18);
+    row.add_css_class("info-row");
+    let name = gtk::Label::new(Some(label));
+    name.set_xalign(0.0);
+    name.add_css_class("info-label");
+    name.set_hexpand(true);
+    row.append(&name);
+    row.append(widget);
+    row
 }
 
 pub fn row(label: &str, value: &str) -> gtk::Box {
@@ -184,15 +259,4 @@ pub fn row(label: &str, value: &str) -> gtk::Box {
     row.append(&name);
     row.append(&value_label);
     row
-}
-
-pub fn button_bar(labels: &[&str]) -> gtk::Box {
-    let bar = gtk::Box::new(gtk::Orientation::Horizontal, 10);
-    bar.add_css_class("button-bar");
-    for label in labels {
-        let button = gtk::Button::with_label(label);
-        button.add_css_class("placeholder-button");
-        bar.append(&button);
-    }
-    bar
 }

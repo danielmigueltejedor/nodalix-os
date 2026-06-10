@@ -2,8 +2,9 @@ use gtk::prelude::*;
 
 pub fn configure(window: &adw::ApplicationWindow) {
     window.set_title(Some("Nodalix Control Center"));
-    window.set_default_size(430, 620);
+    window.set_default_size(414, 560);
     window.set_resizable(false);
+    window.set_decorated(false);
     window.add_css_class("control-center-window");
 
     let controller = gtk::EventControllerKey::new();

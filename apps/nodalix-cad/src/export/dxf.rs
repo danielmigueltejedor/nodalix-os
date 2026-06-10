@@ -34,6 +34,24 @@ pub fn export(document: &Document, path: &Path) -> Result<(), String> {
                         .map_err(|err| err.to_string())?;
                 }
             }
+            Entity::Spline {
+                control_points,
+                closed,
+                ..
+            } => {
+                writeln!(
+                    out,
+                    "0\nSPLINE\n8\n{}\n70\n{}\n71\n3\n72\n0\n73\n{}\n74\n0",
+                    entity.layer(),
+                    if *closed { 1 } else { 0 },
+                    control_points.len()
+                )
+                .map_err(|err| err.to_string())?;
+                for point in control_points {
+                    writeln!(out, "10\n{}\n20\n{}\n30\n0", point.x, point.y)
+                        .map_err(|err| err.to_string())?;
+                }
+            }
             Entity::Circle { center, radius, .. } => {
                 writeln!(
                     out,

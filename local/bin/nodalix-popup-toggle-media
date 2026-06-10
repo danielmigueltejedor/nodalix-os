@@ -5,8 +5,8 @@ if command -v nodalix-media-menu >/dev/null 2>&1; then
   exec nodalix-media-menu
 fi
 
-if [ -x "$HOME/Projects/nodalix-os/local/bin/nodalix-media-menu" ]; then
-  exec "$HOME/Projects/nodalix-os/local/bin/nodalix-media-menu"
+if [ -x "$HOME/Proyectos/nodalix-os/local/bin/nodalix-media-menu" ]; then
+  exec "$HOME/Proyectos/nodalix-os/local/bin/nodalix-media-menu"
 fi
 
 notify-send "Nodalix" "No encuentro nodalix-media-menu"

@@ -8,9 +8,7 @@ pub fn build() -> gtk::Box {
     for (index, (label, icon, command)) in [
         ("Captura", "󰄀", "grim"),
         ("Ajustes", "󰒓", "nodalix-settings"),
-        ("Fondos", "󰸉", "nodalix-wallpapers"),
         ("Archivos", "󰉋", "nodalix-files"),
-        ("Terminal", "󰆍", "kitty"),
     ]
     .iter()
     .enumerate()

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP="$HOME/Projects/nodalix-os/local/bin/nodalix-wifi-menu-window"
+APP="$HOME/Proyectos/nodalix-os/local/bin/nodalix-wifi-menu-window"
 LOG="/tmp/nodalix-wifi-menu.log"
 nodalix-close-popups "nodalix-wifi-menu-window"
 

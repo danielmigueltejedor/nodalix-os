@@ -1,0 +1,6 @@
+[Desktop Entry]
+Name=Hyprland (Nodalix uwsm)
+Comment=Nodalix Hyprland session managed by uwsm
+Exec=uwsm start -g -1 -e -D Hyprland hyprland-nodalix.desktop
+TryExec=uwsm
+Type=Application

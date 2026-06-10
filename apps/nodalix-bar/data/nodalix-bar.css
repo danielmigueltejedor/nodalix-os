@@ -3,7 +3,8 @@
 @define-color nodalix_muted rgba(235, 228, 255, 0.62);
 
 * {
-  font-family: "JetBrainsMono Nerd Font", "JetBrains Mono", "Adwaita Sans", sans-serif;
+  font-family: Inter, "SF Pro Display", "Segoe UI", Roboto, Ubuntu, Cantarell, "Noto Sans", sans-serif;
+  letter-spacing: 0;
 }
 
 .bar-window {
@@ -11,29 +12,33 @@
 }
 
 .bar-root {
-  padding: 6px 10px;
-  background: rgba(6, 6, 10, 0.18);
+  min-height: 38px;
+  padding: 4px 10px;
+  background: transparent;
+  border-bottom: 0;
 }
 
 .bar-island {
-  min-height: 32px;
-  padding: 4px 8px;
+  min-height: 30px;
+  padding: 0 8px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.07);
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.018)),
-    rgba(17, 15, 25, 0.82);
+    linear-gradient(180deg, rgba(18, 16, 25, 0.74), rgba(8, 7, 12, 0.66)),
+    rgba(6, 6, 10, 0.58);
   box-shadow:
-    0 12px 30px rgba(0, 0, 0, 0.24),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    0 8px 24px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
 .center-island {
-  min-width: 300px;
+  min-width: 360px;
 }
 
 .bar-button {
   min-height: 28px;
+  min-width: 28px;
+  padding: 0 7px;
   border-radius: 999px;
   border: 0;
   background: transparent;
@@ -45,30 +50,117 @@
   background: alpha(@nodalix_accent, 0.18);
 }
 
-.brand-logo {
-  min-width: 20px;
-  min-height: 20px;
+.workspace-button {
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0;
+  border-radius: 999px;
+  border: 0;
+  background: transparent;
+  color: @nodalix_muted;
+  font-size: 12px;
+  font-weight: 800;
 }
 
-.brand-label {
+.workspace-button:hover {
   color: @nodalix_text;
-  font-size: 12px;
-  font-weight: 850;
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.workspace-label {
-  color: @nodalix_accent;
-  font-size: 12px;
-  font-weight: 850;
+.active-workspace {
+  color: #101018;
+  background: @nodalix_accent;
 }
 
-.window-title,
+.center-pill,
 .status-pill {
   color: @nodalix_text;
   font-size: 12px;
   font-weight: 650;
 }
 
+.center-pill {
+  padding: 0 5px;
+}
+
+.time-pill {
+  color: @nodalix_accent;
+  font-weight: 850;
+}
+
+.media-button {
+  font-weight: 650;
+  font-size: 11px;
+  padding-left: 8px;
+}
+
 .status-pill {
   padding: 0 2px;
+}
+
+.bar-avatar-button {
+  padding: 0;
+  min-width: 24px;
+  min-height: 24px;
+}
+
+.bar-avatar-clip {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.bar-avatar-fallback {
+  background: alpha(@nodalix_accent, 0.82);
+  color: #101018;
+  font-size: 9px;
+  font-weight: 900;
+}
+
+.shell-popover {
+  background: transparent;
+}
+
+.shell-popover contents {
+  padding: 0;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background:
+    linear-gradient(155deg, rgba(20, 17, 29, 0.94), rgba(8, 7, 13, 0.88)),
+    rgba(6, 6, 10, 0.78);
+  box-shadow:
+    0 18px 54px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.shell-popover-root {
+  min-width: 210px;
+  padding: 10px;
+}
+
+.shell-popover-title {
+  color: @nodalix_muted;
+  font-size: 11px;
+  font-weight: 850;
+  padding: 0 4px 2px;
+}
+
+.shell-popover-action {
+  min-height: 34px;
+  padding: 0 8px;
+  border-radius: 12px;
+  border: 0;
+  background: transparent;
+  color: @nodalix_text;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.shell-popover-action:hover {
+  background: alpha(@nodalix_accent, 0.18);
+}
+
+.shell-popover-icon {
+  min-width: 18px;
+  color: @nodalix_accent;
+  font-size: 13px;
 }
