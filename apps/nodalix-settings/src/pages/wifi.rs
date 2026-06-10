@@ -124,27 +124,24 @@ pub fn build_wifi_page() -> gtk::Widget {
             } else {
                 "Desactivando Wi-Fi…"
             });
-            run_bg(
-                move || wifi::set_wifi_radio(on),
-                {
-                    let status_sw = status_sw.clone();
-                    let reload = reload.clone();
-                    move |result| {
-                        switch.set_sensitive(true);
-                        match result {
-                            Ok(()) => {
-                                status_sw.set_success(if on {
-                                    "Wi-Fi activado"
-                                } else {
-                                    "Wi-Fi desactivado"
-                                });
-                                reload();
-                            }
-                            Err(err) => status_sw.set_error(&err),
+            run_bg(move || wifi::set_wifi_radio(on), {
+                let status_sw = status_sw.clone();
+                let reload = reload.clone();
+                move |result| {
+                    switch.set_sensitive(true);
+                    match result {
+                        Ok(()) => {
+                            status_sw.set_success(if on {
+                                "Wi-Fi activado"
+                            } else {
+                                "Wi-Fi desactivado"
+                            });
+                            reload();
                         }
+                        Err(err) => status_sw.set_error(&err),
                     }
-                },
-            );
+                }
+            });
             glib::Propagation::Proceed
         }
     });
@@ -158,16 +155,13 @@ pub fn build_wifi_page() -> gtk::Widget {
         let status = status.clone();
         move |_| {
             status.set_loading("Abriendo selector…");
-            run_bg(
-                wifi::open_wifi_menu,
-                {
-                    let status = status.clone();
-                    move |result| match result {
-                        Ok(()) => status.set_success("Selector abierto"),
-                        Err(err) => status.set_error(&err),
-                    }
-                },
-            );
+            run_bg(wifi::open_wifi_menu, {
+                let status = status.clone();
+                move |result| match result {
+                    Ok(()) => status.set_success("Selector abierto"),
+                    Err(err) => status.set_error(&err),
+                }
+            });
         }
     });
 

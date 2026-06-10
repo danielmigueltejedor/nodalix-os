@@ -56,12 +56,23 @@ end
 
 function o.exec_on_start(command)
   hl.on("hyprland.start", function()
-    hl.exec_cmd(command)
+    hl.dispatch(hl.dsp.exec_cmd(command))
   end)
 end
 
+-- System daemons must not go through uwsm-app (avoids invalid hl.dispatch(exec …) errors).
+local DIRECT_START = {
+  hypridle = true,
+  mako = true,
+}
+
 function o.launch_on_start(command)
-  o.exec_on_start(o.launch(command))
+  local base = command:match("^(%S+)")
+  if base and DIRECT_START[base] then
+    o.exec_on_start(command)
+  else
+    o.exec_on_start(o.launch(command))
+  end
 end
 
 function o.launch_webapp(url)

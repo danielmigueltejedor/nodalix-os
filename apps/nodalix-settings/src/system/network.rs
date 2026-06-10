@@ -18,7 +18,10 @@ pub struct NetConnection {
 }
 
 pub fn list_devices() -> Result<Vec<NetDevice>, String> {
-    let out = run_command_stdout("nmcli", &["-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device"])?;
+    let out = run_command_stdout(
+        "nmcli",
+        &["-t", "-f", "DEVICE,TYPE,STATE,CONNECTION", "device"],
+    )?;
     Ok(out
         .lines()
         .filter_map(|line| {
@@ -34,7 +37,10 @@ pub fn list_devices() -> Result<Vec<NetDevice>, String> {
 }
 
 pub fn list_connections() -> Result<Vec<NetConnection>, String> {
-    let out = run_command_stdout("nmcli", &["-t", "-f", "NAME,UUID,TYPE,DEVICE", "connection", "show"])?;
+    let out = run_command_stdout(
+        "nmcli",
+        &["-t", "-f", "NAME,UUID,TYPE,DEVICE", "connection", "show"],
+    )?;
     Ok(out
         .lines()
         .filter_map(|line| {
@@ -43,9 +49,12 @@ pub fn list_connections() -> Result<Vec<NetConnection>, String> {
             let _uuid = p.next()?.to_string();
             let kind = p.next()?.to_string();
             let device = p.next().unwrap_or("").to_string();
-            let active = run_read_only("nmcli", &["-t", "-f", "GENERAL.STATE", "connection", "show", &name])
-                .map(|s| s.contains("activated"))
-                .unwrap_or(false);
+            let active = run_read_only(
+                "nmcli",
+                &["-t", "-f", "GENERAL.STATE", "connection", "show", &name],
+            )
+            .map(|s| s.contains("activated"))
+            .unwrap_or(false);
             Some(NetConnection {
                 name,
                 _uuid,

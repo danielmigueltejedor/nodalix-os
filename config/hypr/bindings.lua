@@ -48,5 +48,4 @@ o.bind("CTRL + ALT + 2", "Type @", "wtype @")
 -- Nodalix Command Bar
 hl.unbind("SUPER + SPACE")
 
--- Nodalix Command Bar
 o.bind("SUPER + SPACE", "Nodalix Command Bar", { launch = "nodalix-command-bar-toggle" })

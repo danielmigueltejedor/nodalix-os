@@ -24,27 +24,24 @@ pub fn build_storage_page() -> gtk::Widget {
         let status = status.clone();
         move || {
             status.set_loading("Leyendo discos…");
-            run_bg(
-                storage::list_mounts,
-                {
-                    let mounts_box = mounts_box.clone();
-                    let status = status.clone();
-                    move |result| {
-                        while let Some(c) = mounts_box.first_child() {
-                            mounts_box.remove(&c);
-                        }
-                        match result {
-                            Ok(mounts) => {
-                                for m in mounts {
-                                    mounts_box.append(&mount_row(&m, &status));
-                                }
-                                status.set_success("Almacenamiento actualizado");
-                            }
-                            Err(err) => status.set_error(&err),
-                        }
+            run_bg(storage::list_mounts, {
+                let mounts_box = mounts_box.clone();
+                let status = status.clone();
+                move |result| {
+                    while let Some(c) = mounts_box.first_child() {
+                        mounts_box.remove(&c);
                     }
-                },
-            );
+                    match result {
+                        Ok(mounts) => {
+                            for m in mounts {
+                                mounts_box.append(&mount_row(&m, &status));
+                            }
+                            status.set_success("Almacenamiento actualizado");
+                        }
+                        Err(err) => status.set_error(&err),
+                    }
+                }
+            });
         }
     });
 
@@ -72,7 +69,7 @@ fn mount_row(m: &MountPoint, status: &StatusStrip) -> gtk::Box {
     bar.set_max_value(100.0);
     bar.set_value(m.use_percent as f64);
     bar.add_css_class("storage-bar");
-  row.append(&bar);
+    row.append(&bar);
 
     let sub = gtk::Label::new(Some(&format!(
         "{} · usado {} de {} (libre {})",

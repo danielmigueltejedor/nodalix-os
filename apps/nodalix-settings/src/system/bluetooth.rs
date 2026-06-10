@@ -37,8 +37,16 @@ pub fn connected_devices() -> Vec<String> {
         .lines()
         .filter_map(|line| {
             let rest = line.strip_prefix("Device ")?;
-            let name = rest.split_whitespace().skip(1).collect::<Vec<_>>().join(" ");
-            if name.is_empty() { None } else { Some(name) }
+            let name = rest
+                .split_whitespace()
+                .skip(1)
+                .collect::<Vec<_>>()
+                .join(" ");
+            if name.is_empty() {
+                None
+            } else {
+                Some(name)
+            }
         })
         .collect()
 }

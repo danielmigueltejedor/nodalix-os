@@ -35,16 +35,13 @@ pub fn build_network_page() -> gtk::Widget {
     let status_ed = status.clone();
     editor_btn.connect_clicked(move |_| {
         status_ed.set_loading("Abriendo editor…");
-        run_bg(
-            network::open_network_menu,
-            {
-                let status_ed = status_ed.clone();
-                move |result| match result {
-                    Ok(()) => status_ed.set_success("Editor abierto"),
-                    Err(err) => status_ed.set_error(&err),
-                }
-            },
-        );
+        run_bg(network::open_network_menu, {
+            let status_ed = status_ed.clone();
+            move |result| match result {
+                Ok(()) => status_ed.set_success("Editor abierto"),
+                Err(err) => status_ed.set_error(&err),
+            }
+        });
     });
     tools.append(&editor_btn);
     page.append(&tools);

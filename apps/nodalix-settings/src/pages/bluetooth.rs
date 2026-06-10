@@ -51,36 +51,33 @@ pub fn build_bluetooth_page() -> gtk::Widget {
         let status = status.clone();
         move || {
             status.set_loading("Leyendo Bluetooth…");
-            run_bg(
-                bluetooth::status,
-                {
-                    let power_value = power_value.clone();
-                    let devices_value = devices_value.clone();
-                    let switch = switch.clone();
-                    let syncing = syncing.clone();
-                    let status = status.clone();
-                    move |result| match result {
-                        Ok(st) => {
-                            syncing.set(true);
-                            switch.set_active(st.powered);
-                            syncing.set(false);
-                            power_value.set_text(if st.powered {
-                                "Activado"
-                            } else {
-                                "Desactivado"
-                            });
-                            let devices_text = if st.connected_devices.is_empty() {
-                                "Ninguno".to_string()
-                            } else {
-                                st.connected_devices.join(", ")
-                            };
-                            devices_value.set_text(&devices_text);
-                            status.set_success("Bluetooth actualizado");
-                        }
-                        Err(err) => status.set_error(&err),
+            run_bg(bluetooth::status, {
+                let power_value = power_value.clone();
+                let devices_value = devices_value.clone();
+                let switch = switch.clone();
+                let syncing = syncing.clone();
+                let status = status.clone();
+                move |result| match result {
+                    Ok(st) => {
+                        syncing.set(true);
+                        switch.set_active(st.powered);
+                        syncing.set(false);
+                        power_value.set_text(if st.powered {
+                            "Activado"
+                        } else {
+                            "Desactivado"
+                        });
+                        let devices_text = if st.connected_devices.is_empty() {
+                            "Ninguno".to_string()
+                        } else {
+                            st.connected_devices.join(", ")
+                        };
+                        devices_value.set_text(&devices_text);
+                        status.set_success("Bluetooth actualizado");
                     }
-                },
-            );
+                    Err(err) => status.set_error(&err),
+                }
+            });
         }
     });
 
@@ -101,27 +98,24 @@ pub fn build_bluetooth_page() -> gtk::Widget {
             } else {
                 "Desactivando Bluetooth…"
             });
-            run_bg(
-                move || bluetooth::set_bluetooth_power(on),
-                {
-                    let status_sw = status_sw.clone();
-                    let reload = reload.clone();
-                    move |result| {
-                        switch.set_sensitive(true);
-                        match result {
-                            Ok(()) => {
-                                status_sw.set_success(if on {
-                                    "Bluetooth activado"
-                                } else {
-                                    "Bluetooth desactivado"
-                                });
-                                reload();
-                            }
-                            Err(err) => status_sw.set_error(&err),
+            run_bg(move || bluetooth::set_bluetooth_power(on), {
+                let status_sw = status_sw.clone();
+                let reload = reload.clone();
+                move |result| {
+                    switch.set_sensitive(true);
+                    match result {
+                        Ok(()) => {
+                            status_sw.set_success(if on {
+                                "Bluetooth activado"
+                            } else {
+                                "Bluetooth desactivado"
+                            });
+                            reload();
                         }
+                        Err(err) => status_sw.set_error(&err),
                     }
-                },
-            );
+                }
+            });
             glib::Propagation::Proceed
         }
     });
@@ -135,16 +129,13 @@ pub fn build_bluetooth_page() -> gtk::Widget {
         let status = status.clone();
         move |_| {
             status.set_loading("Abriendo menú…");
-            run_bg(
-                bluetooth::open_bt_menu,
-                {
-                    let status = status.clone();
-                    move |result| match result {
-                        Ok(()) => status.set_success("Menú Bluetooth abierto"),
-                        Err(err) => status.set_error(&err),
-                    }
-                },
-            );
+            run_bg(bluetooth::open_bt_menu, {
+                let status = status.clone();
+                move |result| match result {
+                    Ok(()) => status.set_success("Menú Bluetooth abierto"),
+                    Err(err) => status.set_error(&err),
+                }
+            });
         }
     });
 

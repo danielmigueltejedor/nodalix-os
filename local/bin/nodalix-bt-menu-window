@@ -292,7 +292,7 @@ def auto_connect_trusted_devices(blocked_until=None):
 def setup_css():
     css = b"""
 * {
-  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Adwaita Sans", "Cantarell", sans-serif;
+  font-family: "Inter", "SF Pro Display", "Segoe UI", "Roboto", "Ubuntu", "Cantarell", "Noto Sans", sans-serif;
   font-size: 13px;
   color: #cdd6f4;
 }

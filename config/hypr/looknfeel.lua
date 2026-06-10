@@ -118,6 +118,14 @@ for _, popup in ipairs(nodalix_right_popup_rules) do
   )
 end
 
+-- Nodalix Control Center: compact popup under the right bar island
+o.window({ class = "^os.nodalix.ControlCenter$", title = "^Nodalix Control Center$" }, {
+  float = true,
+  size = { 414, 560 },
+  move = { "(monitor_w-window_w-10)", "32" },
+  animation = "popin"
+})
+
 -- Nodalix Files popup: macOS-style position under right Waybar island
 o.window({ class = "^nodalix-files$", title = "^Nodalix Files$" }, {
   float = true,

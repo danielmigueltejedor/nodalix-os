@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+clients_json="$(hyprctl clients -j 2>/dev/null || echo '[]')"
+
+pids="$(
+  printf '%s' "$clients_json" | jq -r '
+    .[] |
+    select(
+      (.class // "") == "os.nodalix.ControlCenter" or
+      (.initialClass // "") == "os.nodalix.ControlCenter" or
+      (.title // "") == "Nodalix Control Center" or
+      (.initialTitle // "") == "Nodalix Control Center"
+    ) |
+    .pid
+  ' | grep -E '^[0-9]+$' | sort -u || true
+)"
+
+if [[ -n "${pids:-}" ]]; then
+  while read -r pid; do
+    [[ -n "$pid" ]] || continue
+    kill "$pid" 2>/dev/null || true
+  done <<< "$pids"
+  exit 0
+fi
+
+exec nodalix-control-center "$@"

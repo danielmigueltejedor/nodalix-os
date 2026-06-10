@@ -11,7 +11,12 @@ pub struct MountPoint {
 }
 
 pub fn list_mounts() -> Result<Vec<MountPoint>, String> {
-    let out = run_command_stdout("df", &["-h", "-T", "-x", "tmpfs", "-x", "devtmpfs", "-x", "squashfs"])?;
+    let out = run_command_stdout(
+        "df",
+        &[
+            "-h", "-T", "-x", "tmpfs", "-x", "devtmpfs", "-x", "squashfs",
+        ],
+    )?;
     let mut mounts = Vec::new();
     for (i, line) in out.lines().enumerate() {
         if i == 0 {

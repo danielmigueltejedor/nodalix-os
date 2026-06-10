@@ -13,7 +13,14 @@ import subprocess
 import shlex
 import shutil
 import fcntl
+import sys
 from pathlib import Path
+
+_SCRIPT_DIR = Path(__file__).resolve().parent
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
+
+from ranking import rank_search_results
 
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, Gdk, GLib, GdkPixbuf
@@ -78,6 +85,12 @@ APP_DIR = Path(__file__).resolve().parents[1]
 USER_ACTIONS_FILE = Path.home() / ".config/nodalix/actions.json"
 REPO_ACTIONS_FILE = REPO_ROOT / "config/nodalix/actions.json"
 SHOW_DISABLED_ACTIONS_FILE = Path.home() / ".config/nodalix/show-disabled-actions"
+DEBUG = os.environ.get("NODALIX_COMMAND_BAR_DEBUG", "").lower() in {"1", "true", "yes", "on"}
+
+
+def debug(message):
+    if DEBUG:
+        print(f"[nodalix-command-bar] {message}", file=sys.stderr)
 
 
 
@@ -170,6 +183,20 @@ def sh(args):
 def run_cmd(cmd):
     subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
+
+def open_in_default_browser(url):
+    if command_exists("nodalix-launch-browser"):
+        run_cmd(f"nodalix-launch-browser {shlex.quote(url)}")
+        return
+    if command_exists("zen-browser"):
+        run_cmd(f"zen-browser --new-window {shlex.quote(url)}")
+        return
+    nodalix = shutil.which("nodalix")
+    if nodalix:
+        run_cmd(f"{shlex.quote(nodalix)} browser {shlex.quote(url)}")
+        return
+    if command_exists("xdg-open"):
+        run_cmd(f"xdg-open {shlex.quote(url)}")
 
 
 def command_exists(binary):
@@ -304,9 +331,20 @@ APP_EQUIV_BASES = {
     "steam-rx9070xt": "steam",
     "system-config-printer": "printers",
     "thunderbird": "mail",
-    "zen": "browser",
-    "zen-bin": "browser",
 }
+
+BROWSER_COMMON_ALIASES = ("browser", "navegador", "web", "internet")
+BROWSER_ALIASES = {
+    "zen": ("zen", "zen-browser", "zen browser", *BROWSER_COMMON_ALIASES),
+    "zen-browser": ("zen", "zen-browser", "zen browser", *BROWSER_COMMON_ALIASES),
+    "zen-bin": ("zen", "zen-browser", "zen browser", *BROWSER_COMMON_ALIASES),
+    "firefox": ("firefox", *BROWSER_COMMON_ALIASES),
+    "chromium": ("chromium", "chrome", *BROWSER_COMMON_ALIASES),
+    "chrome": ("chrome", "chromium", *BROWSER_COMMON_ALIASES),
+    "google-chrome": ("chrome", "google chrome", "chromium", *BROWSER_COMMON_ALIASES),
+    "google-chrome-stable": ("chrome", "google chrome", "chromium", *BROWSER_COMMON_ALIASES),
+}
+ZEN_FALLBACK_BINARIES = ("zen-browser", "zen", "zen-bin")
 
 PREFERRED_NODALIX_PREFIXES = (
     "nodalix-",
@@ -341,7 +379,7 @@ def app_exec_signature(exec_cmd):
         return "app-group:" + group
 
     # Para webapps Chromium, conservar argumentos: cada webapp es una app distinta.
-    if base in {"chromium", "chrome", "google-chrome", "zen", "zen-bin"}:
+    if base in {"chromium", "chrome", "google-chrome", "zen", "zen-browser", "zen-bin"}:
         return "exec:" + " ".join(parts).lower()
 
     # Para apps normales, deduplicar por ejecutable + argumentos ya limpios.
@@ -366,6 +404,16 @@ def app_priority(item):
     if "/usr/share/applications/" in path:
         score += 10
 
+    if app_command_resolvable(item):
+        score += 50
+
+    # NoDisplay/Hidden siguen indexados para Command Bar, pero no deben ganar
+    # automáticamente a un lanzador visible equivalente si ambos existen.
+    if item.get("nodisplay"):
+        score -= 5
+    if item.get("hidden"):
+        score -= 10
+
     # Preferir el lanzador Steam optimizado.
     if "steam-rx9070xt" in str(item.get("command", "")):
         score += 120
@@ -387,6 +435,80 @@ def app_priority(item):
         score -= 20
 
     return score
+
+
+def app_command_resolvable(item):
+    command = str(item.get("command", "")).strip()
+
+    if not command:
+        return False
+
+    try:
+        parts = shlex.split(command)
+    except Exception:
+        parts = command.split()
+
+    if not parts:
+        return False
+
+    if parts[0] == "env":
+        parts = [part for part in parts[1:] if "=" not in part]
+        if not parts:
+            return False
+
+    if parts[0] in {"sh", "bash", "zsh", "flatpak", "gtk-launch"}:
+        return command_exists(parts[0])
+
+    executable = Path(parts[0])
+
+    if executable.is_absolute() or "/" in parts[0]:
+        return executable.exists()
+
+    return command_exists(parts[0])
+
+
+def desktop_bool(value):
+    return str(value or "").strip().lower() == "true"
+
+
+def browser_aliases(name, exec_cmd, categories, keywords, comment, generic_name, wmclass):
+    hay = " ".join(
+        [
+            str(name or ""),
+            str(exec_cmd or ""),
+            str(categories or ""),
+            str(keywords or ""),
+            str(comment or ""),
+            str(generic_name or ""),
+            str(wmclass or ""),
+        ]
+    ).lower()
+
+    exec_base = exec_basename(clean_exec_command(str(exec_cmd or "")))
+    aliases = set()
+    is_webapp = "--app=" in hay or " --app " in hay
+
+    if not is_webapp and (
+        "webbrowser" in hay
+        or "web browser" in hay
+        or "navegador" in hay
+        or exec_base in BROWSER_ALIASES
+    ):
+        aliases.update(BROWSER_COMMON_ALIASES)
+
+    if not is_webapp and "firefox" in hay:
+        aliases.update(BROWSER_ALIASES["firefox"])
+
+    if not is_webapp and "chromium" in hay:
+        aliases.update(BROWSER_ALIASES["chromium"])
+
+    if not is_webapp and ("google chrome" in hay or "google-chrome" in hay or "chrome" in hay):
+        aliases.update(BROWSER_ALIASES["google-chrome"])
+
+    if not is_webapp and ("zen browser" in hay or "zen-browser" in hay):
+        aliases.update(BROWSER_ALIASES["zen"])
+
+    return sorted(aliases)
 
 def should_hide_app(item):
     base = str(item.get("exec_base", "")).lower()
@@ -609,6 +731,7 @@ def nodalix_app_category(name, exec_cmd, categories, keywords, comment):
 def parse_desktop_file(path):
     name = None
     exec_cmd = None
+    try_exec = None
     icon_name = None
     wmclass = None
     comment = None
@@ -618,6 +741,7 @@ def parse_desktop_file(path):
     hidden = False
     nodisplay = False
     terminal = False
+    app_type = "Application"
     in_desktop_entry = False
 
     try:
@@ -636,12 +760,16 @@ def parse_desktop_file(path):
 
             if line.startswith("Name=") and name is None:
                 name = line.split("=", 1)[1].strip()
+            elif line.startswith("Type="):
+                app_type = line.split("=", 1)[1].strip()
             elif line.startswith("GenericName=") and generic_name is None:
                 generic_name = line.split("=", 1)[1].strip()
             elif line.startswith("Comment=") and comment is None:
                 comment = line.split("=", 1)[1].strip()
             elif line.startswith("Exec=") and exec_cmd is None:
                 exec_cmd = line.split("=", 1)[1].strip()
+            elif line.startswith("TryExec=") and try_exec is None:
+                try_exec = line.split("=", 1)[1].strip()
             elif line.startswith("Icon=") and icon_name is None:
                 icon_name = line.split("=", 1)[1].strip()
             elif line.startswith("StartupWMClass=") and wmclass is None:
@@ -651,15 +779,20 @@ def parse_desktop_file(path):
             elif line.startswith("Keywords="):
                 keywords = line.split("=", 1)[1].strip()
             elif line.startswith("NoDisplay="):
-                nodisplay = line.split("=", 1)[1].strip().lower() == "true"
+                nodisplay = desktop_bool(line.split("=", 1)[1])
             elif line.startswith("Hidden="):
-                hidden = line.split("=", 1)[1].strip().lower() == "true"
+                hidden = desktop_bool(line.split("=", 1)[1])
             elif line.startswith("Terminal="):
-                terminal = line.split("=", 1)[1].strip().lower() == "true"
+                terminal = desktop_bool(line.split("=", 1)[1])
     except Exception:
         return None
 
-    if hidden or nodisplay or not name or not exec_cmd:
+    if app_type and app_type != "Application":
+        debug(f"skip non-application desktop file: {path}")
+        return None
+
+    if not name or not exec_cmd:
+        debug(f"skip incomplete desktop file: {path}")
         return None
 
     exec_cmd = clean_exec_command(exec_cmd)
@@ -669,6 +802,7 @@ def parse_desktop_file(path):
         exec_cmd = f"alacritty -e {exec_cmd}"
 
     category = nodalix_app_category(name, exec_cmd, categories, keywords, comment)
+    aliases = browser_aliases(name, exec_cmd, categories, keywords, comment, generic_name, wmclass)
 
     subtitle_parts = [category]
     if generic_name:
@@ -684,14 +818,71 @@ def parse_desktop_file(path):
         "icon_name": icon_name or "application-x-executable",
         "title": name,
         "subtitle": " · ".join(subtitle_parts),
-        "search": f"{name} {generic_name or ''} {comment or ''} {exec_cmd} {wmclass or ''} {base} {categories} {keywords}".lower(),
+        "search": f"{name} {generic_name or ''} {comment or ''} {exec_cmd} {try_exec or ''} {wmclass or ''} {base} {categories} {keywords} {' '.join(aliases)}".lower(),
+        "search_aliases": aliases,
         "command": exec_cmd,
         "category": category,
         "wmclass": wmclass or "",
         "exec_base": base,
         "desktop_file": str(path),
         "exec_signature": app_exec_signature(exec_cmd),
+        "nodisplay": nodisplay,
+        "hidden": hidden,
+        "try_exec": try_exec or "",
     }
+
+
+def make_binary_app(binary, *, title=None, aliases=()):
+    resolved = shutil.which(binary)
+
+    if not resolved:
+        return None
+
+    app_title = title or binary
+    search_aliases = sorted({str(a).lower() for a in aliases if str(a).strip()})
+
+    return {
+        "kind": "app",
+        "icon": "󰖟",
+        "icon_name": "zen-browser" if "zen" in binary else "application-x-executable",
+        "title": app_title,
+        "subtitle": f"Apps · {resolved}",
+        "search": f"{app_title} {binary} {resolved} {' '.join(search_aliases)}".lower(),
+        "search_aliases": search_aliases,
+        "command": binary,
+        "category": "Apps",
+        "wmclass": "zen" if "zen" in binary else "",
+        "exec_base": Path(binary).name.lower(),
+        "desktop_file": "",
+        "exec_signature": f"binary:{Path(binary).name.lower()}",
+        "search_priority": 0,
+    }
+
+
+def add_zen_binary_fallback(apps):
+    has_zen_desktop = any(
+        item.get("kind") == "app"
+        and (
+            "zen" in str(item.get("title", "")).lower()
+            or str(item.get("exec_base", "")).lower() in {"zen", "zen-browser", "zen-bin"}
+            or "zen-browser" in str(item.get("search", "")).lower()
+        )
+        for item in apps
+    )
+
+    if has_zen_desktop:
+        return
+
+    for binary in ZEN_FALLBACK_BINARIES:
+        fallback = make_binary_app(
+            binary,
+            title="Zen Browser",
+            aliases=BROWSER_ALIASES.get(binary, BROWSER_ALIASES["zen"]),
+        )
+        if fallback:
+            debug(f"added Zen Browser binary fallback from PATH: {binary}")
+            apps.append(fallback)
+            return
 
 
 
@@ -718,8 +909,10 @@ def load_apps():
                 continue
 
             if should_hide_app(item):
+                debug(f"skip blocklisted desktop app: {item.get('title')} ({file})")
                 continue
 
+            item["search_priority"] = app_priority(item)
             signature = item.get("exec_signature") or item["title"].lower()
             title_key = item["title"].strip().lower()
 
@@ -745,6 +938,7 @@ def load_apps():
             final[title_key] = item
 
     apps = list(final.values())
+    add_zen_binary_fallback(apps)
     apps.sort(key=lambda x: x["title"].lower())
     return apps
 
@@ -878,9 +1072,9 @@ def load_actions():
                 "kind": "action",
                 "icon": "󰌾",
                 "title": "Bloquear sesión",
-                "subtitle": "Seguridad · Hyprlock",
+                "subtitle": "Seguridad · Bloqueo Nodalix",
                 "search": "bloquear lock pantalla seguridad hyprlock",
-                "command": "hyprlock",
+                "command": "nodalix-lock",
             },
             {
                 "kind": "action",
@@ -1224,7 +1418,7 @@ class CommandBar(Gtk.Window):
 
         self.search = Gtk.SearchEntry()
         self.search.set_name("search")
-        self.search.set_placeholder_text("Buscar apps, ajustes, ventanas, comandos…")
+        self.search.set_placeholder_text("Buscar apps, ajustes, ventanas o la web…")
         self.search.connect("search-changed", lambda _e: self.refresh())
         self.search.connect("activate", lambda _e: self.activate_selected())
         root.pack_start(self.search, False, False, 0)
@@ -1272,7 +1466,7 @@ class CommandBar(Gtk.Window):
 
         footer = Gtk.Label(xalign=0)
         footer.set_name("footer")
-        footer.set_text("Enter abrir · Esc cerrar · ↑↓ navegar")
+        footer.set_text("Enter abrir · Esc cerrar · ↑↓ navegar · búsqueda web con el navegador predeterminado")
         root.pack_end(footer, False, False, 0)
 
         self.refresh()
@@ -1362,45 +1556,13 @@ class CommandBar(Gtk.Window):
         if f == "Sistema":
             return category in ("Sistema", "Nodalix", "Energía")
         if f == "Web":
-            return category in ("Web", "Home Assistant") or "xdg-open http" in item.get("command", "")
+            return item.get("kind") in ("web_search", "web_open") or category in (
+                "Web",
+                "Home Assistant",
+            ) or "xdg-open http" in item.get("command", "")
 
         # Categorías dinámicas desde actions.json y categorías de apps .desktop.
         return category == f
-
-
-    def score_item(self, item, query):
-        title = item.get("title", "").lower()
-        search = item.get("search", "")
-        command = item.get("command", "").lower()
-        exec_base = item.get("exec_base", "").lower()
-
-        if not query:
-            base = 0
-        elif title == query:
-            base = 140
-        elif exec_base == query:
-            base = 130
-        elif title.startswith(query):
-            base = 115
-        elif exec_base.startswith(query):
-            base = 105
-        elif query in title:
-            base = 88
-        elif query in search:
-            base = 64
-        elif query in command:
-            base = 38
-        else:
-            base = -1
-
-        kind_bonus = {
-            "app": 14,
-            "action": 10,
-            "window": 6,
-            "workspace": 4,
-        }.get(item.get("kind"), 0)
-
-        return base + kind_bonus
 
     def refresh(self):
         query = self.search.get_text().strip().lower()
@@ -1408,21 +1570,11 @@ class CommandBar(Gtk.Window):
         for row in self.listbox.get_children():
             self.listbox.remove(row)
 
-        scored = []
-
-        for item in self.all_items:
-            if not self.item_matches_filter(item):
-                continue
-
-            score = self.score_item(item, query)
-
-            if query and score < 0:
-                continue
-
-            scored.append((score, item))
-
-        scored.sort(key=lambda x: (-x[0], x[1].get("title", "").lower()))
-        self.filtered_items = [item for _score, item in scored[:40]]
+        self.filtered_items = rank_search_results(
+            query,
+            self.all_items,
+            self.item_matches_filter,
+        )
 
         for item in self.filtered_items:
             self.listbox.add(self.make_row(item))
@@ -1482,6 +1634,8 @@ class CommandBar(Gtk.Window):
                 "window": "Ventana",
                 "workspace": "Workspace",
                 "action": "Acción",
+                "web_search": "Web",
+                "web_open": "Web",
             }.get(kind, "Item")
 
         if item.get("disabled"):
@@ -1506,9 +1660,25 @@ class CommandBar(Gtk.Window):
         row = self.listbox.get_selected_row()
 
         if not row:
+            query = self.search.get_text().strip()
+            ranked = rank_search_results(
+                query,
+                self.all_items,
+                self.item_matches_filter,
+                max_results=1,
+            )
+            if ranked and ranked[0].get("kind") in ("web_search", "web_open"):
+                open_in_default_browser(ranked[0].get("url", ""))
+                Gtk.main_quit()
             return
 
         item = row.item
+
+        if item.get("kind") in ("web_search", "web_open"):
+            open_in_default_browser(item.get("url", ""))
+            Gtk.main_quit()
+            return
+
         cmd = item.get("command")
 
         if not cmd:

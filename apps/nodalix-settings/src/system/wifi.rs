@@ -40,7 +40,10 @@ pub fn current_ssid() -> String {
 }
 
 pub fn nearby_networks(limit: usize) -> Vec<String> {
-    let Some(output) = run_read_only("nmcli", &["-t", "-f", "SSID,SIGNAL,SECURITY", "dev", "wifi", "list"]) else {
+    let Some(output) = run_read_only(
+        "nmcli",
+        &["-t", "-f", "SSID,SIGNAL,SECURITY", "dev", "wifi", "list"],
+    ) else {
         return Vec::new();
     };
     let mut seen = std::collections::HashSet::new();
@@ -63,7 +66,7 @@ pub fn nearby_networks(limit: usize) -> Vec<String> {
 }
 
 pub fn open_wifi_menu() -> Result<(), String> {
-  if let Some(bin) = super::resolve_nodalix_bin("nodalix-wifi-menu") {
+    if let Some(bin) = super::resolve_nodalix_bin("nodalix-wifi-menu") {
         return super::run_command_status(&bin.to_string_lossy(), &[]).map(|_| ());
     }
     if let Some(bin) = super::resolve_nodalix_bin("nodalix-wifi-menu-window") {

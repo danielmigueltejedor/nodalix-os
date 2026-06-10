@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROFILE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/nodalix/user"
+PROFILE_FILE="$PROFILE_DIR/profile.json"
+mkdir -p "$PROFILE_DIR"
+
+next="$(
+  python3 - "$PROFILE_FILE" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = {}
+if path.is_file():
+    try:
+        data = json.loads(path.read_text())
+    except Exception:
+        data = {}
+
+shell = data.setdefault("shell", {})
+current = shell.get("active_bar", "waybar")
+next_bar = "waybar" if current == "nodalix-bar" else "nodalix-bar"
+shell["active_bar"] = next_bar
+
+data.setdefault("username", "usuario")
+visual = data.setdefault("visual", {})
+visual.setdefault("color_scheme", "dark")
+visual.setdefault("accent_preset", "purple")
+visual.setdefault("density", "comfortable")
+visual.setdefault("corner_radius", "standard")
+visual.setdefault("transparency", "glass")
+shell.setdefault("control_center_compact", False)
+
+path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+print(next_bar)
+PY
+)"
+
+nodalix-session-bar --restart
+
+if command -v notify-send >/dev/null 2>&1; then
+  notify-send "Nodalix Bar" "Barra activa: $next"
+fi

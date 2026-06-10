@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_NAME="nodalix-command-bar"
-APP_TITLE="Nodalix Command Bar"
-
 APP_RELEASE="$HOME/Proyectos/nodalix-os/apps/nodalix-command-bar/target/release/nodalix-command-bar"
 APP_DEBUG="$HOME/Proyectos/nodalix-os/apps/nodalix-command-bar/target/debug/nodalix-command-bar"
 APP_SOURCE="$HOME/Proyectos/nodalix-os/apps/nodalix-command-bar/src/nodalix-command-bar"

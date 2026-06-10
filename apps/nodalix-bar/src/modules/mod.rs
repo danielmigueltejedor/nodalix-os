@@ -1,11 +1,4 @@
-pub mod audio;
-pub mod bluetooth;
-pub mod clock;
-pub mod network;
-pub mod power;
-pub mod system_tray;
-pub mod updates;
-pub mod window_title;
+pub mod center;
 pub mod workspaces;
 
 use std::process::Command;

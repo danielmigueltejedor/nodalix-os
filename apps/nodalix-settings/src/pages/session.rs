@@ -6,6 +6,7 @@ use crate::{
     },
 };
 use gtk::prelude::*;
+use nodalix_system_actions::SystemAction;
 
 pub fn build_session_page() -> gtk::Widget {
     let page = pages::page(
@@ -19,19 +20,46 @@ pub fn build_session_page() -> gtk::Widget {
     let bar = gtk::Box::new(gtk::Orientation::Horizontal, 14);
     bar.add_css_class("quick-actions-bar");
 
-    let specs: [(&str, &str, bool, fn() -> Result<(), String>); 5] = [
-        ("󰌾", "Bloquear sesión", false, power::lock_session),
-        ("󰍃", "Cerrar sesión", true, power::logout_session),
-        ("󰒲", "Suspender", false, power::suspend),
-        ("󰑐", "Reiniciar", true, power::reboot),
-        ("󰐥", "Apagar", true, power::poweroff),
+    let specs: [(&str, &str, bool, SystemAction, fn() -> Result<(), String>); 5] = [
+        (
+            "󰌾",
+            "Bloquear sesión",
+            false,
+            SystemAction::Lock,
+            power::lock_session,
+        ),
+        (
+            "󰍃",
+            "Cerrar sesión",
+            true,
+            SystemAction::Logout,
+            power::logout_session,
+        ),
+        (
+            "󰒲",
+            "Suspender",
+            false,
+            SystemAction::Suspend,
+            power::suspend,
+        ),
+        ("󰑐", "Reiniciar", true, SystemAction::Reboot, power::reboot),
+        ("󰐥", "Apagar", true, SystemAction::Shutdown, power::poweroff),
     ];
 
-    for (icon, tooltip, destructive, action) in specs {
+    for (icon, tooltip, destructive, system_action, action) in specs {
+        let (available, reason) = power::action_available(system_action);
         let ActionButton { button } = icon_action_button(icon, tooltip, destructive);
+        button.set_sensitive(available);
+        if let Some(reason) = reason {
+            button.set_tooltip_text(Some(&format!("{tooltip} — {reason}")));
+        }
+
         let status = status.clone();
         let tooltip_owned = tooltip.to_string();
         button.connect_clicked(move |btn| {
+            if !available {
+                return;
+            }
             let parent = window_ancestor(btn);
             let run_action = {
                 let status = status.clone();
@@ -40,24 +68,24 @@ pub fn build_session_page() -> gtk::Widget {
                     status.set_loading(&format!("{tooltip_owned}…"));
                     let status_done = status.clone();
                     run_bg(action, move |result| match result {
-                        Ok(()) => status_done.set_success(&format!("{tooltip_owned} iniciado")),
+                        Ok(()) => status_done.set_success(&format!("{tooltip_owned} enviado")),
                         Err(err) => status_done.set_error(&err),
                     });
                 }
             };
             if destructive {
+                let status_cancel = status.clone();
                 let run_action = run_action;
                 confirm_destructive(
                     parent.as_ref(),
                     &format!("¿{tooltip_owned}?"),
-                    &format!(
-                        "Confirma que quieres {}.",
-                        tooltip_owned.to_lowercase()
-                    ),
+                    &format!("Confirma que quieres {}.", tooltip_owned.to_lowercase()),
                     tooltip,
                     move |ok| {
                         if ok {
                             run_action();
+                        } else {
+                            status_cancel.set_error("Acción cancelada");
                         }
                     },
                 );

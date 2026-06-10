@@ -4,67 +4,122 @@
 @define-color nodalix_text rgba(255, 255, 255, 0.94);
 @define-color nodalix_muted rgba(235, 228, 255, 0.62);
 
+* {
+  font-family: Inter, "SF Pro Display", "Segoe UI", Roboto, Ubuntu, Cantarell, "Noto Sans", sans-serif;
+  letter-spacing: 0;
+}
+
 .control-center-window {
   background: transparent;
 }
 
 .control-center-root {
-  margin: 12px;
-  padding: 18px;
-  border-radius: 28px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  margin: 6px 10px 10px;
+  padding: 10px 12px 12px;
+  border-radius: 26px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
   background:
-    linear-gradient(135deg, rgba(18, 15, 27, 0.94), rgba(8, 8, 14, 0.92));
+    linear-gradient(155deg, rgba(27, 24, 36, 0.88), rgba(8, 8, 13, 0.78)),
+    rgba(7, 7, 12, 0.68);
   box-shadow:
-    0 28px 72px rgba(0, 0, 0, 0.44),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    0 30px 84px rgba(0, 0, 0, 0.50),
+    0 6px 18px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.11);
+}
+
+.cc-island-connector {
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background:
+    linear-gradient(180deg, rgba(30, 27, 40, 0.82), rgba(10, 9, 15, 0.72)),
+    rgba(8, 7, 13, 0.62);
+  color: @nodalix_text;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.panel-header {
+  min-height: 28px;
 }
 
 .panel-title {
   color: @nodalix_text;
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 850;
 }
 
-.cc-card {
-  padding: 14px;
-  border-radius: 20px;
+.cc-profile {
+  padding: 11px;
+  border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.10);
-  background: @nodalix_card;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.035));
+}
+
+.cc-profile-name {
+  color: @nodalix_text;
+  font-size: 14px;
+  font-weight: 850;
+}
+
+.cc-avatar-clip {
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.cc-avatar-fallback {
+  background: alpha(@nodalix_accent, 0.82);
+  color: #101018;
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.cc-card {
+  padding: 11px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.070), rgba(255, 255, 255, 0.032));
+}
+
+.cc-grid {
+  min-width: 360px;
 }
 
 .card-title {
   color: @nodalix_text;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 800;
 }
 
 .card-icon,
 .pill-icon {
   color: @nodalix_accent;
-  font-size: 18px;
+  font-size: 15px;
 }
 
 .muted-label {
   color: @nodalix_muted;
-  font-size: 12px;
+  font-size: 10px;
 }
 
 .media-title {
   color: @nodalix_text;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 650;
 }
 
 .cc-pill,
 .quick-action,
 .icon-button {
-  min-height: 36px;
-  border-radius: 14px;
+  min-height: 32px;
+  border-radius: 13px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.060);
   color: @nodalix_text;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -76,12 +131,13 @@
 }
 
 .cc-pill-active {
-  background: alpha(@nodalix_accent, 0.24);
-  border-color: alpha(@nodalix_accent, 0.52);
+  background:
+    linear-gradient(135deg, alpha(@nodalix_accent, 0.34), alpha(@nodalix_accent, 0.18));
+  border-color: alpha(@nodalix_accent, 0.56);
 }
 
 scale trough {
-  min-height: 8px;
+  min-height: 7px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.10);
 }
@@ -92,9 +148,8 @@ scale highlight {
 }
 
 scale slider {
-  min-width: 18px;
-  min-height: 18px;
+  min-width: 17px;
+  min-height: 17px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.94);
 }
-

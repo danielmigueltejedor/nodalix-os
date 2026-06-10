@@ -1,5 +1,5 @@
+use adw::prelude::*;
 use gtk::glib;
-use gtk::prelude::*;
 use std::sync::mpsc;
 
 pub struct ActionButton {
@@ -36,26 +36,23 @@ where
 
     let rx = std::cell::RefCell::new(rx);
     let callback = std::cell::RefCell::new(Some(on_done));
-    glib::idle_add_local(move || {
-        match rx.borrow().try_recv() {
-            Ok(result) => {
-                if let Some(cb) = callback.borrow_mut().take() {
-                    cb(result);
-                }
-                glib::ControlFlow::Break
+    glib::idle_add_local(move || match rx.borrow().try_recv() {
+        Ok(result) => {
+            if let Some(cb) = callback.borrow_mut().take() {
+                cb(result);
             }
-            Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
-            Err(mpsc::TryRecvError::Disconnected) => {
-                if let Some(cb) = callback.borrow_mut().take() {
-                    cb(Err("La tarea no devolvió resultado".to_string()));
-                }
-                glib::ControlFlow::Break
+            glib::ControlFlow::Break
+        }
+        Err(mpsc::TryRecvError::Empty) => glib::ControlFlow::Continue,
+        Err(mpsc::TryRecvError::Disconnected) => {
+            if let Some(cb) = callback.borrow_mut().take() {
+                cb(Err("La tarea no devolvió resultado".to_string()));
             }
+            glib::ControlFlow::Break
         }
     });
 }
 
-#[allow(deprecated)]
 pub fn confirm_destructive(
     parent: Option<&impl IsA<gtk::Window>>,
     heading: &str,
@@ -63,41 +60,38 @@ pub fn confirm_destructive(
     confirm_label: &str,
     on_result: impl FnOnce(bool) + 'static,
 ) {
-    let dialog = gtk::Dialog::builder()
-        .title(heading)
-        .modal(true)
-        .build();
+    let dialog = adw::MessageDialog::new(parent, Some(heading), Some(body));
+    dialog.set_modal(true);
 
-    if let Some(window) = parent {
-        dialog.set_transient_for(Some(window));
-    }
-
-    let content = gtk::Box::new(gtk::Orientation::Vertical, 12);
-    content.set_margin_top(18);
-    content.set_margin_bottom(12);
-    content.set_margin_start(20);
-    content.set_margin_end(20);
-    let body_label = gtk::Label::new(Some(body));
-    body_label.set_wrap(true);
-    body_label.set_xalign(0.0);
-    body_label.add_css_class("dialog-label");
-    content.append(&body_label);
-    dialog.set_child(Some(&content));
-
-    dialog.add_button("Cancelar", gtk::ResponseType::Cancel);
-    dialog.add_button(confirm_label, gtk::ResponseType::Accept);
-    dialog.set_default_response(gtk::ResponseType::Cancel);
+    dialog.add_response("cancel", "Cancelar");
+    dialog.add_response("confirm", confirm_label);
+    dialog.set_response_appearance("confirm", adw::ResponseAppearance::Destructive);
+    dialog.set_default_response(Some("cancel"));
+    dialog.set_close_response("cancel");
 
     let callback = std::cell::RefCell::new(Some(on_result));
-    dialog.connect_response(move |dialog, response| {
+    dialog.connect_response(None, move |dialog, response| {
         if let Some(cb) = callback.borrow_mut().take() {
-            cb(response == gtk::ResponseType::Accept);
+            cb(response == "confirm");
         }
         dialog.close();
     });
+
     dialog.present();
 }
 
 pub fn window_ancestor(widget: &impl IsA<gtk::Widget>) -> Option<gtk::Window> {
-    widget.root().and_downcast::<gtk::Window>()
+    if let Some(window) = widget.root().and_downcast::<gtk::Window>() {
+        return Some(window);
+    }
+
+    let mut current = widget.parent();
+    while let Some(node) = current {
+        if let Some(window) = node.downcast_ref::<gtk::Window>() {
+            return Some(window.clone());
+        }
+        current = node.parent();
+    }
+
+    None
 }

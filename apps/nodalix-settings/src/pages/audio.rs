@@ -35,16 +35,13 @@ pub fn build_audio_page() -> gtk::Widget {
     let status_open = status.clone();
     open_btn.connect_clicked(move |_| {
         status_open.set_loading("Abriendo panel…");
-        run_bg(
-            audio::open_audio_panel,
-            {
-                let status_open = status_open.clone();
-                move |result| match result {
-                    Ok(()) => status_open.set_success("Panel abierto"),
-                    Err(err) => status_open.set_error(&err),
-                }
-            },
-        );
+        run_bg(audio::open_audio_panel, {
+            let status_open = status_open.clone();
+            move |result| match result {
+                Ok(()) => status_open.set_success("Panel abierto"),
+                Err(err) => status_open.set_error(&err),
+            }
+        });
     });
     spatial.append(&open_btn);
     page.append(&spatial);
@@ -105,11 +102,7 @@ fn device_row(dev: &AudioDevice, is_sink: bool, status: &StatusStrip) -> gtk::Bo
     title.set_xalign(0.0);
     title.set_hexpand(true);
     title.add_css_class("info-label");
-    let badge = if dev.is_default {
-        "Predeterminado"
-    } else {
-        ""
-    };
+    let badge = if dev.is_default { "Predeterminado" } else { "" };
     let badge_label = gtk::Label::new(Some(badge));
     badge_label.add_css_class("info-value");
     head.append(&title);

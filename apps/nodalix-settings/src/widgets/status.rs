@@ -72,5 +72,4 @@ impl StatusStrip {
         self.icon.set_visible(true);
         self.message.set_text(text);
     }
-
 }

@@ -42,6 +42,15 @@ else
   echo "Keeping existing config: ${CONFIG_PATH}"
 fi
 
+GREETD_CONFIG="/etc/greetd/config.toml"
+if [[ -f "${GREETD_CONFIG}" ]]; then
+  if grep -qE 'command = "Hyprland --config /etc/greetd/hyprland-nodalix-greeter\.conf"' "${GREETD_CONFIG}"; then
+    sed -i 's|command = "Hyprland --config /etc/greetd/hyprland-nodalix-greeter.conf"|command = "/usr/bin/start-hyprland -- --config /etc/greetd/hyprland-nodalix-greeter.conf"|' \
+      "${GREETD_CONFIG}"
+    echo "Patched ${GREETD_CONFIG}: greetd now uses start-hyprland (fixes Hyprland VT warning)."
+  fi
+fi
+
 echo
 echo "Installed nodalix-greeter to ${BIN_PATH}"
 echo "Installed Nodalix brand assets to ${BRAND_DIR}"
@@ -49,7 +58,7 @@ echo
 echo "Manual next steps:"
 echo "  1. Copy /usr/local/share/nodalix-greeter/hyprland-nodalix-greeter.conf to /etc/greetd/ if desired."
 echo "  2. Back up /etc/greetd/config.toml."
-echo "  3. Test using the sample config:"
+echo "  3. Test using the sample config (must use start-hyprland, not bare Hyprland):"
 echo "     /usr/local/share/nodalix-greeter/config.nodalix-greeter.toml"
 echo "  4. Keep /usr/local/share/nodalix-greeter/config.regreet-fallback.toml for rollback."
 echo "  5. If /etc/nodalix/greeter/config.toml already exists, set:"

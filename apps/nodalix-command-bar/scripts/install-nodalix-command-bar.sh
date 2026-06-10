@@ -14,11 +14,10 @@ if [[ -e "${WRAPPER}" ]]; then
   cp -a "${WRAPPER}" "${ROOT_DIR}/local/bin/Backups/nodalix-command-bar.bak.$(date +%Y%m%d-%H%M%S)"
 fi
 
-cat > "${WRAPPER}" <<'EOF'
+cat > "${WRAPPER}" <<EOF
 #!/usr/bin/env bash
-exec "$HOME/Projects/nodalix-os/apps/nodalix-command-bar/src/nodalix-command-bar" "$@"
+exec "${SOURCE}" "\$@"
 EOF
 chmod +x "${WRAPPER}"
 
 echo "Installed Nodalix Command Bar wrapper: ${WRAPPER}"
-

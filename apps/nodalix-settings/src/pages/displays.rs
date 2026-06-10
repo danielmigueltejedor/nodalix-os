@@ -43,8 +43,7 @@ pub fn build_displays_page() -> gtk::Widget {
     monitors_card.append(&monitors_box);
     page.append(&monitors_card);
 
-    let positions: Rc<RefCell<HashMap<String, (i64, i64)>>> =
-        Rc::new(RefCell::new(HashMap::new()));
+    let positions: Rc<RefCell<HashMap<String, (i64, i64)>>> = Rc::new(RefCell::new(HashMap::new()));
 
     let reload: Rc<dyn Fn()> = Rc::new({
         let canvas_host = canvas_host.clone();
@@ -53,32 +52,29 @@ pub fn build_displays_page() -> gtk::Widget {
         let positions = positions.clone();
         move || {
             status.set_loading("Detectando pantallas…");
-            run_bg(
-                displays::list_monitors,
-                {
-                    let canvas_host = canvas_host.clone();
-                    let monitors_box = monitors_box.clone();
-                    let status = status.clone();
-                    let positions = positions.clone();
-                    move |result| match result {
-                        Ok(monitors) => {
-                            *positions.borrow_mut() = monitors
-                                .iter()
-                                .map(|m| (m.name.clone(), (m.x, m.y)))
-                                .collect();
-                            rebuild_monitors_ui(
-                                &monitors_box,
-                                &canvas_host,
-                                &positions,
-                                &status,
-                                &monitors,
-                            );
-                            status.set_success("Pantallas detectadas");
-                        }
-                        Err(err) => status.set_error(&err),
+            run_bg(displays::list_monitors, {
+                let canvas_host = canvas_host.clone();
+                let monitors_box = monitors_box.clone();
+                let status = status.clone();
+                let positions = positions.clone();
+                move |result| match result {
+                    Ok(monitors) => {
+                        *positions.borrow_mut() = monitors
+                            .iter()
+                            .map(|m| (m.name.clone(), (m.x, m.y)))
+                            .collect();
+                        rebuild_monitors_ui(
+                            &monitors_box,
+                            &canvas_host,
+                            &positions,
+                            &status,
+                            &monitors,
+                        );
+                        status.set_success("Pantallas detectadas");
                     }
-                },
-            );
+                    Err(err) => status.set_error(&err),
+                }
+            });
         }
     });
 
@@ -204,7 +200,11 @@ fn layout_metrics(monitors: &[Monitor]) -> (f64, f64, f64) {
         return (0.12, 20.0, 20.0);
     }
     let max_x = monitors.iter().map(|m| m.x + m.width).max().unwrap_or(1920);
-    let max_y = monitors.iter().map(|m| m.y + m.height).max().unwrap_or(1080);
+    let max_y = monitors
+        .iter()
+        .map(|m| m.y + m.height)
+        .max()
+        .unwrap_or(1080);
     let scale_x = (CANVAS_W - 40.0) / max_x.max(1) as f64;
     let scale_y = (CANVAS_H - 40.0) / max_y.max(1) as f64;
     let scale = scale_x.min(scale_y).min(0.2);

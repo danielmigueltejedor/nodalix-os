@@ -83,16 +83,33 @@ fi
 
 echo "==> Enlazando scripts..."
 
-for f in "$ROOT"/local/bin/*; do
-  [ -f "$f" ] || continue
-  chmod +x "$f"
-  ln -sf "$f" "$HOME/.local/bin/$(basename "$f")"
-done
+if [ -x "$ROOT/scripts/install-nodalix-lock.sh" ]; then
+  "$ROOT/scripts/install-nodalix-lock.sh"
+else
+  mkdir -p "$HOME/.local/bin"
+  for f in "$ROOT"/local/bin/*; do
+    [ -f "$f" ] || continue
+    chmod 755 "$f"
+    ln -sf "$f" "$HOME/.local/bin/$(basename "$f")"
+  done
+fi
+
+if [ ! -x "$HOME/.local/bin/nodalix-lock" ]; then
+  echo "ERROR: ~/.local/bin/nodalix-lock no instalado o no ejecutable." >&2
+  echo "Ejecuta: $ROOT/scripts/install-nodalix-lock.sh" >&2
+  exit 1
+fi
+
+echo "==> Validando bloqueo e idle..."
+if [ -x "$ROOT/local/bin/nodalix-validate-system" ]; then
+  "$ROOT/local/bin/nodalix-validate-system" || true
+fi
 
 echo "==> Activando servicios básicos..."
 
 sudo systemctl enable --now NetworkManager.service || true
 systemctl --user daemon-reload || true
+systemctl --user disable --now nodalix-idle.service 2>/dev/null || true
 
 echo
 echo "Nodalix OS layer instalado."

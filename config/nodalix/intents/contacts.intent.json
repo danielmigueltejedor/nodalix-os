@@ -1,0 +1,26 @@
+{
+  "app": "nodalix-contacts",
+  "description": "Local Nodalix contacts layer for Assistant, Mail and future apps.",
+  "intents": [
+    {
+      "id": "contacts.findPerson",
+      "name": "Find person",
+      "description": "Find a person by name, alias, email or phone in the local contacts connector.",
+      "permissions": ["contacts.read"],
+      "examples": ["dónde vive José", "busca el teléfono de Ana", "quién es Pepe"],
+      "requiresConfirmation": false,
+      "backgroundCapable": true,
+      "modifiesUserData": false
+    },
+    {
+      "id": "contacts.updateAddress",
+      "name": "Update contact address",
+      "description": "Update a contact address after explicit confirmation.",
+      "permissions": ["contacts.read", "contacts.write"],
+      "examples": ["guarda esta dirección para José"],
+      "requiresConfirmation": true,
+      "backgroundCapable": false,
+      "modifiesUserData": true
+    }
+  ]
+}

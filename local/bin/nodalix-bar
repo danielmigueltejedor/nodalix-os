@@ -1,7 +1,8 @@
 #!/usr/bin/env sh
 set -eu
 
-APP_DIR="/home/dani/Proyectos/nodalix-os/apps/nodalix-bar"
+ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
+APP_DIR="$ROOT_DIR/apps/nodalix-bar"
 RELEASE="$APP_DIR/target/release/nodalix-bar"
 DEBUG="$APP_DIR/target/debug/nodalix-bar"
 
@@ -15,4 +16,3 @@ fi
 
 cd "$APP_DIR"
 exec cargo run -- "$@"
-

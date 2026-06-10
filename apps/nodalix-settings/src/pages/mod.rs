@@ -3,6 +3,7 @@ pub mod audio;
 pub mod bluetooth;
 pub mod displays;
 pub mod home;
+pub mod intelligence;
 pub mod network;
 pub mod power;
 pub mod session;
@@ -21,6 +22,7 @@ pub enum PageId {
     Bluetooth,
     Wifi,
     Network,
+    Intelligence,
     Updates,
     Power,
     Displays,
@@ -38,6 +40,7 @@ impl PageId {
             Self::Bluetooth => "bluetooth",
             Self::Wifi => "wifi",
             Self::Network => "network",
+            Self::Intelligence => "intelligence",
             Self::Updates => "updates",
             Self::Power => "power",
             Self::Displays => "displays",
@@ -65,7 +68,7 @@ pub fn catalog() -> Vec<PageSpec> {
         },
         PageSpec {
             id: PageId::Users,
-            label: "Usuarios",
+            label: "Perfil y usuarios",
             icon: "󰀄",
             build: users::build_users_page,
         },
@@ -92,6 +95,12 @@ pub fn catalog() -> Vec<PageSpec> {
             label: "Red",
             icon: "󰈀",
             build: network::build_network_page,
+        },
+        PageSpec {
+            id: PageId::Intelligence,
+            label: "Intelligence",
+            icon: "󰚩",
+            build: intelligence::build_intelligence_page,
         },
         PageSpec {
             id: PageId::Updates,

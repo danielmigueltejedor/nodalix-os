@@ -45,52 +45,50 @@ pub fn build_updates_page() -> gtk::Widget {
         move || {
             check_btn.set_sensitive(false);
             status.set_loading("Comprobando actualizaciones…");
-            run_bg(
-                updates::check_updates,
-                {
-                    let summary = summary.clone();
-                    let list = list.clone();
-                    let status = status.clone();
-                    let check_btn = check_btn.clone();
-                    move |result| {
-                        check_btn.set_sensitive(true);
-                        while let Some(row) = list.row_at_index(0) {
-                            list.remove(&row);
-                        }
-                        match result {
-                            Ok(report) => {
-                                summary.set_text(&format!(
-                                    "{} paquete(s) en repositorios · {} AUR",
-                                    report.pacman_pending, report.aur_pending
-                                ));
-                                if report.lines.is_empty() {
+            run_bg(updates::check_updates, {
+                let summary = summary.clone();
+                let list = list.clone();
+                let status = status.clone();
+                let check_btn = check_btn.clone();
+                move |result| {
+                    check_btn.set_sensitive(true);
+                    while let Some(row) = list.row_at_index(0) {
+                        list.remove(&row);
+                    }
+                    match result {
+                        Ok(report) => {
+                            summary.set_text(&format!(
+                                "{} paquete(s) en repositorios · {} AUR",
+                                report.pacman_pending, report.aur_pending
+                            ));
+                            if report.lines.is_empty() {
+                                let row = gtk::ListBoxRow::new();
+                                let label =
+                                    gtk::Label::new(Some("No hay actualizaciones pendientes"));
+                                label.set_xalign(0.0);
+                                label.set_margin_top(8);
+                                label.set_margin_bottom(8);
+                                label.set_margin_start(10);
+                                row.set_child(Some(&label));
+                                list.append(&row);
+                            } else {
+                                for line in report.lines.iter().take(40) {
                                     let row = gtk::ListBoxRow::new();
-                                    let label = gtk::Label::new(Some("No hay actualizaciones pendientes"));
+                                    let label = gtk::Label::new(Some(line));
                                     label.set_xalign(0.0);
                                     label.set_margin_top(8);
                                     label.set_margin_bottom(8);
                                     label.set_margin_start(10);
                                     row.set_child(Some(&label));
                                     list.append(&row);
-                                } else {
-                                    for line in report.lines.iter().take(40) {
-                                        let row = gtk::ListBoxRow::new();
-                                        let label = gtk::Label::new(Some(line));
-                                        label.set_xalign(0.0);
-                                        label.set_margin_top(8);
-                                        label.set_margin_bottom(8);
-                                        label.set_margin_start(10);
-                                        row.set_child(Some(&label));
-                                        list.append(&row);
-                                    }
                                 }
-                                status.set_success(&report.summary());
                             }
-                            Err(err) => status.set_error(&err),
+                            status.set_success(&report.summary());
                         }
+                        Err(err) => status.set_error(&err),
                     }
-                },
-            );
+                }
+            });
         }
     });
 
@@ -103,18 +101,15 @@ pub fn build_updates_page() -> gtk::Widget {
         let status = status.clone();
         move |_| {
             status.set_loading("Abriendo terminal de actualización…");
-            run_bg(
-                updates::launch_update_terminal,
-                {
-                    let status = status.clone();
-                    move |result| match result {
-                        Ok(()) => status.set_success(
-                            "Terminal abierta. Se pedirá contraseña para paquetes del sistema.",
-                        ),
-                        Err(err) => status.set_error(&err),
-                    }
-                },
-            );
+            run_bg(updates::launch_update_terminal, {
+                let status = status.clone();
+                move |result| match result {
+                    Ok(()) => status.set_success(
+                        "Terminal abierta. Se pedirá contraseña para paquetes del sistema.",
+                    ),
+                    Err(err) => status.set_error(&err),
+                }
+            });
         }
     });
 

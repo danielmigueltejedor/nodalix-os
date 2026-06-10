@@ -6,6 +6,103 @@
 @define-color nodalix_muted rgba(235, 228, 255, 0.62);
 @define-color nodalix_faint rgba(235, 228, 255, 0.40);
 
+.sidebar-profile {
+  padding: 14px 12px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  transition: background 180ms ease, border-color 180ms ease;
+}
+
+.sidebar-profile:hover {
+  background: alpha(@nodalix_accent, 0.14);
+  border-color: alpha(@nodalix_accent, 0.28);
+}
+
+.sidebar-profile-name {
+  color: @nodalix_text;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.sidebar-profile-user {
+  color: @nodalix_faint;
+  font-size: 12px;
+}
+
+.sidebar-profile-chevron {
+  color: @nodalix_muted;
+  font-size: 22px;
+  font-weight: 300;
+}
+
+.home-hero {
+  padding: 26px;
+}
+
+.home-hero-title {
+  color: @nodalix_text;
+  font-size: 30px;
+  font-weight: 900;
+}
+
+.power-tile {
+  min-height: 118px;
+  padding: 16px 12px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.05);
+  transition: background 160ms ease, transform 160ms ease, border-color 160ms ease;
+}
+
+.power-tile:hover {
+  background: alpha(@nodalix_accent, 0.16);
+  border-color: alpha(@nodalix_accent, 0.34);
+}
+
+.power-tile-destructive:hover {
+  background: rgba(243, 139, 168, 0.16);
+  border-color: rgba(243, 139, 168, 0.34);
+}
+
+.power-tile-icon {
+  font-size: 28px;
+}
+
+.power-tile-label {
+  color: @nodalix_text;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.power-tile-detail {
+  color: @nodalix_faint;
+  font-size: 11px;
+  text-align: center;
+}
+
+.segmented-group {
+  margin-top: 2px;
+}
+
+.segmented-option {
+  min-height: 38px;
+  padding: 6px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.05);
+  color: @nodalix_text;
+}
+
+.segmented-option:checked {
+  background: alpha(@nodalix_accent, 0.24);
+  border-color: alpha(@nodalix_accent, 0.42);
+}
+
+.visual-pref-row {
+  padding-top: 4px;
+}
+
 .settings-root {
   background:
     linear-gradient(135deg, rgba(12, 10, 18, 1.0), rgba(7, 7, 12, 1.0));

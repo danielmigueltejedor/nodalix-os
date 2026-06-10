@@ -70,11 +70,7 @@ pub fn set_volume(device_id: &str, percent: u32) -> Result<(), String> {
         return run_command_status("wpctl", &["set-volume", device_id, &format!("{pct}%")])
             .map(|_| ());
     }
-    run_command_status(
-        "pactl",
-        &["set-sink-volume", device_id, &format!("{pct}%")],
-    )
-    .map(|_| ())
+    run_command_status("pactl", &["set-sink-volume", device_id, &format!("{pct}%")]).map(|_| ())
 }
 
 pub fn sink_volume_percent(id: &str) -> u32 {

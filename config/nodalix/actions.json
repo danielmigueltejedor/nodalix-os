@@ -41,6 +41,62 @@
     "aliases": []
   },
   {
+    "icon": "󰕮",
+    "title": "Abrir Nodalix Control Center",
+    "subtitle": "Sistema · controles rápidos",
+    "search": "control center centro control ajustes rapidos barra volumen red bluetooth energia nodalix",
+    "command": "nodalix-control-center",
+    "category": "Sistema",
+    "requires": [
+      "nodalix-control-center"
+    ],
+    "hide_if_missing": true,
+    "danger": false,
+    "aliases": [
+      "control center",
+      "centro de control",
+      "quick settings"
+    ]
+  },
+  {
+    "icon": "󰀻",
+    "title": "Reiniciar Nodalix Bar",
+    "subtitle": "Sistema · launcher con fallback Waybar",
+    "search": "reiniciar nodalix bar waybar barra topbar panel fallback restart",
+    "command": "nodalix-session-bar --restart",
+    "category": "Sistema",
+    "requires": [
+      "nodalix-session-bar"
+    ],
+    "hide_if_missing": true,
+    "danger": false,
+    "aliases": [
+      "reiniciar barra",
+      "restart bar",
+      "waybar",
+      "nodalix bar"
+    ]
+  },
+  {
+    "icon": "󰀻",
+    "title": "Cambiar Nodalix Bar / Waybar",
+    "subtitle": "Sistema · alternar barra principal",
+    "search": "cambiar alternar toggle nodalix bar waybar barra principal fallback",
+    "command": "nodalix-bar-toggle",
+    "category": "Sistema",
+    "requires": [
+      "nodalix-bar-toggle"
+    ],
+    "hide_if_missing": true,
+    "danger": false,
+    "aliases": [
+      "toggle bar",
+      "cambiar barra",
+      "waybar",
+      "nodalix bar"
+    ]
+  },
+  {
     "icon": "󰒡",
     "title": "Nodalix Doctor",
     "subtitle": "Diagnóstico del sistema",
@@ -71,23 +127,30 @@
   },
   {
     "icon": "󰜉",
-    "title": "Recargar Waybar",
-    "subtitle": "Sistema · reiniciar barra superior",
-    "search": "reload recargar waybar barra topbar panel",
-    "command": "pkill waybar; waybar >/tmp/waybar.log 2>&1 &",
+    "title": "Recargar barra",
+    "subtitle": "Sistema · Nodalix Bar o Waybar fallback",
+    "search": "reload recargar reiniciar nodalix bar waybar barra topbar panel",
+    "command": "nodalix-session-bar --restart",
     "category": "Sistema",
+    "requires": [
+      "nodalix-session-bar"
+    ],
     "danger": false,
-    "aliases": []
+    "aliases": [
+      "waybar",
+      "nodalix bar",
+      "restart bar"
+    ]
   },
   {
     "icon": "󰌾",
     "title": "Bloquear sesión",
-    "subtitle": "Seguridad · Hyprlock",
+    "subtitle": "Seguridad · Bloqueo Nodalix",
     "search": "bloquear lock pantalla seguridad hyprlock",
-    "command": "hyprlock",
+    "command": "nodalix-lock",
     "category": "Sistema",
     "requires": [
-      "hyprlock"
+      "nodalix-lock"
     ],
     "hide_if_missing": true,
     "danger": false,
@@ -406,13 +469,23 @@
   },
   {
     "icon": "󰚩",
-    "title": "IA / OpenCode",
-    "subtitle": "IA · Próximamente",
-    "search": "ia ai opencode asistente voz pantalla",
-    "command": "notify-send \"Nodalix AI\" \"IA todavía no está implementada\"",
+    "title": "Ask Nodalix Assistant",
+    "subtitle": "Intelligence · asistente local-first",
+    "search": "ia ai assistant asistente nodalix intelligence pregunta preguntar donde vive jose correo concierto resumen",
+    "command": "alacritty -e nodalix-assistant ask",
     "category": "Dev",
+    "requires": [
+      "nodalix-assistant",
+      "alacritty"
+    ],
+    "hide_if_missing": true,
     "danger": false,
-    "aliases": []
+    "aliases": [
+      "assistant",
+      "asistente",
+      "intelligence",
+      "preguntar"
+    ]
   },
   {
     "icon": "󰟐",

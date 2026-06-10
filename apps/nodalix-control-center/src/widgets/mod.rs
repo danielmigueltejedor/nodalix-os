@@ -4,6 +4,7 @@ pub mod brightness;
 pub mod media;
 pub mod network;
 pub mod power;
+pub mod profile;
 pub mod quick_actions;
 pub mod toggles;
 

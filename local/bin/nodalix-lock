@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Single-instance Hyprland lock for Nodalix OS.
+# All lock paths (hypridle, binds, menus) must use this — never call hyprlock directly.
+set -euo pipefail
+
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/nodalix"
+LOG_FILE="$STATE_DIR/lock.log"
+FLOCK_FILE="${XDG_RUNTIME_DIR:-/tmp}/nodalix-lock.flock"
+
+mkdir -p "$STATE_DIR"
+
+log() {
+  printf '%s %s\n' "$(date -Iseconds)" "$*" >>"$LOG_FILE"
+}
+
+# Serialize concurrent lock attempts (idle + sleep + manual bind racing).
+exec 9>"$FLOCK_FILE"
+if ! flock -n 9; then
+  log "skip: flock busy (parallel nodalix-lock)"
+  exit 0
+fi
+
+if pgrep -x hyprlock >/dev/null 2>&1; then
+  log "skip: hyprlock already running (pids: $(pgrep -x hyprlock | tr '\n' ' '))"
+  exit 0
+fi
+
+log "start: exec hyprlock (trigger: ${NODALIX_LOCK_TRIGGER:-unknown})"
+makoctl mode -a do-not-disturb >/dev/null 2>&1 || true
+exec hyprlock

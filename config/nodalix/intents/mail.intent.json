@@ -1,0 +1,46 @@
+{
+  "app": "nodalix-mail",
+  "description": "Future native Nodalix Mail intelligence surface.",
+  "intents": [
+    {
+      "id": "mail.search",
+      "name": "Search mail",
+      "description": "Search allowed local mail metadata and message bodies.",
+      "permissions": ["mail.read"],
+      "examples": ["busca el correo del concierto", "últimos correos de hoy"],
+      "requiresConfirmation": false,
+      "backgroundCapable": true,
+      "modifiesUserData": false
+    },
+    {
+      "id": "mail.summarize",
+      "name": "Summarize email thread",
+      "description": "Summarize a selected email thread without sending data externally unless allowed.",
+      "permissions": ["mail.read"],
+      "examples": ["resume este hilo", "resume mis correos de hoy"],
+      "requiresConfirmation": false,
+      "backgroundCapable": true,
+      "modifiesUserData": false
+    },
+    {
+      "id": "mail.replyDraft",
+      "name": "Draft email reply",
+      "description": "Generate a draft response for the selected email. Never sends automatically.",
+      "permissions": ["mail.read", "mail.writeDraft"],
+      "examples": ["redacta una respuesta", "contesta a este correo"],
+      "requiresConfirmation": true,
+      "backgroundCapable": false,
+      "modifiesUserData": true
+    },
+    {
+      "id": "mail.extractEvent",
+      "name": "Extract event from email",
+      "description": "Detect dates, places and event details inside an email and propose calendar/reminder actions.",
+      "permissions": ["mail.read"],
+      "examples": ["añade este concierto al calendario", "extrae la cita médica"],
+      "requiresConfirmation": false,
+      "backgroundCapable": true,
+      "modifiesUserData": false
+    }
+  ]
+}

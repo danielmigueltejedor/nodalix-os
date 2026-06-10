@@ -1,8 +1,34 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if pgrep -x waybar >/dev/null 2>&1; then
-  pkill waybar
-else
-  waybar >/tmp/waybar.log 2>&1 &
-fi
+PROFILE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/nodalix/user"
+PROFILE_FILE="$PROFILE_DIR/profile.json"
+mkdir -p "$PROFILE_DIR"
+
+python3 - "$PROFILE_FILE" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+data = {}
+if path.is_file():
+    try:
+        data = json.loads(path.read_text())
+    except Exception:
+        data = {}
+
+data.setdefault("username", "usuario")
+visual = data.setdefault("visual", {})
+visual.setdefault("color_scheme", "dark")
+visual.setdefault("accent_preset", "purple")
+visual.setdefault("density", "comfortable")
+visual.setdefault("corner_radius", "standard")
+visual.setdefault("transparency", "glass")
+shell = data.setdefault("shell", {})
+shell["active_bar"] = "waybar"
+shell.setdefault("control_center_compact", False)
+path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+PY
+
+nodalix-session-bar --restart

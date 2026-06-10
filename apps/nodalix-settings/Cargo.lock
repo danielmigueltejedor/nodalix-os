@@ -454,14 +454,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "nodalix-profile"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "nodalix-settings"
 version = "0.1.0"
 dependencies = [
  "gtk4",
  "libadwaita",
+ "nodalix-profile",
+ "nodalix-system-actions",
  "serde",
  "serde_json",
 ]
+
+[[package]]
+name = "nodalix-system-actions"
+version = "0.1.0"
 
 [[package]]
 name = "pango"
