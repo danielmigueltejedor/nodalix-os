@@ -1,3 +1,0 @@
-ufw
-libsecret
-gnome-keyring

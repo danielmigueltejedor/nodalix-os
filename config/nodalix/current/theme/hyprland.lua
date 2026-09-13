@@ -1,2 +1,0 @@
--- Nodalix current Hyprland theme.
--- This file is intentionally minimal for now.

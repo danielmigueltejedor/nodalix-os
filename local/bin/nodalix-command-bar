@@ -1,2 +1,0 @@
-#!/usr/bin/env bash
-exec "$HOME/Projects/nodalix-os/apps/nodalix-command-bar/src/nodalix-command-bar" "$@"

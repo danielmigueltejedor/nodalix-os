@@ -1,2 +1,0 @@
--- Nodalix gum environment theme.
--- Placeholder while theme modules are migrated.

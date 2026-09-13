@@ -1,9 +1,0 @@
-[Desktop Entry]
-Name=WhatsApp
-Comment=WhatsApp Nodalix Web App
-Exec=chromium --class=WhatsApp --user-data-dir=/home/dani/.local/share/nodalix/webapps/whatsapp --app=https://web.whatsapp.com/
-Terminal=false
-Type=Application
-Icon=/home/dani/.local/share/icons/nodalix-webapps/whatsapp.svg
-StartupWMClass=WhatsApp
-Categories=Network;WebBrowser;

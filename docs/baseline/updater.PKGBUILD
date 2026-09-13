@@ -1,0 +1,23 @@
+pkgname=nodalix-updater
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Nodalix GitHub Releases update service"
+arch=('any')
+url="https://github.com/danielmigueltejedor/nodalix-os"
+license=('GPL-3.0-or-later')
+depends=('python' 'pacman' 'polkit')
+backup=('etc/nodalix/updater.json')
+source=('nodalix-updater'
+        'updater.json'
+        'nodalix-update-check.service'
+        'nodalix-update-check.timer'
+        'com.nodalix.updater.policy')
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
+
+package() {
+  install -Dm755 "$srcdir/nodalix-updater" "$pkgdir/usr/bin/nodalix-updater"
+  install -Dm644 "$srcdir/updater.json" "$pkgdir/etc/nodalix/updater.json"
+  install -Dm644 "$srcdir/nodalix-update-check.service" "$pkgdir/usr/lib/systemd/system/nodalix-update-check.service"
+  install -Dm644 "$srcdir/nodalix-update-check.timer" "$pkgdir/usr/lib/systemd/system/nodalix-update-check.timer"
+  install -Dm644 "$srcdir/com.nodalix.updater.policy" "$pkgdir/usr/share/polkit-1/actions/com.nodalix.updater.policy"
+}

@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-# Restore notifications after wake/unlock
-makoctl mode -r do-not-disturb >/dev/null 2>&1 || true
-
-# Ensure displays are awake
-hyprctl dispatch dpms on >/dev/null 2>&1 || true
