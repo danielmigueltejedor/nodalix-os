@@ -159,6 +159,17 @@ class ChannelSelectionTests(unittest.TestCase):
         self.assertEqual(UPDATER.normalize_channel("rc"), "beta")
         self.assertEqual(self.selected("rc"), "0.2.1-beta.1")
 
+    def test_private_repo_downloads_use_api_asset_url(self) -> None:
+        asset = {
+            "url": "https://api.github.com/repos/owner/repo/releases/assets/1",
+            "browser_download_url": "https://github.com/owner/repo/releases/download/0.2.0-beta.1/nodalix-manifest.json",
+        }
+        with mock.patch.dict(UPDATER.os.environ, {"GITHUB_TOKEN": "token"}):
+            self.assertEqual(UPDATER.asset_download_url(asset), asset["url"])
+        with mock.patch.dict(UPDATER.os.environ, {}, clear=False):
+            UPDATER.os.environ.pop("GITHUB_TOKEN", None)
+            self.assertEqual(UPDATER.asset_download_url(asset), asset["browser_download_url"])
+
 
 class ManifestValidationTests(unittest.TestCase):
     def test_accepts_release_manifest(self) -> None:
