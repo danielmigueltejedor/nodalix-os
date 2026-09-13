@@ -1,5 +1,5 @@
 [config]
 
 [templates.quickshell]
-input_path  = "~/.config/quickshell/theme/matugen/quickshell.tera"
-output_path = "~/.local/state/quickshell/generated/wallpaper.json"
+input_path  = "/etc/xdg/quickshell/nodalix/theme/matugen/quickshell.tera"
+output_path = "~/.local/state/nodalix/generated/wallpaper.json"

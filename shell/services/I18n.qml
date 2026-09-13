@@ -55,7 +55,7 @@ QtObject {
         "Create": "Crear", "Cancel": "Cancelar", "Designer": "Diseñador",
         "Built-in themes are read-only — Duplicate one to edit its colors.": "Los temas incluidos son de solo lectura; duplica uno para editar sus colores.",
         "Import (.json)": "Importar (.json)", "Path → new theme": "Ruta → tema nuevo", "Import": "Importar",
-        "Export current theme": "Exportar tema actual", "Exports the active theme's colors to ~/.local/state/quickshell/exports/": "Exporta los colores del tema activo a ~/.local/state/quickshell/exports/",
+        "Export current theme": "Exportar tema actual", "Exports the active theme's colors to ~/.local/state/nodalix/exports/": "Exporta los colores del tema activo a ~/.local/state/nodalix/exports/",
         "Clock": "Reloj", "24-hour clock": "Reloj de 24 horas", "Show seconds": "Mostrar segundos",
         "Widgets": "Widgets", "Launcher button": "Botón del lanzador", "Active window title": "Título de la ventana activa",
         "Media mini indicator": "Indicador multimedia compacto", "Status row (battery/wifi/bt/vol)": "Fila de estado (batería/red/Bluetooth/volumen)",

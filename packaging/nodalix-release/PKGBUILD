@@ -1,0 +1,18 @@
+pkgname=nodalix-release
+pkgver=0.2.0
+pkgrel=1
+pkgdesc="Nodalix release identity and core component set"
+arch=("any")
+url="https://github.com/danielmigueltejedor/nodalix-os"
+license=("GPL-3.0-or-later")
+depends=("nodalix-shell>=0.2.0" "nodalix-updater>=0.2.0")
+source=("VERSION")
+sha256sums=("SKIP")
+
+package() {
+    local version
+    version="$(<"$srcdir/VERSION")"
+    install -d "$pkgdir/etc"
+    printf 'NAME="Nodalix"\nVERSION="%s"\nVERSION_ID="%s"\nCHANNEL="stable"\n' \
+        "$version" "$version" > "$pkgdir/etc/nodalix-release"
+}

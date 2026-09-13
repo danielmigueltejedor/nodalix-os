@@ -1,18 +1,33 @@
 pkgname=nodalix-shell
-pkgver=0.1.1
-pkgrel=4
+pkgver=0.2.0
+pkgrel=1
 pkgdesc="Nodalix desktop shell"
 arch=("x86_64")
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-depends=("quickshell")
+depends=("quickshell" "qt6-declarative")
+makedepends=("cmake" "ninja" "qt6-shadertools")
 options=("!debug")
-source=("nodalix-shell-$pkgver.tar.zst" "nodalix-shell" "VERSION")
-sha256sums=("SKIP" "SKIP" "SKIP")
+source=("nodalix-shell-$pkgver.tar.zst" "nodalix-shell" "nodalix-shell.service" "VERSION")
+sha256sums=("SKIP" "SKIP" "SKIP" "SKIP")
+
+build() {
+    cmake -S "$srcdir/shell/blobs-plugin" -B "$srcdir/build" -G Ninja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr \
+        -DINSTALL_QMLDIR=lib/qt6/qml
+    cmake --build "$srcdir/build"
+}
 
 package() {
     install -d "$pkgdir/etc/xdg/quickshell/nodalix"
-    cp -a "$srcdir/shell/." "$pkgdir/etc/xdg/quickshell/nodalix/"
+    cp -a --no-preserve=ownership "$srcdir/shell/." "$pkgdir/etc/xdg/quickshell/nodalix/"
+    rm -rf "$pkgdir/etc/xdg/quickshell/nodalix/blobs-plugin"
+    DESTDIR="$pkgdir" cmake --install "$srcdir/build"
     install -Dm755 "$srcdir/nodalix-shell" "$pkgdir/usr/bin/nodalix-shell"
     install -Dm644 "$srcdir/VERSION" "$pkgdir/etc/xdg/quickshell/nodalix/VERSION"
+    install -Dm644 "$srcdir/nodalix-shell.service" "$pkgdir/usr/lib/systemd/user/nodalix-shell.service"
+    install -d "$pkgdir/etc/systemd/user/default.target.wants"
+    ln -s /usr/lib/systemd/user/nodalix-shell.service \
+        "$pkgdir/etc/systemd/user/default.target.wants/nodalix-shell.service"
 }

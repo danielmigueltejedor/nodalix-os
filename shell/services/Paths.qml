@@ -6,7 +6,7 @@ import Quickshell
 // ".." is the config root. Two roots:
 //   configDir — the (read-only) checkout: code, presets, scripts, plugin.
 //   stateDir  — mutable user state, kept OUTSIDE the checkout under XDG state
-//               ($XDG_STATE_HOME/quickshell, default ~/.local/state/quickshell):
+//               ($XDG_STATE_HOME/nodalix, default ~/.local/state/nodalix):
 //               settings, themes, pins, usage, generated binds.
 QtObject {
     readonly property string homeDir:
@@ -24,20 +24,20 @@ QtObject {
     readonly property string screenshotsDir: picturesDir + "/Capturas de pantalla"
     readonly property string recordingsDir: videosDir + "/Grabaciones de pantalla"
 
-    // e.g. "/home/<user>/.config/quickshell"
+    // Package-managed shell source, normally /etc/xdg/quickshell/nodalix.
     readonly property string configDir:
         Qt.resolvedUrl("..").toString().replace(/^file:\/\//, "").replace(/\/+$/, "")
     readonly property string scriptsDir: configDir + "/scripts/hypr"
     function script(name) { return scriptsDir + "/" + name }
 
-    // $XDG_STATE_HOME/quickshell, else ~/.local/state/quickshell — same logic
+    // $XDG_STATE_HOME/nodalix, else ~/.local/state/nodalix — same logic
     // as hypr/quickshell.lua and install.sh so all three agree.
     readonly property string stateDir: {
         let base = String(Quickshell.env("XDG_STATE_HOME") || "").trim().replace(/\/+$/, "")
         if (base === "") {
             base = homeDir + "/.local/state"
         }
-        return base + "/quickshell"
+        return base + "/nodalix"
     }
     function state(name) { return stateDir + "/" + name }
 }

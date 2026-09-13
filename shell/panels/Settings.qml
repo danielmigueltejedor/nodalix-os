@@ -834,7 +834,7 @@ PanelWindow {
 						}
 						Text {
 							Layout.fillWidth: true
-							text: I18n.tr("Exports the active theme's colors to ~/.local/state/quickshell/exports/")
+							text: I18n.tr("Exports the active theme's colors to ~/.local/state/nodalix/exports/")
 							wrapMode: Text.WordWrap
 							color: ThemeManager.onSurfaceVariant
 							font.family: ThemeManager.fontFamily; font.pixelSize: 10

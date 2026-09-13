@@ -1,6 +1,5 @@
 pragma Singleton
 import QtQuick
-import Quickshell
 import Quickshell.Io
 import "."
 
@@ -14,11 +13,11 @@ QtObject {
 
     // The bindable shell actions. `cmd` is run via hl.dsp.exec_cmd(...).
     readonly property var actions: [
-        { key: "launcher",   label: I18n.tr("App launcher"),      cmd: "qs ipc call launcher toggle" },
-        { key: "settings",   label: I18n.tr("Settings"),          cmd: "qs ipc call settings toggle" },
-        { key: "lock",       label: I18n.tr("Lock screen"),       cmd: "qs ipc call lock lock" },
-        { key: "tools",      label: I18n.tr("Tools toolbar"),     cmd: "qs ipc call tools toggle" },
-        { key: "scratchpad", label: I18n.tr("Scratchpad toggle"), cmd: "qs ipc call scratchpad toggle" }
+        { key: "launcher",   label: I18n.tr("App launcher"),      cmd: "qs -c nodalix ipc call launcher toggle" },
+        { key: "settings",   label: I18n.tr("Settings"),          cmd: "qs -c nodalix ipc call settings toggle" },
+        { key: "lock",       label: I18n.tr("Lock screen"),       cmd: "qs -c nodalix ipc call lock lock" },
+        { key: "tools",      label: I18n.tr("Tools toolbar"),     cmd: "qs -c nodalix ipc call tools toggle" },
+        { key: "scratchpad", label: I18n.tr("Scratchpad toggle"), cmd: "qs -c nodalix ipc call scratchpad toggle" }
     ]
 
     readonly property string _file: Paths.state("binds.generated.lua")

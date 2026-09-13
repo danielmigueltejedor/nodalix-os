@@ -2,110 +2,125 @@ pragma Singleton
 import QtQuick
 import Quickshell.Io
 
-// Background updater. The password is sent once through stdin to sudo and is
-// immediately discarded; fixed commands only, never user-provided shell text.
+// Structured bridge to the Nodalix updater. Privileged work is delegated to
+// the Polkit-authorized backend; passwords never enter the QML process.
 QtObject {
     id: root
     property bool checking: false
     property bool running: false
-    property int systemUpdates: 0
+    property int systemUpdates: updateAvailable ? components.length : 0
     property int aurUpdates: 0
     property int flatpakUpdates: 0
     property string lastChecked: ""
     property string statusText: ""
-    property bool passwordRequested: false
-    property bool authenticating: false
-    property bool passwordError: false
-    property string pendingAction: ""
-    property string _password: ""
+    property string state: "idle"
+    property string installedVersion: ""
+    property string latestVersion: ""
+    property bool updateAvailable: false
+    property var components: []
+    property string releaseNotes: ""
+    property bool shellRestartRequired: false
+    property bool rebootRequired: false
+    property string errorMessage: ""
 
+    // Compatibility for the current Settings view. Polkit replaces its old
+    // password prompt; these properties keep that prompt hidden.
+    readonly property bool passwordRequested: false
+    readonly property bool authenticating: false
+    readonly property bool passwordError: false
     readonly property bool autoSystem: SettingsService.get("updates.auto.system", false)
-    readonly property bool autoApps: SettingsService.get("updates.auto.apps", false)
-    readonly property bool autoFirmware: SettingsService.get("updates.auto.firmware", false)
+    readonly property bool autoApps: false
+    readonly property bool autoFirmware: false
 
-    function check() { if (!_check.running) { checking = true; _check.running = true } }
+    function check() {
+        if (checking || running) return
+        checking = true
+        state = "checking"
+        errorMessage = ""
+        _check.running = false
+        _check.running = true
+    }
 
     function request(action) {
-        if (running || authenticating) return
-        passwordError = false
-        if (action === "aur" || action === "flatpak" || action === "apps") {
-            _runUnprivileged(action)
-        } else {
-            pendingAction = action
-            passwordRequested = true
+        if (running || checking) return
+        if (action !== "all" && action !== "system") {
+            statusText = I18n.tr("This component is managed outside Nodalix Update")
+            return
         }
+        running = true
+        state = "installing"
+        errorMessage = ""
+        statusText = I18n.tr("Installing Nodalix update…")
+        _update.running = false
+        _update.running = true
     }
 
     function setAutomatic(kind, enabled) {
-        const action = "auto-" + kind + "-" + (enabled ? "on" : "off")
-        if (kind === "apps") _runUnprivileged(action)
-        else { pendingAction = action; passwordError = false; passwordRequested = true }
+        if (kind !== "system") return
+        SettingsService.set("updates.auto.system", enabled)
+        statusText = I18n.tr("Automatic update preference saved")
     }
 
-    function cancelPassword() {
-        passwordRequested = false; pendingAction = ""; passwordError = false; _password = ""
+    function cancelPassword() {}
+    function submitPassword(password) {}
+
+    function _acceptInfo(data) {
+        installedVersion = String(data.current_version || data.version || "")
+        latestVersion = String(data.latest_version || installedVersion)
+        updateAvailable = Boolean(data.update_available)
+        components = Array.isArray(data.components)
+            ? data.components.filter(c => Boolean(c.will_update)) : []
+        releaseNotes = String(data.notes || "")
+        shellRestartRequired = Boolean(data.shell_restart_required)
+        rebootRequired = Boolean(data.reboot_required)
+        state = String(data.status || (updateAvailable ? "update_available" : "up_to_date"))
+        statusText = updateAvailable
+            ? I18n.tr("Nodalix update available")
+            : I18n.tr("Nodalix is up to date")
+        lastChecked = new Date().toLocaleString(Qt.locale(I18n.localeName))
     }
 
-    function submitPassword(password) {
-        if (!password || authenticating || running) return
-        authenticating = true; running = true; passwordError = false; _password = password
-        _privileged.command = ["sh", "-lc", _privilegedCommand(pendingAction)]
-        _privileged.running = true
-    }
-
-    function _privilegedCommand(action) {
-        if (action === "system") return "sudo -S -p '' pacman -Syu --noconfirm"
-        if (action === "firmware") return "sudo -S -p '' sh -c 'fwupdmgr refresh --force && fwupdmgr update -y'"
-        if (action === "all") return "sudo -S -p '' sh -c 'pacman -Syu --noconfirm && fwupdmgr refresh --force && fwupdmgr update -y' && yay -Sua --noconfirm && flatpak update -y --noninteractive"
-        const m = /^auto-(system|firmware)-(on|off)$/.exec(action)
-        if (m) return "sudo -S -p '' systemctl " + (m[2] === "on" ? "enable --now " : "disable --now ") + "nodalix-update-" + m[1] + ".timer"
-        return "false"
-    }
-
-    function _runUnprivileged(action) {
-        let cmd = "false"
-        if (action === "aur") cmd = "yay -Sua --noconfirm"
-        else if (action === "flatpak") cmd = "flatpak update -y --noninteractive"
-        else if (action === "apps") cmd = "yay -Sua --noconfirm && flatpak update -y --noninteractive"
-        else if (action.indexOf("auto-apps-") === 0)
-            cmd = "systemctl --user " + (action.endsWith("-on") ? "enable --now " : "disable --now ") + "nodalix-update-apps.timer"
-        pendingAction = action; running = true; statusText = I18n.tr("Updating in background…")
-        _unprivileged.command = ["sh", "-lc", cmd]; _unprivileged.running = true
-    }
-
-    function _finish(code, action) {
-        running = false; authenticating = false; _password = ""
-        if (code === 0) {
-            passwordRequested = false; passwordError = false; statusText = I18n.tr("Update completed")
-            const m = /^auto-(system|apps|firmware)-(on|off)$/.exec(action)
-            if (m) SettingsService.set("updates.auto." + m[1], m[2] === "on")
-            check()
-        } else {
-            passwordError = action !== "aur" && action !== "flatpak" && action !== "apps"
-            statusText = I18n.tr("The update finished with errors")
-        }
-        pendingAction = ""
-    }
-
-    property Process _privileged: Process {
-        stdinEnabled: true
-        stdout: StdioCollector {}
-        stderr: StdioCollector {}
-        onStarted: { write(root._password + "\n"); root._password = ""; root.statusText = I18n.tr("Updating in background…") }
-        onExited: function(code) { root._finish(code, root.pendingAction) }
-    }
-    property Process _unprivileged: Process {
-        stdout: StdioCollector {}
-        stderr: StdioCollector {}
-        onExited: function(code) { root._finish(code, root.pendingAction) }
-    }
     property Process _check: Process {
-        command: ["sh", "-c", "sys=$(timeout 15s checkupdates 2>/dev/null | wc -l); aur=$(timeout 15s yay -Qua 2>/dev/null | wc -l); flat=$(timeout 15s flatpak remote-ls --updates --columns=application 2>/dev/null | sed '/^[[:space:]]*$/d' | wc -l); printf '%s|%s|%s\\n' \"$sys\" \"$aur\" \"$flat\""]
-        stdout: StdioCollector { onStreamFinished: {
-            const f = text.trim().split("|"); root.systemUpdates = parseInt(f[0]) || 0; root.aurUpdates = parseInt(f[1]) || 0; root.flatpakUpdates = parseInt(f[2]) || 0
-            root.lastChecked = new Date().toLocaleTimeString(Qt.locale(I18n.localeName), "HH:mm"); root.checking = false
-        } }
-        onExited: root.checking = false
+        command: ["nodalix-updater", "check", "--json"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try { root._acceptInfo(JSON.parse(text)) }
+                catch (e) {
+                    root.state = "error_recoverable"
+                    root.errorMessage = I18n.tr("The updater returned invalid data")
+                    root.statusText = root.errorMessage
+                }
+            }
+        }
+        stderr: StdioCollector {
+            onStreamFinished: if (text.trim() !== "") root.errorMessage = text.trim()
+        }
+        onExited: function(code) {
+            root.checking = false
+            if (code !== 0) {
+                root.state = "error_recoverable"
+                root.statusText = root.errorMessage || I18n.tr("Could not check for updates")
+            }
+        }
     }
+
+    property Process _update: Process {
+        command: ["pkexec", "/usr/bin/nodalix-updater", "update"]
+        stdout: StdioCollector {}
+        stderr: StdioCollector {
+            onStreamFinished: if (text.trim() !== "") root.errorMessage = text.trim()
+        }
+        onExited: function(code) {
+            root.running = false
+            if (code === 0) {
+                root.statusText = I18n.tr("Update completed")
+                root.check()
+            } else {
+                root.state = "error_recoverable"
+                root.statusText = root.errorMessage || I18n.tr("The update finished with errors")
+            }
+        }
+    }
+
     Component.onCompleted: check()
 }

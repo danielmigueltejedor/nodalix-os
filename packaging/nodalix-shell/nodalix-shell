@@ -1,8 +1,17 @@
 #!/bin/sh
+set -u
+
 old_state="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell"
 new_state="${XDG_STATE_HOME:-$HOME/.local/state}/nodalix"
-if [ ! -e "$new_state/settings.json" ] && [ -d "$old_state" ]; then
+marker="$new_state/.migrated-from-quickshell-v1"
+
+if [ ! -e "$marker" ] && [ -d "$old_state" ]; then
     mkdir -p "$new_state"
-    cp -a "$old_state/." "$new_state/" 2>/dev/null || true
+    if cp -a --no-clobber "$old_state/." "$new_state/"; then
+        : > "$marker"
+    else
+        printf '%s\n' "nodalix-shell: state migration incomplete; it will be retried" >&2
+    fi
 fi
-exec qs -c nodalix "$@"
+
+exec qs --no-duplicate -c nodalix "$@"
