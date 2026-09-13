@@ -1,9 +1,0 @@
-[Desktop Entry]
-Name=Apple Music
-Comment=Apple Music Nodalix Web App
-Exec=chromium --class=AppleMusic --user-data-dir=/home/dani/.local/share/nodalix/webapps/apple-music --app=https://music.apple.com/
-Terminal=false
-Type=Application
-Icon=apple-music
-StartupWMClass=AppleMusic
-Categories=AudioVideo;Music;Network;

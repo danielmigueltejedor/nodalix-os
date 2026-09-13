@@ -1,8 +1,0 @@
-name = "example-theme"
-display_name = "Example Theme"
-version = "0.1.0"
-bundle_type = "theme"
-target = "nodalix-os"
-author = "Daniel Miguel"
-description = "Example Nodalix bundle manifest."
-

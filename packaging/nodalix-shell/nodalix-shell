@@ -1,0 +1,8 @@
+#!/bin/sh
+old_state="${XDG_STATE_HOME:-$HOME/.local/state}/quickshell"
+new_state="${XDG_STATE_HOME:-$HOME/.local/state}/nodalix"
+if [ ! -e "$new_state/settings.json" ] && [ -d "$old_state" ]; then
+    mkdir -p "$new_state"
+    cp -a "$old_state/." "$new_state/" 2>/dev/null || true
+fi
+exec qs -c nodalix "$@"

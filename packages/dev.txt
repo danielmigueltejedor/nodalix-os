@@ -1,4 +1,0 @@
-nodejs
-pnpm
-github-cli
-python-pip

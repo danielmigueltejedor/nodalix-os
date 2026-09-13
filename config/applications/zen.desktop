@@ -1,7 +1,0 @@
-[Desktop Entry]
-Name=Zen Browser
-Exec=zen %U
-Icon=zen
-Type=Application
-NoDisplay=true
-Hidden=false

@@ -1,2 +1,0 @@
-#!/usr/bin/env bash
-notify-send "Nodalix Weather" "Popup de tiempo próximamente"

@@ -1,7 +1,0 @@
-[Desktop Entry]
-Name=Volume Control
-Exec=pavucontrol
-Icon=multimedia-volume-control
-Type=Application
-NoDisplay=true
-Hidden=false

@@ -1,0 +1,13 @@
+[Unit]
+Description=Nodalix desktop shell
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=%h/.config/quickshell/launch.sh
+KillMode=process
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

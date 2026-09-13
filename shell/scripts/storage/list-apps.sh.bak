@@ -1,0 +1,55 @@
+#!/bin/sh
+set -u
+
+# Emit: backend | id | installed-size | display-name | icon-name/path
+# Only explicit Arch packages are listed, matching the previous settings UI.
+for package_id in $(pacman -Qqe 2>/dev/null); do
+    package_size=$(expac -Q '%m' "$package_id" 2>/dev/null || printf '0')
+    desktop_files=$(pacman -Ql "$package_id" 2>/dev/null | awk '$2 ~ /\/share\/applications\/[^/]+\.desktop$/ { print $2 }')
+    desktop_file=$(
+        printf '%s\n' "$desktop_files" |
+        while IFS= read -r candidate; do
+            [ -n "$candidate" ] || continue
+            if grep -Eq '^(NoDisplay|Hidden)=true$' "$candidate" 2>/dev/null; then
+                continue
+            fi
+            printf '%s\n' "$candidate"
+            break
+        done
+    )
+    if [ -z "$desktop_file" ]; then
+        desktop_file=$(printf '%s\n' "$desktop_files" | awk 'NF { print; exit }')
+    fi
+
+    display_name=$package_id
+    icon_name=application-x-executable
+    if [ -n "$desktop_file" ] && [ -r "$desktop_file" ]; then
+        localized_name=$(awk -F= '/^\[Desktop Entry\]$/ { active=1; next } /^\[/ && active { exit } active && $1 == "Name[es]" { sub(/^[^=]*=/, ""); print; exit }' "$desktop_file")
+        default_name=$(awk -F= '/^\[Desktop Entry\]$/ { active=1; next } /^\[/ && active { exit } active && $1 == "Name" { sub(/^[^=]*=/, ""); print; exit }' "$desktop_file")
+        desktop_icon=$(awk -F= '/^\[Desktop Entry\]$/ { active=1; next } /^\[/ && active { exit } active && $1 == "Icon" { sub(/^[^=]*=/, ""); print; exit }' "$desktop_file")
+        [ -n "$localized_name" ] && display_name=$localized_name
+        [ "$display_name" != "$package_id" ] || [ -z "$default_name" ] || display_name=$default_name
+        [ -z "$desktop_icon" ] || icon_name=$desktop_icon
+    fi
+    printf 'pacman|%s|%s|%s|%s\n' "$package_id" "$package_size" "$display_name" "$icon_name"
+done
+
+flatpak list --app --columns=application,name,size 2>/dev/null |
+while IFS="$(printf '\t')" read -r app_id display_name app_size; do
+    [ -n "$app_id" ] || continue
+    desktop_file=""
+    for candidate in \
+        "$HOME/.local/share/flatpak/exports/share/applications/$app_id.desktop" \
+        "/var/lib/flatpak/exports/share/applications/$app_id.desktop"; do
+        if [ -r "$candidate" ]; then
+            desktop_file=$candidate
+            break
+        fi
+    done
+    icon_name=$app_id
+    if [ -n "$desktop_file" ]; then
+        desktop_icon=$(awk -F= '/^\[Desktop Entry\]$/ { active=1; next } /^\[/ && active { exit } active && $1 == "Icon" { sub(/^[^=]*=/, ""); print; exit }' "$desktop_file")
+        [ -z "$desktop_icon" ] || icon_name=$desktop_icon
+    fi
+    printf 'flatpak|%s|%s|%s|%s\n' "$app_id" "$app_size" "$display_name" "$icon_name"
+done

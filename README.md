@@ -1,36 +1,22 @@
 # Nodalix OS
 
-Nodalix OS is a custom Linux desktop experience based on CachyOS/Arch and designed around Hyprland.
+Nodalix is an Arch Linux desktop built around Hyprland and QuickShell.
 
-The goal is not to be another generic distribution with many desktop choices. Nodalix OS focuses on one polished default experience:
+This development branch replaces the historical prototype with the sources of
+the installed Nodalix 0.1.1 system. The previous repository remains available in
+Git history. This is a development baseline, not a Nodalix 0.2.0 release.
 
-- Hyprland-first desktop
-- Fast and fluid navigation
-- Nodalix Command Bar / Spotlight-style menu
-- Smart window management
-- Privacy indicators for microphone, camera, screen sharing and AI
-- Integrated Wallpaper Engine menu
-- Integrated media popup
-- Gaming/dev/Home Assistant workflows
-- Secure and private by default
-- Optional AI and voice control with explicit permissions
+- `shell/`: installed QuickShell sources, including Caelestia.Blobs C++ sources.
+- `updater/`: installed 0.1.0 updater backend and service definitions.
+- `packaging/`: package recipes being migrated from the local bootstrap builds.
+- `docs/baseline/`: installation provenance and original packaging definitions.
 
-## Current status
+Official shell code belongs in `/etc/xdg/quickshell/nodalix/`. The
+`nodalix-shell.service` user unit must supervise `/usr/bin/nodalix-shell`, which
+selects `qs -c nodalix`. User preferences belong under XDG directories, outside
+the source tree. The 0.2.0 work must finish and pass upgrade validation before
+publishing the stable release or building the final ISO.
 
-Early development. This repository currently acts as a Nodalix layer that can be installed on top of CachyOS.
-
-## Install
-
-```bash
-./install.sh
-```
-
-## Philosophy
-
-Nodalix OS should feel complete from the first boot:
-
-- no desktop picker
-- no broken Hyprland defaults
-- no hidden privacy-sensitive activity
-- no configuration being overwritten without backups
-- fast, beautiful, stable and deeply integrated
+See [the baseline audit](docs/baseline/README.md) for known defects and release
+gates. Do not use the imported upstream installation instructions to deploy this
+development branch on an installed system.

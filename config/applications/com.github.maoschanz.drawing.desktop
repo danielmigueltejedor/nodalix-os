@@ -1,7 +1,0 @@
-[Desktop Entry]
-Name=Drawing
-Exec=drawing %U
-Icon=com.github.maoschanz.drawing
-Type=Application
-NoDisplay=true
-Hidden=false

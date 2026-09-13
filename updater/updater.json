@@ -1,0 +1,5 @@
+{
+  "repository": "danielmigueltejedor/nodalix-os",
+  "channel": "stable",
+  "manifest_asset": "nodalix-manifest.json"
+}

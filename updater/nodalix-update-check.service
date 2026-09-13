@@ -1,0 +1,8 @@
+[Unit]
+Description=Check for Nodalix updates
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/sh -c '/usr/bin/install -d -m755 /var/cache/nodalix; /usr/bin/nodalix-updater check --json > /var/cache/nodalix/update-status.json.tmp && /usr/bin/mv /var/cache/nodalix/update-status.json.tmp /var/cache/nodalix/update-status.json'

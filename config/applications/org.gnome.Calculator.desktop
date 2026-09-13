@@ -1,7 +1,0 @@
-[Desktop Entry]
-Name=Calculator
-Exec=gnome-calculator
-Icon=org.gnome.Calculator
-Type=Application
-NoDisplay=true
-Hidden=false

@@ -1,0 +1,687 @@
+[
+  {
+    "path": "Caelestia/Blobs/caelestia-blobs.qmltypes",
+    "sha256": "15731404ce329b5bb2a7a9bea88077e394e371144e524c5817a7a63f95b45075",
+    "size": 6769
+  },
+  {
+    "path": "Caelestia/Blobs/caelestia-blobs_qml_module_dir_map.qrc",
+    "sha256": "b11e270ecc4b19801053051fc9569e895d033fe766966b6a7e5620a191660e35",
+    "size": 174
+  },
+  {
+    "path": "Caelestia/Blobs/libcaelestia-blobsplugin.so",
+    "sha256": "81a8062137cfda2496d4faa1fce6ccf1a6424b02c8b3829be7dcd9953534487e",
+    "size": 18936
+  },
+  {
+    "path": "Caelestia/Blobs/qmldir",
+    "sha256": "e1bac3b542400d4ed4a2123ea3100b2b0746496a2d1e8f098d0e0379dfe2dcb1",
+    "size": 210
+  },
+  {
+    "path": "DesktopWidgets.qml",
+    "sha256": "a51bc121601d8c640bb144207d65acbc2f5efe9c4411ff3b44b752fbec995899",
+    "size": 34649
+  },
+  {
+    "path": "LICENSE",
+    "sha256": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+    "size": 35149
+  },
+  {
+    "path": "LockScreen.qml",
+    "sha256": "1789d96f8ee148470f5f7ca384d143bce63e95dd50396188c0a850f622e6f825",
+    "size": 10535
+  },
+  {
+    "path": "MainWindow.qml",
+    "sha256": "1ee980ebae1e50d9146b44c56b242a239cd7edaafea28a185be659f8422d1871",
+    "size": 41666
+  },
+  {
+    "path": "README.md",
+    "sha256": "e5f76eae1b352d2a0f1c37b6a6a8e0de51327bc67c1fc1405c781bc9c573508a",
+    "size": 8402
+  },
+  {
+    "path": "VERSION",
+    "sha256": "80447316529fc62014fbaa047fb67c51ac30e32830cda370405349d8d66d196c",
+    "size": 6
+  },
+  {
+    "path": "assets/avatars/SOURCES.md",
+    "sha256": "4e4ff1e09bdfba651e5f777bf6d6c4f7b9b5a6de6065bb3f0409e0b58611b51e",
+    "size": 677
+  },
+  {
+    "path": "assets/avatars/luna.png",
+    "sha256": "1a7ffd82e387c0f1fe0481737050d338c0b0ac61136e3a821418eeac8e0d23eb",
+    "size": 97482
+  },
+  {
+    "path": "assets/avatars/nova.png",
+    "sha256": "fa143a51c989b14c86c5ecd55df93abd1f81b090559b4a4c872f3f0302971ecc",
+    "size": 65711
+  },
+  {
+    "path": "assets/avatars/orbit-bot.png",
+    "sha256": "9b1365f4b46e064879558bcbd0f86957646554c657642628af8da4047d3acac0",
+    "size": 53460
+  },
+  {
+    "path": "assets/avatars/prism.png",
+    "sha256": "b667a3206c9e8352b3f76466adc63295838d00d04a96f68f63338cbd589bd115",
+    "size": 147340
+  },
+  {
+    "path": "assets/avatars/wave.png",
+    "sha256": "91308045ccdf6e28622d01a4a44f34c3db456d484f18cacadd60d43f9dd2036d",
+    "size": 104101
+  },
+  {
+    "path": "assets/bongocat.gif",
+    "sha256": "1fba455dbbf57507f8021fa49ce7ebb1d4a6973f0f1b5a760ad60e473befddf4",
+    "size": 7350
+  },
+  {
+    "path": "assets/icons/localsend-monochrome.svg",
+    "sha256": "71546712c5ee23d29b5e80c1d17856d8c98089a907fe1a4c2240c7edf7548ce2",
+    "size": 741
+  },
+  {
+    "path": "assets/icons/localsend-official-mask.png",
+    "sha256": "24cd5a2cb577a8c438e8a97f3dd598de86340f08ac599a05a291114fc8e92919",
+    "size": 6234
+  },
+  {
+    "path": "assets/icons/localsend.png",
+    "sha256": "d7e6016dd11ff9ce48ed6f1f24d8090b85d70982a450f1f1e51943739e166a48",
+    "size": 4688
+  },
+  {
+    "path": "assets/sounds/notification.wav",
+    "sha256": "8f1e42f2fd85073e4ee182a19383d0dbd65dc5733b0e584eb10e08fdbc4ef977",
+    "size": 196962
+  },
+  {
+    "path": "assets/sounds/phone-incoming.wav",
+    "sha256": "391bc3a4c0b31faed8fe6d9ffd03707d177766bca9fd0144c5bbec93fdb2f71e",
+    "size": 281098
+  },
+  {
+    "path": "bar/Bar.qml",
+    "sha256": "1cfae7682056657d5cde2aab83b3d460313dac9be1b3ff35dd6c7e827ada36a1",
+    "size": 2906
+  },
+  {
+    "path": "bar/BarCenter.qml",
+    "sha256": "cb278d6c63d8bcb5bc6acea2a9faf3e82b3c8594700192d9ec503d1027dcb46c",
+    "size": 552
+  },
+  {
+    "path": "bar/BarExclusionZone.qml",
+    "sha256": "32d25ec72caa304bdeeea8b37d69a19dc066b5c3d2e1651b17fe5239f0b198f6",
+    "size": 623
+  },
+  {
+    "path": "bar/BarLeft.qml",
+    "sha256": "3dcf00a3081f94fe88dfdf599494d5e474a2474cdf0b56661e8dc9f4f1eec842",
+    "size": 757
+  },
+  {
+    "path": "bar/BarRight.qml",
+    "sha256": "ab0b38b25d3fbac4b76d7a7cce32e4dff84a46bed7c3f933bb28556d8a8e0ac2",
+    "size": 2517
+  },
+  {
+    "path": "bar/ScreenBorder.qml",
+    "sha256": "a71095dc46fadd05132c84ac5ea5b2092a7d3bb190f6e8a9e293b18ba21de777",
+    "size": 4741
+  },
+  {
+    "path": "blobs-plugin/CMakeLists.txt",
+    "sha256": "524009196284419ea619dc872004ba73811f59ed5c92af5d212a0ab075a65234",
+    "size": 1519
+  },
+  {
+    "path": "blobs-plugin/src/blobgroup.cpp",
+    "sha256": "3c7aa64e61ccd1628f4975e03c2ce68505793a9a9a4c5d340bad8e73cddaab73",
+    "size": 2898
+  },
+  {
+    "path": "blobs-plugin/src/blobgroup.hpp",
+    "sha256": "87796ab2d87475390d0dbbe512208f7163ad65df01b5088caf0a39da56dd9cf6",
+    "size": 1306
+  },
+  {
+    "path": "blobs-plugin/src/blobinvertedrect.cpp",
+    "sha256": "3df0d1c99aa1006babe8e504d177a75760de41aee7de2c1171a505565858c7e3",
+    "size": 5587
+  },
+  {
+    "path": "blobs-plugin/src/blobinvertedrect.hpp",
+    "sha256": "d9b1a62ed4bb82ca83912762a22f98cd9d69fa9761de8bfa18bc940169885a66",
+    "size": 1478
+  },
+  {
+    "path": "blobs-plugin/src/blobmaterial.cpp",
+    "sha256": "c955fd53697cceb9eb3bb7fce5141b08665ca455e839df1567efb7f21c33729f",
+    "size": 3477
+  },
+  {
+    "path": "blobs-plugin/src/blobmaterial.hpp",
+    "sha256": "77dfd5a67bb73b343e6af901cc294717a871d631b6918bad03537e7ae7c5f2cf",
+    "size": 1565
+  },
+  {
+    "path": "blobs-plugin/src/blobrect.cpp",
+    "sha256": "b48e1601fcb524480bc5091fcd2e4aa2fe0264f3014d20222f868514b2384f50",
+    "size": 7950
+  },
+  {
+    "path": "blobs-plugin/src/blobrect.hpp",
+    "sha256": "dfcc0ef66423e55de1e722a90169e552fdc7069ad38ff72788f097e9cf19ea72",
+    "size": 3940
+  },
+  {
+    "path": "blobs-plugin/src/blobshape.cpp",
+    "sha256": "3d5a8d9d948191bdcd26772e5a2cf0c1e3b52173d667c688d47f9cd4b5a661d4",
+    "size": 15828
+  },
+  {
+    "path": "blobs-plugin/src/blobshape.hpp",
+    "sha256": "074a9b1d3099c1af75b1377e95c094665d14c372204238aaa40997b3fce24b2d",
+    "size": 2345
+  },
+  {
+    "path": "blobs-plugin/src/shaders/blob.frag",
+    "sha256": "8151a130f53fec580a43ac7f1986395150b0f20d5f0b97f254703eb169f3070b",
+    "size": 10128
+  },
+  {
+    "path": "blobs-plugin/src/shaders/blob.vert",
+    "sha256": "5a1baadc89f63a86cc3f61a02cb1aac0401b056183bfd2354777ebbfc10841b8",
+    "size": 617
+  },
+  {
+    "path": "cava.conf",
+    "sha256": "0e716dc39242d181c1ea714eece5c082df729acc91f33a83d20c16a6e2e9e556",
+    "size": 264
+  },
+  {
+    "path": "hypr/quickshell.lua",
+    "sha256": "a18e63ac0f9d7a7b28794c02fa7d055af11ebcd5385f50903d10e71366ea14c0",
+    "size": 4485
+  },
+  {
+    "path": "panels/AudioPanel.qml",
+    "sha256": "da5a50865d1a1cfdefb689133eb82a9d497636f30c163f4d2838c0d6c46cbcd2",
+    "size": 14927
+  },
+  {
+    "path": "panels/BluetoothPanel.qml",
+    "sha256": "f32e647785f188ec21299163d5ee5c6305ca5221934e2ef7376d7616e9bbfa18",
+    "size": 8018
+  },
+  {
+    "path": "panels/ContextMenu.qml",
+    "sha256": "b20d5829ce2d0e4e83b463e6051ccbcaa859ba5eb66022b97c15e4c17ef9d557",
+    "size": 10608
+  },
+  {
+    "path": "panels/Dashboard.qml",
+    "sha256": "820cf27a4468c002f68687e94c5feac81b4b51aea52cb20e3c82a877e7c8f694",
+    "size": 128685
+  },
+  {
+    "path": "panels/Launcher.qml",
+    "sha256": "abafd145740e3e20977063c6ff6886ff9a85c3ff8e22a8cb3b20f1ce3f231581",
+    "size": 24444
+  },
+  {
+    "path": "panels/NetworkPanel.qml",
+    "sha256": "38d0b3e20b0e3a8dd815ff1d59d8b3cb4b54272c68904797cdde38cbaaf1eaf1",
+    "size": 13846
+  },
+  {
+    "path": "panels/NotificationCenter.qml",
+    "sha256": "42fd9dd99e6188bae6b8f72a46100ae8c17b932248977f888d5c27f6c15bd328",
+    "size": 19232
+  },
+  {
+    "path": "panels/PowerPanel.qml",
+    "sha256": "4cd7981a6f3b3224307dd976de983de27c1beda01b1b7df70739247b15f38209",
+    "size": 7823
+  },
+  {
+    "path": "panels/PowerProfilePanel.qml",
+    "sha256": "a284b0d2fa490ff734af39f631b149e89a8261fec8390e30ee797aed79a1d764",
+    "size": 3980
+  },
+  {
+    "path": "panels/Settings.qml",
+    "sha256": "29c3aa9e5857fb0625a8def4d54b31258ce3154c2798e998cbba15eaf6613362",
+    "size": 235069
+  },
+  {
+    "path": "panels/ToastPopup.qml",
+    "sha256": "67fddfe3a9e754ba6ac01c495af448d54189259cb6f02f4f5a5ba5d6031e3876",
+    "size": 6139
+  },
+  {
+    "path": "panels/TrayMenuPanel.qml",
+    "sha256": "905087ec654f8251fa81f92ff22d5ab207591291d40aafb223c4cf6cf6bb584e",
+    "size": 1117
+  },
+  {
+    "path": "panels/WorkspaceOverview.qml",
+    "sha256": "10b5433fc473d19e75f8f93109085cd09aa90a8ff59eb286df5a09f2f401b770",
+    "size": 22855
+  },
+  {
+    "path": "panels/qmldir",
+    "sha256": "bae116d4b13732ce30eabe0d802900f975bfa854a4f0a1e9be3729029536ec72",
+    "size": 385
+  },
+  {
+    "path": "scripts/hypr/movewin.sh",
+    "sha256": "7b6a18a7776551a4eb615b19e6e0719496738942603f49459422ae6f5b573a71",
+    "size": 1160
+  },
+  {
+    "path": "scripts/hypr/nodalix-display-capabilities.py",
+    "sha256": "6fee604cd70fb2a64ca56396b320549160de464e0b52899e994691656f0e6d0f",
+    "size": 1658
+  },
+  {
+    "path": "scripts/nodalix-set-font.sh",
+    "sha256": "0f552491299ac4a6e995fc1d6f461d711353ddf31b320ff7b29f5927e597c797",
+    "size": 2256
+  },
+  {
+    "path": "scripts/nodalix-set-system-language.sh",
+    "sha256": "e9997d55fcd0e18c2c56668e75ef0c6bc4dfe81f538ae1d08e5b4619f2d0369c",
+    "size": 464
+  },
+  {
+    "path": "scripts/nodalix-sync-user-language.sh",
+    "sha256": "40f771b0666deb3d792ac3f948bf717d3ef678fa07f4dfa995950356eaec2850",
+    "size": 5033
+  },
+  {
+    "path": "scripts/storage/list-apps.sh",
+    "sha256": "eeb1ada5683fd123a5c473fa0592fda9b52761322d81ae3adb58a5c96211dfed",
+    "size": 4715
+  },
+  {
+    "path": "scripts/storage/list-apps.sh.bak",
+    "sha256": "a1e88c2e8c45ab323379ae5a8f7a8358de5b633dc033ca78725864a4e2568d3f",
+    "size": 2740
+  },
+  {
+    "path": "scripts/update/nodalix-update-apps.sh",
+    "sha256": "23a0aa7d4095226509b898a4bd8196618be20a089b48c480ad6a7f729a22ae15",
+    "size": 173
+  },
+  {
+    "path": "services/AppService.qml",
+    "sha256": "6c11281303d7b89813d8d06546e2e63e8ccd83ca1ae0956a3b8831d9eaa1f619",
+    "size": 5205
+  },
+  {
+    "path": "services/AppUsageService.qml",
+    "sha256": "021f3dbee9ede21484e216273d0279f3d7f2731eaf5d70b1b94b2597d5bd65e8",
+    "size": 3643
+  },
+  {
+    "path": "services/AudioService.qml",
+    "sha256": "ff0a09549d105bee87e2045e4dd788aad17116d87b386300cb6233b248579a47",
+    "size": 3494
+  },
+  {
+    "path": "services/AutoLockService.qml",
+    "sha256": "e23bdabc87f183ca55e6a75acd0fed2620962d4c9987f2afd687a726102ef4dc",
+    "size": 2355
+  },
+  {
+    "path": "services/BatteryService.qml",
+    "sha256": "d0166f60e589e53297adcfa798c3c636fc3e50fa93c4f7fafc9a1ef8e37a9c70",
+    "size": 2898
+  },
+  {
+    "path": "services/BindingService.qml",
+    "sha256": "e28a0f4e47fae683216e9ff44fa50b1ed94ef8331e8a020921d74408dadd647a",
+    "size": 2978
+  },
+  {
+    "path": "services/BrightnessService.qml",
+    "sha256": "6f175d04b81f63731957031e1fe750dc8f8f54b8bd0abb4656a9f9650988efb1",
+    "size": 5716
+  },
+  {
+    "path": "services/CalendarService.qml",
+    "sha256": "f133e26498b69a780ddadb259bf5a9ad2cc601fa8a14152aff432b8e867f349c",
+    "size": 5551
+  },
+  {
+    "path": "services/CavaService.qml",
+    "sha256": "0d660d5e065d51088e33cc603d79cd553be34a0d4d332dc5a79160f07bf62e06",
+    "size": 2483
+  },
+  {
+    "path": "services/ContextMenuService.qml",
+    "sha256": "04d30bfc17f9ee904e32a76da849cc23252ba6a716c3354d6c1dc02f2453f228",
+    "size": 3918
+  },
+  {
+    "path": "services/DependencyService.qml",
+    "sha256": "dbdc01cc495532cadba34f28c5744b781bbdd6b55bab519b2c8d6c728b5201de",
+    "size": 4100
+  },
+  {
+    "path": "services/DesktopWidgetService.qml",
+    "sha256": "709cef5a39758576cb8f497ca5d569033fa788cd51165bf4f9acebd4c3b637d2",
+    "size": 190
+  },
+  {
+    "path": "services/FontService.qml",
+    "sha256": "40427ce68d3c60a631aae7359e42862347df7a1d485e5be86388a68d244e8492",
+    "size": 854
+  },
+  {
+    "path": "services/GamingService.qml",
+    "sha256": "91342f7407f58f5f1561f1f14b45ea0b490774d5164cd73202899d1d171245fa",
+    "size": 1688
+  },
+  {
+    "path": "services/HyprlandConfigService.qml",
+    "sha256": "aa785e9f48a4ccf3e63646369ebb719b2567e47577e9e0e9601f19208795de11",
+    "size": 22840
+  },
+  {
+    "path": "services/I18n.qml",
+    "sha256": "0c9fa422634c5fccd5a71ddc561445a870997001fee9f14b9f93fcfdd916936b",
+    "size": 32978
+  },
+  {
+    "path": "services/LauncherService.qml",
+    "sha256": "d83fd3674aa7be3ccf1fb8b26812dc4bbe38d81663132d95d816059e168f6293",
+    "size": 988
+  },
+  {
+    "path": "services/LocalSendService.qml",
+    "sha256": "be3a93abf0abb51ea3f2968fac0aa6e9abe006b9dbbd53e0cc86e8514447bad2",
+    "size": 4492
+  },
+  {
+    "path": "services/LockService.qml",
+    "sha256": "6a38614448f8406832e8b68365d7eeff255ed6473f21424cd1d7ede16418ca4d",
+    "size": 2567
+  },
+  {
+    "path": "services/MprisService.qml",
+    "sha256": "41ad4bdf55927b68b22535f8c0a45d02b8f6631bb50bb9f172415ef72cd4eb36",
+    "size": 10944
+  },
+  {
+    "path": "services/NotificationService.qml",
+    "sha256": "37a3a7b8d945c56e22dc7238419b7e419fe2d31ee80c0f2a63a727bdf3c44280",
+    "size": 14501
+  },
+  {
+    "path": "services/Paths.qml",
+    "sha256": "f161258f202aec23e0057cdb330127c62f83435eaccefae9549543c06d06bded",
+    "size": 2214
+  },
+  {
+    "path": "services/PinnedService.qml",
+    "sha256": "d1160487ff9b29c198c07cab7e7686e8753e157c7bd018e230888aafbf72e5c4",
+    "size": 4009
+  },
+  {
+    "path": "services/PopoutService.qml",
+    "sha256": "b005cd821337ed3970d232728631959be9d6cd4853daaf7dff6be4acd1757714",
+    "size": 3731
+  },
+  {
+    "path": "services/PrivacyService.qml",
+    "sha256": "09a57108b133defed142d19b422874864e3befb776e9790734e56393c125e9bc",
+    "size": 2001
+  },
+  {
+    "path": "services/ProfileService.qml",
+    "sha256": "37d6b61c6b3f7d2b9d6d105fbcd543b0a1f3de5ca74d6ebae7a2dbdee349307c",
+    "size": 2864
+  },
+  {
+    "path": "services/ScreenRecorderService.qml",
+    "sha256": "031bdf988bc6867d6898b87169419db9edf4acf584dc36b4d7ded28cbb9c7ea7",
+    "size": 9466
+  },
+  {
+    "path": "services/SettingsService.qml",
+    "sha256": "c42784f594aef4818aa511af57f34863f92a4f360bf793167c352176b0af68cc",
+    "size": 3274
+  },
+  {
+    "path": "services/SettingsUi.qml",
+    "sha256": "178102594038a8b676eab38a2f3cf9cc36c62c26f13e25256b674c7cc07c2ed2",
+    "size": 719
+  },
+  {
+    "path": "services/StorageService.qml",
+    "sha256": "4bb59559f0cda8935bae37570303844f0f394e285b6cb5079dde0be227474596",
+    "size": 5053
+  },
+  {
+    "path": "services/SystemControlService.qml",
+    "sha256": "8d7a0b807d198d19c94356a1fd162b4fc2c68f669669b2c2fb06cb8698c46ac8",
+    "size": 7125
+  },
+  {
+    "path": "services/SystemLocaleService.qml",
+    "sha256": "d2ba47989ae001db956996de1416b6843a14182b39db96877481d5bfc47641e6",
+    "size": 1588
+  },
+  {
+    "path": "services/SystemMetricsService.qml",
+    "sha256": "7102a490bf628f667fbed2767efe57dfc67980def2ed7326f4813caa407b58f7",
+    "size": 2617
+  },
+  {
+    "path": "services/ToolsService.qml",
+    "sha256": "dfa4a270db19844dcea481c2267ca7317bbb19c953565ba1e6aad301736a2c1f",
+    "size": 4281
+  },
+  {
+    "path": "services/UpdateService.qml",
+    "sha256": "e23e9788533663c3b4fe460fde5cd35cdccc58add936af64511db1f98eb6219a",
+    "size": 5359
+  },
+  {
+    "path": "services/WallhavenService.qml",
+    "sha256": "0727faa7e9d22dac190a7cd5dc0180a54704e3c36c09049257d594e346f33e0c",
+    "size": 2632
+  },
+  {
+    "path": "services/WallpaperService.qml",
+    "sha256": "57a697c8b9662a9a837f019ded7a1147c66c0b327b228b68f012297265cf01d1",
+    "size": 16099
+  },
+  {
+    "path": "services/WeatherService.qml",
+    "sha256": "ffe2de381d66fec985702b4219539b4cc86bfe60d4eed9892c2bd378095e2fcf",
+    "size": 4119
+  },
+  {
+    "path": "services/YtmCompanionService.qml",
+    "sha256": "2969999aa1f1f8b74fb56c8e6502b49b2924cf576de146c1e1a22b5ef11b7f33",
+    "size": 10808
+  },
+  {
+    "path": "services/YtmSocket.qml",
+    "sha256": "ca58cd698c9331b7856eae09e25f18621fedfa1c61a2026420fde24c45030a69",
+    "size": 829
+  },
+  {
+    "path": "services/qmldir",
+    "sha256": "0a6b9b7247a1598953f6927bb293063a487c18c174a87659a0c1b47b8a4cf574",
+    "size": 2111
+  },
+  {
+    "path": "shell.qml",
+    "sha256": "356d7895e53ea2570f29fcd293173b2f1d558bad6a79bb51eb4a93931995e799",
+    "size": 6896
+  },
+  {
+    "path": "theme/Elevation.qml",
+    "sha256": "807589a9648c7b15c7285e2b3de6acdf18a42553903092aa2316cf20a2adc17a",
+    "size": 592
+  },
+  {
+    "path": "theme/ThemeManager.qml",
+    "sha256": "f344dd933db6980d1c8429cef99fc2f7629d409ff9f12ffc0b618d8d802ea5d0",
+    "size": 17893
+  },
+  {
+    "path": "theme/matugen/matugen.toml",
+    "sha256": "7557794321289e7f4551e1491023c20b9117cdff6d420593eee3a5c915e5e811",
+    "size": 167
+  },
+  {
+    "path": "theme/matugen/quickshell.tera",
+    "sha256": "0bc9b72b2c85036d32072a4285327d76c04e084fa5471d9c52befe13389a188b",
+    "size": 2393
+  },
+  {
+    "path": "theme/matugen/setwallpaper.sh",
+    "sha256": "512e11c7380f9bc148d5343233e02f8fe2dc23af3ab6e52cce49ebdb8a19055c",
+    "size": 682
+  },
+  {
+    "path": "theme/presets/catppuccin-frappe.json",
+    "sha256": "116a8af4d2fd6635090773ef7585c02afd5c2a0914eb3ebc54f2cc469da007f2",
+    "size": 1936
+  },
+  {
+    "path": "theme/presets/catppuccin-latte.json",
+    "sha256": "7c7b3c3421cae22d2283e36aff7f658ff2f9656908feba3ff201da45ff3eed77",
+    "size": 1934
+  },
+  {
+    "path": "theme/presets/catppuccin-macchiato.json",
+    "sha256": "1b6292ed3372f5913e00b3d2fc62a493af23fd00a51398d12df57047c104f2c2",
+    "size": 1941
+  },
+  {
+    "path": "theme/presets/catppuccin-mocha.json",
+    "sha256": "6ca9cdb3b91b0aada5dc2ce46bbae2646e5c23e453b7e502473c692eac54a866",
+    "size": 1933
+  },
+  {
+    "path": "theme/presets/nodalix.json",
+    "sha256": "ddc0c4bcdc659435f5262ca7fa403859cfe4ca4850881c16506d0b082126d5d6",
+    "size": 1217
+  },
+  {
+    "path": "theme/presets/nord.json",
+    "sha256": "c68033fdcc50b536f00e5be80e05152c58857969049f26501df4ffde4fb2667f",
+    "size": 1581
+  },
+  {
+    "path": "theme/presets/tokyo-night-light.json",
+    "sha256": "e6637582796ebe9986b68d75e1465a02fa6549a08aca490d0704c1e83d866d53",
+    "size": 1672
+  },
+  {
+    "path": "theme/presets/tokyo-night-storm.json",
+    "sha256": "0e75388954ec97de5dc7bb8f3ecd80e4344be0c0ed602e5228fcf86d6d1adc4e",
+    "size": 1845
+  },
+  {
+    "path": "theme/presets/tokyo-night.json",
+    "sha256": "a67cfe96334ccd90cba270562b20853859130c55654372aed5fdbef45dfcafee",
+    "size": 1833
+  },
+  {
+    "path": "theme/qmldir",
+    "sha256": "c85487125d7dd2fe861050af62d26c9fb2cdab4b683565f0e292a1519308b11a",
+    "size": 72
+  },
+  {
+    "path": "widgets/bar/Audio.qml",
+    "sha256": "0fda06feb1e256dde80eac8d08177ed79b05ed9c3cb829126938099951cdd2ac",
+    "size": 2127
+  },
+  {
+    "path": "widgets/bar/BarSeparator.qml",
+    "sha256": "695652697a9cae033af8903badf3275581155e90302cbc52639c2cee516186e9",
+    "size": 132
+  },
+  {
+    "path": "widgets/bar/Battery.qml",
+    "sha256": "44c748e4bc6baff9917da670e5f7c22568738f6f1752d8c93dc7006a43173913",
+    "size": 2393
+  },
+  {
+    "path": "widgets/bar/BluetoothStatus.qml",
+    "sha256": "401909e82811a6fe3fd1d5ff17cd9d4ca5be69ab5495e84e5cb95725d151f46f",
+    "size": 1716
+  },
+  {
+    "path": "widgets/bar/Clock.qml",
+    "sha256": "8696f76d34a3aaafcecf49d886007d595d5306d6bd8c331610635df51b86ef85",
+    "size": 3109
+  },
+  {
+    "path": "widgets/bar/LauncherButton.qml",
+    "sha256": "f4dd83edc57055fff692edb4279e33c3dee297f79e20b85fa5e4b378b6ce5797",
+    "size": 891
+  },
+  {
+    "path": "widgets/bar/Microphone.qml",
+    "sha256": "372c0f88a140a3c7568a7fc8bb3cb0451b1f36ee5b0475746641dd65cf7aa7fa",
+    "size": 1335
+  },
+  {
+    "path": "widgets/bar/NetworkStatus.qml",
+    "sha256": "d4036c24c3ff3adca360983ec0689fd45edea59e55ed6a98c7621681db456f03",
+    "size": 3282
+  },
+  {
+    "path": "widgets/bar/NotifButton.qml",
+    "sha256": "f79c077196083de4d59edf8180e7ef833431cb0f1b29e2f3ccc45baae00fa7e7",
+    "size": 2142
+  },
+  {
+    "path": "widgets/bar/PowerButton.qml",
+    "sha256": "6efc29cc006046fa4153b337afab4ecc4323c19eee768cf2cf581bb59e49ea62",
+    "size": 1137
+  },
+  {
+    "path": "widgets/bar/Tray.qml",
+    "sha256": "f76ee393bb23985f600dc0b156484eb0b7a67f3a4aaed498c6caca586eb96cd5",
+    "size": 6495
+  },
+  {
+    "path": "widgets/bar/TrayMenuPage.qml",
+    "sha256": "4c2d66bcf1fd7c8a5ea1a7df19f615db5fc2bfcfb5c519705cb7a7f961632b91",
+    "size": 3565
+  },
+  {
+    "path": "widgets/bar/WindowTitle.qml",
+    "sha256": "bbdb521be58b0b38637207bdba78370842e3aa55f26145d6df830bda0fb8439b",
+    "size": 1370
+  },
+  {
+    "path": "widgets/bar/Workspaces.qml",
+    "sha256": "73ff3a6d1dc2016c220333ebbc11c42206c0bf75a840c086f711090bffb8454c",
+    "size": 3549
+  },
+  {
+    "path": "widgets/launcher/AppGrid.qml",
+    "sha256": "22860b002bc368b07e75d3ba79c2e7b0e06bb082f4b29b43760105adc58a74d1",
+    "size": 10165
+  }
+]
