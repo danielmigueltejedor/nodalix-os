@@ -1,14 +1,21 @@
 pragma Singleton
 import QtQuick
 
-// Per-monitor overlay stack. Last opened is always active and visually on top.
+// Per-monitor overlay stack. Last opened or raised is active and visually on top.
+//
+// OPEN != ACTIVE:
+//   isOpen   → present in the stack and may keep rendering
+//   isActive → last item; keyboard priority and closeTop target
+//
+// Two families share the stack but not the same exclusivity rules:
+//   stacked  (dashboard, launcher, settings, …) can coexist
+//   hover    (audio, network, bluetooth, …) replace each other per monitor
 //
 // Toggle:
 //   - shortcut of the top overlay → close it
 //   - shortcut of an overlay that is open but not top → bringToFront
 //   - shortcut of a closed overlay → open (push)
-// Click outside: closeTop only.
-// Escape: closeTop only.
+// Click outside / Escape: closeTop only.
 // Stacks never leak across screens.
 QtObject {
     id: root
@@ -44,10 +51,14 @@ QtObject {
         "contextmenu": "context-menu"
     })
     readonly property var keyboardIds: ["launcher", "settings", "context-menu"]
-    readonly property var barIds: [
-        "audio", "power", "powerprofile", "dashboard", "notif",
+    readonly property var stackedIds: [
+        "dashboard", "launcher", "settings", "context-menu", "notification-center"
+    ]
+    readonly property var hoverBarIds: [
+        "audio", "power", "powerprofile", "notif",
         "network", "bluetooth", "traymenu", "workspaces"
     ]
+    readonly property var barIds: hoverBarIds
 
     signal opened(string overlayId, string screen)
     signal closed(string overlayId, string screen)
@@ -77,6 +88,21 @@ QtObject {
     function _log(message) {
         if (root.debug)
             console.log("OverlayManager: " + message)
+    }
+
+    function isHoverBar(overlayId) {
+        return root.hoverBarIds.indexOf(_id(overlayId)) >= 0
+    }
+
+    function isStacked(overlayId) {
+        return root.stackedIds.indexOf(_id(overlayId)) >= 0
+    }
+
+    // Dashboard is stacked (can sit under launcher/settings) and hover-managed
+    // (still auto-closes after 600 ms when it is the top overlay and unhovered).
+    function isHoverManaged(overlayId) {
+        const id = _id(overlayId)
+        return isHoverBar(id) || id === "dashboard"
     }
 
     function stack(screen) {
@@ -151,6 +177,18 @@ QtObject {
         _touch()
     }
 
+    function _dismissOtherHover(overlayId, screen) {
+        const keep = _id(overlayId)
+        const name = _screen(screen)
+        for (const other of stack(name)) {
+            if (other === keep)
+                continue
+            if (root.hoverBarIds.indexOf(other) < 0)
+                continue
+            close(other, name)
+        }
+    }
+
     function open(overlayId, screen, x) {
         const id = _id(overlayId)
         const name = _screen(screen)
@@ -165,6 +203,7 @@ QtObject {
             list.splice(idx, 1)
         list.push(id)
         _setStack(name, list)
+        _dismissOtherHover(id, name)
         _log("open " + id + " screen " + name)
         if (idx >= 0) {
             root.raised(id, name)

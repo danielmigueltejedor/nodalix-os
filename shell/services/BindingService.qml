@@ -3,11 +3,11 @@ import QtQuick
 import Quickshell.Io
 import "."
 
-// Keybindings for the shell's actions. All UNBOUND by default — the user
-// assigns combos in Settings → Keybindings. Because Hyprland owns keybinds
-// (and this shell targets the Lua config), we generate hypr/binds.generated.lua
-// from the saved combos and `hyprctl reload` to apply live. quickshell.lua
-// sources that file; an empty/absent file means no shell binds.
+// Keybindings for the shell's actions. Launcher defaults to SUPER+SPACE;
+// other actions are unbound until assigned in Settings → Keybindings.
+// Hyprland owns keybinds, so we generate binds.generated.lua from the saved
+// combos and `hyprctl reload` to apply live. quickshell.lua sources that file
+// and must not hardcode the same actions or Super+Space will fire twice.
 QtObject {
     id: root
 

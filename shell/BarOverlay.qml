@@ -2,8 +2,9 @@ import QtQuick
 import "./theme"
 import "./services"
 
-// One bar popout inside the per-monitor overlay host. z follows OverlayManager
-// so the last opened panel paints above the others in the same window.
+// One bar popout inside the per-monitor overlay host.
+// Visibility follows isOpen (OPEN != ACTIVE). z follows the stack so several
+// stacked overlays can stay painted; hover-bar popouts are exclusive.
 Item {
     id: root
 
@@ -59,11 +60,8 @@ Item {
     }
 
     HoverHandler {
-        enabled: root.open
-        onHoveredChanged: {
-            if (hovered || OverlayManager.isActive(overlayId, screenName))
-                PopoutService.panelHovered = hovered
-        }
+        enabled: root.open && OverlayManager.isHoverManaged(overlayId)
+        onHoveredChanged: PopoutService.panelHovered = hovered
     }
 
     Loader {

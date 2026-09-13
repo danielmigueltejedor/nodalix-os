@@ -21,14 +21,17 @@ Item {
 	required property var modelData
 	anchors.fill: parent
 
-	readonly property bool active:
+	readonly property bool isOpen:
 		OverlayManager.isOpen("settings", modelData?.name)
+	readonly property bool isActive:
+		OverlayManager.isActive("settings", modelData?.name)
+	readonly property bool active: isOpen
 
-	visible: active || _exiting
+	visible: isOpen || _exiting
 
 	property bool _exiting: false
-	onActiveChanged: {
-		if (active) {
+	onIsOpenChanged: {
+		if (isOpen) {
 			_exiting = false
 			SystemControlService.refresh()
 		} else if (visible) {
@@ -246,9 +249,8 @@ Item {
 	Rectangle {
 		anchors.fill: parent
 		color: ThemeManager.scrim
-		opacity: root.active ? 0.4 : 0
+		opacity: root.isActive ? 0.4 : 0
 		Behavior on opacity { NumberAnimation { duration: 160 } }
-		MouseArea { anchors.fill: parent; onClicked: OverlayManager.closeTop(modelData?.name) }
 	}
 
 	// ── Card ────────────────────────────────────────────────────────────────--
@@ -261,15 +263,25 @@ Item {
 		color:  ThemeManager.surfaceContainer
 		border.width: 1
 		border.color: ThemeManager.outlineVariant
-		opacity: root.active ? 1 : 0
-		scale:   root.active ? 1 : 0.96
+		opacity: root.isOpen ? 1 : 0
+		scale:   root.isOpen ? 1 : 0.96
 		layer.enabled: true
 		layer.effect: Elevation { level: 4 }
 		Behavior on opacity { NumberAnimation { duration: 150 } }
 		Behavior on scale   { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
 
-		focus: root.active
+		focus: root.isActive
 		Keys.onEscapePressed: root._goBack()
+
+		MouseArea {
+			anchors.fill: parent
+			z: 1
+			propagateComposedEvents: true
+			onPressed: (mouse) => {
+				OverlayManager.bringToFront("settings", modelData?.name)
+				mouse.accepted = false
+			}
+		}
 
 		RowLayout {
 			anchors.fill: parent

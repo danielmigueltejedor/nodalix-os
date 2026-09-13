@@ -20,7 +20,18 @@ Item {
                   + ThemeManager.spacingLg * 2 + 28
 
     property var now: new Date()
-    Timer { interval: 30000; running: PopoutService.currentName === "dashboard"; repeat: true; onTriggered: root.now = new Date() }
+    readonly property string screenName: {
+        let p = parent
+        while (p) {
+            if (typeof p.overlayId === "string" && p.overlayId === "dashboard")
+                return p.screenName
+            p = p.parent
+        }
+        return Hyprland.focusedMonitor?.name ?? ""
+    }
+    readonly property bool _dashboardOpen: OverlayManager.isOpen("dashboard", screenName)
+    function _closeDashboard() { OverlayManager.close("dashboard", screenName) }
+    Timer { interval: 30000; running: root._dashboardOpen; repeat: true; onTriggered: root.now = new Date() }
 
     readonly property var _fr: Qt.locale(I18n.localeName)
 
@@ -41,7 +52,7 @@ Item {
     function _openPlayerWs() {
         if (_playerWs === "") return
         Hyprland.dispatch('hl.dsp.workspace.toggle_special("' + _playerWs + '")')
-        PopoutService.close()
+        root._closeDashboard()
     }
 
     // Currently open QuickSettings submenu key ("" = none)
@@ -84,9 +95,12 @@ Item {
     // Pending dangerous power action awaiting confirmation ("" | "reboot" | "shutdown")
     property string _confirmAction: ""
     Connections {
-        target: PopoutService
-        function onCurrentNameChanged() {
-            if (PopoutService.currentName !== "dashboard") { root._confirmAction = ""; root.calSelectedDate = ""; root.qsKey = ""; root.tab = "home"; root._playerMenu = false }
+        target: OverlayManager
+        function onClosed(overlayId, screen) {
+            if (overlayId !== "dashboard" || screen !== root.screenName)
+                return
+            root._confirmAction = ""; root.calSelectedDate = ""; root.qsKey = ""; root.tab = "home"; root._playerMenu = false
+            PopoutService.textActive = false
         }
     }
     function _runConfirm() {
@@ -94,7 +108,7 @@ Item {
         else if (_confirmAction === "shutdown") _shutdownProc.running = true
         else if (_confirmAction === "logout")   _logoutProc.running   = true
         _confirmAction = ""
-        PopoutService.close()
+        root._closeDashboard()
     }
 
     // ── nmcli-backed lists (Wi-Fi networks, VPN connections) ──────────────────
@@ -279,7 +293,7 @@ Item {
     function _launch(proc) {
         proc.running = true
         qsKey = ""
-        PopoutService.close()
+        root._closeDashboard()
     }
 
     // Open a URL in the default browser, then dismiss the dashboard.
@@ -289,7 +303,7 @@ Item {
         _openUrlProc.command = ["xdg-open", url]
         _openUrlProc.running = true
         calSelectedDate = ""
-        PopoutService.close()
+        root._closeDashboard()
     }
 
     // Escape HTML + turn URLs into <a> links + keep line breaks (for StyledText).
@@ -344,7 +358,7 @@ Item {
         }
     }
     property Timer _uptimeTimer: Timer {
-        interval: 60000; repeat: true; running: PopoutService.currentName === "dashboard"
+        interval: 60000; repeat: true; running: root._dashboardOpen
         onTriggered: root._sysInfo.running = true
     }
 
@@ -674,7 +688,7 @@ Item {
                     spacing: 6
                     PlayerDropdown { visible: MprisService.players.length > 0; Layout.alignment: Qt.AlignVCenter }
                     MediaBtn { icon: "󰍹"; visible: root._playerWs !== ""; small: true; onClicked: root._openPlayerWs() }
-                    MediaBtn { icon: "󰏋"; visible: MprisService.canRaise && root._playerWs === ""; small: true; onClicked: { MprisService.raise(); PopoutService.close() } }
+                    MediaBtn { icon: "󰏋"; visible: MprisService.canRaise && root._playerWs === ""; small: true; onClicked: { MprisService.raise(); root._closeDashboard() } }
                 }
 
                 Item { Layout.fillHeight: true }
@@ -909,7 +923,7 @@ Item {
             QsIcon {
                 icon: "󰒓"; key: "settings"
                 toggle: true
-                onActivated: { SettingsUi.show(); PopoutService.close() }
+                onActivated: SettingsUi.show()
             }
         }
     }
@@ -1208,7 +1222,7 @@ Item {
                         cursorShape: enabled ? Qt.PointingHandCursor : Qt.ArrowCursor
                         onClicked: {
                             ScreenRecorderService.startRegion()
-                            PopoutService.close()
+                            root._closeDashboard()
                         }
                     }
                 }

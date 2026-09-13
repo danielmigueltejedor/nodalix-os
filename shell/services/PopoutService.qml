@@ -2,9 +2,13 @@ pragma Singleton
 import QtQuick
 import "."
 
-// Tracks which bar popout is open and where to anchor it.
-// Stacking, focus and click-outside are owned by OverlayManager; this
-// service keeps hover, pin and per-panel anchor state.
+// Hover + pin for bar popouts and Control Center.
+//
+// Hover bars (audio, network, …) are exclusive and always auto-close after
+// 600 ms without hover.
+// Control Center (dashboard) uses the same 600 ms leave timer while it is
+// top. If launcher/settings open during that wait, the timer pauses and
+// dashboard stays visible underneath until it is top again.
 QtObject {
     id: root
 
@@ -34,21 +38,47 @@ QtObject {
 
     onWidgetHoveredChanged: _evalHover()
     onPanelHoveredChanged:  _evalHover()
+    onPinnedChanged:        _evalHover()
 
     property Timer _closeTimer: Timer {
         interval: 600   // generous — covers slow cursor movement between adjacent widgets
         repeat:   false
-        onTriggered: { if (!root.widgetHovered && !root.panelHovered) root.close() }
+        onTriggered: {
+            if (root.widgetHovered || root.panelHovered || root.pinned)
+                return
+            if (root._coveredByStack())
+                return
+            root.close()
+        }
+    }
+
+    function _screenName() {
+        return anchorScreen?.name ?? ""
+    }
+
+    function _sameScreen(screen) {
+        const name = _screenName()
+        return !name || name === screen
+    }
+
+    // Stacked hover targets (Control Center) pause auto-close while covered
+    // by launcher/settings. Exclusive bar popouts never use this path.
+    function _coveredByStack() {
+        if (!hasCurrent)
+            return false
+        const name = _screenName()
+        return OverlayManager.isStacked(currentName) && !OverlayManager.isActive(currentName, name)
     }
 
     function _evalHover() {
         if (!hasCurrent) return
+
         if (pinned || widgetHovered || panelHovered)
             _closeTimer.stop()
-        else if (OverlayManager.isActive(currentName, anchorScreen?.name ?? ""))
-            _closeTimer.restart()
-        else
+        else if (_coveredByStack())
             _closeTimer.stop()
+        else
+            _closeTimer.restart()
     }
 
     function _remember(name, x, screen) {
@@ -77,6 +107,7 @@ QtObject {
         }
         _remember(name, x, screen)
         OverlayManager.open(name, screen?.name ?? "", anchorX)
+        _evalHover()
     }
 
     function close() {
@@ -101,19 +132,29 @@ QtObject {
         _closeTimer.stop()
     }
 
-    function _syncAfterClose(overlayId, screen) {
-        if (currentName !== overlayId)
-            return
-        if (anchorScreen?.name && anchorScreen.name !== screen)
-            return
-        const remaining = OverlayManager.stack(screen).filter(id => OverlayManager.barIds.indexOf(id) >= 0)
+    function _adoptHoverCurrent(screen) {
+        const remaining = OverlayManager.stack(screen).filter(id => OverlayManager.isHoverBar(id))
         if (remaining.length) {
             currentName = remaining[remaining.length - 1]
             hasCurrent = true
             anchorX = OverlayManager.anchorX(currentName, screen)
-            return
+            return true
         }
-        _clear()
+        if (OverlayManager.isOpen("dashboard", screen)) {
+            currentName = "dashboard"
+            hasCurrent = true
+            anchorX = OverlayManager.anchorX("dashboard", screen)
+            return true
+        }
+        return false
+    }
+
+    function _syncAfterClose(overlayId, screen) {
+        if (!_sameScreen(screen))
+            return
+        if (currentName === overlayId && !_adoptHoverCurrent(screen))
+            _clear()
+        _evalHover()
     }
 
     // Toggle on click (kept for keyboard / alternative trigger)
@@ -143,20 +184,22 @@ QtObject {
             root._syncAfterClose(overlayId, screen)
         }
         function onOpened(overlayId, screen) {
-            if (OverlayManager.barIds.indexOf(overlayId) < 0)
+            if (!root._sameScreen(screen))
                 return
-            if (root.anchorScreen?.name && root.anchorScreen.name !== screen)
-                return
-            root.hasCurrent = true
-            root.currentName = overlayId
+            if (OverlayManager.isHoverManaged(overlayId)) {
+                root.hasCurrent = true
+                root.currentName = overlayId
+            }
+            root._evalHover()
         }
         function onRaised(overlayId, screen) {
-            if (OverlayManager.barIds.indexOf(overlayId) < 0)
+            if (!root._sameScreen(screen))
                 return
-            if (root.anchorScreen?.name && root.anchorScreen.name !== screen)
-                return
-            root.currentName = overlayId
-            root.hasCurrent = true
+            if (OverlayManager.isHoverManaged(overlayId)) {
+                root.currentName = overlayId
+                root.hasCurrent = true
+            }
+            root._evalHover()
         }
     }
 }

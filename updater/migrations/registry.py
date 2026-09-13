@@ -146,14 +146,17 @@ def run_migrations(
     state_dir: Path,
     owned_check: Callable[[Path], bool] | None = None,
     log: Callable[[str], None] | None = None,
+    files: tuple[str, ...] | None = None,
 ) -> list[dict]:
-    """Execute migrations whose version gate matches [current, target]."""
+    """Execute migrations whose version *or filesystem* gate matches."""
     results: list[dict] = []
+    legacy_files = files or LEGACY_UNOWNED_FILES
     migrations = [
         {
             "id": "0.1.1-to-0.2.0",
             "applies": applies_0_1_1_to_0_2_0,
             "run": lambda: remove_unowned_legacy_files(
+                files=legacy_files,
                 backup_dir=state_dir / "migrations" / "0.1.1-to-0.2.0",
                 owned_check=owned_check,
                 log=log,
@@ -161,7 +164,13 @@ def run_migrations(
         }
     ]
     for migration in migrations:
-        if not migration["applies"](current_version, target_version, compare_versions):
+        if not migration["applies"](
+            current_version,
+            target_version,
+            compare_versions,
+            owned_check=owned_check,
+            files=legacy_files,
+        ):
             if log is not None:
                 log(f"skip migration {migration['id']} ({current_version} -> {target_version})")
             continue

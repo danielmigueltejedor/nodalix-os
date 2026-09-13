@@ -46,15 +46,19 @@ PanelWindow {
         }
     }
 
-    // ── Generic popout state ──────────────────────────────────────────────────
-    readonly property bool _popoutOpen: OverlayManager.stack(root._screenName).some(id => OverlayManager.barIds.indexOf(id) >= 0)
+    // Hover bar popouts are mutually exclusive; dashboard is a stacked overlay
+    // with its own blob so it can remain visible under launcher/settings.
+    readonly property bool _popoutOpen: OverlayManager.stack(root._screenName).some(id => OverlayManager.isHoverBar(id))
+        || OverlayManager.hoverBarIds.some(id => OverlayManager.isExiting(id, root._screenName))
     readonly property string _topBarOverlay: {
         const list = OverlayManager.stack(root._screenName)
         for (let i = list.length - 1; i >= 0; i--)
-            if (OverlayManager.barIds.indexOf(list[i]) >= 0)
+            if (OverlayManager.isHoverBar(list[i]))
                 return list[i]
         return ""
     }
+    readonly property bool _dashboardShown: OverlayManager.isOpen("dashboard", root._screenName)
+        || OverlayManager.isExiting("dashboard", root._screenName)
 
     // Incoming LocalSend offers must remain actionable even when the dashboard
     // is closed. Show one focused-monitor card above regular windows.
@@ -75,7 +79,6 @@ PanelWindow {
             case "audio":    return _audioLoader.item?.implicitWidth    ?? 180
             case "power":    return _powerLoader.item?.implicitWidth    ?? 180
             case "powerprofile": return _powerProfileLoader.item?.implicitWidth ?? 190
-            case "dashboard": return _dashboardLoader.item?.implicitWidth ?? 360
             case "notif":    return _notifLoader.item?.implicitWidth    ?? 320
             case "network":  return _networkLoader.item?.implicitWidth  ?? 260
             case "bluetooth": return _bluetoothLoader.item?.implicitWidth ?? 250
@@ -90,7 +93,6 @@ PanelWindow {
             case "audio":    return Math.min(_audioLoader.item?.implicitHeight    ?? 0, _popoutMaxHeight)
             case "power":    return Math.min(_powerLoader.item?.implicitHeight    ?? 0, _popoutMaxHeight)
             case "powerprofile": return Math.min(_powerProfileLoader.item?.implicitHeight ?? 0, _popoutMaxHeight)
-            case "dashboard": return Math.min(_dashboardLoader.item?.implicitHeight ?? 0, 700)
             case "notif":    return Math.min(_notifLoader.item?.implicitHeight    ?? 0, _popoutMaxHeight)
             case "network":  return Math.min(_networkLoader.item?.implicitHeight  ?? 0, _popoutMaxHeight)
             case "bluetooth": return Math.min(_bluetoothLoader.item?.implicitHeight ?? 0, _popoutMaxHeight)
@@ -430,6 +432,18 @@ PanelWindow {
             y:                 root._panelTop
             implicitWidth:     root._popoutWidth
             implicitHeight:    root._popoutHeight
+            topLeftRadius:     root._panelTopRadius; topRightRadius: root._panelTopRadius
+            bottomLeftRadius:  ThemeManager.panelRadius
+            bottomRightRadius: ThemeManager.panelRadius
+            deformScale:       0.00003
+        }
+
+        BlobRect {
+            group:             root._dashboardShown && _dashboardLoader.height > 1 ? blobs : null
+            x:                 _dashboardLoader.x
+            y:                 _dashboardLoader.y
+            implicitWidth:     _dashboardLoader.width
+            implicitHeight:    _dashboardLoader.height
             topLeftRadius:     root._panelTopRadius; topRightRadius: root._panelTopRadius
             bottomLeftRadius:  ThemeManager.panelRadius
             bottomRightRadius: ThemeManager.panelRadius

@@ -9,7 +9,7 @@ on:
       release_tag:
         description: Existing GitHub release tag that should receive the built assets
         required: true
-        default: "0.2.0-beta.2"
+        default: "0.2.0-beta.3"
 
 permissions:
   contents: write

@@ -8,7 +8,7 @@
       "id": "nodalix-release",
       "name": "Nodalix system identity",
       "package": "nodalix-release",
-      "version": "0.2.0-beta.2",
+      "version": "0.2.0-beta.3",
       "required": true,
       "restart": "none"
     },
@@ -16,7 +16,7 @@
       "id": "updater",
       "name": "Nodalix Updater",
       "package": "nodalix-updater",
-      "version": "0.2.0-beta.2",
+      "version": "0.2.0-beta.3",
       "required": true,
       "restart": "none"
     },
@@ -24,7 +24,7 @@
       "id": "shell",
       "name": "Nodalix Shell",
       "package": "nodalix-shell",
-      "version": "0.2.0-beta.2",
+      "version": "0.2.0-beta.3",
       "required": true,
       "restart": "shell"
     }

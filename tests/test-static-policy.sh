@@ -14,4 +14,13 @@ rg -q 'ExecStart=/usr/bin/nodalix-shell' \
 rg -q 'qs --no-duplicate -c nodalix' \
     "$repo_root/packaging/nodalix-shell/nodalix-shell"
 
+if rg -n 'hl\.bind\([^)]*SUPER \+ SPACE|ipc call launcher toggle' \
+    "$repo_root/shell/hypr/quickshell.lua"; then
+    printf '%s\n' "quickshell.lua must not hardcode BindingService-managed shortcuts" >&2
+    exit 1
+fi
+rg -q 'k === "launcher" \? "SUPER \+ SPACE"' \
+    "$repo_root/shell/services/BindingService.qml"
+rg -q 'binds.generated.lua' "$repo_root/shell/hypr/quickshell.lua"
+
 printf '%s\n' "PASS: installed-system static policy"

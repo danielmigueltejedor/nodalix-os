@@ -24,7 +24,7 @@ assert SPEC.loader is not None
 SPEC.loader.exec_module(UPDATER)
 
 from migrations.registry import remove_unowned_legacy_files, run_migrations  # noqa: E402
-from migrations.to_0_2_0 import LEGACY_UNOWNED_FILES, applies_0_1_1_to_0_2_0  # noqa: E402
+from migrations.to_0_2_0 import LEGACY_UNOWNED_FILES, applies_0_1_1_to_0_2_0, has_unowned_legacy_files  # noqa: E402
 
 
 class OverlayStackTests(unittest.TestCase):
@@ -78,7 +78,7 @@ class OverlayStackTests(unittest.TestCase):
         self.stack.open("wifi", "DP-1")
         self.assertTrue(self.stack.is_open("network", "DP-1"))
         self.stack.open("notifications", "DP-1")
-        self.assertEqual(self.stack.stack("DP-1"), ["network", "notif"])
+        self.assertEqual(self.stack.stack("DP-1"), ["notif"])
 
 
 class LegacyMigrationTests(unittest.TestCase):
@@ -151,36 +151,111 @@ class LegacyMigrationTests(unittest.TestCase):
         self.assertEqual(second["skipped"][0]["reason"], "missing")
         self.assertFalse(target.exists())
 
-    def test_gate_skips_0_2_systems(self) -> None:
-        self.assertTrue(applies_0_1_1_to_0_2_0("0.1.1", "0.2.0-beta.2", UPDATER.compare_versions))
-        self.assertTrue(applies_0_1_1_to_0_2_0("0.1.1", "0.2.0-beta.1", UPDATER.compare_versions))
-        self.assertFalse(applies_0_1_1_to_0_2_0("0.2.0-beta.1", "0.2.0-beta.2", UPDATER.compare_versions))
-        self.assertFalse(applies_0_1_1_to_0_2_0("0.2.0-beta.2", "0.2.0", UPDATER.compare_versions))
-
-    def test_run_migrations_skips_beta_to_beta(self) -> None:
-        target = self.root / "etc" / "nodalix-release"
-        target.parent.mkdir(parents=True)
-        target.write_text("legacy", encoding="utf-8")
-        results = run_migrations(
-            "0.2.0-beta.1",
-            "0.2.0-beta.2",
+    def test_run_migrations_twice_is_idempotent(self) -> None:
+        target = self.root / "legacy"
+        target.write_text("once", encoding="utf-8")
+        kwargs = dict(
+            current_version="0.2.0-beta.1",
+            target_version="0.2.0-beta.3",
             compare_versions=UPDATER.compare_versions,
             state_dir=self.root / "state",
             owned_check=lambda path: False,
+            files=(str(target),),
+        )
+        first = run_migrations(**kwargs)
+        second = run_migrations(**kwargs)
+        self.assertEqual(len(first), 1)
+        self.assertEqual(len(first[0]["removed"]), 1)
+        self.assertEqual(second, [])
+        self.assertFalse(target.exists())
+
+    def test_gate_uses_version_and_filesystem_state(self) -> None:
+        compare = UPDATER.compare_versions
+        leftover = self.root / "legacy-timer"
+        leftover.write_text("unowned", encoding="utf-8")
+        files = (str(leftover),)
+
+        def none_owned(path: Path) -> bool:
+            return False
+
+        def all_owned(path: Path) -> bool:
+            return True
+
+        self.assertTrue(applies_0_1_1_to_0_2_0("0.1.1", "0.2.0-beta.3", compare, owned_check=none_owned, files=files))
+        self.assertTrue(
+            applies_0_1_1_to_0_2_0("0.2.0-beta.1", "0.2.0-beta.3", compare, owned_check=none_owned, files=files)
+        )
+        self.assertFalse(
+            applies_0_1_1_to_0_2_0("0.2.0-beta.1", "0.2.0-beta.3", compare, owned_check=all_owned, files=files)
+        )
+        self.assertFalse(applies_0_1_1_to_0_2_0("0.1.1", "0.1.1", compare, owned_check=none_owned, files=files))
+        missing = (str(self.root / "absent"),)
+        self.assertFalse(
+            applies_0_1_1_to_0_2_0("0.2.0-beta.1", "0.2.0-beta.3", compare, owned_check=none_owned, files=missing)
+        )
+
+    def test_run_migrations_from_0_1_1_with_residues(self) -> None:
+        target = self.root / "legacy"
+        target.write_text("gone", encoding="utf-8")
+        results = run_migrations(
+            "0.1.1",
+            "0.2.0-beta.3",
+            compare_versions=UPDATER.compare_versions,
+            state_dir=self.root / "state",
+            owned_check=lambda path: False,
+            files=(str(target),),
+        )
+        self.assertEqual(len(results), 1)
+        self.assertFalse(target.exists())
+        self.assertEqual(len(results[0]["removed"]), 1)
+
+    def test_run_migrations_from_beta1_with_residues(self) -> None:
+        target = self.root / "legacy"
+        target.write_text("still-unowned", encoding="utf-8")
+        results = run_migrations(
+            "0.2.0-beta.1",
+            "0.2.0-beta.3",
+            compare_versions=UPDATER.compare_versions,
+            state_dir=self.root / "state",
+            owned_check=lambda path: False,
+            files=(str(target),),
+        )
+        self.assertEqual(len(results), 1)
+        self.assertFalse(target.exists())
+
+    def test_run_migrations_from_beta1_without_residues(self) -> None:
+        missing = self.root / "absent"
+        results = run_migrations(
+            "0.2.0-beta.1",
+            "0.2.0-beta.3",
+            compare_versions=UPDATER.compare_versions,
+            state_dir=self.root / "state",
+            owned_check=lambda path: False,
+            files=(str(missing),),
+        )
+        self.assertEqual(results, [])
+        self.assertFalse(missing.exists())
+
+    def test_run_migrations_skips_owned_files_on_beta1(self) -> None:
+        target = self.root / "owned"
+        target.write_text("keep", encoding="utf-8")
+        results = run_migrations(
+            "0.2.0-beta.1",
+            "0.2.0-beta.3",
+            compare_versions=UPDATER.compare_versions,
+            state_dir=self.root / "state",
+            owned_check=lambda path: True,
+            files=(str(target),),
         )
         self.assertEqual(results, [])
         self.assertTrue(target.exists())
 
-    def test_run_migrations_from_0_1_1(self) -> None:
-        results = run_migrations(
-            "0.1.1",
-            "0.2.0-beta.2",
-            compare_versions=UPDATER.compare_versions,
-            state_dir=self.root / "state",
-            owned_check=lambda path: False,
-        )
-        self.assertEqual(len(results), 1)
-        self.assertEqual(results[0]["id"], "0.1.1-to-0.2.0")
+    def test_has_unowned_legacy_files(self) -> None:
+        target = self.root / "blob"
+        target.write_text("x", encoding="utf-8")
+        self.assertTrue(has_unowned_legacy_files(files=(str(target),), owned_check=lambda path: False))
+        self.assertFalse(has_unowned_legacy_files(files=(str(target),), owned_check=lambda path: True))
+        self.assertFalse(has_unowned_legacy_files(files=(str(self.root / "nope"),), owned_check=lambda path: False))
 
     def test_known_legacy_list_matches_upgrade_conflicts(self) -> None:
         expected = {
