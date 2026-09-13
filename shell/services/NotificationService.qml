@@ -321,15 +321,9 @@ QtObject {
         unreadCount  = 0
         _toastTimer.stop()
         _closeTimer.stop()
-        OverlayManager.open("notification-center", screen?.name || Hyprland.focusedMonitor?.name || "")
     }
 
     function closeCenter() {
-        OverlayManager.close("notification-center", centerScreen?.name || Hyprland.focusedMonitor?.name || "")
-        _applyClosed()
-    }
-
-    function _applyClosed() {
         centerOpen    = false
         toastMode     = false
         bellHovered   = false
@@ -337,14 +331,6 @@ QtObject {
         _toastEntries = []
         _closeTimer.stop()
         _toastTimer.stop()
-    }
-
-    property Connections _overlayConn: Connections {
-        target: OverlayManager
-        function onClosed(overlayId, screen) {
-            if (overlayId === "notification-center")
-                root._applyClosed()
-        }
     }
 
     function toggleCenter(screen) {

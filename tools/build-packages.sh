@@ -8,9 +8,11 @@ pkgrel=1
 outdir=${1:-"$root/dist/packages"}
 srcdir="$root/dist/src"
 workdir="$root/dist/build"
+cachedir="$root/dist/cache"
 
 rm -rf "$srcdir" "$workdir"
-mkdir -p "$outdir" "$srcdir" "$workdir"
+mkdir -p "$outdir" "$srcdir" "$workdir" "$cachedir"
+export SRCDEST="$cachedir"
 
 sha256_file() {
   if command -v sha256sum >/dev/null 2>&1; then
@@ -57,7 +59,8 @@ updater_dir="$workdir/nodalix-updater"
 shell_dir="$workdir/nodalix-shell"
 release_dir="$workdir/nodalix-release"
 phone_link_dir="$workdir/nodalix-phone-link"
-mkdir -p "$updater_dir" "$shell_dir" "$release_dir" "$phone_link_dir"
+fluent_dir="$workdir/nodalix-fluent-emoji"
+mkdir -p "$updater_dir" "$shell_dir" "$release_dir" "$phone_link_dir" "$fluent_dir"
 
 cp "$root/packaging/nodalix-updater/PKGBUILD" "$updater_dir/PKGBUILD"
 cp "$srcdir/nodalix-updater-$pkgver.tar.zst" "$updater_dir/"
@@ -82,6 +85,10 @@ cp "$root/packaging/nodalix-phone-link/PKGBUILD" "$phone_link_dir/PKGBUILD"
 cp "$srcdir/nodalix-phone-link-$pkgver.tar.zst" "$phone_link_dir/"
 inject_sha256 "$phone_link_dir/PKGBUILD" "$phone_link_dir/nodalix-phone-link-$pkgver.tar.zst"
 
+cp "$root/packaging/nodalix-fluent-emoji/PKGBUILD" \
+   "$root/packaging/nodalix-fluent-emoji/75-nodalix-fluent-emoji.conf" \
+   "$fluent_dir/"
+
 makepkg_one() {
   local dir=$1
   (cd "$dir" && makepkg -f --noconfirm --nodeps --cleanbuild)
@@ -91,6 +98,7 @@ if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
   makepkg_one "$updater_dir"
   makepkg_one "$shell_dir"
   makepkg_one "$phone_link_dir"
+  makepkg_one "$fluent_dir"
   makepkg_one "$release_dir"
   find "$workdir" -name '*.pkg.tar.zst' ! -name '*-debug-*' -exec cp {} "$outdir/" \;
 fi

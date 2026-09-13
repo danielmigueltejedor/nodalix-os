@@ -1,0 +1,174 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+
+VENDOR_REPO = Path("/usr/lib/nodalix-updater/cachyos-repo")
+PROFILE_FILE = Path("/etc/nodalix/hardware-profile.json")
+
+
+def run_text(command: list[str]) -> str:
+    try:
+        return subprocess.run(
+            command,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            env={**os.environ, "LC_ALL": "C"},
+        ).stdout.strip()
+    except OSError:
+        return ""
+
+
+def cpu_name() -> str:
+    try:
+        for line in Path("/proc/cpuinfo").read_text(encoding="utf-8", errors="replace").splitlines():
+            if line.startswith("model name") and ":" in line:
+                return line.split(":", 1)[1].strip()
+    except OSError:
+        pass
+    return run_text(["uname", "-m"]) or "Unknown CPU"
+
+
+def native_arch() -> str:
+    output = run_text(["gcc", "-march=native", "-Q", "--help=target"])
+    match = re.search(r"^\s*-march=\s+(\S+)", output, re.MULTILINE)
+    return match.group(1).lower() if match else ""
+
+
+def supports_hwcaps(level: str) -> bool:
+    loader = next(
+        (path for path in (Path("/lib/ld-linux-x86-64.so.2"), Path("/usr/lib/ld-linux-x86-64.so.2")) if path.exists()),
+        None,
+    )
+    return bool(loader and f"{level} (supported, searched)" in run_text([str(loader), "--help"]))
+
+
+def product_name() -> str:
+    for path in (Path("/sys/class/dmi/id/product_name"), Path("/sys/class/dmi/id/board_name")):
+        try:
+            value = path.read_text(encoding="utf-8", errors="replace").strip()
+            if value:
+                return value
+        except OSError:
+            continue
+    return ""
+
+
+def detect() -> dict[str, object]:
+    cpu = cpu_name()
+    march = native_arch()
+    if march in {"znver4", "znver5"}:
+        tier = "znver4"
+        repository = "cachyos-znver4"
+        reason = "AMD Zen 4/5 detected by the compiler"
+    elif supports_hwcaps("x86-64-v4"):
+        tier = "x86-64-v4"
+        repository = "cachyos-v4"
+        reason = "x86-64-v4 instruction set supported"
+    elif supports_hwcaps("x86-64-v3"):
+        tier = "x86-64-v3"
+        repository = "cachyos-v3"
+        reason = "x86-64-v3 instruction set supported"
+    else:
+        tier = "x86-64"
+        repository = "cachyos"
+        reason = "generic x86-64 compatibility profile"
+
+    product = product_name()
+    handheld = bool(re.search(r"steam deck|rog ally|legion go", product, re.IGNORECASE))
+    kernel = "linux-cachyos-deckify" if handheld else "linux-cachyos"
+    return {
+        "schema": 1,
+        "cpu": cpu,
+        "native_arch": march or "unknown",
+        "tier": tier,
+        "repository": repository,
+        "kernel": kernel,
+        "headers": f"{kernel}-headers",
+        "fallback_kernel": "linux",
+        "product": product,
+        "reason": reason,
+        "arch_fallback_kept": True,
+    }
+
+
+def write_systemd_boot_entry(kernel: str) -> str:
+    entries = Path("/boot/loader/entries")
+    source = entries / "nodalix.conf"
+    if not source.exists() or kernel != "linux-cachyos":
+        return "not-managed"
+    original = source.read_text(encoding="utf-8")
+    target = entries / "nodalix-cachyos.conf"
+    content = re.sub(r"^title\s+.*$", "title Nodalix · CachyOS (optimizado)", original, flags=re.MULTILINE)
+    content = re.sub(r"^linux\s+\S+", "linux /vmlinuz-linux-cachyos", content, flags=re.MULTILINE)
+    content = re.sub(r"^initrd\s+/initramfs-linux\.img$", "initrd /initramfs-linux-cachyos.img", content, flags=re.MULTILINE)
+    target.write_text(content, encoding="utf-8")
+
+    loader = Path("/boot/loader/loader.conf")
+    if loader.exists():
+        current = loader.read_text(encoding="utf-8")
+        backup = loader.with_suffix(".conf.nodalix-backup")
+        if not backup.exists():
+            shutil.copy2(loader, backup)
+        if re.search(r"^default\s+", current, flags=re.MULTILINE):
+            current = re.sub(r"^default\s+.*$", "default nodalix-cachyos.conf", current, flags=re.MULTILINE)
+        else:
+            current = "default nodalix-cachyos.conf\n" + current
+        loader.write_text(current, encoding="utf-8")
+    return str(target)
+
+
+def apply_profile(profile: dict[str, object]) -> None:
+    if os.geteuid() != 0:
+        raise SystemExit("This action requires administrator privileges")
+    if not (VENDOR_REPO / "cachyos-repo.sh").exists():
+        raise SystemExit("The verified CachyOS repository helper is not installed")
+
+    backup_dir = Path("/var/lib/nodalix-updater/backups") / datetime.now(timezone.utc).strftime("hardware-%Y%m%dT%H%M%SZ")
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2("/etc/pacman.conf", backup_dir / "pacman.conf")
+
+    expected = str(profile["repository"])
+    pacman_conf = Path("/etc/pacman.conf").read_text(encoding="utf-8", errors="replace")
+    if f"[{expected}]" not in pacman_conf:
+        subprocess.run([str(VENDOR_REPO / "cachyos-repo.sh"), "--install"], cwd=VENDOR_REPO, check=True)
+
+    subprocess.run(
+        ["pacman", "-S", "--needed", "--noconfirm", str(profile["kernel"]), str(profile["headers"])],
+        check=True,
+    )
+    profile["boot_entry"] = write_systemd_boot_entry(str(profile["kernel"]))
+    profile["applied_at"] = datetime.now(timezone.utc).isoformat()
+    profile["backup"] = str(backup_dir)
+    PROFILE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    PROFILE_FILE.write_text(json.dumps(profile, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Detect and apply the safest Nodalix performance profile")
+    parser.add_argument("action", nargs="?", choices=("detect", "apply"), default="detect")
+    parser.add_argument("--json", action="store_true", help="print the detected profile as JSON")
+    args = parser.parse_args()
+    profile = detect()
+    if args.action == "apply":
+        apply_profile(profile)
+    if args.json:
+        print(json.dumps(profile, ensure_ascii=False, indent=2))
+    else:
+        print(f"{profile['cpu']} -> {profile['repository']} / {profile['kernel']} ({profile['tier']})")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

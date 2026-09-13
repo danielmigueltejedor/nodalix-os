@@ -1,0 +1,8 @@
+[Unit]
+Description=Automatic Nodalix user application update
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/nodalix-system-update user-apps

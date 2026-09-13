@@ -1,0 +1,53 @@
+#!/bin/sh
+set -eu
+
+mode=${1:-}
+
+update_firmware() {
+    if command -v fwupdmgr >/dev/null 2>&1; then
+        fwupdmgr refresh --force
+        fwupdmgr update -y
+    fi
+}
+
+case "$mode" in
+    privileged-system)
+        [ "$(id -u)" -eq 0 ] || {
+            printf '%s\n' "privileged-system requires root" >&2
+            exit 77
+        }
+        pacman -Syu --noconfirm
+        ;;
+    privileged-firmware)
+        [ "$(id -u)" -eq 0 ] || {
+            printf '%s\n' "privileged-firmware requires root" >&2
+            exit 77
+        }
+        update_firmware
+        ;;
+    privileged-all)
+        [ "$(id -u)" -eq 0 ] || {
+            printf '%s\n' "privileged-all requires root" >&2
+            exit 77
+        }
+        nodalix-updater update
+        pacman -Syu --noconfirm
+        update_firmware
+        ;;
+    user-apps)
+        [ "$(id -u)" -ne 0 ] || {
+            printf '%s\n' "user-apps must run as the desktop user" >&2
+            exit 77
+        }
+        if command -v yay >/dev/null 2>&1; then
+            yay -Sua --noconfirm
+        fi
+        if command -v flatpak >/dev/null 2>&1; then
+            flatpak update -y --noninteractive
+        fi
+        ;;
+    *)
+        printf '%s\n' "Usage: nodalix-system-update {privileged-system|privileged-firmware|privileged-all|user-apps}" >&2
+        exit 2
+        ;;
+esac

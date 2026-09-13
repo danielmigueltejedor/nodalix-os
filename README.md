@@ -23,7 +23,8 @@ single package transaction.
 
 Nodalix checks GitHub Releases periodically. Updates can be managed from
 **Settings → Applications → Nodalix OS updates**, including Stable/Beta channel
-selection, release contents, notes and restart requirements.
+selection, release contents, notes, restart requirements and automatic-update
+controls for Nodalix, the Arch system, user applications and firmware.
 
 The same backend is available from a terminal:
 
@@ -32,6 +33,15 @@ nodalix-updater check
 sudo nodalix-updater update
 sudo nodalix-updater channel beta
 ```
+
+## Hardware profile
+
+Fresh installations detect the processor instruction level and select the
+matching official CachyOS repository. Zen 4/5 uses `cachyos-znver4`, followed by
+the x86-64-v4, x86-64-v3 and generic compatibility tiers. Nodalix installs the
+matching optimized kernel while preserving Arch's `linux` kernel and boot entry
+as a recovery option. Set `NODALIX_SKIP_HARDWARE_PROFILE=1` only when the
+installer must leave repositories and kernels untouched.
 
 ## Repository layout
 

@@ -23,39 +23,53 @@ class StaticInvariantTests(unittest.TestCase):
         self.assertIn('k === "launcher" ? "SUPER + SPACE"', text)
         self.assertIn("binds.generated.lua", text)
 
-    def test_overlay_manager_open_is_not_active(self) -> None:
-        text = (SHELL / "services" / "OverlayManager.qml").read_text(encoding="utf-8")
-        self.assertIn("function isOpen(", text)
-        self.assertIn("function isActive(", text)
-        self.assertIn("function zIndex(", text)
-        self.assertIn("function closeTop(", text)
-        self.assertIn("function bringToFront(", text)
-        self.assertRegex(text, r"return list\.length \? list\[list\.length - 1\] : \"\"")
-        self.assertIn("hoverBarIds", text)
-        self.assertIn("stackedIds", text)
-        self.assertIn("isHoverManaged", text)
-        self.assertIn('"dashboard"', text)
-        self.assertIn('"launcher"', text)
-
-    def test_stacked_overlays_stay_visible_when_open(self) -> None:
+    def test_local_canonical_overlay_sequence_is_preserved(self) -> None:
         main = (SHELL / "MainWindow.qml").read_text(encoding="utf-8")
-        bar = (SHELL / "BarOverlay.qml").read_text(encoding="utf-8")
-        settings = (SHELL / "panels" / "Settings.qml").read_text(encoding="utf-8")
-        self.assertIn('OverlayManager.isOpen("launcher"', main)
-        self.assertIn('OverlayManager.isOpen("settings"', main)
-        self.assertIn("OverlayManager.isOpen(overlayId, screenName)", bar)
-        self.assertNotRegex(main, r"visible:\s*OverlayManager\.isActive")
-        self.assertNotRegex(bar, r"visible:\s*OverlayManager\.isActive")
-        self.assertNotRegex(settings, r"visible:\s*OverlayManager\.isActive")
-        self.assertIn("bringToFront", bar)
-        self.assertIn("closeTop", main)
+        self.assertIn("property int _overlaySequence: 100", main)
+        self.assertIn('function _raiseOverlay(kind)', main)
+        self.assertIn('root._raiseOverlay("notification")', main)
+        self.assertIn('root._raiseOverlay("popout")', main)
+        self.assertIn('root._raiseOverlay("launcher")', main)
+        self.assertIn("z:      root._notificationStackZ", main)
+        self.assertIn("z:       root._popoutStackZ", main)
+        self.assertIn("z: root._launcherStackZ", main)
+        self.assertFalse((SHELL / "BarOverlay.qml").exists())
+        self.assertFalse((SHELL / "services" / "OverlayManager.qml").exists())
 
     def test_popout_hover_leave_timer(self) -> None:
         text = (SHELL / "services" / "PopoutService.qml").read_text(encoding="utf-8")
         self.assertRegex(text, r"interval:\s*600")
         self.assertIn("pinned || widgetHovered || panelHovered", text)
-        self.assertIn("_coveredByStack", text)
-        self.assertIn("isStacked(currentName)", text)
+        self.assertIn("if (!root.widgetHovered && !root.panelHovered) root.close()", text)
+
+    def test_system_info_is_locale_independent(self) -> None:
+        text = (SHELL / "services" / "SystemControlService.qml").read_text(encoding="utf-8")
+        self.assertIn("export LC_ALL=C", text)
+        self.assertIn("/proc/cpuinfo", text)
+        self.assertIn("lspci", text)
+        self.assertIn("Display controller", text)
+
+    def test_update_auth_prompt_is_inline(self) -> None:
+        text = (SHELL / "panels" / "Settings.qml").read_text(encoding="utf-8")
+        self.assertIn("component UpdateAuthPrompt", text)
+        self.assertIn('UpdateAuthPrompt { action: "all" }', text)
+        self.assertIn("UpdateAuthPrompt { action: modelData.key }", text)
+        self.assertNotIn("id: _updatePassword", text)
+
+    def test_shell_reload_does_not_kill_launched_apps(self) -> None:
+        unit = (ROOT / "packaging/nodalix-shell/nodalix-shell.service").read_text(encoding="utf-8")
+        self.assertIn("KillMode=process", unit)
+        self.assertNotIn("KillMode=mixed", unit)
+
+    def test_first_state_migration_replaces_partial_validation_state(self) -> None:
+        launcher = (ROOT / "packaging/nodalix-shell/nodalix-shell").read_text(encoding="utf-8")
+        self.assertIn('cp -a "$old_state/." "$new_state/"', launcher)
+        self.assertNotIn("--no-clobber", launcher)
+
+    def test_dashboard_uses_local_canonical_popout_service(self) -> None:
+        dashboard = (SHELL / "panels/Dashboard.qml").read_text(encoding="utf-8")
+        self.assertNotIn("OverlayManager", dashboard)
+        self.assertIn('PopoutService.currentName === "dashboard"', dashboard)
 
     def test_legacy_migration_checks_pacman_ownership(self) -> None:
         migration = (ROOT / "updater" / "migrations" / "to_0_2_0.py").read_text(encoding="utf-8")

@@ -85,12 +85,17 @@ done < "$work/assets.tsv"
 say "Instalando dependencias oficiales…"
 "${as_root[@]}" pacman -S --needed --noconfirm \
     quickshell qt6-declarative python python-dbus python-gobject python-typer \
-    bluez bluez-utils bluez-obex gtk4 libadwaita polkit minisign
+    bluez bluez-utils bluez-obex gtk4 libadwaita polkit minisign gcc gawk
 
 say "Instalando Nodalix $release_tag…"
 "${as_root[@]}" pacman -U --needed --noconfirm "${packages[@]}"
 "${as_root[@]}" systemctl enable --now nodalix-update-check.timer
 systemctl --user daemon-reload || true
 systemctl --user enable --now nodalix-shell.service || true
+
+if [[ ${NODALIX_SKIP_HARDWARE_PROFILE:-0} != 1 ]]; then
+    say "Seleccionando repositorios y kernel según el hardware…"
+    "${as_root[@]}" nodalix-hardware-profile apply
+fi
 
 say "Nodalix $release_tag está instalado. Cierra sesión y vuelve a entrar para completar la integración."

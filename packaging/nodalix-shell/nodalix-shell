@@ -7,7 +7,9 @@ marker="$new_state/.migrated-from-quickshell-v1"
 
 if [ ! -e "$marker" ] && [ -d "$old_state" ]; then
     mkdir -p "$new_state"
-    if cp -a --no-clobber "$old_state/." "$new_state/"; then
+    # Before this marker exists the legacy tree is the canonical user state.
+    # Overwrite any partial files left by a validation or interrupted first run.
+    if cp -a "$old_state/." "$new_state/"; then
         : > "$marker"
     else
         printf '%s\n' "nodalix-shell: state migration incomplete; it will be retried" >&2

@@ -40,15 +40,15 @@ trap 'rm -f "$temp_file"' EXIT HUP INT TERM
     printf '%s\n' '<fontconfig>'
     printf '%s\n' '  <alias>'
     printf '%s\n' '    <family>system-ui</family>'
-    printf '    <prefer><family>%s</family><family>JetBrainsMono Nerd Font</family><family>Noto Color Emoji</family><family>Blobmoji</family></prefer>\n' "$font_family"
+    printf '    <prefer><family>%s</family><family>JetBrainsMono Nerd Font</family><family>Fluent Emoji Color</family><family>Noto Color Emoji</family></prefer>\n' "$font_family"
     printf '%s\n' '  </alias>'
     printf '%s\n' '  <alias>'
     printf '%s\n' '    <family>sans-serif</family>'
-    printf '    <prefer><family>%s</family><family>JetBrainsMono Nerd Font</family><family>Noto Color Emoji</family><family>Blobmoji</family></prefer>\n' "$font_family"
+    printf '    <prefer><family>%s</family><family>JetBrainsMono Nerd Font</family><family>Fluent Emoji Color</family><family>Noto Color Emoji</family></prefer>\n' "$font_family"
     printf '%s\n' '  </alias>'
     printf '%s\n' '  <alias>'
     printf '%s\n' '    <family>monospace</family>'
-    printf '    <prefer><family>%s</family><family>Noto Color Emoji</family><family>Blobmoji</family></prefer>\n' "$mono_family"
+    printf '    <prefer><family>%s</family><family>Fluent Emoji Color</family><family>Noto Color Emoji</family></prefer>\n' "$mono_family"
     printf '%s\n' '  </alias>'
     printf '%s\n' '</fontconfig>'
 } > "$temp_file"

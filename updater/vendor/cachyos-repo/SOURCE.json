@@ -1,0 +1,8 @@
+{
+  "source": "https://mirror.cachyos.org/cachyos-repo.tar.xz",
+  "archive_sha256": "e2c224dfc0db2cc6ef54f4765ca6ceac78761d34ce513fbaf8b021281f65d4b4",
+  "retrieved": "2026-09-13",
+  "local_changes": [
+    "Use --noconfirm for package installation and the final synchronized upgrade"
+  ]
+}

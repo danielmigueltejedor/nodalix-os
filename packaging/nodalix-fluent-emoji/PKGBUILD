@@ -1,0 +1,30 @@
+pkgname=nodalix-fluent-emoji
+pkgver=0.8.5
+pkgrel=1
+pkgdesc="Microsoft Fluent Emoji color font for Nodalix"
+arch=('any')
+url="https://github.com/tetunori/fluent-emoji-webfont"
+license=('MIT')
+provides=('emoji-font' 'ttf-fluent-emoji')
+conflicts=('ttf-fluent-emoji')
+depends=('fontconfig')
+source=(
+  "fluent-emoji-webfont-$pkgver.tar.gz::https://github.com/tetunori/fluent-emoji-webfont/archive/refs/tags/v$pkgver.tar.gz"
+  "75-nodalix-fluent-emoji.conf"
+)
+sha256sums=(
+  '98ddb337dd27f4afb451d9c191674045439e49ec1fcd0751816b9a0c09aa667f'
+  'SKIP'
+)
+
+package() {
+  install -Dm644 "$srcdir/fluent-emoji-webfont-$pkgver/dist/FluentEmojiColor.ttf" \
+    "$pkgdir/usr/share/fonts/nodalix/FluentEmojiColor.ttf"
+  install -Dm644 "$srcdir/fluent-emoji-webfont-$pkgver/LICENSE" \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "$srcdir/75-nodalix-fluent-emoji.conf" \
+    "$pkgdir/etc/fonts/conf.avail/75-nodalix-fluent-emoji.conf"
+  install -d "$pkgdir/etc/fonts/conf.d"
+  ln -s ../conf.avail/75-nodalix-fluent-emoji.conf \
+    "$pkgdir/etc/fonts/conf.d/75-nodalix-fluent-emoji.conf"
+}

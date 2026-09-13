@@ -1,7 +1,3 @@
-//@ pragma ShellId nodalix
-//@ pragma StateDir $BASE/nodalix
-//@ pragma DataDir $BASE/nodalix
-//@ pragma CacheDir $BASE/nodalix
 import QtQuick
 import Quickshell
 import Quickshell.Io
@@ -76,7 +72,7 @@ ShellRoot {
     // App launcher (Win11-style start menu) — rendered inside MainWindow's blob
     // layer (merges with the bottom screen border), driven by LauncherService.
 
-    // External launcher trigger:  qs -c nodalix ipc call launcher toggle
+    // External launcher trigger through the Quickshell IPC launcher target.
     IpcHandler {
         target: "launcher"
         function toggle(): void { LauncherService.toggle() }
@@ -84,7 +80,7 @@ ShellRoot {
         function close():  void { LauncherService.hide() }
     }
 
-    // Per-monitor workspaces:  qs -c nodalix ipc call ws go <n> <switch|move>
+    // Per-monitor workspaces through the Quickshell IPC workspace target.
     // Monitor k owns workspaces k*10+1 .. k*10+10, so every screen has its own
     // "1..10". switch uses the focused monitor; move uses the active window's
     // monitor (keeps it on its own screen). Replaces scripts/hypr/ws.sh.
@@ -106,7 +102,7 @@ ShellRoot {
         }
     }
 
-    // Scratchpad:  qs -c nodalix ipc call scratchpad toggle
+    // Scratchpad control through the Quickshell IPC scratchpad target.
     // Closes whichever special workspace is open on the focused monitor, else
     // opens special:magic. The monitor IPC object's specialWorkspace isn't
     // refreshed on special-ws changes, so we query hyprctl fresh each time and
@@ -132,10 +128,20 @@ ShellRoot {
         }
     }
 
-    // A single settings surface is hosted inside MainWindow so it can stack
-    // with launcher and other overlays on the same monitor.
+    // A single settings surface follows the focused monitor. The old per-screen
+    // Variants instantiated the entire (large) settings tree once per display,
+    // even though only one copy can ever be visible.
+    readonly property var _settingsScreen: {
+        const wanted = SettingsUi.screenName
+        for (const screen of uniqueScreens) if (screen.name === wanted) return screen
+        return uniqueScreens.length > 0 ? uniqueScreens[0] : null
+    }
+    Loader {
+        active: root._settingsScreen !== null
+        sourceComponent: Settings { modelData: root._settingsScreen }
+    }
 
-    // External settings trigger:  qs -c nodalix ipc call settings toggle
+    // External settings trigger through the Quickshell IPC settings target.
     IpcHandler {
         target: "settings"
         function toggle(): void { SettingsUi.toggle() }
@@ -143,7 +149,7 @@ ShellRoot {
         function close():  void { SettingsUi.hide() }
     }
 
-    // Notification center:  qs -c nodalix ipc call notifications toggle
+    // Notification center control through its Quickshell IPC target.
     IpcHandler {
         target: "notifications"
         function toggle(): void { NotificationService.centerOpen && !NotificationService.toastMode
@@ -155,13 +161,13 @@ ShellRoot {
     // Custom session lock (WlSessionLock) — see LockScreen.qml
     LockScreen {}
 
-    // External lock trigger:  qs -c nodalix ipc call lock lock
+    // External lock trigger through the Quickshell IPC lock target.
     IpcHandler {
         target: "lock"
         function lock(): void { LockService.lock() }
     }
 
-    // Tools toolbar (keyboard mode):  qs -c nodalix ipc call tools toggle
+    // Tools toolbar control through the Quickshell IPC tools target.
     IpcHandler {
         target: "tools"
         function toggle(): void { ToolsService.toggle() }

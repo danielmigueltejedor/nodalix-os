@@ -8,7 +8,7 @@
       "id": "nodalix-release",
       "name": "Nodalix system identity",
       "package": "nodalix-release",
-      "version": "0.2.0-beta.4",
+      "version": "0.2.0-beta.5",
       "required": true,
       "restart": "none"
     },
@@ -16,7 +16,7 @@
       "id": "updater",
       "name": "Nodalix Updater",
       "package": "nodalix-updater",
-      "version": "0.2.0-beta.4",
+      "version": "0.2.0-beta.5",
       "required": true,
       "restart": "none"
     },
@@ -24,7 +24,7 @@
       "id": "shell",
       "name": "Nodalix Shell",
       "package": "nodalix-shell",
-      "version": "0.2.0-beta.4",
+      "version": "0.2.0-beta.5",
       "required": true,
       "restart": "shell"
     },
@@ -32,9 +32,17 @@
       "id": "phone-link",
       "name": "Enlace móvil",
       "package": "nodalix-phone-link",
-      "version": "0.2.0-beta.4",
+      "version": "0.2.0-beta.5",
       "required": true,
       "restart": "system"
+    },
+    {
+      "id": "fluent-emoji",
+      "name": "Microsoft Fluent Emoji",
+      "package": "nodalix-fluent-emoji",
+      "version": "0.8.5",
+      "required": true,
+      "restart": "shell"
     }
   ]
 }

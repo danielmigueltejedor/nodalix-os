@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily automatic Nodalix user application update
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=20m
+
+[Install]
+WantedBy=timers.target

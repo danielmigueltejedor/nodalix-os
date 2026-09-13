@@ -3,9 +3,16 @@ set -eu
 
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)
 
-if rg -n '/home/daniel|sudo -S|qs ipc|\.config/quickshell|\.local/state/quickshell' \
+if rg -n '/home/daniel|qs ipc|\.config/quickshell|\.local/state/quickshell' \
     "$repo_root/shell" "$repo_root/packaging"; then
     printf '%s\n' "Forbidden installed-system reference found" >&2
+    exit 1
+fi
+
+# Passwords may only enter the two audited, short-lived authorization bridges.
+if rg -n 'sudo -S' "$repo_root/shell" "$repo_root/packaging" \
+    --glob '!services/UpdateService.qml' --glob '!services/StorageService.qml'; then
+    printf '%s\n' "Unapproved password bridge found" >&2
     exit 1
 fi
 

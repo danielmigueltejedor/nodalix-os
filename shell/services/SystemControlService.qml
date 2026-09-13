@@ -83,15 +83,16 @@ QtObject {
 
     property Process _probe: Process {
         command: ["sh", "-c",
+            "export LC_ALL=C; " +
             "printf 'timezone=%s\\n' \"$(timedatectl show -p Timezone --value 2>/dev/null)\"; " +
             "printf 'ntp=%s\\n' \"$(timedatectl show -p NTP --value 2>/dev/null)\"; " +
             "printf 'ntpsync=%s\\n' \"$(timedatectl show -p NTPSynchronized --value 2>/dev/null)\"; " +
             "printf 'hostname=%s\\n' \"$(hostnamectl --static 2>/dev/null || hostname)\"; " +
             "printf 'os=%s\\n' \"$(. /etc/os-release 2>/dev/null; printf '%s' \"${PRETTY_NAME:-Linux}\")\"; " +
             "printf 'kernel=%s\\n' \"$(uname -r)\"; " +
-            "printf 'cpu=%s\\n' \"$(lscpu 2>/dev/null | awk -F: '/Model name/{gsub(/^[ \\t]+/,\"\",$2); print $2; exit}')\"; " +
+            "printf 'cpu=%s\\n' \"$(awk -F: '/^model name[ \\t]*:/{gsub(/^[ \\t]+/,\"\",$2); print $2; exit}' /proc/cpuinfo 2>/dev/null)\"; " +
             "printf 'memory=%s\\n' \"$(free -h 2>/dev/null | awk '/Mem:/{print $2}')\"; " +
-            "printf 'gpu=%s\\n' \"$(lspci 2>/dev/null | sed -n '/VGA compatible controller\|3D controller/{s/^[^:]*: //; p; q}')\"; " +
+            "printf 'gpu=%s\\n' \"$(lspci 2>/dev/null | sed -n '/VGA compatible controller\|3D controller\|Display controller/{s/.*controller: //; p; q}')\"; " +
             "printf 'browser=%s\\n' \"$(xdg-settings get default-web-browser 2>/dev/null)\"; " +
             "printf 'files=%s\\n' \"$(xdg-mime query default inode/directory 2>/dev/null)\"; " +
             "printf 'mail=%s\\n' \"$(xdg-mime query default x-scheme-handler/mailto 2>/dev/null)\"; " +

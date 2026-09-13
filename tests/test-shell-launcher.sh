@@ -8,6 +8,8 @@ trap 'rm -rf "$tmp"' EXIT INT TERM
 mkdir -p "$tmp/bin" "$tmp/home/.local/state/quickshell"
 printf '%s' old > "$tmp/home/.local/state/quickshell/settings.json"
 printf '%s' legacy > "$tmp/home/.local/state/quickshell/pinned.json"
+mkdir -p "$tmp/home/.local/state/nodalix"
+printf '%s' partial > "$tmp/home/.local/state/nodalix/settings.json"
 printf '%s\n' '#!/bin/sh' 'printf "%s\\n" "$*" > "$QS_ARGS"' > "$tmp/bin/qs"
 chmod +x "$tmp/bin/qs"
 

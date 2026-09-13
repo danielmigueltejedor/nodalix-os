@@ -1,0 +1,8 @@
+[Unit]
+Description=Automatic Nodalix system update
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/nodalix-system-update privileged-system

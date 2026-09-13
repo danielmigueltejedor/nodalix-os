@@ -1,5 +1,4 @@
 singleton NotificationService 1.0 NotificationService.qml
-singleton OverlayManager     1.0 OverlayManager.qml
 singleton PopoutService      1.0 PopoutService.qml
 singleton AudioService       1.0 AudioService.qml
 singleton BatteryService     1.0 BatteryService.qml
