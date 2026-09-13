@@ -38,6 +38,10 @@ DEFAULT_CONFIG = {
 VALID_CHANNELS = ("stable", "beta")
 CHANNEL_ALIASES = {"rc": "beta"}
 UA = "Nodalix-Updater/0.2"
+for _migrations_root in (Path(__file__).resolve().parent, Path("/usr/lib/nodalix-updater")):
+    if str(_migrations_root) not in sys.path:
+        sys.path.insert(0, str(_migrations_root))
+from migrations.registry import MigrationError, run_migrations  # noqa: E402
 VERSION_PATTERN = re.compile(
     r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
     r"(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
@@ -83,6 +87,12 @@ class BusyError(UpdaterError):
     status = "update_busy"
 
 
+class MigrationFailedError(UpdaterError):
+    code = "migration_failed"
+    status = "migration_failed"
+    recoverable = False
+
+
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -102,7 +112,20 @@ def atomic_text(path: Path, data: str) -> None:
 
 
 def set_status(state: str, **fields: object) -> dict:
-    status = {"state": state, "status": fields.get("status", state), "updated_at": utc_now(), **fields}
+    now = utc_now()
+    status = {
+        "state": state,
+        "status": fields.get("status", state),
+        "stage": fields.get("stage", state),
+        "updated_at": now,
+        "timestamp": fields.get("timestamp", now),
+        "last_error": fields.get("last_error", fields.get("error")),
+        **fields,
+    }
+    if "stage" in fields:
+        status["stage"] = fields["stage"]
+    else:
+        status["stage"] = fields.get("status", state)
     atomic_json(STATUS_PATH, status)
     return status
 
@@ -604,6 +627,24 @@ def update_lock():
         yield
 
 
+def reload_systemd_units(components: list[dict]) -> None:
+    ids = {str(item.get("id") or "") for item in components}
+    packages = {str(item.get("package") or "") for item in components}
+    needs_system = bool(ids & {"updater", "nodalix-updater"} or packages & {"nodalix-updater"})
+    needs_user = bool(ids & {"shell", "nodalix-shell"} or packages & {"nodalix-shell"})
+    if needs_system:
+        subprocess.run(["systemctl", "daemon-reload"], check=False)
+    if not needs_user:
+        return
+    sudo_user = os.environ.get("SUDO_USER", "").strip()
+    if not sudo_user or sudo_user == "root":
+        return
+    subprocess.run(
+        ["systemctl", "--user", f"--machine={sudo_user}@", "daemon-reload"],
+        check=False,
+    )
+
+
 def record_history(old: str, new: str, components: list[dict]) -> None:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     event = {
@@ -643,7 +684,15 @@ def do_update(config: dict, force: bool = False) -> dict:
         raise UpdaterError("Usa: sudo nodalix-updater update")
     previous = current_version()
     with update_lock():
-        set_status("checking", status="checking", current_version=previous)
+        target_version = None
+        set_status(
+            "checking",
+            status="checking",
+            stage="checking",
+            current_version=previous,
+            target_version=None,
+            last_error=None,
+        )
         info = release_info(config)
         if info["status"] == "no_release":
             return set_status("no_release", status="no_release", current_version=previous)
@@ -658,6 +707,7 @@ def do_update(config: dict, force: bool = False) -> dict:
             return set_status("up_to_date", status="up_to_date", current_version=previous, latest_version=info.get("latest_version"))
         fail_closed(info, "update")
         manifest = info["_manifest"]
+        target_version = canonical_version(str(manifest["version"]))
         minimum = manifest["minimum_version"]
         if compare_versions(current_version(), minimum) < 0:
             raise ManifestError(f"Esta release requiere como mínimo Nodalix {minimum}")
@@ -673,12 +723,15 @@ def do_update(config: dict, force: bool = False) -> dict:
             set_status(
                 "downloading",
                 status="downloading",
+                stage="downloading",
                 version=manifest["version"],
+                target_version=target_version,
                 component=component["id"],
                 component_index=index,
                 component_count=len(components),
                 total_size=total_size,
                 current_version=previous,
+                last_error=None,
             )
             asset = assets.get(component["asset"])
             if asset is None:
@@ -686,19 +739,59 @@ def do_update(config: dict, force: bool = False) -> dict:
             destination = staging / component["asset"]
             if not destination.exists() or sha256_file(destination) != component["sha256"].lower():
                 download_to(asset_download_url(asset), destination)
-            set_status("verifying", status="verifying", version=manifest["version"], component=component["id"])
+            set_status(
+                "verifying",
+                status="verifying",
+                stage="verifying",
+                version=manifest["version"],
+                target_version=target_version,
+                current_version=previous,
+                component=component["id"],
+                last_error=None,
+            )
             digest = sha256_file(destination)
             if digest != component["sha256"].lower():
                 destination.unlink(missing_ok=True)
                 raise IntegrityError(f"SHA-256 incorrecto para {component['asset']}")
             packages.append(str(destination))
-        set_status("installing", status="installing", version=manifest["version"], components=[item["id"] for item in components])
+        set_status(
+            "migrating",
+            status="migrating",
+            stage="migrating",
+            version=manifest["version"],
+            current_version=previous,
+            target_version=target_version,
+            last_error=None,
+        )
+        try:
+            run_migrations(
+                previous,
+                target_version,
+                compare_versions=compare_versions,
+                state_dir=STATE_DIR,
+                log=lambda message: print(f"migración: {message}", flush=True),
+            )
+        except MigrationError as error:
+            raise MigrationFailedError(str(error)) from error
+        set_status(
+            "installing",
+            status="installing",
+            stage="installing",
+            version=manifest["version"],
+            target_version=target_version,
+            current_version=previous,
+            components=[item["id"] for item in components],
+            last_error=None,
+        )
         # Pacman replaces files, including this script. Keep running from the
         # already-loaded Python process; do not re-exec mid-transaction.
+        # Known 0.1.1 leftovers are removed by migrations; unknown conflicts
+        # must still abort with the normal pacman error.
         subprocess.run(
-            ["pacman", "-U", "--noconfirm", "--needed", "--overwrite", "/etc/nodalix-release", *packages],
+            ["pacman", "-U", "--noconfirm", "--needed", *packages],
             check=True,
         )
+        reload_systemd_units(components)
         installed = current_version()
         if installed != canonical_version(str(manifest["version"])):
             raise UpdaterError(
@@ -708,8 +801,11 @@ def do_update(config: dict, force: bool = False) -> dict:
         result = set_status(
             "completed",
             status="completed",
+            stage="completed",
             previous_version=previous,
             current_version=installed,
+            target_version=target_version,
+            last_error=None,
             components=[item["id"] for item in components],
             shell_restart_required=any(item["restart"] == "shell" for item in components),
             reboot_required=any(item["restart"] == "system" for item in components),
@@ -750,9 +846,25 @@ def human_check_message(data: dict) -> str:
     return data.get("error") or data.get("state") or f"Nodalix {current}"
 
 
+def format_history(events: list[dict]) -> str:
+    if not events:
+        return "No hay actualizaciones registradas."
+    lines = []
+    for event in events:
+        origin = event.get("from") or "?"
+        destination = event.get("to") or "?"
+        stamp = event.get("timestamp") or ""
+        suffix = f" ({stamp})" if stamp else ""
+        lines.append(f"{origin} -> {destination}{suffix}")
+    return "\n".join(lines)
+
+
 def emit(data: dict, as_json: bool) -> None:
     if as_json:
         print(json.dumps(public_info(data), ensure_ascii=False))
+        return
+    if "history" in data and "channel" not in data and data.get("status") is None:
+        print(format_history(list(data.get("history") or [])))
         return
     if data.get("status") in {
         "no_release",
@@ -828,6 +940,7 @@ def main() -> int:
             if HISTORY_PATH.exists():
                 events = [json.loads(line) for line in HISTORY_PATH.read_text(encoding="utf-8").splitlines() if line]
             emit({"history": events}, args.json)
+            return 0
         elif args.command == "channel":
             if args.name is None:
                 emit({"channel": config["channel"], "version": current, "repository": config["repository"]}, args.json)
@@ -848,6 +961,9 @@ def main() -> int:
         return 0
     except UpdaterError as error:
         payload = error_payload(error, current)
+        payload["stage"] = error.status if error.status in {"migration_failed", "install_failed"} else "failed"
+        payload["last_error"] = str(error)
+        payload["target_version"] = payload.get("target_version")
         with contextlib.suppress(OSError):
             set_status(payload["state"], **payload)
         if getattr(args, "json", False):
@@ -858,9 +974,12 @@ def main() -> int:
     except subprocess.CalledProcessError as error:
         payload = {
             "status": "install_failed",
+            "stage": "install_failed",
             "state": "error_critical",
             "code": "package_transaction_failed",
             "current_version": current_version(),
+            "target_version": None,
+            "last_error": f"pacman exited with status {error.returncode}",
             "update_available": False,
             "error": f"pacman exited with status {error.returncode}",
             "message": f"pacman exited with status {error.returncode}",

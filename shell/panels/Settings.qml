@@ -14,27 +14,17 @@ import Quickshell.Services.UPower
 import "../theme"
 import "../services"
 
-// Settings window — centered modal (standalone per-screen window, shown on the
-// focused monitor). Sidebar categories + scrollable pane. Live-applies +
-// persists via SettingsService; opt-in features dependency-checked.
-PanelWindow {
+// Settings — centered modal hosted inside MainWindow's overlay stack so it
+// paints above/below launcher and other popups on the same monitor.
+Item {
 	id: root
 	required property var modelData
+	anchors.fill: parent
 
 	readonly property bool active:
-		SettingsUi.open && SettingsUi.screenName === modelData?.name
+		OverlayManager.isOpen("settings", modelData?.name)
 
-	screen:        modelData
-	visible:       active || _exiting
-	color:         "transparent"
-	exclusionMode: ExclusionMode.Ignore
-	anchors        { top: true; bottom: true; left: true; right: true }
-	WlrLayershell.layer:         WlrLayer.Overlay
-	// This transient overlay must request keyboard itself (unlike the always-on
-	// shell layer, a focus grab alone won't pull keyboard to it). The grab is
-	// kept only so window focus is restored automatically on close.
-	WlrLayershell.keyboardFocus: active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-	HyprlandFocusGrab { windows: [root]; active: root.active }
+	visible: active || _exiting
 
 	property bool _exiting: false
 	onActiveChanged: {
@@ -258,7 +248,7 @@ PanelWindow {
 		color: ThemeManager.scrim
 		opacity: root.active ? 0.4 : 0
 		Behavior on opacity { NumberAnimation { duration: 160 } }
-		MouseArea { anchors.fill: parent; onClicked: SettingsUi.hide() }
+		MouseArea { anchors.fill: parent; onClicked: OverlayManager.closeTop(modelData?.name) }
 	}
 
 	// ── Card ────────────────────────────────────────────────────────────────--

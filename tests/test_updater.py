@@ -294,27 +294,33 @@ class UpdateTransactionTests(unittest.TestCase):
     def download(self, url: str, destination: Path) -> None:
         destination.write_bytes(url.removeprefix("fixture://").encode())
 
+    def run_command(self, command: list[str], **kwargs: object) -> mock.Mock:
+        if command[:2] == ["pacman", "-Qo"]:
+            return mock.Mock(returncode=1, stdout="", stderr="")
+        if command[:1] == ["systemctl"]:
+            return mock.Mock(returncode=0)
+        self.assertEqual(command[:4], ["pacman", "-U", "--noconfirm", "--needed"])
+        self.assertNotIn("--overwrite", command)
+        self.assertEqual(len([item for item in command if item.endswith(".pkg.tar.zst") or "nodalix-" in Path(item).name]), 3)
+        UPDATER.RELEASE_PATH.write_text('VERSION_ID="0.2.0"\n', encoding="utf-8")
+        return mock.Mock(returncode=0)
+
     def test_installs_all_packages_in_one_pacman_transaction(self) -> None:
         value = manifest([component(), component("updater"), component("shell")])
-
-        def pacman(command: list[str], **kwargs: object) -> mock.Mock:
-            self.assertEqual(command[:6], ["pacman", "-U", "--noconfirm", "--needed", "--overwrite", "/etc/nodalix-release"])
-            self.assertEqual(len(command[6:]), 3)
-            UPDATER.RELEASE_PATH.write_text('VERSION_ID="0.2.0"\n', encoding="utf-8")
-            return mock.Mock(returncode=0)
 
         with (
             mock.patch.object(UPDATER.os, "geteuid", return_value=0),
             mock.patch.object(UPDATER, "release_info", return_value=self.info(value)),
             mock.patch.object(UPDATER, "package_installed", return_value=True),
             mock.patch.object(UPDATER, "download_to", side_effect=self.download),
-            mock.patch.object(UPDATER.subprocess, "run", side_effect=pacman) as run,
+            mock.patch.object(UPDATER.subprocess, "run", side_effect=self.run_command) as run,
         ):
             result = UPDATER.do_update({})
 
-        self.assertEqual(run.call_count, 1)
-        self.assertNotIn("nodalix-updater", " ".join(str(call) for call in run.call_args_list if call.args[0][:1] != ["pacman"]))
+        pacman_u = [call for call in run.call_args_list if call.args[0][:2] == ["pacman", "-U"]]
+        self.assertEqual(len(pacman_u), 1)
         self.assertEqual(result["state"], "completed")
+        self.assertEqual(result["stage"], "completed")
         self.assertTrue(result["shell_restart_required"])
         self.assertEqual(json.loads(UPDATER.STATUS_PATH.read_text())["state"], "completed")
         self.assertEqual(len(UPDATER.HISTORY_PATH.read_text().splitlines()), 1)
@@ -323,7 +329,9 @@ class UpdateTransactionTests(unittest.TestCase):
         value = manifest([component(), component("updater")])
         seen: list[list[str]] = []
 
-        def pacman(command: list[str], **kwargs: object) -> mock.Mock:
+        def run(command: list[str], **kwargs: object) -> mock.Mock:
+            if command[:2] == ["pacman", "-Qo"] or command[:1] == ["systemctl"]:
+                return mock.Mock(returncode=1 if command[:2] == ["pacman", "-Qo"] else 0)
             seen.append(command)
             UPDATER.RELEASE_PATH.write_text('VERSION_ID="0.2.0"\n', encoding="utf-8")
             return mock.Mock(returncode=0)
@@ -333,11 +341,12 @@ class UpdateTransactionTests(unittest.TestCase):
             mock.patch.object(UPDATER, "release_info", return_value=self.info(value)),
             mock.patch.object(UPDATER, "package_installed", return_value=True),
             mock.patch.object(UPDATER, "download_to", side_effect=self.download),
-            mock.patch.object(UPDATER.subprocess, "run", side_effect=pacman),
+            mock.patch.object(UPDATER.subprocess, "run", side_effect=run),
         ):
             UPDATER.do_update({})
 
         self.assertEqual(len(seen), 1)
+        self.assertNotIn("--overwrite", seen[0])
         joined = " ".join(seen[0])
         self.assertIn("nodalix-updater-", joined)
         self.assertIn("nodalix-release-", joined)
@@ -379,7 +388,11 @@ class UpdateTransactionTests(unittest.TestCase):
     def test_pacman_failure_does_not_record_history(self) -> None:
         value = manifest()
 
-        def pacman(command: list[str], **kwargs: object) -> None:
+        def run(command: list[str], **kwargs: object) -> mock.Mock:
+            if command[:2] == ["pacman", "-Qo"]:
+                return mock.Mock(returncode=1, stdout="", stderr="")
+            if command[:1] == ["systemctl"]:
+                return mock.Mock(returncode=0)
             raise UPDATER.subprocess.CalledProcessError(1, command)
 
         with (
@@ -387,12 +400,36 @@ class UpdateTransactionTests(unittest.TestCase):
             mock.patch.object(UPDATER, "release_info", return_value=self.info(value)),
             mock.patch.object(UPDATER, "package_installed", return_value=True),
             mock.patch.object(UPDATER, "download_to", side_effect=self.download),
-            mock.patch.object(UPDATER.subprocess, "run", side_effect=pacman),
+            mock.patch.object(UPDATER.subprocess, "run", side_effect=run),
         ):
             with self.assertRaises(UPDATER.subprocess.CalledProcessError):
                 UPDATER.do_update({})
         self.assertEqual(UPDATER.current_version(), "0.1.1")
         self.assertFalse(UPDATER.HISTORY_PATH.exists())
+
+    def test_pacman_is_not_called_with_overwrite(self) -> None:
+        value = manifest()
+        seen: list[list[str]] = []
+
+        def run(command: list[str], **kwargs: object) -> mock.Mock:
+            seen.append(command)
+            if command[:2] == ["pacman", "-Qo"]:
+                return mock.Mock(returncode=1)
+            if command[:1] == ["systemctl"]:
+                return mock.Mock(returncode=0)
+            UPDATER.RELEASE_PATH.write_text('VERSION_ID="0.2.0"\n', encoding="utf-8")
+            return mock.Mock(returncode=0)
+
+        with (
+            mock.patch.object(UPDATER.os, "geteuid", return_value=0),
+            mock.patch.object(UPDATER, "release_info", return_value=self.info(value)),
+            mock.patch.object(UPDATER, "package_installed", return_value=True),
+            mock.patch.object(UPDATER, "download_to", side_effect=self.download),
+            mock.patch.object(UPDATER.subprocess, "run", side_effect=run),
+        ):
+            UPDATER.do_update({})
+        self.assertTrue(any(cmd[:2] == ["pacman", "-U"] for cmd in seen))
+        self.assertFalse(any("--overwrite" in cmd for cmd in seen))
 
 
 if __name__ == "__main__":

@@ -132,18 +132,8 @@ ShellRoot {
         }
     }
 
-    // A single settings surface follows the focused monitor. The old per-screen
-    // Variants instantiated the entire (large) settings tree once per display,
-    // even though only one copy can ever be visible.
-    readonly property var _settingsScreen: {
-        const wanted = SettingsUi.screenName
-        for (const screen of uniqueScreens) if (screen.name === wanted) return screen
-        return uniqueScreens.length > 0 ? uniqueScreens[0] : null
-    }
-    Loader {
-        active: root._settingsScreen !== null
-        sourceComponent: Settings { modelData: root._settingsScreen }
-    }
+    // A single settings surface is hosted inside MainWindow so it can stack
+    // with launcher and other overlays on the same monitor.
 
     // External settings trigger:  qs -c nodalix ipc call settings toggle
     IpcHandler {

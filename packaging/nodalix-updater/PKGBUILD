@@ -1,5 +1,5 @@
 pkgname=nodalix-updater
-pkgver=0.2.0beta.1
+pkgver=0.2.0beta.2
 pkgrel=1
 pkgdesc="Nodalix GitHub Releases update service"
 arch=('any')
@@ -12,6 +12,8 @@ sha256sums=('SKIP')
 
 package() {
   install -Dm755 "$srcdir/updater/nodalix-updater" "$pkgdir/usr/bin/nodalix-updater"
+  install -d "$pkgdir/usr/lib/nodalix-updater/migrations"
+  install -m644 "$srcdir/updater/migrations/"*.py "$pkgdir/usr/lib/nodalix-updater/migrations/"
   install -Dm644 "$srcdir/updater/updater.json" "$pkgdir/etc/nodalix/updater.json"
   install -Dm644 "$srcdir/updater/nodalix-update-check.service" "$pkgdir/usr/lib/systemd/system/nodalix-update-check.service"
   install -Dm644 "$srcdir/updater/nodalix-update-check.timer" "$pkgdir/usr/lib/systemd/system/nodalix-update-check.timer"
