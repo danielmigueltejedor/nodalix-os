@@ -41,8 +41,9 @@ hl.config({
 
 -- Shell action keybinds (launcher, settings, lock, tools, scratchpad) are
 -- configured in-app under Settings → Keybindings and written to
--- hypr/binds.generated.lua. They are UNBOUND by default — until you set them,
--- reach Settings via the bar launcher button or the dashboard gear icon.
+-- binds.generated.lua. That generated file is the ONLY source of truth for
+-- BindingService-managed shortcuts. Do not hardcode the launcher shortcut or
+-- other configurable actions here — a second bind toggles the launcher twice.
 local state = (os.getenv("XDG_STATE_HOME") or (home .. "/.local/state")) .. "/nodalix"
 local genBinds = state .. "/binds.generated.lua"
 if io.open(genBinds) then loadfile(genBinds)() end
@@ -77,5 +78,3 @@ end
 -- hl.window_rule({ name = "ws-spotify",  match = { class = "(spotify|Spotify)" },        workspace = "special:spotify silent" })
 -- hl.window_rule({ name = "ws-discord",  match = { class = "(vesktop|discord)" },        workspace = "special:discord silent" })
 -- hl.window_rule({ name = "ws-music",    match = { class = "(YouTube Music Desktop App)" }, workspace = "special:music silent" })
-
-hl.bind("SUPER + SPACE", hl.dsp.exec_cmd("qs -c nodalix ipc call launcher toggle"), { description = "Nodalix Launcher" })

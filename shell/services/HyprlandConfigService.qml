@@ -6,7 +6,7 @@ import "."
 
 // Hyprland config OVERRIDE layer, managed from Settings → Display settings. Mirrors
 // BindingService: user-set values live under the `hypr.*` namespace in
-// SettingsService, get generated into ~/.local/state/quickshell/hypr.generated.lua,
+// SettingsService, get generated into ~/.local/state/nodalix/hypr.generated.lua,
 // and hypr/quickshell.lua sources that file AFTER the user's own config so it
 // overrides (last-wins). Only keys the user actually changed are emitted — the
 // user's hyprland.lua/.conf is never touched.

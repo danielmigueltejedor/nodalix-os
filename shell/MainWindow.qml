@@ -16,6 +16,8 @@ PanelWindow {
 
     required property var modelData
 
+    readonly property string _screenName: modelData?.name ?? ""
+
     // Force BatteryService singleton to instantiate so it watches plug/unplug/low.
     Component.onCompleted: BatteryService.present
 
@@ -44,9 +46,19 @@ PanelWindow {
         }
     }
 
-    // ── Generic popout state ──────────────────────────────────────────────────
-    readonly property bool _popoutOpen: PopoutService.hasCurrent &&
-        PopoutService.anchorScreen?.name === root.modelData?.name
+    // Hover bar popouts are mutually exclusive; dashboard is a stacked overlay
+    // with its own blob so it can remain visible under launcher/settings.
+    readonly property bool _popoutOpen: OverlayManager.stack(root._screenName).some(id => OverlayManager.isHoverBar(id))
+        || OverlayManager.hoverBarIds.some(id => OverlayManager.isExiting(id, root._screenName))
+    readonly property string _topBarOverlay: {
+        const list = OverlayManager.stack(root._screenName)
+        for (let i = list.length - 1; i >= 0; i--)
+            if (OverlayManager.isHoverBar(list[i]))
+                return list[i]
+        return ""
+    }
+    readonly property bool _dashboardShown: OverlayManager.isOpen("dashboard", root._screenName)
+        || OverlayManager.isExiting("dashboard", root._screenName)
 
     // Incoming LocalSend offers must remain actionable even when the dashboard
     // is closed. Show one focused-monitor card above regular windows.
@@ -63,11 +75,10 @@ PanelWindow {
     // Caelestia pattern: single container whose width+height animate to the
     // active panel's natural size. Content cross-fades + scales, centred.
     readonly property real _targetPopoutWidth: {
-        switch (PopoutService.currentName) {
+        switch (root._topBarOverlay) {
             case "audio":    return _audioLoader.item?.implicitWidth    ?? 180
             case "power":    return _powerLoader.item?.implicitWidth    ?? 180
             case "powerprofile": return _powerProfileLoader.item?.implicitWidth ?? 190
-            case "dashboard": return _dashboardLoader.item?.implicitWidth ?? 360
             case "notif":    return _notifLoader.item?.implicitWidth    ?? 320
             case "network":  return _networkLoader.item?.implicitWidth  ?? 260
             case "bluetooth": return _bluetoothLoader.item?.implicitWidth ?? 250
@@ -78,11 +89,10 @@ PanelWindow {
     }
     readonly property real _targetPopoutHeight: {
         if (!_popoutOpen) return 0
-        switch (PopoutService.currentName) {
+        switch (root._topBarOverlay) {
             case "audio":    return Math.min(_audioLoader.item?.implicitHeight    ?? 0, _popoutMaxHeight)
             case "power":    return Math.min(_powerLoader.item?.implicitHeight    ?? 0, _popoutMaxHeight)
             case "powerprofile": return Math.min(_powerProfileLoader.item?.implicitHeight ?? 0, _popoutMaxHeight)
-            case "dashboard": return Math.min(_dashboardLoader.item?.implicitHeight ?? 0, 700)
             case "notif":    return Math.min(_notifLoader.item?.implicitHeight    ?? 0, _popoutMaxHeight)
             case "network":  return Math.min(_networkLoader.item?.implicitHeight  ?? 0, _popoutMaxHeight)
             case "bluetooth": return Math.min(_bluetoothLoader.item?.implicitHeight ?? 0, _popoutMaxHeight)
@@ -116,8 +126,9 @@ PanelWindow {
         // toward their finals in parallel — avoids resize-then-move.
         const w    = _targetPopoutWidth
         const half = w / 2
+        const ax = OverlayManager.anchorX(root._topBarOverlay, root._screenName) || PopoutService.anchorX
         return Math.min(
-            Math.max(ThemeManager.borderWidth, PopoutService.anchorX - half),
+            Math.max(ThemeManager.borderWidth, ax - half),
             root.width - w - ThemeManager.borderWidth)
     }
     property real _popoutX: _popoutXCalc
@@ -178,9 +189,16 @@ PanelWindow {
     // only while a hover-popout text field is actually being edited, so plain
     // hover never grabs. Network/bluetooth text entry is its own PopupWindow.
     readonly property bool _layerWantsKbd: ToolsService.open
-        || root._launcherActive || PopoutService.textActive
+        || OverlayManager.wantsKeyboard(root._screenName) || PopoutService.textActive
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     HyprlandFocusGrab { windows: [root]; active: root._layerWantsKbd }
+    Keys.onEscapePressed: (event) => {
+        const top = OverlayManager.active(root._screenName)
+        if (!top || top === "launcher" || top === "settings")
+            return
+        OverlayManager.closeTop(root._screenName)
+        event.accepted = true
+    }
 
     // Animated current width + height (notch nub ↔ rail), kept vertically centred
     property real _toolsW: _toolsShow ? _toolsRailW : _toolsNotchW
@@ -255,6 +273,12 @@ PanelWindow {
             width:  root._toolsKbdActive ? root.width  : 0
             height: root._toolsKbdActive ? root.height : 0
         }
+        // Full-screen dismiss while any overlay stack is present on this monitor
+        Region {
+            x: 0; y: 0
+            width:  OverlayManager.hasStack(root._screenName) ? root.width  : 0
+            height: OverlayManager.hasStack(root._screenName) ? root.height : 0
+        }
         // Full-screen region while the launcher is open (interaction + dismiss)
         Region {
             x: 0; y: 0
@@ -268,13 +292,81 @@ PanelWindow {
         }
     }
 
-    // ── Tray menu dismiss overlay ─────────────────────────────────────────────
-    // Full-screen, z-below popout. Catches clicks outside the menu to close it.
+    // ── Overlay host (one per monitor) ───────────────────────────────────────
+    // Click outside closes only the top overlay. z order is OverlayManager's
+    // stack index, so the last opened panel is actually painted on top.
     MouseArea {
+        id: overlayDismiss
         anchors.fill: parent
-        visible:      root._trayMenuPinned
-        z:            0
-        onClicked:    PopoutService.close()
+        anchors.topMargin: root._panelTop
+        visible: OverlayManager.hasStack(root._screenName)
+        z: 0
+        onClicked: OverlayManager.closeTop(root._screenName)
+    }
+
+    // ── Generic popout ────────────────────────────────────────────────────────
+    BarOverlay {
+        id: _audioLoader
+        overlayId: "audio"; screenName: root._screenName
+        panelTop: root._panelTop; maxHeight: root._popoutMaxHeight
+        screenWidth: root.width; borderWidth: ThemeManager.borderWidth
+        source: "panels/AudioPanel.qml"
+    }
+    BarOverlay {
+        id: _powerLoader
+        overlayId: "power"; screenName: root._screenName
+        panelTop: root._panelTop; maxHeight: root._popoutMaxHeight
+        screenWidth: root.width; borderWidth: ThemeManager.borderWidth
+        source: "panels/PowerPanel.qml"
+    }
+    BarOverlay {
+        id: _powerProfileLoader
+        overlayId: "powerprofile"; screenName: root._screenName
+        panelTop: root._panelTop; maxHeight: root._popoutMaxHeight
+        screenWidth: root.width; borderWidth: ThemeManager.borderWidth
+        source: "panels/PowerProfilePanel.qml"
+    }
+    BarOverlay {
+        id: _dashboardLoader
+        overlayId: "dashboard"; screenName: root._screenName
+        panelTop: root._panelTop; maxHeight: 700
+        screenWidth: root.width; borderWidth: ThemeManager.borderWidth
+        source: "panels/Dashboard.qml"
+    }
+    BarOverlay {
+        id: _notifLoader
+        overlayId: "notif"; screenName: root._screenName
+        panelTop: root._panelTop; maxHeight: root._popoutMaxHeight
+        screenWidth: root.width; borderWidth: ThemeManager.borderWidth
+        sourceComponent: NotificationCenter { toastMode: false }
+    }
+    BarOverlay {
+        id: _networkLoader
+        overlayId: "network"; screenName: root._screenName
+        panelTop: root._panelTop; maxHeight: root._popoutMaxHeight
+        screenWidth: root.width; borderWidth: ThemeManager.borderWidth
+        source: "panels/NetworkPanel.qml"
+    }
+    BarOverlay {
+        id: _bluetoothLoader
+        overlayId: "bluetooth"; screenName: root._screenName
+        panelTop: root._panelTop; maxHeight: root._popoutMaxHeight
+        screenWidth: root.width; borderWidth: ThemeManager.borderWidth
+        source: "panels/BluetoothPanel.qml"
+    }
+    BarOverlay {
+        id: _trayMenuLoader
+        overlayId: "traymenu"; screenName: root._screenName
+        panelTop: root._panelTop; maxHeight: root._popoutMaxHeight
+        screenWidth: root.width; borderWidth: ThemeManager.borderWidth
+        source: "panels/TrayMenuPanel.qml"
+    }
+    BarOverlay {
+        id: _workspacesLoader
+        overlayId: "workspaces"; screenName: root._screenName
+        panelTop: root._panelTop; maxHeight: 520
+        screenWidth: root.width; borderWidth: ThemeManager.borderWidth
+        source: "panels/WorkspaceOverview.qml"
     }
 
     // ── Appearance mode ────────────────────────────────────────────────────────
@@ -340,6 +432,18 @@ PanelWindow {
             y:                 root._panelTop
             implicitWidth:     root._popoutWidth
             implicitHeight:    root._popoutHeight
+            topLeftRadius:     root._panelTopRadius; topRightRadius: root._panelTopRadius
+            bottomLeftRadius:  ThemeManager.panelRadius
+            bottomRightRadius: ThemeManager.panelRadius
+            deformScale:       0.00003
+        }
+
+        BlobRect {
+            group:             root._dashboardShown && _dashboardLoader.height > 1 ? blobs : null
+            x:                 _dashboardLoader.x
+            y:                 _dashboardLoader.y
+            implicitWidth:     _dashboardLoader.width
+            implicitHeight:    _dashboardLoader.height
             topLeftRadius:     root._panelTopRadius; topRightRadius: root._panelTopRadius
             bottomLeftRadius:  ThemeManager.panelRadius
             bottomRightRadius: ThemeManager.panelRadius
@@ -445,7 +549,9 @@ PanelWindow {
         y:      root._panelTop
         width:  root._panelWidth
         height: root._notifHeight
+        z:      OverlayManager.zIndex("notification-center", root._screenName)
         clip:   true
+        enabled: OverlayManager.acceptsInput("notification-center", root._screenName) || (root._notifOpen && NotificationService.toastMode)
         opacity: root._notifOpen && root._notifHeight > 20 ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 100 } }
 
@@ -458,229 +564,27 @@ PanelWindow {
         }
     }
 
-    // ── Generic popout ────────────────────────────────────────────────────────
-    // Caelestia pattern: single container, animated width+height. All panels
-    // pre-loaded, centred, stacked. Active one cross-fades + scales in; the
-    // others fade + scale out. Container size animates to active panel's size.
-    Item {
-        id: _popoutContainer
-        x:       root._popoutX
-        y:       root._panelTop
-        width:   root._popoutWidth
-        height:  root._popoutHeight
-        clip:    true
-        opacity: root._popoutOpen && root._popoutHeight > 20 ? 1 : 0
-        Behavior on opacity { NumberAnimation { duration: 100 } }
-
-        HoverHandler { onHoveredChanged: PopoutService.panelHovered = hovered }
-
-        Loader {
-            id: _audioLoader
-            anchors.centerIn: parent
-            source: "panels/AudioPanel.qml"
-            readonly property bool _active: PopoutService.currentName === "audio"
-            enabled: _active
-            visible: _active || opacity > 0
-            opacity: _active ? 1 : 0
-            scale:   _active ? 1 : 0.85
-            Behavior on opacity { NumberAnimation { duration: 180 } }
-            Behavior on scale {
-                NumberAnimation {
-                    duration:           300
-                    easing.type:        Easing.Bezier
-                    easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0]
-                }
-            }
-        }
-
-        Loader {
-            id: _powerLoader
-            anchors.centerIn: parent
-            source: "panels/PowerPanel.qml"
-            readonly property bool _active: PopoutService.currentName === "power"
-            enabled: _active
-            visible: _active || opacity > 0
-            opacity: _active ? 1 : 0
-            scale:   _active ? 1 : 0.85
-            Behavior on opacity { NumberAnimation { duration: 180 } }
-            Behavior on scale {
-                NumberAnimation {
-                    duration:           300
-                    easing.type:        Easing.Bezier
-                    easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0]
-                }
-            }
-        }
-
-        Loader {
-            id: _powerProfileLoader
-            anchors.centerIn: parent
-            source: "panels/PowerProfilePanel.qml"
-            readonly property bool _active: PopoutService.currentName === "powerprofile"
-            enabled: _active
-            visible: _active || opacity > 0
-            opacity: _active ? 1 : 0
-            scale:   _active ? 1 : 0.85
-            Behavior on opacity { NumberAnimation { duration: 180 } }
-            Behavior on scale {
-                NumberAnimation {
-                    duration:           300
-                    easing.type:        Easing.Bezier
-                    easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0]
-                }
-            }
-        }
-
-        Loader {
-            id: _dashboardLoader
-            anchors.centerIn: parent
-            source: "panels/Dashboard.qml"
-            readonly property bool _active: PopoutService.currentName === "dashboard"
-            enabled: _active
-            visible: _active || opacity > 0
-            opacity: _active ? 1 : 0
-            scale:   _active ? 1 : 0.85
-            Behavior on opacity { NumberAnimation { duration: 180 } }
-            Behavior on scale {
-                NumberAnimation {
-                    duration:           300
-                    easing.type:        Easing.Bezier
-                    easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0]
-                }
-            }
-        }
-
-        Loader {
-            id: _notifLoader
-            anchors.centerIn: parent
-            sourceComponent: NotificationCenter { toastMode: false }
-            readonly property bool _active: PopoutService.currentName === "notif"
-            // Constrain height to the cap so the inner Flickable is bounded and
-            // can scroll (centerIn alone leaves the item at full implicit height,
-            // which the container only clips — never scrolls).
-            width:  item ? item.implicitWidth : 320
-            height: Math.min(item ? item.implicitHeight : 0, root._popoutMaxHeight)
-            enabled: _active
-            visible: _active || opacity > 0
-            opacity: _active ? 1 : 0
-            scale:   _active ? 1 : 0.85
-            Behavior on opacity { NumberAnimation { duration: 180 } }
-            Behavior on scale {
-                NumberAnimation {
-                    duration:           300
-                    easing.type:        Easing.Bezier
-                    easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0]
-                }
-            }
-        }
-
-        Loader {
-            id: _networkLoader
-            anchors.centerIn: parent
-            source: "panels/NetworkPanel.qml"
-            readonly property bool _active: PopoutService.currentName === "network"
-            enabled: _active
-            visible: _active || opacity > 0
-            opacity: _active ? 1 : 0
-            scale:   _active ? 1 : 0.85
-            Behavior on opacity { NumberAnimation { duration: 180 } }
-            Behavior on scale {
-                NumberAnimation {
-                    duration:           300
-                    easing.type:        Easing.Bezier
-                    easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0]
-                }
-            }
-        }
-
-        Loader {
-            id: _bluetoothLoader
-            anchors.centerIn: parent
-            source: "panels/BluetoothPanel.qml"
-            readonly property bool _active: PopoutService.currentName === "bluetooth"
-            enabled: _active
-            visible: _active || opacity > 0
-            opacity: _active ? 1 : 0
-            scale:   _active ? 1 : 0.85
-            Behavior on opacity { NumberAnimation { duration: 180 } }
-            Behavior on scale {
-                NumberAnimation {
-                    duration:           300
-                    easing.type:        Easing.Bezier
-                    easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0]
-                }
-            }
-        }
-
-        Loader {
-            id: _trayMenuLoader
-            anchors.centerIn: parent
-            source: "panels/TrayMenuPanel.qml"
-            readonly property bool _active: PopoutService.currentName === "traymenu"
-            width:  item ? item.implicitWidth : 200
-            height: Math.min(item ? item.implicitHeight : 0, root._popoutMaxHeight)
-            enabled: _active
-            visible: _active || opacity > 0
-            opacity: _active ? 1 : 0
-            scale:   _active ? 1 : 0.85
-            Behavior on opacity { NumberAnimation { duration: 180 } }
-            Behavior on scale {
-                NumberAnimation {
-                    duration:           300
-                    easing.type:        Easing.Bezier
-                    easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0]
-                }
-            }
-        }
-
-        Loader {
-            id: _workspacesLoader
-            anchors.centerIn: parent
-            source: "panels/WorkspaceOverview.qml"
-            readonly property bool _active: PopoutService.currentName === "workspaces"
-            enabled: _active
-            visible: _active || opacity > 0
-            opacity: _active ? 1 : 0
-            scale:   _active ? 1 : 0.85
-            Behavior on opacity { NumberAnimation { duration: 180 } }
-            Behavior on scale {
-                NumberAnimation {
-                    duration:           300
-                    easing.type:        Easing.Bezier
-                    easing.bezierCurve: [0.05, 0.7, 0.1, 1.0, 1.0, 1.0]
-                }
-            }
-        }
-    }
-
     // ── Floating right-click context menu (network / bluetooth) ───────────────
-    // Its own PopupWindow surface + Hyprland focus grab: text fields get keyboard
-    // focus directly, clicking outside dismisses via onCleared, and window focus
-    // is restored automatically by the compositor (no manual refocus dance).
+    // Rendered in the overlay host so it stacks with other popups. Keyboard
+    // comes from MainWindow's focus grab while this overlay is on top.
     readonly property bool _ctxOpen:
-        ContextMenuService.open && ContextMenuService.screen?.name === root.modelData?.name
+        OverlayManager.isOpen("context-menu", root._screenName)
 
-    PopupWindow {
+    Item {
         id: _ctxWin
-        visible: root._ctxOpen
-        color:   "transparent"
-        implicitWidth:  _ctxContent.implicitWidth
-        implicitHeight: _ctxContent.implicitHeight
-        // anchorX/anchorY are already window-space (mapped in the panel); clamp so
-        // the menu stays on-screen.
-        anchor.window: root
-        anchor.rect.x: Math.round(Math.min(Math.max(ThemeManager.borderWidth, ContextMenuService.anchorX),
-                                           root.width - implicitWidth - ThemeManager.borderWidth))
-        anchor.rect.y: Math.round(Math.min(Math.max(ThemeManager.barHeight, ContextMenuService.anchorY),
-                                           root.height - implicitHeight - ThemeManager.borderWidth))
+        visible: root._ctxOpen || OverlayManager.isExiting("context-menu", root._screenName)
+        enabled: OverlayManager.acceptsInput("context-menu", root._screenName)
+        z: OverlayManager.zIndex("context-menu", root._screenName)
+        width:  _ctxContent.implicitWidth
+        height: _ctxContent.implicitHeight
+        x: Math.round(Math.min(Math.max(ThemeManager.borderWidth, ContextMenuService.anchorX),
+                               root.width - width - ThemeManager.borderWidth))
+        y: Math.round(Math.min(Math.max(ThemeManager.barHeight, ContextMenuService.anchorY),
+                               root.height - height - ThemeManager.borderWidth))
+        opacity: root._ctxOpen ? 1 : 0
+        Behavior on opacity { NumberAnimation { duration: 120 } }
 
         ContextMenu { id: _ctxContent; anchors.fill: parent }
-
-        HyprlandFocusGrab {
-            windows: [_ctxWin]
-            active:  root._ctxOpen
-            onCleared: ContextMenuService.close()
-        }
     }
 
     // Click-outside dismiss while the toolbar is keyboard-open
@@ -833,27 +737,47 @@ PanelWindow {
         }
     }
 
-    // ── App launcher content + click-outside dismiss ──────────────────────────
-    MouseArea {
-        anchors.fill: parent
-        visible: root._launcherActive
-        onClicked: LauncherService.hide()
-    }
+    // ── App launcher content. Click-outside is handled by overlayDismiss. ─────
     Item {
         id: _launcherContent
         x:       root._launcherX
         y:       root._launcherY
         width:   root._launcherW
         height:  root._launcherH
+        z:       OverlayManager.zIndex("launcher", root._screenName)
         clip:    true
+        visible: OverlayManager.isOpen("launcher", root._screenName) || OverlayManager.isExiting("launcher", root._screenName) || opacity > 0
+        enabled: OverlayManager.acceptsInput("launcher", root._screenName)
         opacity: root._launcherActive && root._launcherH > 20 ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 100 } }
+
+        MouseArea {
+            anchors.fill: parent
+            z: 1
+            propagateComposedEvents: true
+            onPressed: (mouse) => {
+                OverlayManager.bringToFront("launcher", root._screenName)
+                mouse.accepted = false
+            }
+        }
 
         Loader {
             anchors.fill: parent
             active:          root._launcherActive || parent.opacity > 0
             sourceComponent: Launcher { active: root._launcherActive }
         }
+    }
+
+    Loader {
+        id: _settingsOverlay
+        anchors.fill: parent
+        z: OverlayManager.zIndex("settings", root._screenName)
+        property bool _loaded: false
+        visible: OverlayManager.isOpen("settings", root._screenName) || OverlayManager.isExiting("settings", root._screenName)
+        enabled: OverlayManager.acceptsInput("settings", root._screenName)
+        active: visible || _loaded
+        onVisibleChanged: if (visible) _loaded = true
+        sourceComponent: Settings { modelData: root.modelData }
     }
 
     // ── Tool button ────────────────────────────────────────────────────────────

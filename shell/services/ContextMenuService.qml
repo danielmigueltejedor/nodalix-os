@@ -21,16 +21,30 @@ QtObject {
         kind = k; target = t; anchorX = x; anchorY = y; screen = scr
         _profiles = []; _profilePwId = -1
         open = true
+        OverlayManager.open("context-menu", scr?.name ?? "")
         // Keep the underlying panel alive while the menu is up.
         PopoutService.pinned = true
         if (k === "bt" && t && t.connected && DependencyService.available("wpctl"))
             queryProfiles("" + t.address)
     }
     function close() {
+        OverlayManager.close("context-menu", screen?.name ?? "")
+        _applyClosed()
+    }
+
+    function _applyClosed() {
         open = false
         target = null
         _profiles = []
         PopoutService.pinned = false
+    }
+
+    property Connections _overlayConn: Connections {
+        target: OverlayManager
+        function onClosed(overlayId, screenName) {
+            if (overlayId === "context-menu")
+                root._applyClosed()
+        }
     }
 
     // Close the menu if its owning panel retracts (popout closed or switched to

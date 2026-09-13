@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)
+version=$(tr -d '[:space:]' < "$root/VERSION")
+pkgver=${version//-/}
+pkgrel=1
+outdir=${1:-"$root/dist/packages"}
+srcdir="$root/dist/src"
+workdir="$root/dist/build"
+
+rm -rf "$srcdir" "$workdir"
+mkdir -p "$outdir" "$srcdir" "$workdir"
+
+sha256_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  else
+    shasum -a 256 "$1" | awk '{print $1}'
+  fi
+}
+
+inject_sha256() {
+  local pkgbuild=$1
+  shift
+  local sums=()
+  local file
+  for file in "$@"; do
+    sums+=("'$(sha256_file "$file")'")
+  done
+  local joined
+  joined=$(IFS=' '; echo "${sums[*]}")
+  python3 - "$pkgbuild" "$joined" <<'PY'
+import pathlib, re, sys
+path = pathlib.Path(sys.argv[1])
+text = path.read_text()
+replacement = "sha256sums=(" + sys.argv[2] + ")"
+text = re.sub(r"sha256sums=\([^)]*\)", replacement, text, count=1)
+path.write_text(text)
+PY
+}
+
+echo "Building Nodalix $version (pkgver=$pkgver)"
+
+tar --zstd -C "$root" -cf "$srcdir/nodalix-updater-$pkgver.tar.zst" updater
+tar --zstd -C "$root" -cf "$srcdir/nodalix-shell-$pkgver.tar.zst" \
+  --exclude shell/blobs-plugin/build \
+  --exclude shell/Caelestia \
+  shell
+
+updater_dir="$workdir/nodalix-updater"
+shell_dir="$workdir/nodalix-shell"
+release_dir="$workdir/nodalix-release"
+mkdir -p "$updater_dir" "$shell_dir" "$release_dir"
+
+cp "$root/packaging/nodalix-updater/PKGBUILD" "$updater_dir/PKGBUILD"
+cp "$srcdir/nodalix-updater-$pkgver.tar.zst" "$updater_dir/"
+inject_sha256 "$updater_dir/PKGBUILD" "$updater_dir/nodalix-updater-$pkgver.tar.zst"
+
+cp "$root/packaging/nodalix-shell/PKGBUILD" \
+   "$root/packaging/nodalix-shell/nodalix-shell" \
+   "$root/packaging/nodalix-shell/nodalix-shell.service" \
+   "$root/packaging/nodalix-shell/VERSION" \
+   "$shell_dir/"
+cp "$srcdir/nodalix-shell-$pkgver.tar.zst" "$shell_dir/"
+inject_sha256 "$shell_dir/PKGBUILD" \
+  "$shell_dir/nodalix-shell-$pkgver.tar.zst" \
+  "$shell_dir/nodalix-shell" \
+  "$shell_dir/nodalix-shell.service" \
+  "$shell_dir/VERSION"
+
+cp "$root/packaging/nodalix-release/PKGBUILD" "$root/packaging/nodalix-release/VERSION" "$release_dir/"
+inject_sha256 "$release_dir/PKGBUILD" "$release_dir/VERSION"
+
+makepkg_one() {
+  local dir=$1
+  (cd "$dir" && makepkg -f --noconfirm --nodeps --cleanbuild)
+}
+
+if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
+  makepkg_one "$updater_dir"
+  makepkg_one "$release_dir"
+  makepkg_one "$shell_dir"
+  find "$workdir" -name '*.pkg.tar.zst' ! -name '*-debug-*' -exec cp {} "$outdir/" \;
+fi
+
+python3 "$root/tools/generate-manifest.py" \
+  --version-file "$root/VERSION" \
+  --components "$root/release/components.json" \
+  --assets-dir "$outdir" \
+  --output "$outdir/nodalix-manifest.json"
+
+python3 - "$outdir" <<'PY'
+import hashlib, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+lines = []
+for path in sorted(root.glob("*")):
+    if path.is_file() and path.name != "SHA256SUMS":
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        lines.append(f"{digest}  {path.name}")
+(root / "SHA256SUMS").write_text("\n".join(lines) + "\n")
+print("\n".join(lines))
+PY
+
+echo "Packages written to $outdir"

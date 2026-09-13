@@ -14,31 +14,24 @@ import Quickshell.Services.UPower
 import "../theme"
 import "../services"
 
-// Settings window — centered modal (standalone per-screen window, shown on the
-// focused monitor). Sidebar categories + scrollable pane. Live-applies +
-// persists via SettingsService; opt-in features dependency-checked.
-PanelWindow {
+// Settings — centered modal hosted inside MainWindow's overlay stack so it
+// paints above/below launcher and other popups on the same monitor.
+Item {
 	id: root
 	required property var modelData
+	anchors.fill: parent
 
-	readonly property bool active:
-		SettingsUi.open && SettingsUi.screenName === modelData?.name
+	readonly property bool isOpen:
+		OverlayManager.isOpen("settings", modelData?.name)
+	readonly property bool isActive:
+		OverlayManager.isActive("settings", modelData?.name)
+	readonly property bool active: isOpen
 
-	screen:        modelData
-	visible:       active || _exiting
-	color:         "transparent"
-	exclusionMode: ExclusionMode.Ignore
-	anchors        { top: true; bottom: true; left: true; right: true }
-	WlrLayershell.layer:         WlrLayer.Overlay
-	// This transient overlay must request keyboard itself (unlike the always-on
-	// shell layer, a focus grab alone won't pull keyboard to it). The grab is
-	// kept only so window focus is restored automatically on close.
-	WlrLayershell.keyboardFocus: active ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
-	HyprlandFocusGrab { windows: [root]; active: root.active }
+	visible: isOpen || _exiting
 
 	property bool _exiting: false
-	onActiveChanged: {
-		if (active) {
+	onIsOpenChanged: {
+		if (isOpen) {
 			_exiting = false
 			SystemControlService.refresh()
 		} else if (visible) {
@@ -256,9 +249,8 @@ PanelWindow {
 	Rectangle {
 		anchors.fill: parent
 		color: ThemeManager.scrim
-		opacity: root.active ? 0.4 : 0
+		opacity: root.isActive ? 0.4 : 0
 		Behavior on opacity { NumberAnimation { duration: 160 } }
-		MouseArea { anchors.fill: parent; onClicked: SettingsUi.hide() }
 	}
 
 	// ── Card ────────────────────────────────────────────────────────────────--
@@ -271,15 +263,25 @@ PanelWindow {
 		color:  ThemeManager.surfaceContainer
 		border.width: 1
 		border.color: ThemeManager.outlineVariant
-		opacity: root.active ? 1 : 0
-		scale:   root.active ? 1 : 0.96
+		opacity: root.isOpen ? 1 : 0
+		scale:   root.isOpen ? 1 : 0.96
 		layer.enabled: true
 		layer.effect: Elevation { level: 4 }
 		Behavior on opacity { NumberAnimation { duration: 150 } }
 		Behavior on scale   { NumberAnimation { duration: 180; easing.type: Easing.OutCubic } }
 
-		focus: root.active
+		focus: root.isActive
 		Keys.onEscapePressed: root._goBack()
+
+		MouseArea {
+			anchors.fill: parent
+			z: 1
+			propagateComposedEvents: true
+			onPressed: (mouse) => {
+				OverlayManager.bringToFront("settings", modelData?.name)
+				mouse.accepted = false
+			}
+		}
 
 		RowLayout {
 			anchors.fill: parent
@@ -834,7 +836,7 @@ PanelWindow {
 						}
 						Text {
 							Layout.fillWidth: true
-							text: I18n.tr("Exports the active theme's colors to ~/.local/state/quickshell/exports/")
+							text: I18n.tr("Exports the active theme's colors to ~/.local/state/nodalix/exports/")
 							wrapMode: Text.WordWrap
 							color: ThemeManager.onSurfaceVariant
 							font.family: ThemeManager.fontFamily; font.pixelSize: 10

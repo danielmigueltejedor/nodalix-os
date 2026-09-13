@@ -1,0 +1,15 @@
+[Unit]
+Description=Nodalix desktop shell
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/nodalix-shell
+Restart=on-failure
+RestartSec=2
+KillMode=mixed
+TimeoutStopSec=10
+
+[Install]
+WantedBy=default.target
