@@ -1,216 +1,546 @@
 #!/usr/bin/env python3
 from __future__ import annotations
-import argparse, hashlib, json, os, platform, re, subprocess, sys, tempfile, urllib.error, urllib.request
+
+import argparse
+import contextlib
+import fcntl
+import hashlib
+import json
+import os
+import platform
+import re
+import shutil
+import subprocess
+import sys
+import time
+import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-CONFIG_PATH = Path("/etc/nodalix/updater.json")
-RELEASE_PATH = Path("/etc/nodalix-release")
-STATE_DIR = Path("/var/lib/nodalix-updater")
+
+CONFIG_PATH = Path(os.environ.get("NODALIX_UPDATER_CONFIG", "/etc/nodalix/updater.json"))
+RELEASE_PATH = Path(os.environ.get("NODALIX_RELEASE_FILE", "/etc/nodalix-release"))
+STATE_DIR = Path(os.environ.get("NODALIX_UPDATER_STATE", "/var/lib/nodalix-updater"))
+CACHE_DIR = Path(os.environ.get("NODALIX_UPDATER_CACHE", "/var/cache/nodalix-updater"))
+PUBLIC_KEY_PATH = Path(os.environ.get("NODALIX_UPDATER_PUBLIC_KEY", "/usr/share/nodalix/keys/release.pub"))
 HISTORY_PATH = STATE_DIR / "history.jsonl"
-DEFAULT_CONFIG = {"repository":"danielmigueltejedor/nodalix-os","channel":"stable","manifest_asset":"nodalix-manifest.json"}
-UA = "Nodalix-Updater/0.1"
+STATUS_PATH = STATE_DIR / "status.json"
+LOCK_PATH = STATE_DIR / "update.lock"
+DEFAULT_CONFIG = {
+    "repository": "danielmigueltejedor/nodalix-os",
+    "channel": "stable",
+    "manifest_asset": "nodalix-manifest.json",
+    "require_signature": False,
+}
+UA = "Nodalix-Updater/0.2"
+VERSION_PATTERN = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z.-]+))?$")
+SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+PACKAGE_PATTERN = re.compile(r"^[a-z0-9@._+-]+$")
+ASSET_PATTERN = re.compile(r"^[^/\\]+$")
 
-class UpdaterError(RuntimeError): pass
 
-def load_config():
-    cfg = DEFAULT_CONFIG.copy()
+class UpdaterError(RuntimeError):
+    code = "update_error"
+    recoverable = True
+
+
+class ManifestError(UpdaterError):
+    code = "manifest_invalid"
+    recoverable = False
+
+
+class IntegrityError(UpdaterError):
+    code = "integrity_failed"
+    recoverable = False
+
+
+class NetworkError(UpdaterError):
+    code = "network_error"
+
+
+class BusyError(UpdaterError):
+    code = "update_busy"
+
+
+def utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def atomic_json(path: Path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    os.replace(temporary, path)
+
+
+def set_status(state: str, **fields: object) -> dict:
+    status = {"state": state, "updated_at": utc_now(), **fields}
+    atomic_json(STATUS_PATH, status)
+    return status
+
+
+def load_status() -> dict:
+    if not STATUS_PATH.exists():
+        return {"state": "idle", "updated_at": None}
+    try:
+        return json.loads(STATUS_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {"state": "error_recoverable", "error": "status file is unreadable"}
+
+
+def load_config() -> dict:
+    config = DEFAULT_CONFIG.copy()
     if CONFIG_PATH.exists():
-        cfg.update(json.loads(CONFIG_PATH.read_text()))
-    return cfg
+        try:
+            value = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as error:
+            raise ManifestError(f"invalid updater configuration: {error}") from error
+        if not isinstance(value, dict):
+            raise ManifestError("updater configuration must be an object")
+        config.update(value)
+    repository = str(config.get("repository", ""))
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
+        raise ManifestError("invalid GitHub repository")
+    if config.get("channel") not in ("stable", "rc"):
+        raise ManifestError("channel must be stable or rc")
+    return config
 
-def release_data():
-    out = {}
+
+def release_data() -> dict[str, str]:
+    result: dict[str, str] = {}
     if RELEASE_PATH.exists():
-        for raw in RELEASE_PATH.read_text().splitlines():
-            raw = raw.strip()
-            if raw and not raw.startswith("#") and "=" in raw:
-                k,v = raw.split("=",1)
-                out[k.strip()] = v.strip().strip('"')
-    return out
+        for line in RELEASE_PATH.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, value = line.split("=", 1)
+                result[key.strip()] = value.strip().strip('"')
+    return result
 
-def current_version():
-    return release_data().get("VERSION_ID","0.0.0")
 
-def version_key(v):
-    v = v.strip().lstrip("vV")
-    main, sep, pre = v.partition("-")
-    nums = [int(x) for x in re.findall(r"\d+", main)]
-    nums = (nums + [0,0,0,0])[:4]
-    return (*nums, 1 if not sep else 0, pre)
+def current_version() -> str:
+    return release_data().get("VERSION_ID", "0.0.0")
 
-def is_newer(remote, local): return version_key(remote) > version_key(local)
 
-def request(url, accept="application/vnd.github+json"):
-    headers={"User-Agent":UA,"Accept":accept,"X-GitHub-Api-Version":"2022-11-28"}
-    token=os.environ.get("GITHUB_TOKEN")
-    if token: headers["Authorization"]=f"Bearer {token}"
-    req=urllib.request.Request(url,headers=headers)
+def parse_version(value: str) -> tuple[int, int, int, tuple[tuple[int, object], ...] | None]:
+    match = VERSION_PATTERN.fullmatch(value.strip().lstrip("vV"))
+    if not match:
+        raise ManifestError(f"invalid semantic version: {value}")
+    prerelease = match.group(4)
+    identifiers = None
+    if prerelease is not None:
+        if any(part == "" for part in prerelease.split(".")):
+            raise ManifestError(f"invalid semantic version: {value}")
+        identifiers = tuple(
+            (0, int(part)) if part.isdigit() else (1, part)
+            for part in prerelease.split(".")
+        )
+    return int(match.group(1)), int(match.group(2)), int(match.group(3)), identifiers
+
+
+def compare_versions(left: str, right: str) -> int:
+    left_value = parse_version(left)
+    right_value = parse_version(right)
+    if left_value[:3] != right_value[:3]:
+        return (left_value[:3] > right_value[:3]) - (left_value[:3] < right_value[:3])
+    left_pre, right_pre = left_value[3], right_value[3]
+    if left_pre is None or right_pre is None:
+        return (left_pre is None) - (right_pre is None)
+    for left_part, right_part in zip(left_pre, right_pre):
+        if left_part != right_part:
+            return (left_part > right_part) - (left_part < right_part)
+    return (len(left_pre) > len(right_pre)) - (len(left_pre) < len(right_pre))
+
+
+def request(url: str, accept: str = "application/vnd.github+json", attempts: int = 3) -> bytes:
+    headers = {"User-Agent": UA, "Accept": accept, "X-GitHub-Api-Version": "2022-11-28"}
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    for attempt in range(attempts):
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=20) as response:
+                return response.read()
+        except urllib.error.HTTPError as error:
+            if error.code == 404:
+                raise FileNotFoundError(url) from error
+            if error.code < 500 or attempt + 1 == attempts:
+                raise NetworkError(f"GitHub returned HTTP {error.code}") from error
+        except (urllib.error.URLError, TimeoutError) as error:
+            if attempt + 1 == attempts:
+                raise NetworkError(f"could not reach GitHub: {error.reason if hasattr(error, 'reason') else error}") from error
+        time.sleep(2**attempt)
+    raise NetworkError("could not reach GitHub")
+
+
+def latest_release(config: dict) -> dict | None:
+    repository = config["repository"]
+    if config["channel"] == "stable":
+        url = f"https://api.github.com/repos/{repository}/releases/latest"
+        try:
+            release = json.loads(request(url))
+        except FileNotFoundError:
+            return None
+        return None if release.get("draft") or release.get("prerelease") else release
+    releases = json.loads(request(f"https://api.github.com/repos/{repository}/releases?per_page=20"))
+    return next((item for item in releases if not item.get("draft")), None)
+
+
+def assets_by_name(release: dict) -> dict[str, dict]:
+    return {asset["name"]: asset for asset in release.get("assets", []) if asset.get("name")}
+
+
+def validate_manifest(manifest: dict) -> None:
+    if not isinstance(manifest, dict):
+        raise ManifestError("manifest must be an object")
+    if manifest.get("schema") != 1 or manifest.get("schema_version") != 1:
+        raise ManifestError("unsupported manifest schema")
+    for key in ("version", "minimum_version", "components"):
+        if key not in manifest:
+            raise ManifestError(f"manifest is missing {key}")
+    parse_version(str(manifest["version"]))
+    parse_version(str(manifest["minimum_version"]))
+    if not isinstance(manifest["components"], list) or not manifest["components"]:
+        raise ManifestError("manifest components must be a non-empty array")
+    seen_ids: set[str] = set()
+    seen_packages: set[str] = set()
+    for component in manifest["components"]:
+        if not isinstance(component, dict):
+            raise ManifestError("component must be an object")
+        for key in ("id", "name", "package", "version", "asset", "sha256", "size", "required", "restart"):
+            if key not in component:
+                raise ManifestError(f"component is missing {key}")
+        if not PACKAGE_PATTERN.fullmatch(str(component["package"])):
+            raise ManifestError(f"invalid package name: {component['package']}")
+        if not ASSET_PATTERN.fullmatch(str(component["asset"])):
+            raise ManifestError(f"invalid asset name: {component['asset']}")
+        if not SHA256_PATTERN.fullmatch(str(component["sha256"]).lower()):
+            raise ManifestError(f"invalid SHA-256 for {component['id']}")
+        if component["restart"] not in ("none", "shell", "system"):
+            raise ManifestError(f"invalid restart policy for {component['id']}")
+        if not isinstance(component["required"], bool):
+            raise ManifestError(f"required must be boolean for {component['id']}")
+        if not isinstance(component["size"], int) or component["size"] < 1:
+            raise ManifestError(f"invalid size for {component['id']}")
+        parse_version(str(component["version"]))
+        if component["id"] in seen_ids or component["package"] in seen_packages:
+            raise ManifestError(f"duplicate component: {component['id']}")
+        seen_ids.add(component["id"])
+        seen_packages.add(component["package"])
+    identity = next((item for item in manifest["components"] if item["id"] == "nodalix-release"), None)
+    if identity is None or not identity["required"]:
+        raise ManifestError("manifest must include required nodalix-release")
+
+
+def verify_manifest_signature(raw: bytes, manifest: dict, release: dict, config: dict) -> None:
+    signing = manifest.get("signing")
+    if not signing:
+        if config.get("require_signature"):
+            raise IntegrityError("release manifest is not signed")
+        return
+    if signing.get("algorithm") != "minisign" or not ASSET_PATTERN.fullmatch(str(signing.get("signature_asset", ""))):
+        raise ManifestError("invalid manifest signing metadata")
+    if not PUBLIC_KEY_PATH.is_file():
+        raise IntegrityError("Nodalix release public key is missing")
+    executable = shutil.which("minisign")
+    if executable is None:
+        raise IntegrityError("minisign is required to verify this release")
+    asset = assets_by_name(release).get(signing["signature_asset"])
+    if asset is None:
+        raise IntegrityError("manifest signature asset is missing")
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    manifest_path = STATE_DIR / "manifest.verify.json"
+    signature_path = STATE_DIR / "manifest.verify.minisig"
     try:
-        with urllib.request.urlopen(req,timeout=20) as r: return r.read()
-    except urllib.error.HTTPError as e:
-        if e.code==404: raise FileNotFoundError(url)
-        raise UpdaterError(f"HTTP {e.code}: {e.reason}") from e
-    except urllib.error.URLError as e:
-        raise UpdaterError(f"No se pudo conectar: {e.reason}") from e
+        manifest_path.write_bytes(raw)
+        signature_path.write_bytes(request(asset["browser_download_url"], "application/octet-stream"))
+        result = subprocess.run(
+            [executable, "-Vm", str(manifest_path), "-x", str(signature_path), "-p", str(PUBLIC_KEY_PATH)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        if result.returncode != 0:
+            raise IntegrityError("manifest signature verification failed")
+    finally:
+        manifest_path.unlink(missing_ok=True)
+        signature_path.unlink(missing_ok=True)
 
-def latest_release(cfg):
+
+def manifest_for(release: dict, config: dict) -> dict:
+    asset = assets_by_name(release).get(config["manifest_asset"])
+    if asset is None:
+        raise ManifestError(f"release does not contain {config['manifest_asset']}")
+    raw = request(asset["browser_download_url"], "application/octet-stream")
     try:
-        data=json.loads(request(f"https://api.github.com/repos/{cfg['repository']}/releases/latest"))
-    except FileNotFoundError:
-        return None
-    if data.get("draft") or data.get("prerelease"): return None
-    return data
+        manifest = json.loads(raw.decode("utf-8"))
+    except (UnicodeError, ValueError) as error:
+        raise ManifestError("manifest is not valid UTF-8 JSON") from error
+    validate_manifest(manifest)
+    verify_manifest_signature(raw, manifest, release, config)
+    return manifest
 
-def assets_by_name(rel): return {a["name"]:a for a in rel.get("assets",[])}
 
-def manifest_for(rel,cfg):
-    asset=assets_by_name(rel).get(cfg["manifest_asset"])
-    if not asset: raise UpdaterError(f"La release no contiene {cfg['manifest_asset']}")
-    raw=request(asset["browser_download_url"],"application/octet-stream")
-    try: return json.loads(raw.decode())
-    except Exception as e: raise UpdaterError("Manifest JSON inválido") from e
+def package_installed(package: str) -> bool:
+    return subprocess.run(
+        ["pacman", "-Q", package], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+    ).returncode == 0
 
-def package_installed(pkg):
-    return subprocess.run(["pacman","-Q",pkg],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode==0
 
-def release_info(cfg):
-    local=current_version()
-    rel=latest_release(cfg)
-    if rel is None:
-        return {"status":"no_release","current_version":local,"update_available":False,"repository":cfg["repository"]}
-    manifest=manifest_for(rel,cfg)
-    remote=str(manifest.get("version","")).strip()
-    if not remote: raise UpdaterError("El manifest no contiene version")
-    tag=str(rel.get("tag_name","")).lstrip("vV")
-    if tag and tag != remote.lstrip("vV"):
-        raise UpdaterError(f"Manifest {remote} y tag {rel.get('tag_name')} no coinciden")
-    arch=manifest.get("arch","x86_64")
-    if arch not in ("any",platform.machine()):
-        raise UpdaterError(f"Release para {arch}; sistema {platform.machine()}")
-    comps=[]
-    for c in manifest.get("components",[]):
-        installed=bool(c.get("package")) and package_installed(c["package"])
-        comps.append({"id":c.get("id"),"name":c.get("name",c.get("id")),"package":c.get("package"),
-                      "version":c.get("version"),"required":bool(c.get("required",False)),
-                      "installed":installed,"will_update":bool(c.get("required",False) or installed)})
-    return {"status":"update_available" if is_newer(remote,local) else "up_to_date",
-            "repository":cfg["repository"],"current_version":local,"latest_version":remote,
-            "update_available":is_newer(remote,local),"release_name":rel.get("name") or rel.get("tag_name"),
-            "tag":rel.get("tag_name"),"published_at":rel.get("published_at"),"notes":rel.get("body") or "",
-            "html_url":rel.get("html_url"),"components":comps,"iso":manifest.get("iso"),
-            "shell_restart_required":bool(manifest.get("shell_restart_required",False)),
-            "reboot_required":bool(manifest.get("reboot_required",False)),
-            "_release":rel,"_manifest":manifest}
+def selected_components(manifest: dict) -> list[dict]:
+    return [
+        component
+        for component in manifest["components"]
+        if component["required"] or package_installed(component["package"])
+    ]
 
-def validate_manifest(m):
-    if m.get("schema")!=1: raise UpdaterError(f"Schema no soportado: {m.get('schema')}")
-    if "version" not in m or "components" not in m: raise UpdaterError("Manifest incompleto")
-    for c in m["components"]:
-        for k in ("id","name","package","asset","sha256"):
-            if not c.get(k): raise UpdaterError(f"Componente inválido: falta {k}")
 
-def sha256_file(p):
-    h=hashlib.sha256()
-    with p.open("rb") as f:
-        for chunk in iter(lambda:f.read(1024*1024),b""): h.update(chunk)
-    return h.hexdigest()
+def release_info(config: dict) -> dict:
+    local = current_version()
+    release = latest_release(config)
+    if release is None:
+        return {
+            "status": "no_release",
+            "current_version": local,
+            "latest_version": local,
+            "update_available": False,
+            "repository": config["repository"],
+            "last_checked": utc_now(),
+        }
+    manifest = manifest_for(release, config)
+    remote = str(manifest["version"])
+    tag = str(release.get("tag_name", "")).lstrip("vV")
+    if tag != remote:
+        raise ManifestError(f"manifest {remote} does not match tag {release.get('tag_name')}")
+    architecture = manifest.get("arch", "x86_64")
+    if architecture not in ("any", platform.machine()):
+        raise ManifestError(f"release is for {architecture}; system is {platform.machine()}")
+    chosen = {component["id"] for component in selected_components(manifest)}
+    components = [
+        {
+            "id": component["id"],
+            "name": component["name"],
+            "package": component["package"],
+            "version": component["version"],
+            "required": component["required"],
+            "installed": package_installed(component["package"]),
+            "will_update": component["id"] in chosen,
+            "restart": component["restart"],
+            "size": component.get("size"),
+        }
+        for component in manifest["components"]
+    ]
+    available = compare_versions(remote, local) > 0
+    return {
+        "status": "update_available" if available else "up_to_date",
+        "repository": config["repository"],
+        "current_version": local,
+        "latest_version": remote,
+        "update_available": available,
+        "release_name": release.get("name") or release.get("tag_name"),
+        "tag": release.get("tag_name"),
+        "published_at": release.get("published_at"),
+        "last_checked": utc_now(),
+        "notes": release.get("body") or "",
+        "html_url": release.get("html_url"),
+        "components": components,
+        "shell_restart_required": any(c["restart"] == "shell" for c in selected_components(manifest)),
+        "reboot_required": any(c["restart"] == "system" for c in selected_components(manifest)),
+        "_release": release,
+        "_manifest": manifest,
+    }
 
-def download_to(url,dst):
-    headers={"User-Agent":UA,"Accept":"application/octet-stream"}
-    token=os.environ.get("GITHUB_TOKEN")
-    if token: headers["Authorization"]=f"Bearer {token}"
-    req=urllib.request.Request(url,headers=headers)
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def download_to(url: str, destination: Path) -> None:
+    headers = {"User-Agent": UA, "Accept": "application/octet-stream"}
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    temporary = destination.with_suffix(destination.suffix + ".part")
+    temporary.unlink(missing_ok=True)
     try:
-        with urllib.request.urlopen(req,timeout=60) as r, dst.open("wb") as out:
-            total=int(r.headers.get("Content-Length") or 0); done=0
-            while True:
-                chunk=r.read(1024*1024)
-                if not chunk: break
-                out.write(chunk); done += len(chunk)
-                if total:
-                    print(f"\rDescargando {dst.name}: {done*100//total:3d}%",end="",flush=True)
-            if total: print()
-    except Exception:
-        dst.unlink(missing_ok=True); raise
+        with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=60) as response:
+            with temporary.open("wb") as output:
+                shutil.copyfileobj(response, output, 1024 * 1024)
+        os.replace(temporary, destination)
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as error:
+        temporary.unlink(missing_ok=True)
+        raise NetworkError(f"could not download {destination.name}: {error}") from error
 
-def selected_components(m):
-    out=[]
-    for c in m.get("components",[]):
-        if c.get("required",False) or package_installed(c["package"]): out.append(c)
-    return out
 
-def write_version(v,channel):
-    RELEASE_PATH.write_text(f'NAME="Nodalix"\nVERSION="{v}"\nVERSION_ID="{v}"\nCHANNEL="{channel}"\n')
+@contextlib.contextmanager
+def update_lock():
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    with LOCK_PATH.open("w", encoding="utf-8") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise BusyError("another Nodalix update is already running") from error
+        yield
 
-def record_history(old,new,comps):
-    STATE_DIR.mkdir(parents=True,exist_ok=True)
-    event={"timestamp":datetime.now(timezone.utc).isoformat(),"from":old,"to":new,
-           "components":[{"id":c["id"],"package":c["package"],"version":c.get("version")} for c in comps]}
-    with HISTORY_PATH.open("a") as f: f.write(json.dumps(event,ensure_ascii=False)+"\n")
 
-def do_update(cfg,force=False):
-    if os.geteuid()!=0: raise UpdaterError("Usa: sudo nodalix-updater update")
-    info=release_info(cfg)
-    if info["status"]=="no_release":
-        print("No hay releases estables publicadas todavía."); return 0
-    if not info["update_available"] and not force:
-        print(f"Nodalix {info['current_version']} ya está actualizado."); return 0
-    rel=info["_release"]; m=info["_manifest"]; validate_manifest(m)
-    minimum=m.get("minimum_version")
-    if minimum and version_key(current_version()) < version_key(minimum):
-        raise UpdaterError(f"Esta release requiere como mínimo Nodalix {minimum}")
-    assets=assets_by_name(rel); comps=selected_components(m)
-    if not comps: raise UpdaterError("No hay componentes para actualizar")
-    old=current_version()
-    with tempfile.TemporaryDirectory(prefix="nodalix-update-") as td:
-        td=Path(td); pkgs=[]
-        for c in comps:
-            asset=assets.get(c["asset"])
-            if not asset: raise UpdaterError(f"Falta el asset {c['asset']}")
-            dst=td/c["asset"]; download_to(asset["browser_download_url"],dst)
-            digest=sha256_file(dst)
-            if digest.lower()!=c["sha256"].lower():
-                raise UpdaterError(f"SHA-256 incorrecto para {dst.name}")
-            pkgs.append(str(dst))
-        print("Instalando componentes Nodalix...")
-        subprocess.run(["pacman","-U","--noconfirm","--needed",*pkgs],check=True)
-    write_version(m["version"],cfg.get("channel","stable"))
-    record_history(old,m["version"],comps)
-    print(f"Nodalix actualizado: {old} -> {m['version']}")
-    if m.get("shell_restart_required"): print("Reinicia la shell para aplicar todos los cambios.")
-    if m.get("reboot_required"): print("Esta actualización requiere reiniciar el sistema.")
-    return 0
+def record_history(old: str, new: str, components: list[dict]) -> None:
+    STATE_DIR.mkdir(parents=True, exist_ok=True)
+    event = {
+        "timestamp": utc_now(),
+        "from": old,
+        "to": new,
+        "components": [
+            {"id": c["id"], "package": c["package"], "version": c["version"]}
+            for c in components
+        ],
+    }
+    with HISTORY_PATH.open("a", encoding="utf-8") as history:
+        history.write(json.dumps(event, ensure_ascii=False) + "\n")
 
-def clean(info): return {k:v for k,v in info.items() if not k.startswith("_")}
 
-def main():
-    ap=argparse.ArgumentParser(prog="nodalix-updater")
-    sp=ap.add_subparsers(dest="cmd",required=True)
-    p=sp.add_parser("info"); p.add_argument("--json",action="store_true")
-    p=sp.add_parser("check"); p.add_argument("--json",action="store_true")
-    p=sp.add_parser("update"); p.add_argument("--force",action="store_true")
-    a=ap.parse_args(); cfg=load_config()
+def do_update(config: dict, force: bool = False) -> dict:
+    if os.geteuid() != 0:
+        raise UpdaterError("update requires Polkit authorization")
+    with update_lock():
+        set_status("checking")
+        info = release_info(config)
+        if info["status"] == "no_release":
+            return set_status("no_release", current_version=current_version())
+        if not info["update_available"] and not force:
+            return set_status("up_to_date", current_version=current_version())
+        manifest = info["_manifest"]
+        minimum = manifest["minimum_version"]
+        if compare_versions(current_version(), minimum) < 0:
+            raise ManifestError(f"release requires Nodalix {minimum} or newer")
+        components = selected_components(manifest)
+        assets = assets_by_name(info["_release"])
+        staging = CACHE_DIR / f"v{manifest['version']}"
+        staging.mkdir(parents=True, exist_ok=True)
+        packages: list[str] = []
+        total_size = sum(int(component.get("size") or 0) for component in components)
+        for index, component in enumerate(components, start=1):
+            set_status(
+                "downloading",
+                version=manifest["version"],
+                component=component["id"],
+                component_index=index,
+                component_count=len(components),
+                total_size=total_size,
+            )
+            asset = assets.get(component["asset"])
+            if asset is None:
+                raise ManifestError(f"release asset is missing: {component['asset']}")
+            destination = staging / component["asset"]
+            if not destination.exists() or sha256_file(destination) != component["sha256"].lower():
+                download_to(asset["browser_download_url"], destination)
+            set_status("verifying", version=manifest["version"], component=component["id"])
+            if sha256_file(destination) != component["sha256"].lower():
+                destination.unlink(missing_ok=True)
+                raise IntegrityError(f"SHA-256 mismatch for {component['asset']}")
+            packages.append(str(destination))
+        old = current_version()
+        set_status("installing", version=manifest["version"], components=[c["id"] for c in components])
+        subprocess.run(["pacman", "-U", "--noconfirm", "--needed", *packages], check=True)
+        installed = current_version()
+        if installed != manifest["version"]:
+            raise UpdaterError(
+                f"packages installed but system identity is {installed}, expected {manifest['version']}"
+            )
+        record_history(old, installed, components)
+        return set_status(
+            "completed",
+            previous_version=old,
+            current_version=installed,
+            components=[c["id"] for c in components],
+            shell_restart_required=any(c["restart"] == "shell" for c in components),
+            reboot_required=any(c["restart"] == "system" for c in components),
+        )
+
+
+def public_info(info: dict) -> dict:
+    return {key: value for key, value in info.items() if not key.startswith("_")}
+
+
+def emit(data: dict, as_json: bool) -> None:
+    if as_json:
+        print(json.dumps(data, ensure_ascii=False))
+    elif data.get("status") == "update_available":
+        print(f"Update available: {data['current_version']} -> {data['latest_version']}")
+    elif data.get("status") == "no_release":
+        print(f"Nodalix {data['current_version']}: no release is available")
+    elif "version" in data:
+        print(f"Nodalix {data['version']} ({data['channel']})")
+    else:
+        print(data.get("state") or f"Nodalix {data.get('current_version')} is up to date")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(prog="nodalix-updater")
+    commands = parser.add_subparsers(dest="command", required=True)
+    for name in ("info", "check", "status"):
+        command = commands.add_parser(name)
+        command.add_argument("--json", action="store_true")
+    update = commands.add_parser("update")
+    update.add_argument("--force", action="store_true")
+    update.add_argument("--json", action="store_true")
+    history = commands.add_parser("history")
+    history.add_argument("--json", action="store_true")
+    args = parser.parse_args()
     try:
-        if a.cmd=="info":
-            d={"name":"Nodalix","version":current_version(),"channel":cfg.get("channel","stable"),"repository":cfg["repository"]}
-            print(json.dumps(d,ensure_ascii=False) if a.json else f"Nodalix {d['version']} ({d['channel']})"); return 0
-        if a.cmd=="check":
-            d=clean(release_info(cfg))
-            if a.json: print(json.dumps(d,ensure_ascii=False))
-            elif d["status"]=="no_release": print(f"Nodalix {d['current_version']}: todavía no hay releases estables publicadas.")
-            elif d["update_available"]:
-                print(f"Actualización disponible: {d['current_version']} -> {d['latest_version']}")
-                for c in d.get("components",[]):
-                    if c["will_update"]: print(f"  - {c['name']} ({c.get('version') or 'nueva versión'})")
-            else: print(f"Nodalix {d['current_version']} está actualizado.")
-            return 0
-        if a.cmd=="update": return do_update(cfg,a.force)
-    except UpdaterError as e:
-        print(f"Error: {e}",file=sys.stderr); return 2
-    except subprocess.CalledProcessError as e:
-        print(f"Error ejecutando: {' '.join(e.cmd)}",file=sys.stderr); return e.returncode or 1
-    except KeyboardInterrupt:
-        print("\nCancelado.",file=sys.stderr); return 130
+        config = load_config()
+        if args.command == "info":
+            emit(
+                {
+                    "name": "Nodalix",
+                    "version": current_version(),
+                    "channel": config["channel"],
+                    "repository": config["repository"],
+                },
+                args.json,
+            )
+        elif args.command == "check":
+            emit(public_info(release_info(config)), args.json)
+        elif args.command == "status":
+            emit(load_status(), args.json)
+        elif args.command == "update":
+            emit(do_update(config, args.force), args.json)
+        elif args.command == "history":
+            events = []
+            if HISTORY_PATH.exists():
+                events = [json.loads(line) for line in HISTORY_PATH.read_text(encoding="utf-8").splitlines() if line]
+            emit({"history": events}, args.json)
+        return 0
+    except UpdaterError as error:
+        payload = {
+            "state": "error_recoverable" if error.recoverable else "error_critical",
+            "code": error.code,
+            "message": str(error),
+        }
+        with contextlib.suppress(OSError):
+            set_status(payload["state"], code=error.code, message=str(error))
+        if getattr(args, "json", False):
+            print(json.dumps(payload, ensure_ascii=False))
+        else:
+            print(f"Error: {error}", file=sys.stderr)
+        return 2
+    except subprocess.CalledProcessError as error:
+        payload = {
+            "state": "error_critical",
+            "code": "package_transaction_failed",
+            "message": f"pacman exited with status {error.returncode}",
+        }
+        with contextlib.suppress(OSError):
+            set_status(**payload)
+        if getattr(args, "json", False):
+            print(json.dumps(payload, ensure_ascii=False))
+        else:
+            print(f"Error: {payload['message']}", file=sys.stderr)
+        return error.returncode or 1
 
-if __name__=="__main__": raise SystemExit(main())
+
+if __name__ == "__main__":
+    raise SystemExit(main())

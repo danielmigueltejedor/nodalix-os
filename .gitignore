@@ -2,9 +2,11 @@ __pycache__/
 *.py[cod]
 /build/
 /dist/
+/release-assets/
 *.pkg.tar.*
 *.iso
 *.sig
+packaging/*/*.tar.zst
 shell/blobs-plugin/build/
 shell/Caelestia/
 packaging/*/src/
