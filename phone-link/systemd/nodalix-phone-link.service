@@ -1,0 +1,28 @@
+[Unit]
+Description=Enlace móvil de Nodalix (proveedor iOS)
+Documentation=https://github.com/danielmigueltejedor/nodalix-os
+After=bluetooth.target graphical-session.target dbus.socket
+Wants=bluetooth.target
+Requires=dbus.socket
+Conflicts=iphonebridge.service
+ConditionPathExists=%h/.config/iphonebridge/local.env
+
+[Service]
+Type=simple
+EnvironmentFile=-%h/.config/iphonebridge/local.env
+Environment=PYTHONPATH=/usr/lib/nodalix-phone-link
+Environment=IPHONEBRIDGE_BLE_NAME=
+Environment=IPHONEBRIDGE_COPY_VERIFICATION_CODES=0
+ExecStart=/usr/bin/python -m iphonebridge run
+Restart=on-failure
+RestartSec=3
+StateDirectory=iphonebridge
+StateDirectoryMode=0700
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.config/iphonebridge %h/.local/state/iphonebridge
+
+[Install]
+WantedBy=default.target

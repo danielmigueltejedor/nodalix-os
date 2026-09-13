@@ -8,6 +8,7 @@ QtObject {
     id: root
     property bool checking: false
     property bool running: false
+    property bool changingChannel: false
     property int systemUpdates: updateAvailable ? components.length : 0
     property int aurUpdates: 0
     property int flatpakUpdates: 0
@@ -22,6 +23,9 @@ QtObject {
     property bool shellRestartRequired: false
     property bool rebootRequired: false
     property string errorMessage: ""
+    property string channel: "beta"
+    property string repository: ""
+    property string releaseUrl: ""
 
     // Compatibility for the current Settings view. Polkit replaces its old
     // password prompt; these properties keep that prompt hidden.
@@ -43,7 +47,7 @@ QtObject {
 
     function request(action) {
         if (running || checking) return
-        if (action !== "all" && action !== "system") {
+        if (action !== "all" && action !== "system" && action !== "nodalix") {
             statusText = I18n.tr("This component is managed outside Nodalix Update")
             return
         }
@@ -61,6 +65,15 @@ QtObject {
         statusText = I18n.tr("Automatic update preference saved")
     }
 
+    function setChannel(value) {
+        if (changingChannel || checking || running || (value !== "stable" && value !== "beta")) return
+        changingChannel = true
+        errorMessage = ""
+        statusText = I18n.tr("Changing update channel…")
+        _channel.command = ["pkexec", "/usr/bin/nodalix-updater", "channel", value, "--json"]
+        _channel.running = true
+    }
+
     function cancelPassword() {}
     function submitPassword(password) {}
 
@@ -68,8 +81,10 @@ QtObject {
         installedVersion = String(data.current_version || data.version || "")
         latestVersion = String(data.latest_version || installedVersion)
         updateAvailable = Boolean(data.update_available)
-        components = Array.isArray(data.components)
-            ? data.components.filter(c => Boolean(c.will_update)) : []
+        components = Array.isArray(data.components) ? data.components : []
+        channel = String(data.channel || channel)
+        repository = String(data.repository || "")
+        releaseUrl = String(data.html_url || "")
         releaseNotes = String(data.notes || "")
         shellRestartRequired = Boolean(data.shell_restart_required)
         rebootRequired = Boolean(data.reboot_required)
@@ -118,6 +133,28 @@ QtObject {
             } else {
                 root.state = "error_recoverable"
                 root.statusText = root.errorMessage || I18n.tr("The update finished with errors")
+            }
+        }
+    }
+
+    property Process _channel: Process {
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try { root.channel = String(JSON.parse(text).channel || root.channel) }
+                catch (e) {}
+            }
+        }
+        stderr: StdioCollector {
+            onStreamFinished: if (text.trim() !== "") root.errorMessage = text.trim()
+        }
+        onExited: function(code) {
+            root.changingChannel = false
+            if (code === 0) {
+                root.statusText = I18n.tr("Update channel changed")
+                root.check()
+            } else {
+                root.state = "error_recoverable"
+                root.statusText = root.errorMessage || I18n.tr("Could not change the update channel")
             }
         }
     }

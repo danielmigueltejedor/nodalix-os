@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Enlace móvil
+Name[en]=Phone Link
+Comment=Conecta tu teléfono con Nodalix
+Comment[en]=Connect your phone to Nodalix
+Exec=enlace-movil-ui
+Icon=nodalix-phone-link
+Terminal=false
+Categories=Utility;
+Keywords=phone;iphone;bluetooth;notifications;calls;teléfono;llamadas;
+StartupNotify=true

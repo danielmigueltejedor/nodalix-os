@@ -161,6 +161,12 @@ def load_config() -> dict:
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
         raise ManifestError("invalid GitHub repository")
     config["channel"] = normalize_channel(config.get("channel", "stable"))
+    # Beta installations created before channels were explicit shipped a
+    # stable value and could therefore never discover the next beta. Keep an
+    # installed prerelease on the beta train until the user deliberately
+    # chooses a channel with `nodalix-updater channel`.
+    if not bool(config.get("channel_explicit", False)) and is_prerelease_version(current_version()):
+        config["channel"] = "beta"
     if not str(config.get("manifest_asset") or "").strip():
         config["manifest_asset"] = DEFAULT_CONFIG["manifest_asset"]
     return config
@@ -170,6 +176,7 @@ def write_config(config: dict) -> dict:
     payload = {
         "repository": config["repository"],
         "channel": normalize_channel(config["channel"]),
+        "channel_explicit": True,
         "manifest_asset": config.get("manifest_asset", DEFAULT_CONFIG["manifest_asset"]),
         "require_signature": bool(config.get("require_signature", False)),
     }
@@ -630,8 +637,14 @@ def update_lock():
 def reload_systemd_units(components: list[dict]) -> None:
     ids = {str(item.get("id") or "") for item in components}
     packages = {str(item.get("package") or "") for item in components}
-    needs_system = bool(ids & {"updater", "nodalix-updater"} or packages & {"nodalix-updater"})
-    needs_user = bool(ids & {"shell", "nodalix-shell"} or packages & {"nodalix-shell"})
+    needs_system = bool(
+        ids & {"updater", "nodalix-updater", "phone-link"}
+        or packages & {"nodalix-updater", "nodalix-phone-link"}
+    )
+    needs_user = bool(
+        ids & {"shell", "nodalix-shell", "phone-link"}
+        or packages & {"nodalix-shell", "nodalix-phone-link"}
+    )
     if needs_system:
         subprocess.run(["systemctl", "daemon-reload"], check=False)
     if not needs_user:

@@ -180,6 +180,7 @@ Item {
 		"applications-group": [
 			{ id: "default-apps", label: I18n.tr("Default applications"), sub: I18n.tr("Choose which app opens each file type"), icon: "󰏖" },
 			{ id: "storage", label: I18n.tr("Storage"), sub: I18n.tr("Disk usage and installed applications"), icon: "󰋊" },
+			{ id: "nodalix-updates", label: I18n.tr("Nodalix OS updates"), sub: I18n.tr("Shell, services and Nodalix applications"), icon: "󰚰" },
 			{ id: "updates", label: I18n.tr("Updates"), sub: I18n.tr("System, applications and firmware"), icon: "󰚰" },
 			{ id: "tray", label: I18n.tr("Tray"), sub: I18n.tr("Application indicators"), icon: "󰍡" }
 		],
@@ -2410,6 +2411,117 @@ Item {
 									SettingBtn { label: I18n.tr("Cancel"); onClicked: StorageService.cancelPassword() }
 									SettingBtn { label: I18n.tr("Uninstall"); danger: true; onClicked: { const p = _removePassword.text; _removePassword.text = ""; StorageService.submitPassword(p) } }
 								}
+							}
+						}
+					}
+
+					// Nodalix OS updates --------------------------------------------
+					ColumnLayout {
+						visible: SettingsUi.category === "nodalix-updates"
+						Layout.fillWidth: true
+						Layout.margins: 20
+						spacing: 10
+
+						SettingSection { text: I18n.tr("Nodalix OS updates") }
+						Text {
+							Layout.fillWidth: true
+							text: I18n.tr("Update the shell, integrated services, applications and themes as one verified Nodalix release.")
+							wrapMode: Text.WordWrap
+							color: ThemeManager.onSurfaceVariant
+							font.family: ThemeManager.fontFamily
+							font.pixelSize: ThemeManager.fontSizeSm
+						}
+
+						Rectangle {
+							Layout.fillWidth: true
+							implicitHeight: 86
+							radius: ThemeManager.panelRadius
+							color: ThemeManager.surfaceContainerLow
+							border.width: 1
+							border.color: UpdateService.updateAvailable ? ThemeManager.primary : ThemeManager.outlineVariant
+							RowLayout {
+								anchors { fill: parent; margins: 12 }
+								spacing: 12
+								Rectangle {
+									implicitWidth: 50; implicitHeight: 50; radius: 16
+									color: ThemeManager.primaryContainer
+									Text { anchors.centerIn: parent; text: "󰚰"; color: ThemeManager.onPrimaryContainer; font.family: ThemeManager.fontFamily; font.pixelSize: 25 }
+								}
+								ColumnLayout {
+									Layout.fillWidth: true; spacing: 2
+									Text {
+										text: UpdateService.checking ? I18n.tr("Checking for updates…") : (UpdateService.updateAvailable ? I18n.tr("Nodalix update available") : I18n.tr("Nodalix is up to date"))
+										color: UpdateService.updateAvailable ? ThemeManager.primary : ThemeManager.onSurface
+										font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeMd; font.weight: Font.DemiBold
+									}
+									Text {
+										text: I18n.tr("Installed") + " " + (UpdateService.installedVersion || "—") + "  ·  " + I18n.tr("Available") + " " + (UpdateService.latestVersion || "—")
+										color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 10
+									}
+								}
+								SettingBtn { label: I18n.tr("Check now"); enabled: !UpdateService.checking && !UpdateService.running && !UpdateService.changingChannel; onClicked: UpdateService.check() }
+							}
+						}
+
+						SettingSection { text: I18n.tr("Update channel"); Layout.topMargin: 8 }
+						RowLayout {
+							Layout.fillWidth: true; spacing: 8
+							Repeater {
+								model: [
+									{ key: "stable", label: I18n.tr("Stable") },
+									{ key: "beta", label: I18n.tr("Beta") }
+								]
+								delegate: Rectangle {
+									required property var modelData
+									Layout.fillWidth: true; implicitHeight: 38; radius: ThemeManager.chipRadius
+									color: UpdateService.channel === modelData.key ? ThemeManager.primaryContainer : ThemeManager.surfaceContainerLow
+									border.width: 1
+									border.color: UpdateService.channel === modelData.key ? ThemeManager.primary : ThemeManager.outlineVariant
+									Text { anchors.centerIn: parent; text: modelData.label; color: UpdateService.channel === modelData.key ? ThemeManager.onPrimaryContainer : ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm }
+									TapHandler { enabled: !UpdateService.changingChannel && !UpdateService.running; onTapped: UpdateService.setChannel(modelData.key) }
+								}
+							}
+						}
+
+						SettingSection { text: I18n.tr("Included components"); Layout.topMargin: 8 }
+						Repeater {
+							model: UpdateService.components
+							delegate: Rectangle {
+								required property var modelData
+								Layout.fillWidth: true; implicitHeight: 54; radius: ThemeManager.chipRadius + 2
+								color: ThemeManager.surfaceContainerLow
+								border.width: 1; border.color: ThemeManager.outlineVariant
+								RowLayout {
+									anchors { fill: parent; margins: 10 }
+									spacing: 10
+									Text { text: modelData.id === "phone-link" ? "󰄜" : (modelData.id === "shell" ? "󰍜" : "󰏖"); color: ThemeManager.primary; font.family: ThemeManager.fontFamily; font.pixelSize: 19 }
+									ColumnLayout {
+										Layout.fillWidth: true; spacing: 1
+										Text { text: modelData.name || modelData.package; color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm; elide: Text.ElideRight; Layout.fillWidth: true }
+										Text { text: String(modelData.version || "") + (modelData.restart === "system" ? " · " + I18n.tr("Restart required") : ""); color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 9 }
+									}
+									Text { text: modelData.will_update ? I18n.tr("Will update") : I18n.tr("Included"); color: modelData.will_update ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 10 }
+								}
+							}
+						}
+
+						Text {
+							visible: UpdateService.statusText !== ""
+							Layout.fillWidth: true
+							text: UpdateService.statusText
+							wrapMode: Text.WordWrap
+							color: UpdateService.errorMessage !== "" ? ThemeManager.error : ThemeManager.onSurfaceVariant
+							font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+						}
+
+						RowLayout {
+							Layout.fillWidth: true; Layout.topMargin: 8
+							SettingBtn { label: I18n.tr("View release notes"); enabled: UpdateService.releaseUrl !== ""; onClicked: Qt.openUrlExternally(UpdateService.releaseUrl) }
+							Item { Layout.fillWidth: true }
+							SettingBtn {
+								label: UpdateService.running ? I18n.tr("Updating…") : I18n.tr("Install Nodalix update")
+								enabled: UpdateService.updateAvailable && !UpdateService.running && !UpdateService.checking
+								onClicked: UpdateService.request("nodalix")
 							}
 						}
 					}

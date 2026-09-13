@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+set -euo pipefail
+export PYTHONPATH=/usr/lib/nodalix-phone-link${PYTHONPATH:+:$PYTHONPATH}
+exec /usr/bin/python -m iphonebridge "$@"

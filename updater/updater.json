@@ -1,6 +1,7 @@
 {
   "repository": "danielmigueltejedor/nodalix-os",
-  "channel": "stable",
+  "channel": "beta",
+  "channel_explicit": false,
   "manifest_asset": "nodalix-manifest.json",
   "require_signature": false
 }

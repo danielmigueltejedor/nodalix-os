@@ -159,6 +159,35 @@ class ChannelSelectionTests(unittest.TestCase):
         self.assertEqual(UPDATER.normalize_channel("rc"), "beta")
         self.assertEqual(self.selected("rc"), "0.2.1-beta.1")
 
+    def test_legacy_stable_config_keeps_prerelease_on_beta_channel(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = Path(directory) / "updater.json"
+            config_path.write_text(json.dumps({
+                "repository": "owner/repo",
+                "channel": "stable",
+                "manifest_asset": "nodalix-manifest.json",
+            }))
+            with (
+                mock.patch.object(UPDATER, "CONFIG_PATH", config_path),
+                mock.patch.object(UPDATER, "current_version", return_value="0.2.0-beta.3"),
+            ):
+                self.assertEqual(UPDATER.load_config()["channel"], "beta")
+
+    def test_explicit_stable_channel_is_respected_on_prerelease(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            config_path = Path(directory) / "updater.json"
+            config_path.write_text(json.dumps({
+                "repository": "owner/repo",
+                "channel": "stable",
+                "channel_explicit": True,
+                "manifest_asset": "nodalix-manifest.json",
+            }))
+            with (
+                mock.patch.object(UPDATER, "CONFIG_PATH", config_path),
+                mock.patch.object(UPDATER, "current_version", return_value="0.2.0-beta.3"),
+            ):
+                self.assertEqual(UPDATER.load_config()["channel"], "stable")
+
     def test_private_repo_downloads_use_api_asset_url(self) -> None:
         asset = {
             "url": "https://api.github.com/repos/owner/repo/releases/assets/1",
@@ -266,8 +295,14 @@ class UpdateTransactionTests(unittest.TestCase):
         UPDATER.STATUS_PATH = UPDATER.STATE_DIR / "status.json"
         UPDATER.LOCK_PATH = UPDATER.STATE_DIR / "update.lock"
         UPDATER.RELEASE_PATH.write_text('VERSION_ID="0.1.1"\n', encoding="utf-8")
+        # Transaction tests exercise downloading, verification and pacman as
+        # isolated units. Migration behavior has its own fixture-backed suite
+        # and must never inspect the host running the tests.
+        self.migrations = mock.patch.object(UPDATER, "run_migrations", return_value=[])
+        self.migrations.start()
 
     def tearDown(self) -> None:
+        self.migrations.stop()
         (
             UPDATER.RELEASE_PATH,
             UPDATER.STATE_DIR,

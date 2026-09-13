@@ -1,0 +1,12 @@
+[Unit]
+Description=Prepare Bluetooth for Nodalix Phone Link
+After=bluetooth.service
+Requires=bluetooth.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/nodalix-phone-link/prepare-bluetooth
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Advertising the phone/telephony service class helps iOS rediscover the PC
+# after boot. The command is retried because some adapters appear late.
+for attempt in {1..15}; do
+    if /usr/bin/btmgmt info 2>/dev/null | /usr/bin/grep -q 'current settings:'; then
+        /usr/bin/btmgmt class 0x000400 0x000000 >/dev/null 2>&1 || true
+        exit 0
+    fi
+    /usr/bin/sleep 1
+done
+
+exit 0

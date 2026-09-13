@@ -1,0 +1,44 @@
+pkgname=nodalix-phone-link
+pkgver=0.2.0beta.4
+pkgrel=1
+pkgdesc="Nodalix Phone Link integration for iOS"
+arch=('any')
+url="https://github.com/danielmigueltejedor/nodalix-os"
+license=('GPL-2.0-or-later')
+depends=('python' 'python-dbus' 'python-gobject' 'python-typer' 'bluez' 'bluez-utils' 'bluez-obex' 'gtk4' 'libadwaita')
+optdepends=('ofono: hands-free call audio and controls' 'wl-clipboard: copy verification codes')
+source=("nodalix-phone-link-$pkgver.tar.zst")
+sha256sums=('SKIP')
+
+package() {
+  install -d "$pkgdir/usr/lib/nodalix-phone-link"
+  cp -a --no-preserve=ownership "$srcdir/phone-link/src/iphonebridge" \
+    "$pkgdir/usr/lib/nodalix-phone-link/"
+
+  install -Dm755 "$srcdir/phone-link/bin/enlace-movil" "$pkgdir/usr/bin/enlace-movil"
+  install -Dm755 "$srcdir/phone-link/bin/enlace-movil-ui" "$pkgdir/usr/bin/enlace-movil-ui"
+  install -Dm755 "$srcdir/phone-link/systemd/prepare-bluetooth" \
+    "$pkgdir/usr/lib/nodalix-phone-link/prepare-bluetooth"
+
+  install -Dm644 "$srcdir/phone-link/systemd/nodalix-phone-link.service" \
+    "$pkgdir/usr/lib/systemd/user/nodalix-phone-link.service"
+  install -Dm644 "$srcdir/phone-link/systemd/nodalix-phone-link-bluetooth.service" \
+    "$pkgdir/usr/lib/systemd/system/nodalix-phone-link-bluetooth.service"
+  install -d "$pkgdir/etc/systemd/user/default.target.wants"
+  ln -s /usr/lib/systemd/user/nodalix-phone-link.service \
+    "$pkgdir/etc/systemd/user/default.target.wants/nodalix-phone-link.service"
+  install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
+  ln -s /usr/lib/systemd/system/nodalix-phone-link-bluetooth.service \
+    "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/nodalix-phone-link-bluetooth.service"
+
+  install -Dm644 "$srcdir/phone-link/wireplumber/51-nodalix-phone-link.conf" \
+    "$pkgdir/etc/wireplumber/wireplumber.conf.d/51-nodalix-phone-link.conf"
+  install -Dm644 "$srcdir/phone-link/data/com.nodalix.PhoneLink.desktop" \
+    "$pkgdir/usr/share/applications/com.nodalix.PhoneLink.desktop"
+  install -Dm644 "$srcdir/phone-link/data/icons/nodalix-phone-link.svg" \
+    "$pkgdir/usr/share/icons/hicolor/scalable/apps/nodalix-phone-link.svg"
+  install -Dm644 "$srcdir/phone-link/LICENSE" \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "$srcdir/phone-link/NODALIX_CHANGES.md" \
+    "$pkgdir/usr/share/doc/$pkgname/NODALIX_CHANGES.md"
+}

@@ -1,11 +1,11 @@
 pkgname=nodalix-release
-pkgver=0.2.0beta.3
+pkgver=0.2.0beta.4
 pkgrel=1
 pkgdesc="Nodalix release identity and core component set"
 arch=("any")
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-depends=("nodalix-shell" "nodalix-updater")
+depends=("nodalix-shell" "nodalix-updater" "nodalix-phone-link")
 source=("VERSION")
 sha256sums=("SKIP")
 
