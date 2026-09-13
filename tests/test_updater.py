@@ -298,8 +298,8 @@ class UpdateTransactionTests(unittest.TestCase):
         value = manifest([component(), component("updater"), component("shell")])
 
         def pacman(command: list[str], **kwargs: object) -> mock.Mock:
-            self.assertEqual(command[:4], ["pacman", "-U", "--noconfirm", "--needed"])
-            self.assertEqual(len(command[4:]), 3)
+            self.assertEqual(command[:6], ["pacman", "-U", "--noconfirm", "--needed", "--overwrite", "/etc/nodalix-release"])
+            self.assertEqual(len(command[6:]), 3)
             UPDATER.RELEASE_PATH.write_text('VERSION_ID="0.2.0"\n', encoding="utf-8")
             return mock.Mock(returncode=0)
 

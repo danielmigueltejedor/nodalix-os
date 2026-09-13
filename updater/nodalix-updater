@@ -695,7 +695,10 @@ def do_update(config: dict, force: bool = False) -> dict:
         set_status("installing", status="installing", version=manifest["version"], components=[item["id"] for item in components])
         # Pacman replaces files, including this script. Keep running from the
         # already-loaded Python process; do not re-exec mid-transaction.
-        subprocess.run(["pacman", "-U", "--noconfirm", "--needed", *packages], check=True)
+        subprocess.run(
+            ["pacman", "-U", "--noconfirm", "--needed", "--overwrite", "/etc/nodalix-release", *packages],
+            check=True,
+        )
         installed = current_version()
         if installed != canonical_version(str(manifest["version"])):
             raise UpdaterError(
