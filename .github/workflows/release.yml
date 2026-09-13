@@ -1,0 +1,97 @@
+name: Release packages
+
+on:
+  push:
+    tags:
+      - "[0-9]*"
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing GitHub release tag that should receive the built assets
+        required: true
+        default: "0.2.0-beta.1"
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run updater tests
+        run: python -m unittest discover -s tests -v
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Arch packages
+        run: |
+          docker run --rm \
+            -e NODALIX_RELEASE_TAG="${{ github.event.inputs.release_tag || github.ref_name }}" \
+            -v "$PWD":/src \
+            -w /src \
+            archlinux:latest \
+            bash -lc '
+              set -euo pipefail
+              pacman -Syu --noconfirm
+              pacman -S --noconfirm base-devel cmake ninja qt6-base qt6-declarative qt6-shadertools python tar zstd git sudo
+              useradd -m builder
+              echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+              chown -R builder:builder /src
+              su builder -c "bash /src/tools/build-packages.sh /src/dist/packages"
+            '
+      - name: Validate tag and manifest
+        env:
+          NODALIX_RELEASE_TAG: ${{ github.event.inputs.release_tag || github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib, sys
+          sys.path.insert(0, "tools")
+          from versioning import canonical_version
+          tag = canonical_version(os.environ["NODALIX_RELEASE_TAG"])
+          manifest = json.loads(pathlib.Path("dist/packages/nodalix-manifest.json").read_text())
+          if manifest["version"] != tag:
+              raise SystemExit(f"manifest {manifest['version']} does not match tag {tag}")
+          print("validated", tag)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nodalix-packages
+          path: dist/packages/*
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: nodalix-packages
+          path: dist/packages
+      - name: Mark prerelease and upload assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.inputs.release_tag || github.ref_name }}
+        run: |
+          mkdir -p dist
+          python3 - <<'PY'
+          import os, pathlib, sys
+          sys.path.insert(0, "tools")
+          from versioning import is_prerelease_tag
+          tag = os.environ["RELEASE_TAG"]
+          pathlib.Path("dist/.prerelease").write_text("1" if is_prerelease_tag(tag) else "0")
+          print(tag, "prerelease" if is_prerelease_tag(tag) else "stable")
+          PY
+          if [[ $(cat dist/.prerelease) == 1 ]]; then
+            gh release edit "$RELEASE_TAG" --prerelease --repo "$GITHUB_REPOSITORY"
+          else
+            gh release edit "$RELEASE_TAG" --prerelease=false --repo "$GITHUB_REPOSITORY"
+          fi
+          gh release upload "$RELEASE_TAG" dist/packages/* --clobber --repo "$GITHUB_REPOSITORY"
+          gh release view "$RELEASE_TAG" --json tagName,isPrerelease,assets --repo "$GITHUB_REPOSITORY"

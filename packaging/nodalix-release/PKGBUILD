@@ -1,18 +1,24 @@
 pkgname=nodalix-release
-pkgver=0.2.0
+pkgver=0.2.0beta.1
 pkgrel=1
 pkgdesc="Nodalix release identity and core component set"
 arch=("any")
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-depends=("nodalix-shell>=0.2.0" "nodalix-updater>=0.2.0")
+depends=("nodalix-shell" "nodalix-updater")
 source=("VERSION")
 sha256sums=("SKIP")
 
 package() {
-    local version
-    version="$(<"$srcdir/VERSION")"
-    install -d "$pkgdir/etc"
-    printf 'NAME="Nodalix"\nVERSION="%s"\nVERSION_ID="%s"\nCHANNEL="stable"\n' \
-        "$version" "$version" > "$pkgdir/etc/nodalix-release"
+  local version channel
+  version="$(<"$srcdir/VERSION")"
+  version="${version#"${version%%[![:space:]]*}"}"
+  version="${version%"${version##*[![:space:]]}"}"
+  case "$version" in
+    *-beta.*|*-rc.*) channel=beta ;;
+    *) channel=stable ;;
+  esac
+  install -d "$pkgdir/etc"
+  printf 'NAME="Nodalix"\nVERSION="%s"\nVERSION_ID="%s"\nCHANNEL="%s"\n' \
+    "$version" "$version" "$channel" > "$pkgdir/etc/nodalix-release"
 }
