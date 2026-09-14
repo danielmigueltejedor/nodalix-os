@@ -177,6 +177,7 @@ PanelWindow {
         ],
         "connections-group": [
             { id: "connectivity", label: I18n.tr("Connectivity"), sub: I18n.tr("Wi-Fi, Bluetooth and VPN"), icon: "󰖩" },
+            { id: "phone-link", label: I18n.tr("Phone Link"), sub: I18n.tr("Calls, notifications and iPhone connection"), icon: "󰄜" },
             { id: "localsend", label: "LocalSend", sub: I18n.tr("Nearby sharing"), icon: "󰇚" }
         ],
         "devices-group": [
@@ -1322,6 +1323,72 @@ PanelWindow {
                         readonly property var _shownList: root._wpTab === "favorites" ? _favList : (root._wpTab === "animated" ? WallpaperService.animatedWallpapers : _localList)
                         property int _rotAnchor: -1   // last-clicked index, for shift-range rotation select
 
+                        ClippingRectangle {
+                            visible: WallpaperService.current !== ""
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: 184
+                            Layout.bottomMargin: 8
+                            radius: ThemeManager.panelRadius
+                            color: ThemeManager.surfaceContainerHigh
+                            border.width: 1
+                            border.color: ThemeManager.outlineVariant
+
+                            Image {
+                                anchors.fill: parent
+                                source: WallpaperService.currentAnimated
+                                    ? ("file://" + WallpaperService.thumbnailFor(WallpaperService.current))
+                                    : ("file://" + WallpaperService.current)
+                                fillMode: Image.PreserveAspectCrop
+                                asynchronous: true
+                                cache: false
+                                sourceSize.width: 960
+                            }
+                            Rectangle {
+                                anchors.fill: parent
+                                gradient: Gradient {
+                                    GradientStop { position: 0.28; color: "transparent" }
+                                    GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.76) }
+                                }
+                            }
+                            Rectangle {
+                                anchors { top: parent.top; right: parent.right; margins: 12 }
+                                implicitWidth: _wpEngine.implicitWidth + 22
+                                implicitHeight: 28
+                                radius: 14
+                                color: Qt.rgba(0, 0, 0, 0.62)
+                                Text {
+                                    id: _wpEngine
+                                    anchors.centerIn: parent
+                                    text: WallpaperService.currentAnimated ? I18n.tr("Nodalix Motion") : "Hyprpaper"
+                                    color: "white"
+                                    font.family: ThemeManager.fontFamily
+                                    font.pixelSize: 11
+                                    font.weight: Font.DemiBold
+                                }
+                            }
+                            Column {
+                                anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: 14 }
+                                spacing: 3
+                                Text {
+                                    width: parent.width
+                                    text: I18n.tr("Selected background")
+                                    color: Qt.rgba(1, 1, 1, 0.72)
+                                    font.family: ThemeManager.fontFamily
+                                    font.pixelSize: 10
+                                    font.weight: Font.Medium
+                                }
+                                Text {
+                                    width: parent.width
+                                    text: WallpaperService.displayName(WallpaperService.current)
+                                    elide: Text.ElideRight
+                                    color: "white"
+                                    font.family: ThemeManager.fontFamily
+                                    font.pixelSize: ThemeManager.fontSizeLg
+                                    font.weight: Font.DemiBold
+                                }
+                            }
+                        }
+
                         SettingToggle {
                             label: I18n.tr("Pause animated wallpapers in fullscreen")
                             sub: I18n.tr("Pauses only the monitor with fullscreen content")
@@ -1393,7 +1460,7 @@ PanelWindow {
                                     required property var modelData
                                     required property int index
                                     readonly property string _path: "" + modelData
-                                    readonly property bool _isVideo: root._wpTab === "animated"
+                                    readonly property bool _isVideo: root._wpTab === "animated" || WallpaperService.isAnimatedPath(_path)
                                     readonly property bool _isCurrent: WallpaperService.current === _path && WallpaperService.currentAnimated === _isVideo
                                     readonly property bool _inRot: WallpaperService.isInRotation(_path)
                                     width: 168; height: 96
@@ -1475,7 +1542,6 @@ PanelWindow {
                                     }
                                     // Favorite button (on top of the tile MouseArea so it stays clickable)
                                     WpTileBtn {
-                                        visible: !_tile._isVideo
                                         anchors { top: parent.top; right: parent.right; margins: 5 }
                                         icon: WallpaperService.isFavorite(_tile._path) ? "󰋑" : "󰋕"
                                         active: WallpaperService.isFavorite(_tile._path)
@@ -2465,26 +2531,67 @@ PanelWindow {
                             }
                         }
 
-                        RowLayout {
+                        Rectangle {
                             visible: SettingsUi.category === "nodalix-updates"
                             Layout.fillWidth: true
-                            spacing: 8
-                            Text {
-                                Layout.fillWidth: true
-                                text: I18n.tr("Update channel")
-                                color: ThemeManager.onSurfaceVariant
-                                font.family: ThemeManager.fontFamily
-                                font.pixelSize: ThemeManager.fontSizeSm
-                            }
-                            SettingBtn {
-                                label: I18n.tr("Stable")
-                                enabled: UpdateService.channel !== "stable" && !UpdateService.running
-                                onClicked: UpdateService.setChannel("stable")
-                            }
-                            SettingBtn {
-                                label: I18n.tr("Beta")
-                                enabled: UpdateService.channel !== "beta" && !UpdateService.running
-                                onClicked: UpdateService.setChannel("beta")
+                            implicitHeight: _channelColumn.implicitHeight + 24
+                            radius: ThemeManager.panelRadius
+                            color: ThemeManager.surfaceContainerHigh
+                            border.width: 1
+                            border.color: ThemeManager.outlineVariant
+                            ColumnLayout {
+                                id: _channelColumn
+                                anchors { fill: parent; margins: 12 }
+                                spacing: 8
+                                Text {
+                                    text: I18n.tr("Update channel")
+                                    color: ThemeManager.onSurface
+                                    font.family: ThemeManager.fontFamily
+                                    font.pixelSize: ThemeManager.fontSizeMd
+                                    font.weight: Font.DemiBold
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: I18n.tr("Stable receives finished releases. Beta receives new Nodalix features first.")
+                                    wrapMode: Text.WordWrap
+                                    color: ThemeManager.onSurfaceVariant
+                                    font.family: ThemeManager.fontFamily
+                                    font.pixelSize: 10
+                                }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 6
+                                    Repeater {
+                                        model: [
+                                            { key: "stable", icon: "󰄬", label: I18n.tr("Stable") },
+                                            { key: "beta", icon: "󰚰", label: I18n.tr("Beta") }
+                                        ]
+                                        delegate: Rectangle {
+                                            id: _channelChoice
+                                            required property var modelData
+                                            readonly property bool selected: UpdateService.channel === modelData.key
+                                            Layout.fillWidth: true
+                                            implicitHeight: 40
+                                            radius: ThemeManager.chipRadius
+                                            color: selected
+                                                ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.20)
+                                                : ThemeManager.surfaceContainer
+                                            border.width: 1
+                                            border.color: selected ? ThemeManager.primary : ThemeManager.outlineVariant
+                                            Row {
+                                                anchors.centerIn: parent
+                                                spacing: 8
+                                                Text { text: _channelChoice.modelData.icon; color: _channelChoice.selected ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 16 }
+                                                Text { text: _channelChoice.modelData.label; color: _channelChoice.selected ? ThemeManager.primary : ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.DemiBold }
+                                            }
+                                            HoverHandler { id: _channelHover }
+                                            TapHandler {
+                                                enabled: !_channelChoice.selected && !UpdateService.running
+                                                onTapped: UpdateService.setChannel(_channelChoice.modelData.key)
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
 
@@ -2691,6 +2798,121 @@ PanelWindow {
                                     if (DesktopWidgetService.editMode) SettingsUi.hide()
                                 }
                             }
+                        }
+                    }
+
+                    // Phone Link ---------------------------------------------------
+                    ColumnLayout {
+                        visible: SettingsUi.category === "phone-link"
+                        Layout.fillWidth: true
+                        Layout.margins: 20
+                        spacing: 9
+                        onVisibleChanged: if (visible) PhoneLinkService.refresh()
+
+                        SettingSection { text: I18n.tr("Phone Link") }
+                        Rectangle {
+                            Layout.fillWidth: true
+                            implicitHeight: 74
+                            radius: ThemeManager.panelRadius
+                            color: ThemeManager.surfaceContainerHigh
+                            border.width: 1
+                            border.color: PhoneLinkService.active ? ThemeManager.primary : ThemeManager.outlineVariant
+                            RowLayout {
+                                anchors { fill: parent; margins: 12 }
+                                spacing: 12
+                                Rectangle {
+                                    width: 42; height: 42; radius: 14
+                                    color: PhoneLinkService.active
+                                        ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.18)
+                                        : ThemeManager.surfaceContainer
+                                    Text { anchors.centerIn: parent; text: "󰄜"; color: PhoneLinkService.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 22 }
+                                }
+                                ColumnLayout {
+                                    Layout.fillWidth: true; spacing: 1
+                                    Text { text: PhoneLinkService.exposedName; color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeMd; font.bold: true }
+                                    Text {
+                                        text: !PhoneLinkService.configured ? I18n.tr("No phone has been configured")
+                                            : (PhoneLinkService.active ? I18n.tr("Service active and ready") : I18n.tr("Service stopped"))
+                                        color: PhoneLinkService.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
+                                        font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                                    }
+                                }
+                                Rectangle {
+                                    width: 40; height: 22; radius: 11
+                                    opacity: PhoneLinkService.busy ? 0.45 : 1
+                                    color: PhoneLinkService.enabled ? ThemeManager.primary : ThemeManager.surfaceContainer
+                                    Rectangle {
+                                        width: 16; height: 16; radius: 8; y: 3
+                                        x: PhoneLinkService.enabled ? parent.width - width - 3 : 3
+                                        color: PhoneLinkService.enabled ? ThemeManager.onPrimary : ThemeManager.onSurfaceVariant
+                                        Behavior on x { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+                                    }
+                                    TapHandler { enabled: !PhoneLinkService.busy && PhoneLinkService.configured; onTapped: PhoneLinkService.setEnabled(!PhoneLinkService.enabled) }
+                                }
+                            }
+                        }
+
+                        SettingRowBase {
+                            label: I18n.tr("Visible computer name")
+                            sub: I18n.tr("This is the name shown to the phone over Bluetooth")
+                            TextField {
+                                id: _phoneLinkName
+                                Layout.preferredWidth: 190; implicitHeight: 32
+                                text: PhoneLinkService.exposedName
+                                color: ThemeManager.onSurface
+                                placeholderText: "Nodalix"
+                                placeholderTextColor: ThemeManager.onSurfaceVariant
+                                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                                leftPadding: 10; rightPadding: 10
+                                background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh; border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
+                                onAccepted: PhoneLinkService.setName(text)
+                            }
+                            SettingBtn { label: I18n.tr("Save"); enabled: !PhoneLinkService.busy; onClicked: PhoneLinkService.setName(_phoneLinkName.text) }
+                        }
+
+                        LiveToggle {
+                            label: I18n.tr("Reconnect automatically")
+                            sub: I18n.tr("Reconnect the trusted phone whenever it is nearby")
+                            checked: PhoneLinkService.autoReconnect
+                            controlEnabled: !PhoneLinkService.busy
+                            onToggled: value => PhoneLinkService.setOption("auto_reconnect", value)
+                        }
+                        LiveToggle {
+                            label: I18n.tr("Phone notifications")
+                            sub: I18n.tr("Mirror compatible iPhone application notifications")
+                            checked: PhoneLinkService.notifications
+                            controlEnabled: !PhoneLinkService.busy
+                            onToggled: value => PhoneLinkService.setOption("notifications", value)
+                        }
+                        LiveToggle {
+                            label: I18n.tr("Calls on this computer")
+                            sub: I18n.tr("Show incoming calls and use the hands-free call profile")
+                            checked: PhoneLinkService.calls
+                            controlEnabled: !PhoneLinkService.busy
+                            onToggled: value => PhoneLinkService.setOption("calls", value)
+                        }
+                        LiveToggle {
+                            label: I18n.tr("Copy verification codes")
+                            sub: I18n.tr("Copy detected one-time codes to the desktop clipboard")
+                            checked: PhoneLinkService.copyCodes
+                            controlEnabled: !PhoneLinkService.busy
+                            onToggled: value => PhoneLinkService.setOption("copy_codes", value)
+                        }
+
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: 8; Layout.topMargin: 6
+                            SettingBtn { label: I18n.tr("Open Phone Link"); enabled: !PhoneLinkService.busy; onClicked: PhoneLinkService.openApp() }
+                            SettingBtn { label: I18n.tr("Sync contacts"); enabled: PhoneLinkService.active && !PhoneLinkService.busy; onClicked: PhoneLinkService.syncContacts() }
+                            SettingBtn { label: I18n.tr("Restart service"); enabled: PhoneLinkService.enabled && !PhoneLinkService.busy; onClicked: PhoneLinkService.restart() }
+                            Item { Layout.fillWidth: true }
+                        }
+                        Text {
+                            visible: PhoneLinkService.statusText !== ""
+                            Layout.fillWidth: true
+                            text: PhoneLinkService.statusText
+                            color: ThemeManager.primary
+                            font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                            wrapMode: Text.WordWrap
                         }
                     }
 

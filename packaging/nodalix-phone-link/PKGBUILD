@@ -1,5 +1,5 @@
 pkgname=nodalix-phone-link
-pkgver=0.2.0beta.5
+pkgver=0.2.0beta.6
 pkgrel=1
 pkgdesc="Nodalix Phone Link integration for iOS"
 arch=('any')
@@ -17,6 +17,7 @@ package() {
 
   install -Dm755 "$srcdir/phone-link/bin/enlace-movil" "$pkgdir/usr/bin/enlace-movil"
   install -Dm755 "$srcdir/phone-link/bin/enlace-movil-ui" "$pkgdir/usr/bin/enlace-movil-ui"
+  install -Dm755 "$srcdir/phone-link/bin/nodalix-phone-link-settings" "$pkgdir/usr/bin/nodalix-phone-link-settings"
   install -Dm755 "$srcdir/phone-link/systemd/prepare-bluetooth" \
     "$pkgdir/usr/lib/nodalix-phone-link/prepare-bluetooth"
 

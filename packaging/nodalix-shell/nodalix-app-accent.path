@@ -1,0 +1,11 @@
+[Unit]
+Description=Watch the active Nodalix Material palette
+
+[Path]
+PathChanged=%h/.local/state/nodalix/active.json
+PathChanged=%h/.local/state/nodalix/generated/wallpaper.json
+PathChanged=%h/.local/state/nodalix/custom
+Unit=nodalix-app-accent.service
+
+[Install]
+WantedBy=default.target

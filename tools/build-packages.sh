@@ -60,7 +60,8 @@ shell_dir="$workdir/nodalix-shell"
 release_dir="$workdir/nodalix-release"
 phone_link_dir="$workdir/nodalix-phone-link"
 fluent_dir="$workdir/nodalix-fluent-emoji"
-mkdir -p "$updater_dir" "$shell_dir" "$release_dir" "$phone_link_dir" "$fluent_dir"
+wallpaper_dir="$workdir/nodalix-wallpapers"
+mkdir -p "$updater_dir" "$shell_dir" "$release_dir" "$phone_link_dir" "$fluent_dir" "$wallpaper_dir"
 
 cp "$root/packaging/nodalix-updater/PKGBUILD" "$updater_dir/PKGBUILD"
 cp "$srcdir/nodalix-updater-$pkgver.tar.zst" "$updater_dir/"
@@ -69,6 +70,8 @@ inject_sha256 "$updater_dir/PKGBUILD" "$updater_dir/nodalix-updater-$pkgver.tar.
 cp "$root/packaging/nodalix-shell/PKGBUILD" \
    "$root/packaging/nodalix-shell/nodalix-shell" \
    "$root/packaging/nodalix-shell/nodalix-shell.service" \
+   "$root/packaging/nodalix-shell/nodalix-app-accent.service" \
+   "$root/packaging/nodalix-shell/nodalix-app-accent.path" \
    "$root/packaging/nodalix-shell/VERSION" \
    "$shell_dir/"
 cp "$srcdir/nodalix-shell-$pkgver.tar.zst" "$shell_dir/"
@@ -76,6 +79,8 @@ inject_sha256 "$shell_dir/PKGBUILD" \
   "$shell_dir/nodalix-shell-$pkgver.tar.zst" \
   "$shell_dir/nodalix-shell" \
   "$shell_dir/nodalix-shell.service" \
+  "$shell_dir/nodalix-app-accent.service" \
+  "$shell_dir/nodalix-app-accent.path" \
   "$shell_dir/VERSION"
 
 cp "$root/packaging/nodalix-release/PKGBUILD" "$root/packaging/nodalix-release/VERSION" "$release_dir/"
@@ -89,6 +94,10 @@ cp "$root/packaging/nodalix-fluent-emoji/PKGBUILD" \
    "$root/packaging/nodalix-fluent-emoji/75-nodalix-fluent-emoji.conf" \
    "$fluent_dir/"
 
+cp "$root/packaging/nodalix-wallpapers/PKGBUILD" \
+   "$root/packaging/nodalix-wallpapers/SOURCES.md" \
+   "$wallpaper_dir/"
+
 makepkg_one() {
   local dir=$1
   (cd "$dir" && makepkg -f --noconfirm --nodeps --cleanbuild)
@@ -99,6 +108,7 @@ if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
   makepkg_one "$shell_dir"
   makepkg_one "$phone_link_dir"
   makepkg_one "$fluent_dir"
+  makepkg_one "$wallpaper_dir"
   makepkg_one "$release_dir"
   find "$workdir" -name '*.pkg.tar.zst' ! -name '*-debug-*' -exec cp {} "$outdir/" \;
 fi

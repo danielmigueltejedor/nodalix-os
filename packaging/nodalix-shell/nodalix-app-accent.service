@@ -1,0 +1,7 @@
+[Unit]
+Description=Synchronize the Nodalix Material palette with supported applications
+ConditionPathExists=%h/.local/share/Steam/millennium/themes/fluenty
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/nodalix-sync-app-accent /etc/xdg/quickshell/nodalix

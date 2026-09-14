@@ -116,6 +116,10 @@ QtObject {
         onError              = _role("onError",              "#601410")
     }
 
+    function _queueExternalAppearanceSync() {
+        _externalSync.restart()
+    }
+
     // Custom themes + wallpaper-generated theme live in user state; presets ship
     // read-only in the checkout.
     readonly property string _customDir: Paths.stateDir + "/custom"
@@ -318,12 +322,31 @@ QtObject {
         watchChanges: true
         blockLoading: true
         onLoaded: {
-            try { root._data = JSON.parse(text()); root._applyRoles() } catch(e) {}
+            try {
+                root._data = JSON.parse(text())
+                root._applyRoles()
+                root._queueExternalAppearanceSync()
+            } catch(e) {}
         }
     }
 
     // ── Processes ─────────────────────────────────────────────────────────────
     property Process _writeActive: Process { running: false }
+
+    property Timer _externalSync: Timer {
+        interval: 120
+        repeat: false
+        onTriggered: {
+            root._systemAppearance.command = ["sh", Paths.configDir + "/scripts/nodalix-sync-color-scheme.sh", root.isDark ? "dark" : "light"]
+            root._systemAppearance.running = false
+            root._systemAppearance.running = true
+            root._appAccent.command = ["python3", Paths.configDir + "/scripts/nodalix-sync-app-accent.py", Paths.configDir]
+            root._appAccent.running = false
+            root._appAccent.running = true
+        }
+    }
+    property Process _systemAppearance: Process { running: false }
+    property Process _appAccent: Process { running: false }
 
     property Process _matugen: Process {
         running: false

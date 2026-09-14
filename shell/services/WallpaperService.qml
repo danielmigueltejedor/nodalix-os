@@ -18,8 +18,15 @@ QtObject {
     property bool   currentAnimated: false
     property string _appliedAnimatedPath: ""
 
-    // What the tools-rail quick picker shows: favorites if any, else all local.
-    readonly property var railWallpapers: (favorites?.length ?? 0) > 0 ? favorites : wallpapers
+    // The tools rail presents one collection even though static and animated
+    // backgrounds use different renderers. Entries carry their type so hover,
+    // keyboard preview and commit never try to feed a video to hyprpaper.
+    readonly property var railEntries: {
+        const paths = (favorites?.length ?? 0) > 0
+            ? favorites : wallpapers.concat(animatedWallpapers)
+        return paths.map(p => ({ path: "" + p, animated: isAnimatedPath(p) }))
+    }
+    readonly property var railWallpapers: railEntries.map(e => e.path)
 
     readonly property string downloadDir: Paths.wallpaperImageDir
     readonly property string animatedDir: Paths.wallpaperAnimatedDir
@@ -52,6 +59,25 @@ QtObject {
     // on `available` — that's resolved asynchronously and would leave an empty
     // list on the first scan.
     function refresh() { _list.running = true }
+
+    function isAnimatedPath(path) {
+        return /\.(mp4|webm|mkv|mov)$/i.test("" + path)
+    }
+    function displayName(path) {
+        const value = "" + (path || "")
+        const slash = value.lastIndexOf("/")
+        return value.slice(slash + 1).replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ")
+    }
+    function previewEntry(entry) {
+        if (!entry || !entry.path) return
+        if (entry.animated) previewAnimated(entry.path)
+        else preview(entry.path)
+    }
+    function commitEntry(entry) {
+        if (!entry || !entry.path) return
+        if (entry.animated) commitAnimated(entry.path)
+        else commit(entry.path)
+    }
 
     // ── Favorites ─────────────────────────────────────────────────────────────
     readonly property var favorites: SettingsService.get("wallpaper.favorites", [])
@@ -120,6 +146,14 @@ QtObject {
             _live.running = true
         }
         ThemeManager.generateWallpaperTheme(path)
+    }
+
+    function previewAnimated(path) {
+        if (!path) return
+        current = path
+        currentAnimated = true
+        ThemeManager.generateWallpaperTheme(thumbnailFor(path))
+        if (animatedAvailable) _applyAnimated(path)
     }
 
     // Preview + persist (settings + hyprpaper.conf) so it survives a restart.
@@ -316,13 +350,17 @@ QtObject {
     property Process _list: Process {
         command: ["sh", "-c",
             "mkdir -p \"$1\" \"$2/.thumbs\"; " +
-            "for f in \"$1\"/*.jpg \"$1\"/*.jpeg \"$1\"/*.png \"$1\"/*.webp; do " +
-            "[ -e \"$f\" ] && printf 'I|%s\\n' \"$f\"; done; " +
-            "for f in \"$2\"/*.mp4 \"$2\"/*.webm \"$2\"/*.mkv \"$2\"/*.mov; do " +
-            "if [ -e \"$f\" ]; then t=\"$2/.thumbs/$(basename \"$f\").jpg\"; " +
-            "[ -e \"$t\" ] || ffmpeg -loglevel error -ss 1 -i \"$f\" -frames:v 1 -vf 'scale=480:-2' \"$t\"; " +
-            "printf 'V|%s\\n' \"$f\"; fi; done",
-            "sh", root.downloadDir, root.animatedDir]
+            "for d in \"$1\" \"$3\"; do [ -d \"$d\" ] || continue; " +
+            "for f in \"$d\"/*.jpg \"$d\"/*.jpeg \"$d\"/*.png \"$d\"/*.webp; do " +
+            "[ -e \"$f\" ] && printf 'I|%s\\n' \"$f\"; done; done; " +
+            "for d in \"$2\" \"$4\"; do [ -d \"$d\" ] || continue; " +
+            "for f in \"$d\"/*.mp4 \"$d\"/*.webm \"$d\"/*.mkv \"$d\"/*.mov; do " +
+            "if [ -e \"$f\" ]; then t=\"${f%/*}/.thumbs/$(basename \"$f\").jpg\"; " +
+            "if [ ! -e \"$t\" ] && [ -w \"${f%/*}\" ]; then mkdir -p \"${f%/*}/.thumbs\"; " +
+            "ffmpeg -loglevel error -ss 1 -i \"$f\" -frames:v 1 -vf 'scale=480:-2' \"$t\"; fi; " +
+            "printf 'V|%s\\n' \"$f\"; fi; done; done",
+            "sh", root.downloadDir, root.animatedDir,
+            Paths.systemWallpaperImageDir, Paths.systemWallpaperAnimatedDir]
         running: false
         stdout: StdioCollector {
             onStreamFinished: {

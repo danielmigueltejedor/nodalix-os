@@ -72,6 +72,18 @@ COPY_VERIFICATION_CODES: bool = os.environ.get(
 """Copy one-time codes to the desktop clipboard. Disabled by default because
 the clipboard is shared with desktop applications and may contain sensitive data."""
 
+AUTO_RECONNECT: bool = os.environ.get(
+    "IPHONEBRIDGE_AUTO_RECONNECT", "1"
+).strip().lower() in {"1", "true", "yes", "on"}
+
+NOTIFICATIONS_ENABLED: bool = os.environ.get(
+    "IPHONEBRIDGE_NOTIFICATIONS", "1"
+).strip().lower() in {"1", "true", "yes", "on"}
+
+CALLS_ENABLED: bool = os.environ.get(
+    "IPHONEBRIDGE_CALLS", "1"
+).strip().lower() in {"1", "true", "yes", "on"}
+
 # ---- runtime paths ------------------------------------------------------
 
 _state_home = Path(

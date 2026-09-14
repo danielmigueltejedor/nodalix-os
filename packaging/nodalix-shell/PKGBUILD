@@ -1,15 +1,15 @@
 pkgname=nodalix-shell
-pkgver=0.2.0beta.5
+pkgver=0.2.0beta.6
 pkgrel=1
 pkgdesc="Nodalix desktop shell"
 arch=("x86_64")
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-depends=("quickshell" "qt6-declarative")
+depends=("quickshell" "qt6-declarative" "python")
 makedepends=("cmake" "ninja" "qt6-shadertools")
 options=("!debug")
-source=("nodalix-shell-$pkgver.tar.zst" "nodalix-shell" "nodalix-shell.service" "VERSION")
-sha256sums=("SKIP" "SKIP" "SKIP" "SKIP")
+source=("nodalix-shell-$pkgver.tar.zst" "nodalix-shell" "nodalix-shell.service" "nodalix-app-accent.service" "nodalix-app-accent.path" "VERSION")
+sha256sums=("SKIP" "SKIP" "SKIP" "SKIP" "SKIP" "SKIP")
 
 build() {
     cmake -S "$srcdir/shell/blobs-plugin" -B "$srcdir/build" -G Ninja \
@@ -25,9 +25,15 @@ package() {
     rm -rf "$pkgdir/etc/xdg/quickshell/nodalix/blobs-plugin"
     DESTDIR="$pkgdir" cmake --install "$srcdir/build"
     install -Dm755 "$srcdir/nodalix-shell" "$pkgdir/usr/bin/nodalix-shell"
+    install -Dm755 "$srcdir/shell/scripts/nodalix-sync-app-accent.py" "$pkgdir/usr/bin/nodalix-sync-app-accent"
+    install -Dm755 "$srcdir/shell/scripts/nodalix-layout-mode.py" "$pkgdir/usr/bin/nodalix-layout-mode"
     install -Dm644 "$srcdir/VERSION" "$pkgdir/etc/xdg/quickshell/nodalix/VERSION"
     install -Dm644 "$srcdir/nodalix-shell.service" "$pkgdir/usr/lib/systemd/user/nodalix-shell.service"
+    install -Dm644 "$srcdir/nodalix-app-accent.service" "$pkgdir/usr/lib/systemd/user/nodalix-app-accent.service"
+    install -Dm644 "$srcdir/nodalix-app-accent.path" "$pkgdir/usr/lib/systemd/user/nodalix-app-accent.path"
     install -d "$pkgdir/etc/systemd/user/default.target.wants"
     ln -s /usr/lib/systemd/user/nodalix-shell.service \
         "$pkgdir/etc/systemd/user/default.target.wants/nodalix-shell.service"
+    ln -s /usr/lib/systemd/user/nodalix-app-accent.path \
+        "$pkgdir/etc/systemd/user/default.target.wants/nodalix-app-accent.path"
 }

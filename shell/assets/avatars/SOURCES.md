@@ -11,7 +11,11 @@ is reproducible. The selected DiceBear styles are released under CC0 1.0.
 | `wave.png` | Thumbs | `Nodalix-Wave` |
 | `prism.png` | Shapes | `Nodalix-Prism` |
 | `orbit-bot.png` | Bottts Neutral | `Nodalix-Orbit` |
+| `aeon.png` | Micah | `Nodalix-Aeon` |
+| `celeste.png` | Notionists Neutral | `Nodalix-Celeste` |
+| `selene.png` | Lorelei Neutral | `Nodalix-Selene` |
+| `sora.png` | Micah | `Nodalix-Sora` |
 
 - API: https://www.dicebear.com/integrations/http-api/
 - Licenses: https://www.dicebear.com/licenses/
-- Downloaded: 2026-08-31
+- Downloaded: 2026-08-31 and 2026-09-14

@@ -58,6 +58,11 @@ hl.bind("CTRL + SHIFT + 4", hl.dsp.exec_cmd("qs -c nodalix ipc call capture regi
 local genHypr = state .. "/hypr.generated.lua"
 if io.open(genHypr) then loadfile(genHypr)() end
 
+-- Window organisation profile selected from the Nodalix control centre.
+-- Loaded after general overrides so the explicitly selected profile wins.
+local genLayout = state .. "/layout.generated.lua"
+if io.open(genLayout) then loadfile(genLayout)() end
+
 -- Per-monitor workspaces (optional): Super+N switches to workspace N on the
 -- FOCUSED monitor; Super+Shift+N moves the active window there. Each monitor
 -- id k owns workspaces k*10+1 .. k*10+10. Bound by physical keycode so it works

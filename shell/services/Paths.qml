@@ -21,6 +21,9 @@ QtObject {
     readonly property string wallpaperDir: nodalixPicturesDir + "/Fondos"
     readonly property string wallpaperImageDir: wallpaperDir + "/Estáticos"
     readonly property string wallpaperAnimatedDir: wallpaperDir + "/Animados"
+    readonly property string systemWallpaperDir: "/usr/share/backgrounds/nodalix"
+    readonly property string systemWallpaperImageDir: systemWallpaperDir + "/static"
+    readonly property string systemWallpaperAnimatedDir: systemWallpaperDir + "/animated"
     readonly property string screenshotsDir: picturesDir + "/Capturas de pantalla"
     readonly property string recordingsDir: videosDir + "/Grabaciones de pantalla"
 

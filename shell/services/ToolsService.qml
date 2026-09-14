@@ -32,6 +32,7 @@ QtObject {
     // Wallpaper preview/revert bookkeeping
     property string _origWp:    ""
     property string _origTheme: ""
+    property bool   _origAnimated: false
     property bool   _committing: false
 
     // Keyboard + focus restore handled by MainWindow's HyprlandFocusGrab.
@@ -44,8 +45,9 @@ QtObject {
         if (wpOpen) {
             _origWp     = WallpaperService.current
             _origTheme  = ThemeManager.activeId
+            _origAnimated = WallpaperService.currentAnimated
             _committing = false
-            const i = WallpaperService.railWallpapers.indexOf(WallpaperService.current)
+            const i = WallpaperService.railEntries.findIndex(e => e.path === WallpaperService.current)
             wpSelected = i >= 0 ? i : 0
             _previewTimer.restart()
         } else if (!_committing) {
@@ -57,36 +59,37 @@ QtObject {
     property Timer _previewTimer: Timer {
         interval: 350   // debounce so fast arrowing doesn't spam matugen
         onTriggered: {
-            const w = WallpaperService.railWallpapers[root.wpSelected]
-            if (w && w !== WallpaperService.current) WallpaperService.preview(w)
+            const entry = WallpaperService.railEntries[root.wpSelected]
+            if (entry && (entry.path !== WallpaperService.current || entry.animated !== WallpaperService.currentAnimated))
+                WallpaperService.previewEntry(entry)
         }
     }
 
     function _revert() {
-        if (_origWp !== "") WallpaperService.preview(_origWp)
+        if (_origWp !== "") WallpaperService.previewEntry({ path: _origWp, animated: _origAnimated })
         if (_origTheme !== "") ThemeManager.setTheme(_origTheme)
     }
 
-    function commitWallpaper(path) {
+    function commitWallpaper(entry) {
         _committing = true
-        WallpaperService.commit(path)
+        WallpaperService.commitEntry(entry)
         close()
     }
 
     // Up / Down move the selection (rail, or wallpaper list when picker open)
     function up() {
-        if (wpOpen) { const n = WallpaperService.railWallpapers.length; if (n) wpSelected = (wpSelected - 1 + n) % n }
+        if (wpOpen) { const n = WallpaperService.railEntries.length; if (n) wpSelected = (wpSelected - 1 + n) % n }
         else if (count > 0) selected = (selected - 1 + count) % count
     }
     function down() {
-        if (wpOpen) { const n = WallpaperService.railWallpapers.length; if (n) wpSelected = (wpSelected + 1) % n }
+        if (wpOpen) { const n = WallpaperService.railEntries.length; if (n) wpSelected = (wpSelected + 1) % n }
         else if (count > 0) selected = (selected + 1) % count
     }
 
     // Left / Enter → enter / activate / confirm
     function activate() {
         if (wpOpen) {
-            commitWallpaper(WallpaperService.railWallpapers[wpSelected])
+            commitWallpaper(WallpaperService.railEntries[wpSelected])
             return
         }
         if (selected < customTools.length) {

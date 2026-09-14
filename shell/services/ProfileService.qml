@@ -19,7 +19,11 @@ QtObject {
         { id: "nova", name: I18n.tr("Nova"), source: Qt.resolvedUrl("../assets/avatars/nova.png") },
         { id: "wave", name: I18n.tr("Wave"), source: Qt.resolvedUrl("../assets/avatars/wave.png") },
         { id: "prism", name: I18n.tr("Prism"), source: Qt.resolvedUrl("../assets/avatars/prism.png") },
-        { id: "orbit-bot", name: I18n.tr("Orbit bot"), source: Qt.resolvedUrl("../assets/avatars/orbit-bot.png") }
+        { id: "orbit-bot", name: I18n.tr("Orbit bot"), source: Qt.resolvedUrl("../assets/avatars/orbit-bot.png") },
+        { id: "aeon", name: I18n.tr("Aeon"), source: Qt.resolvedUrl("../assets/avatars/aeon.png") },
+        { id: "celeste", name: I18n.tr("Celeste"), source: Qt.resolvedUrl("../assets/avatars/celeste.png") },
+        { id: "selene", name: I18n.tr("Selene"), source: Qt.resolvedUrl("../assets/avatars/selene.png") },
+        { id: "sora", name: I18n.tr("Sora"), source: Qt.resolvedUrl("../assets/avatars/sora.png") }
     ]
 
     readonly property string avatarUrl:

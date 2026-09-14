@@ -3,6 +3,7 @@ __pycache__/
 /build/
 /dist/
 /release-assets/
+/work/
 *.pkg.tar.*
 *.iso
 *.sig

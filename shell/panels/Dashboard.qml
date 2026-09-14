@@ -895,6 +895,7 @@ Item {
             QsIcon { icon: "󰃠"; key: "brightness" }
             QsIcon { icon: "󰖩"; key: "wifi" }
             QsIcon { imageSource: "../assets/icons/localsend-official-mask.png"; key: "localsend" }
+            QsIcon { icon: WindowLayoutService.mode === "scrolling" ? "󰁔" : (WindowLayoutService.mode === "tabs" ? "󰓩" : "󰕰"); key: "layout" }
             QsIcon { icon: ScreenRecorderService.recording ? "󰑊" : "󰻃"; key: "capture"; highlighted: ScreenRecorderService.recording }
             QsIcon { icon: "󰖂"; key: "vpn" }
             QsIcon { icon: "󰂯"; key: "bluetooth" }
@@ -975,6 +976,7 @@ Item {
                         case "theme":      return _themeCmp
                         case "wifi":       return _wifiCmp
                         case "localsend":  return _localSendCmp
+                        case "layout":     return _layoutCmp
                         case "capture":    return _captureCmp
                         case "vpn":        return _vpnCmp
                         case "bluetooth":  return _btCmp
@@ -1117,6 +1119,103 @@ Item {
                     font.pixelSize: 9
                     opacity: 0.55
                     wrapMode: Text.Wrap
+                }
+            }
+        }
+    }
+
+    // ── Window organisation profile ────────────────────────────────────────
+    Component {
+        id: _layoutCmp
+        Item {
+            implicitWidth: 320
+            implicitHeight: _layoutCol.implicitHeight
+            ColumnLayout {
+                id: _layoutCol
+                anchors { left: parent.left; right: parent.right; top: parent.top }
+                spacing: 7
+
+                MenuHeader {
+                    title: I18n.tr("Window layout")
+                    on: WindowLayoutService.mode !== "tiling"
+                    onToggled: WindowLayoutService.setMode("tiling")
+                }
+                Text {
+                    Layout.fillWidth: true
+                    text: I18n.tr("Choose how windows are organised. The selection is saved for future sessions.")
+                    wrapMode: Text.WordWrap
+                    color: ThemeManager.onSurfaceVariant
+                    font.family: ThemeManager.fontFamily
+                    font.pixelSize: 10
+                }
+                Repeater {
+                    model: WindowLayoutService.modes
+                    delegate: Rectangle {
+                        required property var modelData
+                        Layout.fillWidth: true
+                        implicitHeight: 56
+                        radius: ThemeManager.chipRadius
+                        readonly property bool selected: WindowLayoutService.mode === modelData.id
+                        color: selected
+                            ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.16)
+                            : (_layoutHover.hovered ? ThemeManager.surfaceContainer : "transparent")
+                        border.width: selected ? 1 : 0
+                        border.color: ThemeManager.primary
+
+                        RowLayout {
+                            anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
+                            spacing: 10
+                            Rectangle {
+                                width: 34; height: 34; radius: 11
+                                color: selected
+                                    ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.20)
+                                    : ThemeManager.surfaceContainerHigh
+                                Text {
+                                    anchors.centerIn: parent
+                                    text: modelData.icon
+                                    color: selected ? ThemeManager.primary : ThemeManager.onSurfaceVariant
+                                    font.family: ThemeManager.fontFamily
+                                    font.pixelSize: 17
+                                }
+                            }
+                            ColumnLayout {
+                                Layout.fillWidth: true; spacing: 1
+                                Text {
+                                    text: modelData.name
+                                    color: selected ? ThemeManager.primary : ThemeManager.onSurface
+                                    font.family: ThemeManager.fontFamily
+                                    font.pixelSize: ThemeManager.fontSizeMd
+                                    font.bold: selected
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: modelData.description
+                                    color: ThemeManager.onSurfaceVariant
+                                    font.family: ThemeManager.fontFamily
+                                    font.pixelSize: 9
+                                    elide: Text.ElideRight
+                                }
+                            }
+                            Text {
+                                visible: selected
+                                text: "󰄬"; color: ThemeManager.primary
+                                font.family: ThemeManager.fontFamily; font.pixelSize: 15
+                            }
+                        }
+                        HoverHandler { id: _layoutHover; cursorShape: Qt.PointingHandCursor }
+                        TapHandler {
+                            enabled: !WindowLayoutService.busy
+                            onTapped: WindowLayoutService.setMode(modelData.id)
+                        }
+                    }
+                }
+                Text {
+                    visible: WindowLayoutService.statusText !== ""
+                    Layout.fillWidth: true
+                    text: WindowLayoutService.statusText
+                    color: ThemeManager.primary
+                    font.family: ThemeManager.fontFamily
+                    font.pixelSize: 10
                 }
             }
         }

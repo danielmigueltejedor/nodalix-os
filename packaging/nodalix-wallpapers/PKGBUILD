@@ -1,0 +1,36 @@
+pkgname=nodalix-wallpapers
+pkgver=0.2.0beta.6
+pkgrel=1
+pkgdesc="Curated original-resolution wallpapers for Nodalix"
+arch=('any')
+url="https://github.com/danielmigueltejedor/nodalix-os"
+license=('custom:Unsplash')
+source=(
+  'nodalix-abstract-wave.jpg::https://unsplash.com/photos/QrjXk7ROVrA/download?force=true'
+  'nodalix-violet-forms.jpg::https://unsplash.com/photos/0nMAg7FBGuw/download?force=true'
+  'nodalix-blue-structure.jpg::https://unsplash.com/photos/F6NvgzU3RfM/download?force=true'
+  'nodalix-alpine-mirror.jpg::https://unsplash.com/photos/KiRlN3jjVNU/download?force=true'
+  'nodalix-glacier-lake.jpg::https://unsplash.com/photos/oMneOBYhJxY/download?force=true'
+  'nodalix-orbital-nebula.jpg::https://unsplash.com/photos/Q1p7bh3SHj8/download?force=true'
+  'nodalix-cosmic-cloud.jpg::https://unsplash.com/photos/oMpAz-DN-9I/download?force=true'
+  'SOURCES.md'
+)
+sha256sums=(
+  '63b3fcaca5d56acd50f4739dec7e753b9c8699a248ee99227f5be7091864a693'
+  '819f5ae40dc3dd52712c415e064b307882304faf77f2411c8683af189047da88'
+  'd9b9d3a692e0343d1777b9e4b61b921e77d6cca59ac9f2e51719cddb3e0c3ce6'
+  '97e4f3a6192f48ec9ba4863632ff91a55b6b9d9bd9b9f2f86112144241cf1da0'
+  '8a106fc57068197009126ddfbd63d9d3abddfd07fc6115d1f25506289cead74c'
+  '4eea34440715c9e7583fe734a79c0c5b0b14b5d6d8e9d177b01ca81712925162'
+  '613f5dec39ba71a19b7c4fa91660c66dc09793751efa126a390958a588e3b8e2'
+  'SKIP'
+)
+
+package() {
+  local image
+  for image in "$srcdir"/nodalix-*.jpg; do
+    install -Dm644 "$image" "$pkgdir/usr/share/backgrounds/nodalix/static/${image##*/}"
+  done
+  install -Dm644 "$srcdir/SOURCES.md" \
+    "$pkgdir/usr/share/licenses/$pkgname/SOURCES.md"
+}

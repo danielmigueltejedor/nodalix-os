@@ -832,7 +832,7 @@ PanelWindow {
         Text {
             id: _wpTitle
             anchors { left: parent.left; top: parent.top; margins: 12 }
-            text: (WallpaperService.favorites?.length ?? 0) > 0 ? "Favorites" : "Wallpaper"
+            text: I18n.tr((WallpaperService.favorites?.length ?? 0) > 0 ? "Favorites" : "Wallpaper collection")
             color: ThemeManager.onSurfaceVariant
             font.family: ThemeManager.fontFamily
             font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
@@ -850,7 +850,7 @@ PanelWindow {
                 width: parent.width
                 spacing: 8
                 Repeater {
-                    model: WallpaperService.railWallpapers
+                    model: WallpaperService.railEntries
                     delegate: ClippingRectangle {
                         id: _wpTile
                         required property var modelData
@@ -862,7 +862,7 @@ PanelWindow {
                         color:  ThemeManager.surfaceContainer
                         Image {
                             anchors.fill: parent
-                            source: "file://" + modelData
+                            source: "file://" + (modelData.animated ? WallpaperService.thumbnailFor(modelData.path) : modelData.path)
                             fillMode: Image.PreserveAspectCrop
                             asynchronous: true
                             cache: false
@@ -870,8 +870,15 @@ PanelWindow {
                         }
                         Rectangle {
                             anchors.fill: parent; radius: _wpTile.radius; color: "transparent"
-                            border.width: (WallpaperService.current === modelData || _wpTile._kbdSel) ? 2 : 0
+                            border.width: (WallpaperService.current === modelData.path || _wpTile._kbdSel) ? 2 : 0
                             border.color: ThemeManager.primary
+                        }
+                        Rectangle {
+                            visible: modelData.animated
+                            anchors { right: parent.right; bottom: parent.bottom; margins: 7 }
+                            width: 26; height: 22; radius: 8
+                            color: Qt.rgba(0, 0, 0, 0.58)
+                            Text { anchors.centerIn: parent; text: "󰕧"; color: "white"; font.family: ThemeManager.fontFamily; font.pixelSize: 14 }
                         }
                         HoverHandler {
                             id: _wpItemHov

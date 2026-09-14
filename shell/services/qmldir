@@ -37,3 +37,5 @@ singleton FontService            1.0 FontService.qml
 singleton AutoLockService        1.0 AutoLockService.qml
 singleton GamingService          1.0 GamingService.qml
 singleton SystemControlService   1.0 SystemControlService.qml
+singleton WindowLayoutService    1.0 WindowLayoutService.qml
+singleton PhoneLinkService       1.0 PhoneLinkService.qml

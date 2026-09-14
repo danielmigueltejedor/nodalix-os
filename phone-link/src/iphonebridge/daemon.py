@@ -100,23 +100,32 @@ class Daemon:
             f"/org/bluez/{config.ADAPTER}"
             f"/dev_{config.IPHONE_MAC.replace(':', '_')}"
         )
-        self.ancs = AncsClient(device_path, on_event=self._fanout_ancs)
-        self.ancs.start()
+        if config.NOTIFICATIONS_ENABLED:
+            self.ancs = AncsClient(device_path, on_event=self._fanout_ancs)
+            self.ancs.start()
+        else:
+            log.info("ANCS application notifications disabled in Nodalix Settings")
 
         # HFP — take/place calls via oFono. Also independent of MAP/PBAP; if
         # oFono isn't set up it logs a hint and stays dormant.
-        self.hfp = HfpManager(
-            on_event=self._fanout_call,
-            resolve_contact=lambda raw: self.contacts.resolve(raw),
-        )
-        self.hfp.start()
+        if config.CALLS_ENABLED:
+            self.hfp = HfpManager(
+                on_event=self._fanout_call,
+                resolve_contact=lambda raw: self.contacts.resolve(raw),
+            )
+            self.hfp.start()
+        else:
+            log.info("HFP calls disabled in Nodalix Settings")
 
         # BlueZ retries briefly after a link loss and then gives up. Keep a
         # lightweight, exponentially backed-off retry running so a trusted
         # iPhone reconnects when it comes back into range without user input.
-        self._reconnect_id = GLib.timeout_add_seconds(
-            RECONNECT_TICK_SEC, self._maintain_phone_connection
-        )
+        if config.AUTO_RECONNECT:
+            self._reconnect_id = GLib.timeout_add_seconds(
+                RECONNECT_TICK_SEC, self._maintain_phone_connection
+            )
+        else:
+            log.info("automatic iPhone reconnect disabled in Nodalix Settings")
 
         # Sinks don't need the OBEX sessions — set them up now so ANCS and
         # HFP events still reach the desktop while MAP/PBAP are degraded.
