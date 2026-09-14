@@ -96,6 +96,7 @@ cp "$root/packaging/nodalix-fluent-emoji/PKGBUILD" \
 
 cp "$root/packaging/nodalix-wallpapers/PKGBUILD" \
    "$root/packaging/nodalix-wallpapers/SOURCES.md" \
+   "$root/packaging/nodalix-wallpapers/"*.jpg \
    "$wallpaper_dir/"
 
 makepkg_one() {

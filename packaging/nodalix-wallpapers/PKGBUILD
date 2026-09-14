@@ -6,13 +6,13 @@ arch=('any')
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=('custom:Unsplash')
 source=(
-  'nodalix-abstract-wave.jpg::https://unsplash.com/photos/QrjXk7ROVrA/download?force=true'
-  'nodalix-violet-forms.jpg::https://unsplash.com/photos/0nMAg7FBGuw/download?force=true'
-  'nodalix-blue-structure.jpg::https://unsplash.com/photos/F6NvgzU3RfM/download?force=true'
-  'nodalix-alpine-mirror.jpg::https://unsplash.com/photos/KiRlN3jjVNU/download?force=true'
-  'nodalix-glacier-lake.jpg::https://unsplash.com/photos/oMneOBYhJxY/download?force=true'
-  'nodalix-orbital-nebula.jpg::https://unsplash.com/photos/Q1p7bh3SHj8/download?force=true'
-  'nodalix-cosmic-cloud.jpg::https://unsplash.com/photos/oMpAz-DN-9I/download?force=true'
+  'nodalix-abstract-wave.jpg'
+  'nodalix-violet-forms.jpg'
+  'nodalix-blue-structure.jpg'
+  'nodalix-alpine-mirror.jpg'
+  'nodalix-glacier-lake.jpg'
+  'nodalix-orbital-nebula.jpg'
+  'nodalix-cosmic-cloud.jpg'
   'SOURCES.md'
 )
 sha256sums=(
