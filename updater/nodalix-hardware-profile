@@ -145,7 +145,7 @@ def apply_profile(profile: dict[str, object]) -> None:
         subprocess.run([str(VENDOR_REPO / "cachyos-repo.sh"), "--install"], cwd=VENDOR_REPO, check=True)
 
     subprocess.run(
-        ["pacman", "-S", "--needed", "--noconfirm", str(profile["kernel"]), str(profile["headers"])],
+        ["pacman", "-Syu", "--needed", "--noconfirm", str(profile["kernel"]), str(profile["headers"])],
         check=True,
     )
     profile["boot_entry"] = write_systemd_boot_entry(str(profile["kernel"]))
