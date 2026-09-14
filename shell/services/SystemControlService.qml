@@ -92,7 +92,7 @@ QtObject {
             "printf 'kernel=%s\\n' \"$(uname -r)\"; " +
             "printf 'cpu=%s\\n' \"$(awk -F: '/^model name[ \\t]*:/{gsub(/^[ \\t]+/,\"\",$2); print $2; exit}' /proc/cpuinfo 2>/dev/null)\"; " +
             "printf 'memory=%s\\n' \"$(free -h 2>/dev/null | awk '/Mem:/{print $2}')\"; " +
-            "printf 'gpu=%s\\n' \"$(lspci 2>/dev/null | sed -n '/VGA compatible controller\|3D controller\|Display controller/{s/.*controller: //; p; q}')\"; " +
+            "printf 'gpu=%s\\n' \"$(/usr/bin/lspci 2>/dev/null | awk -F': ' '/VGA compatible controller|3D controller|Display controller/{print $2; exit}')\"; " +
             "printf 'browser=%s\\n' \"$(xdg-settings get default-web-browser 2>/dev/null)\"; " +
             "printf 'files=%s\\n' \"$(xdg-mime query default inode/directory 2>/dev/null)\"; " +
             "printf 'mail=%s\\n' \"$(xdg-mime query default x-scheme-handler/mailto 2>/dev/null)\"; " +

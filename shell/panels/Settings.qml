@@ -2486,9 +2486,13 @@ PanelWindow {
                         Layout.margins: 20
                         spacing: 10
 
-                        SettingSection { text: I18n.tr("Nodalix updates") }
+                        SettingSection {
+                            visible: SettingsUi.category === "nodalix-updates"
+                            text: I18n.tr("Nodalix updates")
+                        }
 
                         Rectangle {
+                            visible: SettingsUi.category === "nodalix-updates"
                             Layout.fillWidth: true
                             implicitHeight: _nodalixVersionRow.implicitHeight + 24
                             radius: ThemeManager.panelRadius
@@ -2596,12 +2600,15 @@ PanelWindow {
                         }
 
                         UpdateAuthPrompt {
-                            action: UpdateService.pendingAction.indexOf("channel-") === 0
+                            action: SettingsUi.category === "nodalix-updates"
+                                && UpdateService.pendingAction.indexOf("channel-") === 0
                                 ? UpdateService.pendingAction : ""
                         }
 
                         Text {
-                            visible: UpdateService.nodalixNotes !== "" && !UpdateService.nodalixChannelError
+                            visible: SettingsUi.category === "nodalix-updates"
+                                && UpdateService.nodalixNotes !== ""
+                                && !UpdateService.nodalixChannelError
                             Layout.fillWidth: true
                             text: UpdateService.nodalixNotes
                             wrapMode: Text.WordWrap
@@ -2611,11 +2618,11 @@ PanelWindow {
                         }
 
                         Repeater {
-                            model: [
+                            model: SettingsUi.category === "nodalix-updates" ? [
                                 { key: "shell", icon: "󰖯", title: I18n.tr("Nodalix Shell"), detail: I18n.tr("Interface, panels and system settings"), available: UpdateService.nodalixShellUpdate },
                                 { key: "apps", icon: "󰏖", title: I18n.tr("Nodalix applications"), detail: I18n.tr("Integrated applications and services"), available: UpdateService.nodalixAppsUpdate },
                                 { key: "themes", icon: "󰉼", title: I18n.tr("Nodalix themes"), detail: I18n.tr("Visual themes and application integrations"), available: UpdateService.nodalixThemesUpdate }
-                            ]
+                            ] : []
                             delegate: Rectangle {
                                 required property var modelData
                                 Layout.fillWidth: true
@@ -2646,7 +2653,42 @@ PanelWindow {
                             }
                         }
 
-                        UpdateAuthPrompt { action: "nodalix" }
+                        UpdateAuthPrompt {
+                            action: SettingsUi.category === "nodalix-updates" ? "nodalix" : ""
+                        }
+
+                        SettingSection {
+                            visible: SettingsUi.category === "nodalix-updates"
+                            text: I18n.tr("Automatic updates")
+                            Layout.topMargin: 10
+                        }
+                        Repeater {
+                            model: SettingsUi.category === "nodalix-updates" ? [
+                                { key: "nodalix", title: "Nodalix", sub: I18n.tr("Update the shell and themes automatically every day"), enabled: UpdateService.autoNodalix }
+                            ] : []
+                            delegate: SettingRowBase {
+                                required property var modelData
+                                label: modelData.title
+                                sub: modelData.sub
+                                Rectangle {
+                                    implicitWidth: 40; implicitHeight: 22; radius: 11
+                                    opacity: UpdateService.running ? 0.5 : 1
+                                    color: modelData.enabled ? ThemeManager.primary : ThemeManager.surfaceContainerHigh
+                                    Rectangle {
+                                        width: 16; height: 16; radius: 8; y: 3
+                                        x: modelData.enabled ? parent.width - width - 3 : 3
+                                        color: modelData.enabled ? ThemeManager.onPrimary : ThemeManager.onSurfaceVariant
+                                        Behavior on x { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
+                                    }
+                                    TapHandler { enabled: !UpdateService.running; onTapped: UpdateService.setAutomatic(modelData.key, !modelData.enabled) }
+                                }
+                            }
+                        }
+
+                        UpdateAuthPrompt {
+                            action: UpdateService.pendingAction === "auto-nodalix"
+                                ? UpdateService.pendingAction : ""
+                        }
 
                         SettingSection {
                             visible: SettingsUi.category === "updates"
@@ -2741,7 +2783,6 @@ PanelWindow {
                         SettingSection { visible: SettingsUi.category === "updates"; text: I18n.tr("Automatic updates"); Layout.topMargin: 10 }
                         Repeater {
                             model: SettingsUi.category === "updates" ? [
-                                { key: "nodalix", title: "Nodalix", sub: I18n.tr("Update the shell and themes automatically every day"), enabled: UpdateService.autoNodalix },
                                 { key: "system", title: I18n.tr("System and kernel"), sub: I18n.tr("Install automatically every day"), enabled: UpdateService.autoSystem },
                                 { key: "apps", title: I18n.tr("Applications"), sub: I18n.tr("Update AUR and Flatpak applications every day"), enabled: UpdateService.autoApps },
                                 { key: "firmware", title: I18n.tr("Firmware"), sub: I18n.tr("Check and install firmware weekly"), enabled: UpdateService.autoFirmware }
@@ -2766,7 +2807,8 @@ PanelWindow {
                         }
 
                         UpdateAuthPrompt {
-                            action: UpdateService.pendingAction.indexOf("auto-") === 0
+                            action: SettingsUi.category === "updates"
+                                && UpdateService.pendingAction.indexOf("auto-") === 0
                                 ? UpdateService.pendingAction : ""
                         }
                     }
