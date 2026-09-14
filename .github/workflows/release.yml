@@ -88,6 +88,12 @@ jobs:
           pathlib.Path("dist/.prerelease").write_text("1" if is_prerelease_tag(tag) else "0")
           print(tag, "prerelease" if is_prerelease_tag(tag) else "stable")
           PY
+          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" \
+              --title "Nodalix OS $RELEASE_TAG" \
+              --notes "Paquetes oficiales de Nodalix OS $RELEASE_TAG. Incluye la shell, el actualizador, Enlace móvil, recursos visuales y la identidad del sistema." \
+              --repo "$GITHUB_REPOSITORY"
+          fi
           if [[ $(cat dist/.prerelease) == 1 ]]; then
             gh release edit "$RELEASE_TAG" --prerelease --repo "$GITHUB_REPOSITORY"
           else
