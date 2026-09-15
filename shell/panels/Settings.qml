@@ -48,12 +48,35 @@ PanelWindow {
     }
     Timer { id: _exitTimer; interval: 180; onTriggered: root._exiting = false }
 
+    function _chooseAvatarImage() {
+        // Settings owns an exclusive layer-shell focus grab. Opening a native
+        // file dialog while that grab is active leaves the dialog behind the
+        // overlay and both windows waiting for each other. Let the close
+        // animation release focus before asking the portal for the dialog.
+        SettingsUi.hide()
+        _avatarDialogTimer.restart()
+    }
+
+    function _restoreAfterAvatarDialog() {
+        SettingsUi.show()
+    }
+
+    Timer {
+        id: _avatarDialogTimer
+        interval: 220
+        onTriggered: _avatarDialog.open()
+    }
+
     FileDialog {
         id: _avatarDialog
         title: I18n.tr("Choose profile image")
         fileMode: FileDialog.OpenFile
         nameFilters: [I18n.tr("Images") + " (*.png *.jpg *.jpeg *.webp)"]
-        onAccepted: ProfileService.setAvatar(selectedFile)
+        onAccepted: {
+            ProfileService.setAvatar(selectedFile)
+            root._restoreAfterAvatarDialog()
+        }
+        onRejected: root._restoreAfterAvatarDialog()
     }
 
     // ── Tray config helpers (defaults mirror Tray.qml) ────────────────────────
@@ -572,7 +595,7 @@ PanelWindow {
                         Row {
                             Layout.alignment: Qt.AlignHCenter
                             spacing: 10
-                            SettingBtn { label: I18n.tr("Choose image"); onClicked: _avatarDialog.open() }
+                            SettingBtn { label: I18n.tr("Choose image"); onClicked: root._chooseAvatarImage() }
                             SettingBtn {
                                 visible: ProfileService.available
                                 label: I18n.tr("Remove image")

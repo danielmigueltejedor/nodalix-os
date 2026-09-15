@@ -8,4 +8,4 @@ PathChanged=%h/.local/state/nodalix/custom
 Unit=nodalix-app-accent.service
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target

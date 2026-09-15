@@ -61,6 +61,26 @@ class StaticInvariantTests(unittest.TestCase):
         self.assertIn("KillMode=process", unit)
         self.assertNotIn("KillMode=mixed", unit)
 
+    def test_session_services_are_not_enabled_globally_for_greeter(self) -> None:
+        shell_pkgbuild = (ROOT / "packaging/nodalix-shell/PKGBUILD").read_text(encoding="utf-8")
+        phone_pkgbuild = (ROOT / "packaging/nodalix-phone-link/PKGBUILD").read_text(encoding="utf-8")
+        shell_unit = (ROOT / "packaging/nodalix-shell/nodalix-shell.service").read_text(encoding="utf-8")
+        accent_unit = (ROOT / "packaging/nodalix-shell/nodalix-app-accent.path").read_text(encoding="utf-8")
+        phone_unit = (ROOT / "phone-link/systemd/nodalix-phone-link.service").read_text(encoding="utf-8")
+        self.assertNotIn("/etc/systemd/user/default.target.wants", shell_pkgbuild)
+        self.assertNotIn("/etc/systemd/user/default.target.wants", phone_pkgbuild)
+        for unit in (shell_unit, accent_unit, phone_unit):
+            self.assertIn("WantedBy=graphical-session.target", unit)
+            self.assertNotIn("WantedBy=default.target", unit)
+
+    def test_avatar_dialog_releases_exclusive_settings_focus(self) -> None:
+        settings = (SHELL / "panels" / "Settings.qml").read_text(encoding="utf-8")
+        self.assertIn("function _chooseAvatarImage()", settings)
+        self.assertIn("SettingsUi.hide()", settings)
+        self.assertIn("onRejected: root._restoreAfterAvatarDialog()", settings)
+        self.assertIn('onClicked: root._chooseAvatarImage()', settings)
+        self.assertNotIn('onClicked: _avatarDialog.open()', settings)
+
     def test_first_state_migration_replaces_partial_validation_state(self) -> None:
         launcher = (ROOT / "packaging/nodalix-shell/nodalix-shell").read_text(encoding="utf-8")
         self.assertIn('cp -a "$old_state/." "$new_state/"', launcher)

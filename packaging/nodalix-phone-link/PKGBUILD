@@ -25,9 +25,6 @@ package() {
     "$pkgdir/usr/lib/systemd/user/nodalix-phone-link.service"
   install -Dm644 "$srcdir/phone-link/systemd/nodalix-phone-link-bluetooth.service" \
     "$pkgdir/usr/lib/systemd/system/nodalix-phone-link-bluetooth.service"
-  install -d "$pkgdir/etc/systemd/user/default.target.wants"
-  ln -s /usr/lib/systemd/user/nodalix-phone-link.service \
-    "$pkgdir/etc/systemd/user/default.target.wants/nodalix-phone-link.service"
   install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
   ln -s /usr/lib/systemd/system/nodalix-phone-link-bluetooth.service \
     "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/nodalix-phone-link-bluetooth.service"

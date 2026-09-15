@@ -31,9 +31,4 @@ package() {
     install -Dm644 "$srcdir/nodalix-shell.service" "$pkgdir/usr/lib/systemd/user/nodalix-shell.service"
     install -Dm644 "$srcdir/nodalix-app-accent.service" "$pkgdir/usr/lib/systemd/user/nodalix-app-accent.service"
     install -Dm644 "$srcdir/nodalix-app-accent.path" "$pkgdir/usr/lib/systemd/user/nodalix-app-accent.path"
-    install -d "$pkgdir/etc/systemd/user/default.target.wants"
-    ln -s /usr/lib/systemd/user/nodalix-shell.service \
-        "$pkgdir/etc/systemd/user/default.target.wants/nodalix-shell.service"
-    ln -s /usr/lib/systemd/user/nodalix-app-accent.path \
-        "$pkgdir/etc/systemd/user/default.target.wants/nodalix-app-accent.path"
 }

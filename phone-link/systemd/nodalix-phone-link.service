@@ -25,4 +25,4 @@ ProtectHome=read-only
 ReadWritePaths=%h/.config/iphonebridge %h/.local/state/iphonebridge
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target

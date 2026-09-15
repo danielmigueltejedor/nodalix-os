@@ -13,4 +13,4 @@ KillMode=process
 TimeoutStopSec=10
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target
