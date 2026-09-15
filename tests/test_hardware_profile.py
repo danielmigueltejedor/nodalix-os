@@ -42,6 +42,11 @@ class HardwareProfileTests(unittest.TestCase):
         self.assertIn('input="\\n".join(native_packages) + "\\n"', source)
         self.assertNotIn("shell=True", source)
 
+    def test_boot_profile_sets_loader_file_and_persistent_efi_default(self):
+        source = (ROOT / "updater" / "nodalix-hardware-profile").read_text(encoding="utf-8")
+        self.assertIn('"default nodalix-cachyos.conf\\n"', source)
+        self.assertIn('["bootctl", "set-default", target.name]', source)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -126,6 +126,14 @@ def write_systemd_boot_entry(kernel: str) -> str:
         else:
             current = "default nodalix-cachyos.conf\n" + current
         loader.write_text(current, encoding="utf-8")
+
+    # systemd-boot's persistent LoaderEntryDefault EFI variable takes
+    # precedence over loader.conf. Set both so systems that previously booted
+    # an Arch UKI do not keep selecting it after the CachyOS entry is added.
+    subprocess.run(
+        ["bootctl", "set-default", target.name],
+        check=True,
+    )
     return str(target)
 
 
