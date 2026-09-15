@@ -77,9 +77,12 @@ class StaticInvariantTests(unittest.TestCase):
         settings = (SHELL / "panels" / "Settings.qml").read_text(encoding="utf-8")
         self.assertIn("function _chooseAvatarImage()", settings)
         self.assertIn("SettingsUi.hide()", settings)
-        self.assertIn("onRejected: root._restoreAfterAvatarDialog()", settings)
+        self.assertIn('"zenity", "--file-selection"', settings)
+        self.assertIn("onExited: function(code)", settings)
+        self.assertIn("root._restoreAfterAvatarDialog()", settings)
         self.assertIn('onClicked: root._chooseAvatarImage()', settings)
         self.assertNotIn('onClicked: _avatarDialog.open()', settings)
+        self.assertNotIn("FileDialog {", settings)
 
     def test_first_state_migration_replaces_partial_validation_state(self) -> None:
         launcher = (ROOT / "packaging/nodalix-shell/nodalix-shell").read_text(encoding="utf-8")

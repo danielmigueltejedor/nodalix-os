@@ -85,7 +85,7 @@ done < "$work/assets.tsv"
 say "Instalando dependencias oficiales…"
 "${as_root[@]}" pacman -S --needed --noconfirm \
     quickshell qt6-declarative python python-dbus python-gobject python-typer \
-    bluez bluez-utils bluez-obex gtk4 libadwaita polkit minisign gcc gawk
+    bluez bluez-utils bluez-obex gtk4 libadwaita zenity polkit minisign gcc gawk
 
 say "Instalando Nodalix $release_tag…"
 "${as_root[@]}" pacman -U --needed --noconfirm "${packages[@]}"

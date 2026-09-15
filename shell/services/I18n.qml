@@ -25,7 +25,7 @@ QtObject {
     readonly property var _es: ({
         "Settings": "Ajustes", "Language": "Idioma", "English": "Inglés", "Spanish": "Español",
         "User": "Usuario", "User profile": "Perfil de usuario", "Choose profile image": "Elegir imagen de perfil",
-        "Images": "Imágenes", "Choose image": "Elegir imagen", "Remove image": "Quitar imagen",
+        "Images": "Imágenes", "All files": "Todos los archivos", "Choose image": "Elegir imagen", "Remove image": "Quitar imagen",
         "Profile image updated": "Imagen de perfil actualizada",
         "Default avatars": "Avatares predeterminados", "Personal image": "Imagen personal",
         "Luna": "Luna", "Nova": "Nova", "Aeon": "Aeon", "Celeste": "Celeste", "Selene": "Selene", "Sora": "Sora",

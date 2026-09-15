@@ -35,6 +35,13 @@ class HardwareProfileTests(unittest.TestCase):
         self.assertEqual(profile["kernel"], "linux-cachyos-deckify")
         self.assertEqual(profile["headers"], "linux-cachyos-deckify-headers")
 
+    def test_apply_resyncs_native_packages_without_a_shell_pipeline(self):
+        source = (ROOT / "updater" / "nodalix-hardware-profile").read_text(encoding="utf-8")
+        self.assertIn('["pacman", "-Qqn"]', source)
+        self.assertIn('["pacman", "-S", "--needed", "--noconfirm", "-"]', source)
+        self.assertIn('input="\\n".join(native_packages) + "\\n"', source)
+        self.assertNotIn("shell=True", source)
+
 
 if __name__ == "__main__":
     unittest.main()

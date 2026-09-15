@@ -148,7 +148,20 @@ def apply_profile(profile: dict[str, object]) -> None:
         ["pacman", "-Syu", "--needed", "--noconfirm", str(profile["kernel"]), str(profile["headers"])],
         check=True,
     )
+    # Re-resolve every repository-managed package after introducing the
+    # architecture repository. CachyOS' pacman records the source repository
+    # and uses this pass to replace eligible Arch builds with their znver4/v4
+    # counterparts; packages without an optimized build remain on Arch.
+    native_packages = [name for name in run_text(["pacman", "-Qqn"]).splitlines() if name]
+    if native_packages:
+        subprocess.run(
+            ["pacman", "-S", "--needed", "--noconfirm", "-"],
+            input="\n".join(native_packages) + "\n",
+            text=True,
+            check=True,
+        )
     profile["boot_entry"] = write_systemd_boot_entry(str(profile["kernel"]))
+    profile["native_packages_resynced"] = len(native_packages)
     profile["applied_at"] = datetime.now(timezone.utc).isoformat()
     profile["backup"] = str(backup_dir)
     PROFILE_FILE.parent.mkdir(parents=True, exist_ok=True)

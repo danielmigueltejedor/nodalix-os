@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
-import QtQuick.Dialogs
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Widgets
@@ -64,19 +63,29 @@ PanelWindow {
     Timer {
         id: _avatarDialogTimer
         interval: 220
-        onTriggered: _avatarDialog.open()
+        onTriggered: {
+            root._avatarSelection = ""
+            _avatarPicker.running = true
+        }
     }
 
-    FileDialog {
-        id: _avatarDialog
-        title: I18n.tr("Choose profile image")
-        fileMode: FileDialog.OpenFile
-        nameFilters: [I18n.tr("Images") + " (*.png *.jpg *.jpeg *.webp)"]
-        onAccepted: {
-            ProfileService.setAvatar(selectedFile)
+    property string _avatarSelection: ""
+    Process {
+        id: _avatarPicker
+        command: [
+            "zenity", "--file-selection",
+            "--title=" + I18n.tr("Choose profile image"),
+            "--file-filter=" + I18n.tr("Images") + " | *.png *.jpg *.jpeg *.webp",
+            "--file-filter=" + I18n.tr("All files") + " | *"
+        ]
+        stdout: StdioCollector {
+            onStreamFinished: root._avatarSelection = text.trim()
+        }
+        onExited: function(code) {
+            if (code === 0 && root._avatarSelection !== "")
+                ProfileService.setAvatar(root._avatarSelection)
             root._restoreAfterAvatarDialog()
         }
-        onRejected: root._restoreAfterAvatarDialog()
     }
 
     // ── Tray config helpers (defaults mirror Tray.qml) ────────────────────────
