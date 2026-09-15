@@ -4,6 +4,7 @@ import Quickshell.Io
 import Quickshell.Networking
 import "../theme"
 import "../services"
+import "../widgets/bar"
 
 // Bar hover popout for Wi-Fi + VPN. Wi-Fi is driven natively by
 // Quickshell.Networking (reactive — no nmcli). NetworkManager VPNs are queried
@@ -165,7 +166,7 @@ Item {
                 visible: !root.wifiEnabled
                 text: I18n.tr("Wi-Fi off")
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 opacity: 0.6
                 Layout.topMargin: 4
             }
@@ -173,7 +174,7 @@ Item {
                 visible: root.wifiEnabled && root.wifiNetworks.length === 0
                 text: I18n.tr("Scanning…")
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 opacity: 0.6
                 Layout.topMargin: 4
             }
@@ -215,7 +216,7 @@ Item {
                 visible: root._vpnAvailable || root._tailscaleAvailable
                 text: I18n.tr("VPN")
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
             }
             Text {
@@ -223,7 +224,7 @@ Item {
                     && root.vpnList.length === 0 && !root.tailscaleDetected
                 text: I18n.tr("No VPN connections")
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 opacity: 0.6
                 Layout.topMargin: 4
             }
@@ -264,7 +265,7 @@ Item {
         Text {
             text: mh.title
             color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
             Layout.fillWidth: true
         }
@@ -300,15 +301,15 @@ Item {
         RowLayout {
             anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
             spacing: 8
-            Text {
+            ColloidIcon {
                 text: mr.icon
                 color: mr.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily; font.pixelSize: 14
+                font.pixelSize: 14
             }
             Text {
                 text: mr.text
                 color: mr.active ? ThemeManager.primary : ThemeManager.onSurface
-                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 elide: Text.ElideRight
                 Layout.fillWidth: true
             }
@@ -316,7 +317,7 @@ Item {
                 visible: mr.trailing !== ""
                 text: mr.trailing
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                font.family: ThemeManager.fontFor(text); font.pixelSize: 10
             }
         }
         MouseArea {

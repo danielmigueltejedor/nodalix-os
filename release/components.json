@@ -29,6 +29,14 @@
       "restart": "shell"
     },
     {
+      "id": "colloid-icons",
+      "name": "Colloid-Teal icon theme",
+      "package": "nodalix-colloid-icons",
+      "version": "0.2.0-beta.8",
+      "required": true,
+      "restart": "shell"
+    },
+    {
       "id": "phone-link",
       "name": "Enlace móvil",
       "package": "nodalix-phone-link",

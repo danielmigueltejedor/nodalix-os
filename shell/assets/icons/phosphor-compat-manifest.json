@@ -1,0 +1,772 @@
+{
+  "U+F0004": {
+    "material_name": "account",
+    "phosphor_name": "user",
+    "phosphor_codepoint": "U+E4C2"
+  },
+  "U+F003B": {
+    "material_name": "apps",
+    "phosphor_name": "squares-four",
+    "phosphor_codepoint": "U+E464"
+  },
+  "U+F004D": {
+    "material_name": "arrow-left",
+    "phosphor_name": "arrow-left",
+    "phosphor_codepoint": "U+E058"
+  },
+  "U+F0054": {
+    "material_name": "arrow-right",
+    "phosphor_name": "arrow-right",
+    "phosphor_codepoint": "U+E06C"
+  },
+  "U+F0079": {
+    "material_name": "battery",
+    "phosphor_name": "battery-full",
+    "phosphor_codepoint": "U+E0C0"
+  },
+  "U+F007A": {
+    "material_name": "battery-10",
+    "phosphor_name": "battery-low",
+    "phosphor_codepoint": "U+E0C4"
+  },
+  "U+F007D": {
+    "material_name": "battery-40",
+    "phosphor_name": "battery-medium",
+    "phosphor_codepoint": "U+E0C6"
+  },
+  "U+F007F": {
+    "material_name": "battery-60",
+    "phosphor_name": "battery-medium",
+    "phosphor_codepoint": "U+E0C6"
+  },
+  "U+F0080": {
+    "material_name": "battery-70",
+    "phosphor_name": "battery-high",
+    "phosphor_codepoint": "U+E0C2"
+  },
+  "U+F0083": {
+    "material_name": "battery-alert",
+    "phosphor_name": "battery-warning",
+    "phosphor_codepoint": "U+E0C8"
+  },
+  "U+F0085": {
+    "material_name": "battery-charging-100",
+    "phosphor_name": "battery-charging",
+    "phosphor_codepoint": "U+E0BA"
+  },
+  "U+F0086": {
+    "material_name": "battery-charging-20",
+    "phosphor_name": "battery-charging",
+    "phosphor_codepoint": "U+E0BA"
+  },
+  "U+F0088": {
+    "material_name": "battery-charging-40",
+    "phosphor_name": "battery-charging",
+    "phosphor_codepoint": "U+E0BA"
+  },
+  "U+F0091": {
+    "material_name": "battery-unknown",
+    "phosphor_name": "battery-warning",
+    "phosphor_codepoint": "U+E0C8"
+  },
+  "U+F009A": {
+    "material_name": "bell",
+    "phosphor_name": "bell",
+    "phosphor_codepoint": "U+E0CE"
+  },
+  "U+F009B": {
+    "material_name": "bell-off",
+    "phosphor_name": "bell-slash",
+    "phosphor_codepoint": "U+E0D4"
+  },
+  "U+F00AF": {
+    "material_name": "bluetooth",
+    "phosphor_name": "bluetooth",
+    "phosphor_codepoint": "U+E0DA"
+  },
+  "U+F00B1": {
+    "material_name": "bluetooth-connect",
+    "phosphor_name": "bluetooth-connected",
+    "phosphor_codepoint": "U+E0DC"
+  },
+  "U+F00B2": {
+    "material_name": "bluetooth-off",
+    "phosphor_name": "bluetooth-slash",
+    "phosphor_codepoint": "U+E0DE"
+  },
+  "U+F00E0": {
+    "material_name": "brightness-7",
+    "phosphor_name": "sun",
+    "phosphor_codepoint": "U+E472"
+  },
+  "U+F00E4": {
+    "material_name": "bug",
+    "phosphor_name": "bug",
+    "phosphor_codepoint": "U+E5F4"
+  },
+  "U+F00ED": {
+    "material_name": "calendar",
+    "phosphor_name": "calendar",
+    "phosphor_codepoint": "U+E108"
+  },
+  "U+F00F6": {
+    "material_name": "calendar-today",
+    "phosphor_name": "calendar",
+    "phosphor_codepoint": "U+E108"
+  },
+  "U+F0100": {
+    "material_name": "camera",
+    "phosphor_name": "camera",
+    "phosphor_codepoint": "U+E10E"
+  },
+  "U+F011C": {
+    "material_name": "cellphone",
+    "phosphor_name": "device-mobile",
+    "phosphor_codepoint": "U+E1E0"
+  },
+  "U+F012C": {
+    "material_name": "check",
+    "phosphor_name": "check",
+    "phosphor_codepoint": "U+E182"
+  },
+  "U+F0131": {
+    "material_name": "checkbox-blank-outline",
+    "phosphor_name": "square",
+    "phosphor_codepoint": "U+E45E"
+  },
+  "U+F0140": {
+    "material_name": "chevron-down",
+    "phosphor_name": "caret-down",
+    "phosphor_codepoint": "U+E136"
+  },
+  "U+F0141": {
+    "material_name": "chevron-left",
+    "phosphor_name": "caret-left",
+    "phosphor_codepoint": "U+E138"
+  },
+  "U+F0142": {
+    "material_name": "chevron-right",
+    "phosphor_name": "caret-right",
+    "phosphor_codepoint": "U+E13A"
+  },
+  "U+F0143": {
+    "material_name": "chevron-up",
+    "phosphor_name": "caret-up",
+    "phosphor_codepoint": "U+E13C"
+  },
+  "U+F0156": {
+    "material_name": "close",
+    "phosphor_name": "x",
+    "phosphor_codepoint": "U+E4F6"
+  },
+  "U+F015F": {
+    "material_name": "cloud",
+    "phosphor_name": "cloud",
+    "phosphor_codepoint": "U+E1AA"
+  },
+  "U+F018D": {
+    "material_name": "console",
+    "phosphor_name": "terminal-window",
+    "phosphor_codepoint": "U+EAE8"
+  },
+  "U+F01B4": {
+    "material_name": "delete",
+    "phosphor_name": "trash",
+    "phosphor_codepoint": "U+E4A6"
+  },
+  "U+F01BC": {
+    "material_name": "database",
+    "phosphor_name": "database",
+    "phosphor_codepoint": "U+E1DE"
+  },
+  "U+F01BE": {
+    "material_name": "cursor-move",
+    "phosphor_name": "arrows-out-cardinal",
+    "phosphor_codepoint": "U+E0A4"
+  },
+  "U+F01DA": {
+    "material_name": "download",
+    "phosphor_name": "download",
+    "phosphor_codepoint": "U+E20A"
+  },
+  "U+F01EE": {
+    "material_name": "email",
+    "phosphor_name": "envelope",
+    "phosphor_codepoint": "U+E214"
+  },
+  "U+F0200": {
+    "material_name": "ethernet",
+    "phosphor_name": "network",
+    "phosphor_codepoint": "U+EDDE"
+  },
+  "U+F0208": {
+    "material_name": "eye",
+    "phosphor_name": "eye",
+    "phosphor_codepoint": "U+E220"
+  },
+  "U+F0209": {
+    "material_name": "eye-off",
+    "phosphor_name": "eye-slash",
+    "phosphor_codepoint": "U+E224"
+  },
+  "U+F0214": {
+    "material_name": "file",
+    "phosphor_name": "file",
+    "phosphor_codepoint": "U+E230"
+  },
+  "U+F0239": {
+    "material_name": "firefox",
+    "phosphor_name": "globe",
+    "phosphor_codepoint": "U+E288"
+  },
+  "U+F024B": {
+    "material_name": "folder",
+    "phosphor_name": "folder",
+    "phosphor_codepoint": "U+E24A"
+  },
+  "U+F027C": {
+    "material_name": "format-paint",
+    "phosphor_name": "paint-brush",
+    "phosphor_codepoint": "U+E6F0"
+  },
+  "U+F0297": {
+    "material_name": "gamepad-variant",
+    "phosphor_name": "game-controller",
+    "phosphor_codepoint": "U+E26E"
+  },
+  "U+F02A2": {
+    "material_name": "git",
+    "phosphor_name": "git-branch",
+    "phosphor_codepoint": "U+E278"
+  },
+  "U+F02AF": {
+    "material_name": "google-chrome",
+    "phosphor_name": "google-chrome-logo",
+    "phosphor_codepoint": "U+E976"
+  },
+  "U+F02CA": {
+    "material_name": "harddisk",
+    "phosphor_name": "hard-drive",
+    "phosphor_codepoint": "U+E29E"
+  },
+  "U+F02D1": {
+    "material_name": "heart",
+    "phosphor_name": "heart",
+    "phosphor_codepoint": "U+E2A8"
+  },
+  "U+F02D5": {
+    "material_name": "heart-outline",
+    "phosphor_name": "heart",
+    "phosphor_codepoint": "U+E2A8"
+  },
+  "U+F02DC": {
+    "material_name": "home",
+    "phosphor_name": "house",
+    "phosphor_codepoint": "U+E2C2"
+  },
+  "U+F02E9": {
+    "material_name": "image",
+    "phosphor_name": "image",
+    "phosphor_codepoint": "U+E2CA"
+  },
+  "U+F02FC": {
+    "material_name": "information",
+    "phosphor_name": "info",
+    "phosphor_codepoint": "U+E2CE"
+  },
+  "U+F030C": {
+    "material_name": "keyboard",
+    "phosphor_name": "keyboard",
+    "phosphor_codepoint": "U+E2D8"
+  },
+  "U+F0322": {
+    "material_name": "laptop",
+    "phosphor_name": "laptop",
+    "phosphor_codepoint": "U+E586"
+  },
+  "U+F033E": {
+    "material_name": "lock",
+    "phosphor_name": "lock",
+    "phosphor_codepoint": "U+E2FA"
+  },
+  "U+F0343": {
+    "material_name": "logout",
+    "phosphor_name": "sign-out",
+    "phosphor_codepoint": "U+E42A"
+  },
+  "U+F0349": {
+    "material_name": "magnify",
+    "phosphor_name": "magnifying-glass",
+    "phosphor_codepoint": "U+E30C"
+  },
+  "U+F034E": {
+    "material_name": "map-marker",
+    "phosphor_name": "map-pin",
+    "phosphor_codepoint": "U+E316"
+  },
+  "U+F035B": {
+    "material_name": "memory",
+    "phosphor_name": "memory",
+    "phosphor_codepoint": "U+E9C4"
+  },
+  "U+F035C": {
+    "material_name": "menu",
+    "phosphor_name": "list",
+    "phosphor_codepoint": "U+E2F0"
+  },
+  "U+F0361": {
+    "material_name": "message",
+    "phosphor_name": "chat-circle",
+    "phosphor_codepoint": "U+E168"
+  },
+  "U+F036C": {
+    "material_name": "microphone",
+    "phosphor_name": "microphone",
+    "phosphor_codepoint": "U+E326"
+  },
+  "U+F036D": {
+    "material_name": "microphone-off",
+    "phosphor_name": "microphone-slash",
+    "phosphor_codepoint": "U+E328"
+  },
+  "U+F0379": {
+    "material_name": "monitor",
+    "phosphor_name": "monitor",
+    "phosphor_codepoint": "U+E32E"
+  },
+  "U+F0388": {
+    "material_name": "music-note-2",
+    "phosphor_name": "music-note",
+    "phosphor_codepoint": "U+E33C"
+  },
+  "U+F03CB": {
+    "material_name": "open-in-app",
+    "phosphor_name": "arrow-square-out",
+    "phosphor_codepoint": "U+E5DE"
+  },
+  "U+F03CC": {
+    "material_name": "open-in-new",
+    "phosphor_name": "arrow-square-out",
+    "phosphor_codepoint": "U+E5DE"
+  },
+  "U+F03D6": {
+    "material_name": "package-variant",
+    "phosphor_name": "package",
+    "phosphor_codepoint": "U+E390"
+  },
+  "U+F03D7": {
+    "material_name": "package-variant-closed",
+    "phosphor_name": "package",
+    "phosphor_codepoint": "U+E390"
+  },
+  "U+F03E4": {
+    "material_name": "pause",
+    "phosphor_name": "pause",
+    "phosphor_codepoint": "U+E39E"
+  },
+  "U+F03EB": {
+    "material_name": "pencil",
+    "phosphor_name": "pencil",
+    "phosphor_codepoint": "U+E3AE"
+  },
+  "U+F040A": {
+    "material_name": "play",
+    "phosphor_name": "play",
+    "phosphor_codepoint": "U+E3D0"
+  },
+  "U+F0415": {
+    "material_name": "plus",
+    "phosphor_name": "plus",
+    "phosphor_codepoint": "U+E3D4"
+  },
+  "U+F0425": {
+    "material_name": "power",
+    "phosphor_name": "power",
+    "phosphor_codepoint": "U+E3DA"
+  },
+  "U+F044A": {
+    "material_name": "record",
+    "phosphor_name": "record",
+    "phosphor_codepoint": "U+E3EE"
+  },
+  "U+F044B": {
+    "material_name": "record-rec",
+    "phosphor_name": "record",
+    "phosphor_codepoint": "U+E3EE"
+  },
+  "U+F0456": {
+    "material_name": "repeat",
+    "phosphor_name": "repeat",
+    "phosphor_codepoint": "U+E3F6"
+  },
+  "U+F0458": {
+    "material_name": "repeat-once",
+    "phosphor_name": "repeat-once",
+    "phosphor_codepoint": "U+E3F8"
+  },
+  "U+F0459": {
+    "material_name": "replay",
+    "phosphor_name": "arrow-counter-clockwise",
+    "phosphor_codepoint": "U+E038"
+  },
+  "U+F0483": {
+    "material_name": "security",
+    "phosphor_name": "shield-check",
+    "phosphor_codepoint": "U+E40C"
+  },
+  "U+F048B": {
+    "material_name": "server",
+    "phosphor_name": "hard-drives",
+    "phosphor_codepoint": "U+E2A0"
+  },
+  "U+F0493": {
+    "material_name": "cog",
+    "phosphor_name": "gear",
+    "phosphor_codepoint": "U+E270"
+  },
+  "U+F0499": {
+    "material_name": "shield-outline",
+    "phosphor_name": "shield",
+    "phosphor_codepoint": "U+E40A"
+  },
+  "U+F049D": {
+    "material_name": "shuffle",
+    "phosphor_name": "shuffle",
+    "phosphor_codepoint": "U+E422"
+  },
+  "U+F04AD": {
+    "material_name": "skip-next",
+    "phosphor_name": "skip-forward",
+    "phosphor_codepoint": "U+E5A6"
+  },
+  "U+F04AE": {
+    "material_name": "skip-previous",
+    "phosphor_name": "skip-back",
+    "phosphor_codepoint": "U+E5A4"
+  },
+  "U+F04B2": {
+    "material_name": "sleep",
+    "phosphor_name": "moon",
+    "phosphor_codepoint": "U+E330"
+  },
+  "U+F04C3": {
+    "material_name": "speaker",
+    "phosphor_name": "speaker-high",
+    "phosphor_codepoint": "U+E44A"
+  },
+  "U+F04C5": {
+    "material_name": "speedometer",
+    "phosphor_name": "speedometer",
+    "phosphor_codepoint": "U+EE74"
+  },
+  "U+F04C7": {
+    "material_name": "spotify",
+    "phosphor_name": "spotify-logo",
+    "phosphor_codepoint": "U+E66E"
+  },
+  "U+F04CE": {
+    "material_name": "star",
+    "phosphor_name": "star",
+    "phosphor_codepoint": "U+E46A"
+  },
+  "U+F04E9": {
+    "material_name": "tab",
+    "phosphor_name": "tabs",
+    "phosphor_codepoint": "U+E778"
+  },
+  "U+F050E": {
+    "material_name": "theme-light-dark",
+    "phosphor_name": "circle-half",
+    "phosphor_codepoint": "U+E18C"
+  },
+  "U+F050F": {
+    "material_name": "thermometer",
+    "phosphor_name": "thermometer",
+    "phosphor_codepoint": "U+E5C6"
+  },
+  "U+F0567": {
+    "material_name": "video",
+    "phosphor_name": "video",
+    "phosphor_codepoint": "U+E740"
+  },
+  "U+F056E": {
+    "material_name": "view-dashboard",
+    "phosphor_name": "squares-four",
+    "phosphor_codepoint": "U+E464"
+  },
+  "U+F0570": {
+    "material_name": "view-grid",
+    "phosphor_name": "squares-four",
+    "phosphor_codepoint": "U+E464"
+  },
+  "U+F057C": {
+    "material_name": "vlc",
+    "phosphor_name": "video",
+    "phosphor_codepoint": "U+E740"
+  },
+  "U+F057E": {
+    "material_name": "volume-high",
+    "phosphor_name": "speaker-high",
+    "phosphor_codepoint": "U+E44A"
+  },
+  "U+F057F": {
+    "material_name": "volume-low",
+    "phosphor_name": "speaker-low",
+    "phosphor_codepoint": "U+E44C"
+  },
+  "U+F0580": {
+    "material_name": "volume-medium",
+    "phosphor_name": "speaker-low",
+    "phosphor_codepoint": "U+E44C"
+  },
+  "U+F0582": {
+    "material_name": "vpn",
+    "phosphor_name": "shield-check",
+    "phosphor_codepoint": "U+E40C"
+  },
+  "U+F0590": {
+    "material_name": "weather-cloudy",
+    "phosphor_name": "cloud",
+    "phosphor_codepoint": "U+E1AA"
+  },
+  "U+F0591": {
+    "material_name": "weather-fog",
+    "phosphor_name": "cloud-fog",
+    "phosphor_codepoint": "U+E53C"
+  },
+  "U+F0593": {
+    "material_name": "weather-lightning",
+    "phosphor_name": "cloud-lightning",
+    "phosphor_codepoint": "U+E1B2"
+  },
+  "U+F0595": {
+    "material_name": "weather-partly-cloudy",
+    "phosphor_name": "cloud-sun",
+    "phosphor_codepoint": "U+E540"
+  },
+  "U+F0597": {
+    "material_name": "weather-rainy",
+    "phosphor_name": "cloud-rain",
+    "phosphor_codepoint": "U+E1B4"
+  },
+  "U+F0598": {
+    "material_name": "weather-snowy",
+    "phosphor_name": "cloud-snow",
+    "phosphor_codepoint": "U+E1B8"
+  },
+  "U+F0599": {
+    "material_name": "weather-sunny",
+    "phosphor_name": "sun",
+    "phosphor_codepoint": "U+E472"
+  },
+  "U+F059F": {
+    "material_name": "web",
+    "phosphor_name": "globe",
+    "phosphor_codepoint": "U+E288"
+  },
+  "U+F05A9": {
+    "material_name": "wifi",
+    "phosphor_name": "wifi-high",
+    "phosphor_codepoint": "U+E4EA"
+  },
+  "U+F05AA": {
+    "material_name": "wifi-off",
+    "phosphor_name": "wifi-slash",
+    "phosphor_codepoint": "U+E4F2"
+  },
+  "U+F05AF": {
+    "material_name": "window-maximize",
+    "phosphor_name": "arrows-out-simple",
+    "phosphor_codepoint": "U+E0A6"
+  },
+  "U+F05B7": {
+    "material_name": "wrench",
+    "phosphor_name": "wrench",
+    "phosphor_codepoint": "U+E5D4"
+  },
+  "U+F05C3": {
+    "material_name": "youtube",
+    "phosphor_name": "youtube-logo",
+    "phosphor_codepoint": "U+E4FC"
+  },
+  "U+F0614": {
+    "material_name": "application-outline",
+    "phosphor_name": "app-window",
+    "phosphor_codepoint": "U+E5DA"
+  },
+  "U+F061A": {
+    "material_name": "chip",
+    "phosphor_name": "cpu",
+    "phosphor_codepoint": "U+E610"
+  },
+  "U+F06A5": {
+    "material_name": "power-plug",
+    "phosphor_name": "plug",
+    "phosphor_codepoint": "U+E946"
+  },
+  "U+F06B0": {
+    "material_name": "update",
+    "phosphor_name": "arrows-clockwise",
+    "phosphor_codepoint": "U+E094"
+  },
+  "U+F0709": {
+    "material_name": "restart",
+    "phosphor_name": "arrow-clockwise",
+    "phosphor_codepoint": "U+E036"
+  },
+  "U+F072C": {
+    "material_name": "widgets",
+    "phosphor_name": "squares-four",
+    "phosphor_codepoint": "U+E464"
+  },
+  "U+F075A": {
+    "material_name": "music",
+    "phosphor_name": "music-note",
+    "phosphor_codepoint": "U+E33C"
+  },
+  "U+F075F": {
+    "material_name": "volume-mute",
+    "phosphor_name": "speaker-slash",
+    "phosphor_codepoint": "U+E45A"
+  },
+  "U+F082E": {
+    "material_name": "notebook",
+    "phosphor_name": "notebook",
+    "phosphor_codepoint": "U+E34E"
+  },
+  "U+F0868": {
+    "material_name": "docker",
+    "phosphor_name": "cube",
+    "phosphor_codepoint": "U+E1DA"
+  },
+  "U+F089C": {
+    "material_name": "battery-charging-10",
+    "phosphor_name": "battery-charging",
+    "phosphor_codepoint": "U+E0BA"
+  },
+  "U+F08AE": {
+    "material_name": "expansion-card",
+    "phosphor_name": "graphics-card",
+    "phosphor_codepoint": "U+E612"
+  },
+  "U+F08C7": {
+    "material_name": "arch",
+    "phosphor_name": "terminal-window",
+    "phosphor_codepoint": "U+EAE8"
+  },
+  "U+F08D0": {
+    "material_name": "cards-heart",
+    "phosphor_name": "heart",
+    "phosphor_codepoint": "U+E2A8"
+  },
+  "U+F0904": {
+    "material_name": "power-sleep",
+    "phosphor_name": "moon",
+    "phosphor_codepoint": "U+E330"
+  },
+  "U+F091F": {
+    "material_name": "wifi-strength-1",
+    "phosphor_name": "wifi-low",
+    "phosphor_codepoint": "U+E4EC"
+  },
+  "U+F0922": {
+    "material_name": "wifi-strength-2",
+    "phosphor_name": "wifi-medium",
+    "phosphor_codepoint": "U+E4EE"
+  },
+  "U+F0925": {
+    "material_name": "wifi-strength-3",
+    "phosphor_name": "wifi-high",
+    "phosphor_codepoint": "U+E4EA"
+  },
+  "U+F0928": {
+    "material_name": "wifi-strength-4",
+    "phosphor_name": "wifi-high",
+    "phosphor_codepoint": "U+E4EA"
+  },
+  "U+F092D": {
+    "material_name": "wifi-strength-off",
+    "phosphor_name": "wifi-slash",
+    "phosphor_codepoint": "U+E4F2"
+  },
+  "U+F092F": {
+    "material_name": "wifi-strength-outline",
+    "phosphor_name": "wifi-none",
+    "phosphor_codepoint": "U+E4F0"
+  },
+  "U+F0954": {
+    "material_name": "clock",
+    "phosphor_name": "clock",
+    "phosphor_codepoint": "U+E19A"
+  },
+  "U+F0A6D": {
+    "material_name": "selection-drag",
+    "phosphor_name": "selection",
+    "phosphor_codepoint": "U+E69A"
+  },
+  "U+F0A79": {
+    "material_name": "trash-can",
+    "phosphor_name": "trash",
+    "phosphor_codepoint": "U+E4A6"
+  },
+  "U+F0A9A": {
+    "material_name": "calculator-variant",
+    "phosphor_name": "calculator",
+    "phosphor_codepoint": "U+E538"
+  },
+  "U+F0B79": {
+    "material_name": "chat",
+    "phosphor_name": "chat",
+    "phosphor_codepoint": "U+E15C"
+  },
+  "U+F0E09": {
+    "material_name": "wallpaper",
+    "phosphor_name": "image-square",
+    "phosphor_codepoint": "U+E2CC"
+  },
+  "U+F0E0C": {
+    "material_name": "palette-outline",
+    "phosphor_name": "palette",
+    "phosphor_codepoint": "U+E6C8"
+  },
+  "U+F0E1E": {
+    "material_name": "check-bold",
+    "phosphor_name": "check",
+    "phosphor_codepoint": "U+E182"
+  },
+  "U+F0E51": {
+    "material_name": "monitor-screenshot",
+    "phosphor_name": "screencast",
+    "phosphor_codepoint": "U+E404"
+  },
+  "U+F0EC3": {
+    "material_name": "record-circle-outline",
+    "phosphor_name": "record",
+    "phosphor_codepoint": "U+E3EE"
+  },
+  "U+F0EE0": {
+    "material_name": "cpu-64-bit",
+    "phosphor_name": "cpu",
+    "phosphor_codepoint": "U+E610"
+  },
+  "U+F0F85": {
+    "material_name": "speedometer-medium",
+    "phosphor_name": "gauge",
+    "phosphor_codepoint": "U+E628"
+  },
+  "U+F0F86": {
+    "material_name": "speedometer-slow",
+    "phosphor_name": "gauge",
+    "phosphor_codepoint": "U+E628"
+  },
+  "U+F1064": {
+    "material_name": "tools",
+    "phosphor_name": "toolbox",
+    "phosphor_codepoint": "U+ECA0"
+  },
+  "U+F13AB": {
+    "material_name": "timer",
+    "phosphor_name": "timer",
+    "phosphor_codepoint": "U+E492"
+  }
+}

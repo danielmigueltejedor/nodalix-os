@@ -445,23 +445,32 @@ PanelWindow {
         ColumnLayout {
             anchors.fill: parent; anchors.margins: 18
             spacing: 8
-            Text {
+            RowLayout {
                 Layout.fillWidth: true
-                text: "󰇚  " + I18n.tr("Incoming transfer")
-                color: ThemeManager.primary; font.family: ThemeManager.fontFamily
-                font.pixelSize: ThemeManager.fontSizeLg; font.weight: Font.Bold
+                spacing: 8
+                Text {
+                    text: "󰇚"
+                    color: ThemeManager.primary; font.family: ThemeManager.fontFor(text)
+                    font.pixelSize: ThemeManager.fontSizeLg
+                }
+                Text {
+                    Layout.fillWidth: true
+                    text: I18n.tr("Incoming transfer")
+                    color: ThemeManager.primary; font.family: ThemeManager.fontFor(text)
+                    font.pixelSize: ThemeManager.fontSizeLg; font.weight: Font.Bold
+                }
             }
             Text {
                 Layout.fillWidth: true
                 text: root._incoming ? root._incoming.alias : ""
-                color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily
+                color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text)
                 font.pixelSize: ThemeManager.fontSizeMd; elide: Text.ElideRight
             }
             Text {
                 Layout.fillWidth: true
                 readonly property int count: root._incoming ? Object.keys(root._incoming.files || {}).length : 0
                 text: count + " " + I18n.tr("files")
-                color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily
+                color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text)
                 font.pixelSize: ThemeManager.fontSizeSm
             }
             RowLayout {
@@ -476,7 +485,7 @@ PanelWindow {
                         Layout.fillWidth: true; implicitHeight: 34
                         radius: ThemeManager.chipRadius
                         color: modelData.accept ? ThemeManager.primary : ThemeManager.surfaceContainer
-                        Text { anchors.centerIn: parent; text: modelData.label; color: modelData.accept ? ThemeManager.onPrimary : ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm }
+                        Text { anchors.centerIn: parent; text: modelData.label; color: modelData.accept ? ThemeManager.onPrimary : ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
                         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: modelData.accept ? LocalSendService.accept(root._incoming.id) : LocalSendService.decline(root._incoming.id) }
                     }
                 }
@@ -834,7 +843,7 @@ PanelWindow {
             anchors { left: parent.left; top: parent.top; margins: 12 }
             text: I18n.tr((WallpaperService.favorites?.length ?? 0) > 0 ? "Favorites" : "Wallpaper collection")
             color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
         }
 
@@ -878,7 +887,7 @@ PanelWindow {
                             anchors { right: parent.right; bottom: parent.bottom; margins: 7 }
                             width: 26; height: 22; radius: 8
                             color: Qt.rgba(0, 0, 0, 0.58)
-                            Text { anchors.centerIn: parent; text: "󰕧"; color: "white"; font.family: ThemeManager.fontFamily; font.pixelSize: 14 }
+                            Text { anchors.centerIn: parent; text: "󰕧"; color: "white"; font.family: ThemeManager.fontFor(text); font.pixelSize: 14 }
                         }
                         HoverHandler {
                             id: _wpItemHov
@@ -950,7 +959,7 @@ PanelWindow {
             anchors.centerIn: parent
             text: tb.icon
             color: (tb.active || tb.kbdSel) ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: 24
         }
         HoverHandler { id: _tbHov; cursorShape: Qt.PointingHandCursor }

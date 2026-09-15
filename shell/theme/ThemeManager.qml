@@ -91,6 +91,20 @@ QtObject {
     readonly property int    spacing:        8
     readonly property int    spacingLg:      16
     readonly property string fontFamily:     SettingsService.get("appearance.fontFamily", "JetBrainsMono Nerd Font")
+    readonly property string iconFontFamily: "Nodalix Phosphor Compat"
+    function fontFor(value) {
+        const content = "" + (value ?? "")
+        let icon = false
+        for (let index = 0; index < content.length; index++) {
+            const point = content.codePointAt(index)
+            const width = point > 0xFFFF ? 2 : 1
+            const glyphChar = content.slice(index, index + width)
+            if (point >= 0xF0000 && point <= 0xFFFFD) icon = true
+            else if (glyphChar.trim() !== "") return fontFamily
+            index += width - 1
+        }
+        return icon ? iconFontFamily : fontFamily
+    }
     readonly property int    _fontBase:      SettingsService.get("appearance.fontSize", 13)
     readonly property int    fontSizeSm:     _fontBase - 1
     readonly property int    fontSizeMd:     _fontBase

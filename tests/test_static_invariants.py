@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -8,6 +9,80 @@ SHELL = ROOT / "shell"
 
 
 class StaticInvariantTests(unittest.TestCase):
+    def test_phosphor_font_covers_shell_icon_glyphs(self) -> None:
+        manifest = json.loads(
+            (SHELL / "assets/icons/phosphor-compat-manifest.json").read_text(encoding="utf-8")
+        )
+        font = SHELL / "assets/fonts/NodalixPhosphorCompat.ttf"
+        self.assertTrue(font.is_file())
+        self.assertGreater(font.stat().st_size, 100_000)
+        self.assertTrue((SHELL / "assets/fonts/LICENSE-phosphor").is_file())
+        for qml in SHELL.rglob("*.qml"):
+            text = qml.read_text(encoding="utf-8")
+            self.assertNotIn("font.family: ThemeManager.fontFamily", text, str(qml))
+            for char in text:
+                point = ord(char)
+                if 0xF0000 <= point <= 0xFFFFD:
+                    self.assertIn(f"U+{point:X}", manifest, str(qml))
+        theme = (SHELL / "theme/ThemeManager.qml").read_text(encoding="utf-8")
+        self.assertIn('iconFontFamily: "Nodalix Phosphor Compat"', theme)
+        self.assertIn("function fontFor(value)", theme)
+        self.assertIn("content.codePointAt(index)", theme)
+        self.assertNotIn("Array.from", theme)
+
+    def test_workspace_monitor_assignment_refreshes_bar_visibility(self) -> None:
+        workspaces = (SHELL / "widgets/bar/Workspaces.qml").read_text(encoding="utf-8")
+        self.assertIn("function onMonitorChanged()", workspaces)
+        self.assertIn("monitorName === root.barScreen.name", workspaces)
+        self.assertIn('startsWith("special:")', workspaces)
+        self.assertNotIn("modelData.id >= 0 : true", workspaces)
+        self.assertNotIn("modelData.monitor === root.hyprMonitor", workspaces)
+
+    def test_colloid_bold_bar_assets_are_self_contained_and_tinted(self) -> None:
+        icons = SHELL / "assets/icons/colloid-bold"
+        component = (SHELL / "widgets/bar/ColloidIcon.qml").read_text(encoding="utf-8")
+        self.assertTrue((icons / "LICENSE-GPL-3.0").is_file())
+        self.assertIn('Paths.configDir + "/assets/icons/colloid-bold/"', component)
+        self.assertIn("ColorOverlay", component)
+        self.assertNotIn("Quickshell.iconPath", component)
+        for group, name in (
+            ("actions", "application-menu-symbolic"),
+            ("status", "audio-volume-high-symbolic"),
+            ("status", "audio-input-microphone-muted-symbolic"),
+            ("status", "nm-signal-100-symbolic"),
+            ("status", "notification-new-symbolic"),
+            ("status", "system-shutdown-symbolic"),
+        ):
+            self.assertTrue((icons / group / f"{name}.svg").is_file(), name)
+
+    def test_bar_separators_are_removed_without_touching_panel_dividers(self) -> None:
+        for name in ("BarLeft", "BarCenter", "BarRight"):
+            bar = (SHELL / "bar" / f"{name}.qml").read_text(encoding="utf-8")
+            self.assertNotIn("BarSeparator", bar)
+            self.assertNotIn("width: 1; height: 14", bar)
+        clock = (SHELL / "widgets/bar/Clock.qml").read_text(encoding="utf-8")
+        self.assertNotIn("width: 1; height: 12", clock)
+
+    def test_font_change_runs_packaged_script_through_shell_and_finishes(self) -> None:
+        font_service = (SHELL / "services/FontService.qml").read_text(encoding="utf-8")
+        self.assertIn('["/bin/sh", Paths.configDir + "/scripts/nodalix-set-font.sh", fontFamily]', font_service)
+        self.assertIn("property Timer _deadline: Timer", font_service)
+        self.assertIn("root.busy = false", font_service)
+
+    def test_colloid_theme_is_packaged_and_defaulted_once(self) -> None:
+        definition = json.loads((ROOT / "release/components.json").read_text(encoding="utf-8"))
+        self.assertTrue(any(
+            component["package"] == "nodalix-colloid-icons" and component["required"]
+            for component in definition["components"]
+        ))
+        pkgbuild = (ROOT / "packaging/nodalix-colloid-icons/PKGBUILD").read_text(encoding="utf-8")
+        self.assertIn("#commit=ceac6608ecd0e40025cbc2ebbd32bf0e0f4ebc6a", pkgbuild)
+        self.assertIn("install.sh -d \"$pkgdir/usr/share/icons\" -t teal -b", pkgbuild)
+        wrapper = (ROOT / "packaging/nodalix-shell/nodalix-shell").read_text(encoding="utf-8")
+        self.assertIn(".colloid-icon-theme-v1", wrapper)
+        self.assertIn("[ -d /usr/share/icons/Colloid-Teal ]", wrapper)
+        self.assertIn("gsettings set org.gnome.desktop.interface icon-theme Colloid-Teal", wrapper)
+
     def test_quickshell_does_not_hardcode_binding_service_actions(self) -> None:
         text = (SHELL / "hypr" / "quickshell.lua").read_text(encoding="utf-8")
         self.assertIn("binds.generated.lua", text)
@@ -48,6 +123,12 @@ class StaticInvariantTests(unittest.TestCase):
         self.assertIn("/proc/cpuinfo", text)
         self.assertIn("lspci", text)
         self.assertIn("Display controller", text)
+
+    def test_gpu_name_is_normalized_for_compact_system_info(self) -> None:
+        text = (SHELL / "services" / "SystemControlService.qml").read_text(encoding="utf-8")
+        self.assertIn("function normalizedGpuName(value)", text)
+        self.assertIn('name.split("/", 1)[0].trim() + " Series"', text)
+        self.assertIn("root.normalizedGpuName(data.gpu)", text)
 
     def test_update_auth_prompt_is_inline(self) -> None:
         text = (SHELL / "panels" / "Settings.qml").read_text(encoding="utf-8")

@@ -56,7 +56,7 @@ ColumnLayout {
         visible: root.title.length > 0
         text: root.title
         color: ThemeManager.onSurfaceVariant
-        font.family: ThemeManager.fontFamily
+        font.family: ThemeManager.fontFor(text)
         font.pixelSize: ThemeManager.fontSizeSm
         font.bold: true
     }
@@ -168,9 +168,9 @@ ColumnLayout {
                             Layout.alignment: Qt.AlignHCenter
                             text: tile.modelData?._nodalixGlyph ?? ""
                             color: ThemeManager.primary
-                            // Functional shell glyphs always use the bundled
-                            // Nerd font, independently of the selected UI font.
-                            font.family: "JetBrainsMono Nerd Font"
+                            // Functional shell glyphs follow Nodalix's icon
+                            // family, independently of the selected UI font.
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: 34
                             horizontalAlignment: Text.AlignHCenter
                         }
@@ -178,7 +178,7 @@ ColumnLayout {
                             Layout.fillWidth: true
                             text: tile.modelData?.name ?? ""
                             color: ThemeManager.onSurface
-                            font.family: ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: 11
                             horizontalAlignment: Text.AlignHCenter
                             elide: Text.ElideRight

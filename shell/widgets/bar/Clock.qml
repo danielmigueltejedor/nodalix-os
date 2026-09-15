@@ -56,23 +56,16 @@ Rectangle {
             id: timeText
             text: Qt.formatTime(root.now, root._timeFmt)
             color: ThemeManager.onSurface
-            font.family: ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: ThemeManager.fontSizeMd
             font.weight: Font.Medium
-        }
-
-        Rectangle {
-            width: 1; height: 12
-            color: ThemeManager.outlineVariant
-            opacity: 0.6
-            Layout.alignment: Qt.AlignVCenter
         }
 
         Text {
             id: dateText
             text: root.now.toLocaleDateString(Qt.locale(I18n.localeName), "ddd d MMM")
             color: ThemeManager.onSurface
-            font.family: ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: ThemeManager.fontSizeSm
             font.weight: Font.Medium
         }

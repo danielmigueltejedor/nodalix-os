@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell.Services.UPower
 import "../theme"
 import "../services"
+import "../widgets/bar"
 
 Item {
     id: root
@@ -23,7 +24,7 @@ Item {
         Text {
             text: I18n.tr("Power profile")
             color:          ThemeManager.onSurfaceVariant
-            font.family:    ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: ThemeManager.fontSizeSm
             font.weight:    Font.Medium
             Layout.bottomMargin: 4
@@ -75,10 +76,9 @@ Item {
             anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
             spacing: 10
 
-            Text {
+            ColloidIcon {
                 text:             pa.icon
                 color:            pa.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                font.family:      ThemeManager.fontFamily
                 font.pixelSize:   16
                 Layout.alignment: Qt.AlignVCenter
                 Behavior on color { ColorAnimation { duration: 100 } }
@@ -87,7 +87,7 @@ Item {
             Text {
                 text:             pa.label
                 color:            pa.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                font.family:      ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize:   ThemeManager.fontSizeSm
                 font.weight:      Font.Medium
                 Layout.fillWidth: true
@@ -96,11 +96,10 @@ Item {
             }
 
             // Active check mark
-            Text {
+            ColloidIcon {
                 visible:          pa.active
                 text:             "󰄬"
                 color:            ThemeManager.primary
-                font.family:      ThemeManager.fontFamily
                 font.pixelSize:   13
                 Layout.alignment: Qt.AlignVCenter
             }

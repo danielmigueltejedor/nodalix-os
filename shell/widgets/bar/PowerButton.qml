@@ -10,14 +10,13 @@ Item {
 
     property var barScreen: null
 
-    Text {
+    ColloidIcon {
         anchors.centerIn: parent
-        text:           "󰐥"
+        iconName:       "system-shutdown-symbolic"
+        fallbackGlyph:  "󰐥"
         color:          _hoverMa.containsMouse
                         ? ThemeManager.error
                         : ThemeManager.onSurfaceVariant
-        font.family:    ThemeManager.fontFamily
-        font.pixelSize: 15
         Behavior on color { ColorAnimation { duration: 100 } }
     }
 

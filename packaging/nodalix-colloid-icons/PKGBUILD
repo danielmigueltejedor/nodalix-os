@@ -1,0 +1,16 @@
+pkgname=nodalix-colloid-icons
+pkgver=0.2.0beta8
+pkgrel=2
+pkgdesc='Colloid-Teal GTK icon theme for Nodalix'
+arch=('any')
+url='https://github.com/vinceliuice/Colloid-icon-theme'
+license=('GPL-3.0-only')
+makedepends=('git' 'gtk-update-icon-cache')
+source=('colloid-icon-theme::git+https://github.com/vinceliuice/Colloid-icon-theme.git#commit=ceac6608ecd0e40025cbc2ebbd32bf0e0f4ebc6a')
+sha256sums=('SKIP')
+
+package() {
+    cd "$srcdir/colloid-icon-theme"
+    bash install.sh -d "$pkgdir/usr/share/icons" -t teal -b
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

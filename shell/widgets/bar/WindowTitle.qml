@@ -21,7 +21,7 @@ RowLayout {
         visible: appClass !== ""
         text: appClass
         color: ThemeManager.primary
-        font.family: ThemeManager.fontFamily
+        font.family: ThemeManager.fontFor(text)
         font.pixelSize: ThemeManager.fontSizeSm
         font.weight: Font.Medium
         Layout.alignment: Qt.AlignVCenter
@@ -39,7 +39,7 @@ RowLayout {
     Text {
         text: title
         color: ThemeManager.onSurface
-        font.family: ThemeManager.fontFamily
+        font.family: ThemeManager.fontFor(text)
         font.pixelSize: ThemeManager.fontSizeSm
         font.weight: Font.Medium
         elide: Text.ElideRight

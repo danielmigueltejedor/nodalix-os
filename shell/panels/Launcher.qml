@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Widgets
 import "../theme"
 import "../services"
+import "../widgets/bar"
 import "../widgets/launcher"
 
 // Windows 11-style start menu — CONTENT ONLY (no window).
@@ -292,10 +293,10 @@ Item {
                 anchors.rightMargin: 12
                 spacing: 10
 
-                Text {
-                    text: ""
-                    font.family: ThemeManager.fontFamily
-                    font.pixelSize: 16
+                ColloidIcon {
+                    iconName: "edit-find-symbolic"
+                    group: "actions"
+                    iconSize: 18
                     color: ThemeManager.onSurfaceVariant
                 }
                 TextField {
@@ -303,7 +304,7 @@ Item {
                     Layout.fillWidth: true
                     background: null
                     color: ThemeManager.onSurface
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 15
                     placeholderText: I18n.tr("Search apps, settings or the web…")
                     placeholderTextColor: ThemeManager.onSurfaceVariant
@@ -419,7 +420,7 @@ Item {
                         anchors.centerIn: parent
                         text: I18n.tr("Recommended apps appear here as you use them")
                         color: ThemeManager.onSurfaceVariant
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: ThemeManager.fontSizeSm
                     }
                 }
@@ -486,7 +487,7 @@ Item {
                         anchors.leftMargin: 14
                         text: modelData.label
                         color: modelData.danger ? ThemeManager.error : ThemeManager.onSurface
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: ThemeManager.fontSizeMd
                     }
                     HoverHandler { id: _mh; onHoveredChanged: if (hovered) root._menuSel = index }

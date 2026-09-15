@@ -61,7 +61,8 @@ release_dir="$workdir/nodalix-release"
 phone_link_dir="$workdir/nodalix-phone-link"
 fluent_dir="$workdir/nodalix-fluent-emoji"
 wallpaper_dir="$workdir/nodalix-wallpapers"
-mkdir -p "$updater_dir" "$shell_dir" "$release_dir" "$phone_link_dir" "$fluent_dir" "$wallpaper_dir"
+colloid_dir="$workdir/nodalix-colloid-icons"
+mkdir -p "$updater_dir" "$shell_dir" "$release_dir" "$phone_link_dir" "$fluent_dir" "$wallpaper_dir" "$colloid_dir"
 
 cp "$root/packaging/nodalix-updater/PKGBUILD" "$updater_dir/PKGBUILD"
 cp "$srcdir/nodalix-updater-$pkgver.tar.zst" "$updater_dir/"
@@ -94,6 +95,8 @@ cp "$root/packaging/nodalix-fluent-emoji/PKGBUILD" \
    "$root/packaging/nodalix-fluent-emoji/75-nodalix-fluent-emoji.conf" \
    "$fluent_dir/"
 
+cp "$root/packaging/nodalix-colloid-icons/PKGBUILD" "$colloid_dir/"
+
 cp "$root/packaging/nodalix-wallpapers/PKGBUILD" \
    "$root/packaging/nodalix-wallpapers/SOURCES.md" \
    "$root/packaging/nodalix-wallpapers/"*.jpg \
@@ -109,6 +112,7 @@ if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
   makepkg_one "$shell_dir"
   makepkg_one "$phone_link_dir"
   makepkg_one "$fluent_dir"
+  makepkg_one "$colloid_dir"
   makepkg_one "$wallpaper_dir"
   makepkg_one "$release_dir"
   find "$workdir" -name '*.pkg.tar.zst' ! -name '*-debug-*' -exec cp {} "$outdir/" \;

@@ -8,6 +8,7 @@ import Quickshell.Bluetooth
 import Quickshell.Hyprland
 import "../theme"
 import "../services"
+import "../widgets/bar"
 
 Item {
     id: root
@@ -384,12 +385,11 @@ Item {
             ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, _tabMa.containsMouse ? 0.28 : 0.18)
             : (_tabMa.containsMouse ? Qt.rgba(ThemeManager.onSurface.r, ThemeManager.onSurface.g, ThemeManager.onSurface.b, 0.08) : "transparent")
         Behavior on color { ColorAnimation { duration: 100 } }
-        Text {
+        ColloidIcon {
             anchors.centerIn: parent
             text: parent.icon
             color: parent.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily
-            font.pixelSize: 22
+            iconSize: 22
         }
         MouseArea { id: _tabMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
     }
@@ -432,19 +432,19 @@ Item {
                         Text {
                             text: root.now.toLocaleTimeString(root._fr, "HH:mm")
                             color: ThemeManager.onSurface
-                            font.family: ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: 26; font.weight: Font.Bold
                         }
                         Text {
                             text: root.now.toLocaleDateString(root._fr, "ddd")
                             color: ThemeManager.primary
-                            font.family: ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
                         }
                         Text {
                             text: root.now.toLocaleDateString(root._fr, "d MMM")
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: ThemeManager.fontSizeSm
                         }
                     }
@@ -506,7 +506,7 @@ Item {
             visible: !MprisService.hasPlayer
             text: I18n.tr("No media playing")
             color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: ThemeManager.fontSizeMd
             opacity: 0.6
         }
@@ -571,7 +571,7 @@ Item {
                         visible: _bigArt.status !== Image.Ready
                         text: "󰝚"
                         color: ThemeManager.onSurfaceVariant
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: 56
                     }
                 }
@@ -606,7 +606,7 @@ Item {
                     text: MprisService.album
                     visible: MprisService.album !== ""
                     color: ThemeManager.onSurfaceVariant
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 10
                     opacity: 0.7
                     elide: Text.ElideRight
@@ -624,7 +624,7 @@ Item {
                     Text {
                         text: MprisService.fmt(MprisService.position)
                         color: ThemeManager.onSurfaceVariant
-                        font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                        font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                     }
                     Rectangle {
                         id: _scrub
@@ -646,7 +646,7 @@ Item {
                     Text {
                         text: MprisService.fmt(MprisService.length)
                         color: ThemeManager.onSurfaceVariant
-                        font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                        font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                     }
                 }
 
@@ -742,12 +742,12 @@ Item {
                     RowLayout {
                         anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
                         spacing: 8
-                        Text { text: MprisService.icon(modelData); color: parent.parent.sel ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 17 }
+                        Text { text: MprisService.icon(modelData); color: parent.parent.sel ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 17 }
                         Text {
                             Layout.fillWidth: true
                             text: MprisService.label(modelData)
                             color: parent.parent.sel ? ThemeManager.primary : ThemeManager.onSurface
-                            font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                             elide: Text.ElideRight
                         }
                     }
@@ -783,13 +783,13 @@ Item {
             Text {
                 id: _m1
                 text: mq.text; color: mq.color
-                font.family: ThemeManager.fontFamily; font.pixelSize: mq.pixelSize
+                font.family: ThemeManager.fontFor(text); font.pixelSize: mq.pixelSize
                 font.weight: mq.bold ? Font.Bold : Font.Normal
             }
             Text {
                 visible: mq.over
                 text: mq.text; color: mq.color
-                font.family: ThemeManager.fontFamily; font.pixelSize: mq.pixelSize
+                font.family: ThemeManager.fontFor(text); font.pixelSize: mq.pixelSize
                 font.weight: mq.bold ? Font.Bold : Font.Normal
             }
         }
@@ -818,12 +818,11 @@ Item {
             : (active ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.18)
                       : (_mbtMa.containsMouse ? Qt.rgba(ThemeManager.onSurface.r, ThemeManager.onSurface.g, ThemeManager.onSurface.b, 0.10) : "transparent"))
         opacity: mbt.enabled ? 1 : 0.35
-        Text {
+        ColloidIcon {
             anchors.centerIn: parent
             text: mbt.icon
             color: mbt.big ? ThemeManager.onPrimary : (mbt.active ? ThemeManager.primary : ThemeManager.onSurface)
-            font.family: ThemeManager.fontFamily
-            font.pixelSize: mbt.big ? 22 : (mbt.small ? 20 : 24)
+            iconSize: mbt.big ? 22 : (mbt.small ? 20 : 24)
         }
         MouseArea { id: _mbtMa; anchors.fill: parent; enabled: mbt.enabled; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: mbt.clicked() }
     }
@@ -840,14 +839,14 @@ Item {
         RowLayout {
             anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
             spacing: 8
-            Text { text: MprisService.icon(MprisService.active); color: ThemeManager.primary; font.family: ThemeManager.fontFamily; font.pixelSize: 17 }
+            Text { text: MprisService.icon(MprisService.active); color: ThemeManager.primary; font.family: ThemeManager.fontFor(text); font.pixelSize: 17 }
             Text {
                 Layout.fillWidth: true
                 text: MprisService.label(MprisService.active)
-                color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 elide: Text.ElideRight
             }
-            Text { text: root._playerMenu ? "󰅃" : "󰅀"; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 13 }
+            Text { text: root._playerMenu ? "󰅃" : "󰅀"; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 13 }
         }
         MouseArea {
             id: _ddMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -891,24 +890,31 @@ Item {
             anchors.centerIn: parent
             spacing: 4
 
-            QsIcon { icon: "󰕾"; key: "volume" }
-            QsIcon { icon: "󰃠"; key: "brightness" }
-            QsIcon { icon: "󰖩"; key: "wifi" }
+            QsIcon { icon: "󰕾"; iconName: "audio-volume-high-symbolic"; key: "volume" }
+            QsIcon { icon: "󰃠"; iconName: "brightness-high-symbolic"; iconVisualSize: 22; key: "brightness" }
+            QsIcon { icon: "󰖩"; iconName: "nm-signal-100-symbolic"; key: "wifi" }
             QsIcon { imageSource: "../assets/icons/localsend-official-mask.png"; key: "localsend" }
-            QsIcon { icon: WindowLayoutService.mode === "scrolling" ? "󰁔" : (WindowLayoutService.mode === "tabs" ? "󰓩" : "󰕰"); key: "layout" }
-            QsIcon { icon: ScreenRecorderService.recording ? "󰑊" : "󰻃"; key: "capture"; highlighted: ScreenRecorderService.recording }
-            QsIcon { icon: "󰖂"; key: "vpn" }
-            QsIcon { icon: "󰂯"; key: "bluetooth" }
             QsIcon {
-                icon: NotificationService.doNotDisturb ? "󰂛" : "󰂚"; key: "dnd"
+                iconName: WindowLayoutService.mode === "scrolling" ? "nodalix-layout-scrolling-symbolic"
+                    : (WindowLayoutService.mode === "tabs" ? "nodalix-layout-tabs-symbolic" : "nodalix-layout-tiling-symbolic")
+                iconGroup: "actions"
+                key: "layout"
+            }
+            QsIcon { icon: ScreenRecorderService.recording ? "󰑊" : "󰻃"; iconName: "screenshooter-symbolic"; iconGroup: "actions"; key: "capture"; highlighted: ScreenRecorderService.recording }
+            QsIcon { icon: "󰖂"; iconName: "network-vpn-symbolic"; key: "vpn" }
+            QsIcon { icon: "󰂯"; iconName: "bluetooth-active-symbolic"; key: "bluetooth" }
+            QsIcon {
+                icon: NotificationService.doNotDisturb ? "󰂛" : "󰂚"
+                iconName: NotificationService.doNotDisturb ? "notification-disabled-symbolic" : "notification-new-symbolic"
+                key: "dnd"
                 // DND toggles directly (no flyout)
                 toggle: true
                 onActivated: NotificationService.doNotDisturb = !NotificationService.doNotDisturb
                 highlighted: NotificationService.doNotDisturb
             }
-            QsIcon { icon: "󰔎"; key: "theme" }
+            QsIcon { icon: "󰔎"; iconName: "dark-mode-symbolic"; iconGroup: "actions"; key: "theme" }
             QsIcon {
-                icon: "󰒓"; key: "settings"
+                icon: "󰒓"; iconName: "preferences-system-symbolic"; iconGroup: "apps"; key: "settings"
                 toggle: true
                 onActivated: { SettingsUi.show(); PopoutService.close() }
             }
@@ -1009,7 +1015,7 @@ Item {
                     Layout.fillWidth: true
                     text: I18n.tr("LocalSend is off")
                     color: ThemeManager.onSurfaceVariant
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: ThemeManager.fontSizeSm
                     opacity: 0.7
                 }
@@ -1032,7 +1038,7 @@ Item {
                                 Layout.fillWidth: true
                                 text: I18n.tr("Incoming transfer") + " · " + modelData.alias
                                 color: ThemeManager.onSurface
-                                font.family: ThemeManager.fontFamily
+                                font.family: ThemeManager.fontFor(text)
                                 font.pixelSize: ThemeManager.fontSizeSm
                                 font.weight: Font.Medium
                                 elide: Text.ElideRight
@@ -1041,7 +1047,7 @@ Item {
                                 Layout.fillWidth: true
                                 text: Object.keys(modelData.files || {}).length + " " + I18n.tr("files") + " · " + root._formatBytes(modelData.total)
                                 color: ThemeManager.onSurfaceVariant
-                                font.family: ThemeManager.fontFamily
+                                font.family: ThemeManager.fontFor(text)
                                 font.pixelSize: 10
                             }
                             RowLayout {
@@ -1059,7 +1065,7 @@ Item {
                     Layout.fillWidth: true
                     text: I18n.tr("No nearby devices")
                     color: ThemeManager.onSurfaceVariant
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: ThemeManager.fontSizeSm
                     opacity: 0.65
                 }
@@ -1083,7 +1089,7 @@ Item {
                         Rectangle {
                             implicitWidth: 32; implicitHeight: 32; radius: ThemeManager.chipRadius
                             color: _favMa.containsMouse ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.15) : "transparent"
-                            Text { anchors.centerIn: parent; text: modelData.favorite ? "󰋑" : "󰋕"; color: modelData.favorite ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 16 }
+                            Text { anchors.centerIn: parent; text: modelData.favorite ? "󰋑" : "󰋕"; color: modelData.favorite ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 16 }
                             MouseArea { id: _favMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: LocalSendService.setFavorite(modelData.fingerprint, !modelData.favorite, modelData.alias) }
                         }
                     }
@@ -1094,7 +1100,7 @@ Item {
                     Layout.fillWidth: true
                     text: LocalSendService.transfer.message
                     color: LocalSendService.transfer.state === "error" ? ThemeManager.error : ThemeManager.primary
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 10
                     wrapMode: Text.Wrap
                 }
@@ -1115,7 +1121,7 @@ Item {
                     Layout.fillWidth: true
                     text: I18n.tr("Received files are saved to your LocalSend downloads folder")
                     color: ThemeManager.onSurfaceVariant
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 9
                     opacity: 0.55
                     wrapMode: Text.Wrap
@@ -1145,7 +1151,7 @@ Item {
                     text: I18n.tr("Choose how windows are organised. The selection is saved for future sessions.")
                     wrapMode: Text.WordWrap
                     color: ThemeManager.onSurfaceVariant
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 10
                 }
                 Repeater {
@@ -1170,12 +1176,14 @@ Item {
                                 color: selected
                                     ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.20)
                                     : ThemeManager.surfaceContainerHigh
-                                Text {
+                                ColloidIcon {
                                     anchors.centerIn: parent
-                                    text: modelData.icon
+                                    iconName: modelData.id === "scrolling" ? "nodalix-layout-scrolling-symbolic"
+                                        : (modelData.id === "tabs" ? "nodalix-layout-tabs-symbolic" : "nodalix-layout-tiling-symbolic")
+                                    group: "actions"
+                                    fallbackGlyph: modelData.icon
                                     color: selected ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                                    font.family: ThemeManager.fontFamily
-                                    font.pixelSize: 17
+                                    iconSize: 19
                                 }
                             }
                             ColumnLayout {
@@ -1183,7 +1191,7 @@ Item {
                                 Text {
                                     text: modelData.name
                                     color: selected ? ThemeManager.primary : ThemeManager.onSurface
-                                    font.family: ThemeManager.fontFamily
+                                    font.family: ThemeManager.fontFor(text)
                                     font.pixelSize: ThemeManager.fontSizeMd
                                     font.bold: selected
                                 }
@@ -1191,7 +1199,7 @@ Item {
                                     Layout.fillWidth: true
                                     text: modelData.description
                                     color: ThemeManager.onSurfaceVariant
-                                    font.family: ThemeManager.fontFamily
+                                    font.family: ThemeManager.fontFor(text)
                                     font.pixelSize: 9
                                     elide: Text.ElideRight
                                 }
@@ -1199,7 +1207,7 @@ Item {
                             Text {
                                 visible: selected
                                 text: "󰄬"; color: ThemeManager.primary
-                                font.family: ThemeManager.fontFamily; font.pixelSize: 15
+                                font.family: ThemeManager.fontFor(text); font.pixelSize: 15
                             }
                         }
                         HoverHandler { id: _layoutHover; cursorShape: Qt.PointingHandCursor }
@@ -1214,7 +1222,7 @@ Item {
                     Layout.fillWidth: true
                     text: WindowLayoutService.statusText
                     color: ThemeManager.primary
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 10
                 }
             }
@@ -1259,11 +1267,13 @@ Item {
                             color: ScreenRecorderService.recording
                                 ? Qt.rgba(ThemeManager.error.r, ThemeManager.error.g, ThemeManager.error.b, 0.20)
                                 : Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.16)
-                            Text {
+                            ColloidIcon {
                                 anchors.centerIn: parent
-                                text: ScreenRecorderService.recording ? "󰑋" : "󰑊"
+                                iconName: "screenshooter-symbolic"
+                                group: "actions"
+                                fallbackGlyph: ScreenRecorderService.recording ? "󰑋" : "󰑊"
                                 color: ScreenRecorderService.recording ? ThemeManager.error : ThemeManager.primary
-                                font.family: ThemeManager.fontFamily; font.pixelSize: 17
+                                iconSize: 17
                             }
                         }
 
@@ -1276,14 +1286,14 @@ Item {
                                         : (ScreenRecorderService.paused ? I18n.tr("Recording paused") : I18n.tr("Recording")))
                                     : (ScreenRecorderService.starting ? I18n.tr("Preparing recording…") : I18n.tr("Start recording"))
                                 color: ScreenRecorderService.recording ? ThemeManager.error : ThemeManager.onSurface
-                                font.family: ThemeManager.fontFamily
+                                font.family: ThemeManager.fontFor(text)
                                 font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
                             }
                             Text {
                                 visible: ScreenRecorderService.recording
                                 text: ScreenRecorderService.elapsedText
                                 color: ThemeManager.onSurfaceVariant
-                                font.family: ThemeManager.fontFamily; font.pixelSize: 11
+                                font.family: ThemeManager.fontFor(text); font.pixelSize: 11
                             }
                         }
 
@@ -1339,7 +1349,7 @@ Item {
                     text: ScreenRecorderService.message
                     visible: text !== ""
                     color: ScreenRecorderService.error ? ThemeManager.error : ThemeManager.onSurfaceVariant
-                    font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                    font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                     wrapMode: Text.Wrap
                 }
             }
@@ -1375,7 +1385,7 @@ Item {
                 Layout.alignment: Qt.AlignHCenter
                 text: root._confirmAction === "reboot" ? "󰑙" : (root._confirmAction === "shutdown" ? "󰐥" : "󰍃")
                 color: ThemeManager.error
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: 32
             }
             Text {
@@ -1383,7 +1393,7 @@ Item {
                 text: I18n.tr(root._confirmAction === "reboot" ? "Reboot now?"
                     : (root._confirmAction === "shutdown" ? "Shut down now?" : "Log out now?"))
                 color: ThemeManager.onSurface
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: ThemeManager.fontSizeMd; font.weight: Font.Medium
             }
             RowLayout {
@@ -1412,7 +1422,7 @@ Item {
             anchors.centerIn: parent
             text: cb.label
             color: cb.danger ? ThemeManager.onError : ThemeManager.onSurface
-            font.family: ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
         }
         HoverHandler { id: _cbHov; cursorShape: Qt.PointingHandCursor }
@@ -1482,7 +1492,7 @@ Item {
                             ? new Date(root.calSelectedDate).toLocaleDateString(root._fr, "dddd, d MMMM")
                             : ""
                         color: ThemeManager.onSurface
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: ThemeManager.fontSizeMd; font.weight: Font.Bold
                         elide: Text.ElideRight
                     }
@@ -1517,7 +1527,7 @@ Item {
                             anchors.centerIn: parent
                             text: I18n.tr(CalendarService.busy ? "Saving…" : "Add event")
                             color: ThemeManager.onPrimary
-                            font.family: ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
                         }
                         MouseArea {
@@ -1542,7 +1552,7 @@ Item {
                     visible: !root.calCreating && _calPanel._events.length === 0 && _calPanel._reminders.length === 0
                     text: I18n.tr("No events")
                     color: ThemeManager.onSurfaceVariant
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: ThemeManager.fontSizeSm
                     opacity: 0.6
                 }
@@ -1580,14 +1590,14 @@ Item {
                                     Text {
                                         text: _evRow.modelData.stime !== "" ? _evRow.modelData.stime : I18n.tr("All day")
                                         color: ThemeManager.primary
-                                        font.family: ThemeManager.fontFamily
+                                        font.family: ThemeManager.fontFor(text)
                                         font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
                                     }
                                     Text {
                                         Layout.fillWidth: true
                                         text: _evRow.modelData.title
                                         color: ThemeManager.onSurface
-                                        font.family: ThemeManager.fontFamily
+                                        font.family: ThemeManager.fontFor(text)
                                         font.pixelSize: ThemeManager.fontSizeSm
                                         elide: Text.ElideRight
                                     }
@@ -1600,21 +1610,38 @@ Item {
                             }
 
                             // Details (expanded)
-                            Text {
+                            RowLayout {
                                 visible: _evRow.expanded && _evRow.modelData.stime !== ""
-                                text: "󱎫  " + _evRow.modelData.stime + " – " + _evRow.modelData.etime
-                                color: ThemeManager.onSurfaceVariant
-                                font.family: ThemeManager.fontFamily; font.pixelSize: 11
                                 Layout.leftMargin: 11
+                                spacing: 6
+                                Text {
+                                    text: "󱎫"
+                                    color: ThemeManager.onSurfaceVariant
+                                    font.family: ThemeManager.fontFor(text); font.pixelSize: 11
+                                }
+                                Text {
+                                    text: _evRow.modelData.stime + " – " + _evRow.modelData.etime
+                                    color: ThemeManager.onSurfaceVariant
+                                    font.family: ThemeManager.fontFor(text); font.pixelSize: 11
+                                }
                             }
-                            Text {
+                            RowLayout {
                                 visible: _evRow.expanded && _evRow.modelData.location !== ""
-                                text: "󰍎  " + _evRow.modelData.location
-                                color: ThemeManager.onSurfaceVariant
-                                font.family: ThemeManager.fontFamily; font.pixelSize: 11
-                                wrapMode: Text.WordWrap
                                 Layout.fillWidth: true
                                 Layout.leftMargin: 11
+                                spacing: 6
+                                Text {
+                                    text: "󰍎"
+                                    color: ThemeManager.onSurfaceVariant
+                                    font.family: ThemeManager.fontFor(text); font.pixelSize: 11
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: _evRow.modelData.location
+                                    color: ThemeManager.onSurfaceVariant
+                                    font.family: ThemeManager.fontFor(text); font.pixelSize: 11
+                                    wrapMode: Text.WordWrap
+                                }
                             }
                             // Description with clickable links
                             Text {
@@ -1624,7 +1651,7 @@ Item {
                                 textFormat: Text.StyledText
                                 linkColor: ThemeManager.primary
                                 color: ThemeManager.onSurfaceVariant
-                                font.family: ThemeManager.fontFamily; font.pixelSize: 11
+                                font.family: ThemeManager.fontFor(text); font.pixelSize: 11
                                 wrapMode: Text.WordWrap
                                 Layout.fillWidth: true
                                 Layout.leftMargin: 11
@@ -1651,7 +1678,7 @@ Item {
                     visible: !root.calCreating && _calPanel._reminders.length > 0
                     text: I18n.tr("Reminders")
                     color: ThemeManager.onSurfaceVariant
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: ThemeManager.fontSizeSm
                     font.weight: Font.Medium
                     Layout.topMargin: 4
@@ -1671,14 +1698,14 @@ Item {
                             Text {
                                 text: "󰄱"
                                 color: ThemeManager.primary
-                                font.family: ThemeManager.fontFamily
+                                font.family: ThemeManager.fontFor(text)
                                 font.pixelSize: 15
                             }
                             Text {
                                 Layout.fillWidth: true
                                 text: modelData.title
                                 color: ThemeManager.onSurface
-                                font.family: ThemeManager.fontFamily
+                                font.family: ThemeManager.fontFor(text)
                                 font.pixelSize: ThemeManager.fontSizeSm
                                 elide: Text.ElideRight
                             }
@@ -1699,7 +1726,7 @@ Item {
             anchors.centerIn: parent
             text: parent.icon
             color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily; font.pixelSize: 15
+            font.family: ThemeManager.fontFor(text); font.pixelSize: 15
         }
         MouseArea { id: _cibMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
     }
@@ -1718,7 +1745,7 @@ Item {
             anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
             verticalAlignment: TextInput.AlignVCenter
             color: ThemeManager.onSurface
-            font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
             clip: true
             Text {
                 anchors.verticalCenter: parent.verticalCenter
@@ -1762,7 +1789,7 @@ Item {
                         Layout.fillWidth: true
                         text: modelData.name
                         color: ThemeManager.onSurfaceVariant
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: 9
                         horizontalAlignment: Text.AlignHCenter
                         elide: Text.ElideRight
@@ -1786,7 +1813,7 @@ Item {
                 Layout.alignment: Qt.AlignHCenter
                 text: I18n.tr("No controllable displays found")
                 color: ThemeManager.error
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: 10
                 wrapMode: Text.Wrap
                 horizontalAlignment: Text.AlignHCenter
@@ -1802,7 +1829,7 @@ Item {
             Text {
                 text: I18n.tr("Theme")
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
             }
             Repeater {
@@ -1824,7 +1851,7 @@ Item {
                         anchors { left: parent.left; leftMargin: 12; verticalCenter: parent.verticalCenter }
                         text: modelData.name
                         color: parent.active ? ThemeManager.primary : ThemeManager.onSurface
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: ThemeManager.fontSizeSm
                     }
                     MouseArea {
@@ -1858,7 +1885,7 @@ Item {
                 visible: !(Bluetooth.defaultAdapter?.enabled ?? false)
                 text: I18n.tr("Adapter off")
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 opacity: 0.6
                 Layout.topMargin: 4
             }
@@ -1905,7 +1932,7 @@ Item {
                 visible: !root.wifiEnabled
                 text: I18n.tr("Wi-Fi off")
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 opacity: 0.6
                 Layout.topMargin: 4
             }
@@ -1962,7 +1989,7 @@ Item {
                         Layout.fillWidth: true
                         text: I18n.tr("Connect to %1").arg(root.wifiSelectedSsid)
                         color: ThemeManager.onSurface
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: ThemeManager.fontSizeSm
                         font.weight: Font.Medium
                         elide: Text.ElideRight
@@ -1978,7 +2005,7 @@ Item {
                             anchors { fill: parent; leftMargin: 10; rightMargin: 34 }
                             verticalAlignment: TextInput.AlignVCenter
                             color: ThemeManager.onSurface
-                            font.family: ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: ThemeManager.fontSizeSm
                             echoMode: _wifiReveal.checked ? TextInput.Normal : TextInput.Password
                             clip: true
@@ -2000,7 +2027,7 @@ Item {
                             anchors { right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
                             text: checked ? "󰈉" : "󰈈"
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: 14
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: 14
                             MouseArea { anchors.fill: parent; anchors.margins: -7; cursorShape: Qt.PointingHandCursor; onClicked: _wifiReveal.checked = !_wifiReveal.checked }
                         }
                     }
@@ -2009,7 +2036,7 @@ Item {
                         Layout.fillWidth: true
                         text: root.wifiConnectError
                         color: ThemeManager.error
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: 10
                         wrapMode: Text.Wrap
                     }
@@ -2053,7 +2080,7 @@ Item {
             Text {
                 text: I18n.tr("VPN")
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
             }
 
@@ -2061,7 +2088,7 @@ Item {
                 visible: root.vpnList.length === 0 && !root.tailscaleDetected
                 text: I18n.tr("No VPN connections")
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 opacity: 0.6
                 Layout.topMargin: 4
             }
@@ -2115,7 +2142,7 @@ Item {
         Text {
             text: mh.title
             color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
             Layout.fillWidth: true
         }
@@ -2153,15 +2180,15 @@ Item {
         RowLayout {
             anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
             spacing: 8
-            Text {
+            ColloidIcon {
                 text: mr.icon
                 color: mr.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily; font.pixelSize: 14
+                iconSize: 16
             }
             Text {
                 text: mr.text
                 color: mr.active ? ThemeManager.primary : ThemeManager.onSurface
-                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 elide: Text.ElideRight
                 Layout.fillWidth: true
             }
@@ -2169,7 +2196,7 @@ Item {
                 visible: mr.trailing !== ""
                 text: mr.trailing
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                font.family: ThemeManager.fontFor(text); font.pixelSize: 10
             }
         }
         MouseArea {
@@ -2192,15 +2219,17 @@ Item {
         RowLayout {
             anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
             spacing: 6
-            Text {
-                text: "󰏌"
+            ColloidIcon {
+                iconName: "go-next-symbolic"
+                group: "actions"
+                fallbackGlyph: "󰏌"
                 color: ThemeManager.primary
-                font.family: ThemeManager.fontFamily; font.pixelSize: 13
+                iconSize: 13
             }
             Text {
                 text: mf.text
                 color: ThemeManager.onSurface
-                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 Layout.fillWidth: true
             }
         }
@@ -2233,6 +2262,9 @@ Item {
     component QsIcon: Item {
         id: qi
         property string icon: ""
+        property string iconName: ""
+        property string iconGroup: "status"
+        property int iconVisualSize: 18
         property url imageSource: ""
         property string key:  ""
         property bool   toggle: false       // true = act directly, no flyout
@@ -2252,19 +2284,21 @@ Item {
                 : (_ma.containsMouse ? Qt.rgba(ThemeManager.onSurface.r, ThemeManager.onSurface.g, ThemeManager.onSurface.b, 0.08) : "transparent")
             Behavior on color { ColorAnimation { duration: 100 } }
         }
-        Text {
+        ColloidIcon {
             visible: qi.imageSource.toString() === ""
             anchors.centerIn: parent
-            text: qi.icon
+            iconName: qi.iconName
+            group: qi.iconGroup
+            fallbackGlyph: qi.icon
             color: qi.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily
-            font.pixelSize: 17
+            iconSize: qi.iconVisualSize
+            iconPadding: qi.iconVisualSize > 18 ? 0 : 1
         }
         Image {
             id: _qsImage
             visible: qi.imageSource.toString() !== ""
             anchors.centerIn: parent
-            width: 22; height: 22
+            width: 18; height: 18
             source: qi.imageSource
             fillMode: Image.PreserveAspectFit
             smooth: true
@@ -2318,7 +2352,7 @@ Item {
                     visible: _face.status !== Image.Ready
                     text: "󰀄"
                     color: ThemeManager.onSurfaceVariant
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 26
                 }
             }
@@ -2330,7 +2364,7 @@ Item {
                 Text {
                     text: root.userName !== "" ? root.userName : I18n.tr("user")
                     color: ThemeManager.onSurface
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: ThemeManager.fontSizeLg; font.weight: Font.Bold
                     elide: Text.ElideRight
                     Layout.fillWidth: true
@@ -2346,7 +2380,7 @@ Item {
                         visible: !pc._hover
                         text: root.uptimeSeconds > 0 ? I18n.tr("up ") + root._formatUptime(root.uptimeSeconds) : ""
                         color: ThemeManager.onSurfaceVariant
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: ThemeManager.fontSizeSm
                         elide: Text.ElideRight
                     }
@@ -2378,12 +2412,11 @@ Item {
         color: _msHov.hovered
             ? Qt.rgba(_accent.r, _accent.g, _accent.b, 0.16)
             : ThemeManager.surfaceContainerHigh
-        Text {
+        ColloidIcon {
             anchors.centerIn: parent
             text: ms.icon
             color: _msHov.hovered ? ms._accent : ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily
-            font.pixelSize: 13
+            iconSize: 15
         }
         HoverHandler { id: _msHov; cursorShape: Qt.PointingHandCursor }
         TapHandler { onTapped: ms.clicked() }
@@ -2408,7 +2441,7 @@ Item {
                 verticalAlignment: Text.AlignVCenter
                 text: I18n.tr("No media")
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: ThemeManager.fontSizeSm
                 opacity: 0.6
             }
@@ -2460,7 +2493,7 @@ Item {
                         visible: _art.status !== Image.Ready
                         text: "󰝚"
                         color: ThemeManager.onSurfaceVariant
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: 30
                     }
                 }
@@ -2472,7 +2505,7 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
                 text: MprisService.title
                 color: ThemeManager.onSurface
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
                 elide: Text.ElideRight
             }
@@ -2482,7 +2515,7 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
                 text: MprisService.artist
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: 10
                 elide: Text.ElideRight
             }
@@ -2512,12 +2545,11 @@ Item {
             : (_mbMa.containsMouse ? Qt.rgba(ThemeManager.onSurface.r, ThemeManager.onSurface.g, ThemeManager.onSurface.b, 0.10) : "transparent")
         opacity: mb.enabled ? 1 : 0.35
         Behavior on color { ColorAnimation { duration: 100 } }
-        Text {
+        ColloidIcon {
             anchors.centerIn: parent
             text: mb.icon
             color: mb.big ? ThemeManager.onPrimary : ThemeManager.onSurface
-            font.family: ThemeManager.fontFamily
-            font.pixelSize: mb.big ? 18 : 15
+            iconSize: mb.big ? 18 : 16
         }
         MouseArea {
             id: _mbMa; anchors.fill: parent
@@ -2543,9 +2575,11 @@ Item {
 
             Text {
                 visible: !WeatherService.ok
-                text: I18n.tr("Weather unavailable")
+                text: WeatherService.loading
+                    ? (I18n.language === "es" ? "Cargando el tiempo…" : "Loading weather…")
+                    : I18n.tr("Weather unavailable")
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: ThemeManager.fontSizeSm
                 opacity: 0.6
             }
@@ -2557,7 +2591,7 @@ Item {
                 Text {
                     text: WeatherService.icon
                     color: ThemeManager.primary
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 32
                 }
                 ColumnLayout {
@@ -2566,13 +2600,13 @@ Item {
                     Text {
                         text: WeatherService.temp + WeatherService.unit
                         color: ThemeManager.onSurface
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: 22; font.weight: Font.Bold
                     }
                     Text {
                         text: WeatherService.desc
                         color: ThemeManager.onSurfaceVariant
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: ThemeManager.fontSizeSm
                         elide: Text.ElideRight
                         Layout.fillWidth: true
@@ -2584,7 +2618,7 @@ Item {
                 visible: WeatherService.ok
                 text: WeatherService.location + "  ·  " + I18n.tr("feels") + " " + WeatherService.feels + "°  ·  " + WeatherService.humidity + "%"
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: 10
                 elide: Text.ElideRight
                 Layout.fillWidth: true
@@ -2605,19 +2639,19 @@ Item {
                             Layout.alignment: Qt.AlignHCenter
                             text: modelData.day
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                         }
                         Text {
                             Layout.alignment: Qt.AlignHCenter
                             text: modelData.icon
                             color: ThemeManager.primary
-                            font.family: ThemeManager.fontFamily; font.pixelSize: 14
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: 14
                         }
                         Text {
                             Layout.alignment: Qt.AlignHCenter
                             text: WeatherService.conv(modelData.max) + "°/" + WeatherService.conv(modelData.min) + "°"
                             color: ThemeManager.onSurface
-                            font.family: ThemeManager.fontFamily; font.pixelSize: 9
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: 9
                         }
                     }
                 }
@@ -2681,7 +2715,7 @@ Item {
             anchors.centerIn: _cv
             text: ring.value
             color: ThemeManager.onSurface
-            font.family: ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: 10; font.weight: Font.Medium
         }
         Text {
@@ -2689,7 +2723,7 @@ Item {
             anchors.top: _cv.bottom; anchors.topMargin: 2
             text: ring.label
             color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily; font.pixelSize: 9
+            font.family: ThemeManager.fontFor(text); font.pixelSize: 9
         }
     }
 
@@ -2709,7 +2743,7 @@ Item {
             Text {
                 text: cal.view.toLocaleDateString(root._fr, "MMMM yyyy")
                 color: ThemeManager.onSurface
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: ThemeManager.fontSizeMd; font.weight: Font.Medium
                 Layout.fillWidth: true
             }
@@ -2730,7 +2764,7 @@ Item {
                     horizontalAlignment: Text.AlignHCenter
                     text: modelData
                     color: ThemeManager.onSurfaceVariant
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 10; font.weight: Font.Medium
                     opacity: 0.7
                 }
@@ -2777,7 +2811,7 @@ Item {
                             ? ThemeManager.onPrimary
                             : (_cell._inMonth ? ThemeManager.onSurface : ThemeManager.onSurfaceVariant)
                         opacity: _cell._inMonth ? 1.0 : 0.35
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: ThemeManager.fontSizeSm
                     }
                     // Event dot
@@ -2813,7 +2847,7 @@ Item {
             anchors.centerIn: parent
             text: parent.icon
             color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily; font.pixelSize: 14
+            font.family: ThemeManager.fontFor(text); font.pixelSize: 14
         }
         MouseArea {
             id: _ma; anchors.fill: parent
@@ -2830,7 +2864,7 @@ Item {
         property real   value: 0          // 0..1
         signal moved(real frac)
 
-        readonly property int _trackW: 6
+        readonly property int _trackW: 18
         readonly property int _thumbR: 10
         readonly property int _trackH: 150
 
@@ -2840,7 +2874,7 @@ Item {
             Layout.alignment: Qt.AlignHCenter
             text: vs.label
             color: ThemeManager.onSurface
-            font.family: ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
         }
 
@@ -2851,18 +2885,22 @@ Item {
             implicitHeight: vs._trackH + vs._thumbR * 2
 
             readonly property real frac:    Math.max(0, Math.min(1, vs.value))
-            readonly property real thumbCY: vs._thumbR + (1.0 - frac) * (vs._trackH - vs._thumbR * 2)
+            readonly property real thumbCY: vs._thumbR + (1.0 - frac) * vs._trackH
 
             Rectangle {
                 anchors.horizontalCenter: parent.horizontalCenter
                 y: vs._thumbR; width: vs._trackW; height: vs._trackH
                 radius: vs._trackW / 2
-                color: ThemeManager.surfaceContainerHigh
+                color: ThemeManager.outlineVariant
                 clip: true
+                antialiasing: true
                 Rectangle {
                     anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
-                    height: _body.frac * vs._trackH
-                    color: ThemeManager.primary
+                    anchors.margins: 2
+                    height: Math.max(0, (vs._trackH - 4) * _body.frac)
+                    radius: 7
+                    antialiasing: true
+                    color: Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.42)
                     Behavior on height { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
                 }
             }
@@ -2872,7 +2910,7 @@ Item {
                 y: _body.thumbCY - vs._thumbR
                 width: vs._thumbR * 2; height: vs._thumbR * 2
                 radius: vs._thumbR
-                color: ThemeManager.primary
+                color: ThemeManager.onSurface
                 Behavior on y { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
             }
 
@@ -2891,12 +2929,11 @@ Item {
             }
         }
 
-        Text {
+        ColloidIcon {
             Layout.alignment: Qt.AlignHCenter
             text: vs.icon
             color: ThemeManager.primary
-            font.family: ThemeManager.fontFamily
-            font.pixelSize: 16
+            iconSize: 18
         }
     }
 
@@ -2908,29 +2945,38 @@ Item {
         signal moved(real frac)
         implicitHeight: 28
 
-        Text {
+        ColloidIcon {
             id: _ic
             anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
             text: sl.icon
             color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily; font.pixelSize: 16
+            iconSize: 18
         }
         Rectangle {
             id: _track
             anchors { left: _ic.right; leftMargin: 10; right: parent.right; verticalCenter: parent.verticalCenter }
-            height: 6; radius: 3
-            color: ThemeManager.surfaceContainerHigh
+            height: 18; radius: 9
+            color: ThemeManager.outlineVariant
+            antialiasing: true
             Rectangle {
                 anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                width: Math.max(6, parent.width * Math.max(0, Math.min(1, sl.value)))
-                radius: 3
-                color: ThemeManager.primary
+                anchors.margins: 2
+                width: Math.max(0, (parent.width - 4) * Math.max(0, Math.min(1, sl.value)))
+                radius: 7
+                antialiasing: true
+                color: Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.42)
                 Behavior on width { NumberAnimation { duration: 60 } }
+            }
+            Rectangle {
+                width: 20; height: 20; radius: 10; y: -1
+                x: Math.max(0, Math.min(_track.width - width, _track.width * Math.max(0, Math.min(1, sl.value)) - width / 2))
+                color: ThemeManager.onSurface
+                Behavior on x { NumberAnimation { duration: 60 } }
             }
             MouseArea {
                 anchors.fill: parent; anchors.margins: -8
                 cursorShape: Qt.PointingHandCursor
-                function apply(x) { sl.moved(Math.max(0, Math.min(1, (x + 8) / _track.width))) }
+                function apply(x) { sl.moved(Math.max(0, Math.min(1, (x - 8) / _track.width))) }
                 onPressed:         (e) => apply(e.x)
                 onPositionChanged: (e) => { if (pressed) apply(e.x) }
             }

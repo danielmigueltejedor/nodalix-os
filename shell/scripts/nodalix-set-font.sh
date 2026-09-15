@@ -4,14 +4,14 @@ set -eu
 font_family=${1:-}
 
 case "$font_family" in
-    "JetBrainsMono Nerd Font"|"JetBrainsMono Nerd Font Propo"|"Noto Sans"|"Adwaita Sans"|"Noto Sans Mono") ;;
+    "JetBrainsMono Nerd Font"|"JetBrainsMono Nerd Font Propo"|"Noto Sans"|"Adwaita Sans"|"Noto Sans Mono"|"Geist") ;;
     *)
         printf '%s\n' "Unsupported font: $font_family" >&2
         exit 2
         ;;
 esac
 
-if ! fc-match "$font_family" >/dev/null 2>&1; then
+if ! fc-list -f '%{family}\n' | tr ',' '\n' | sed 's/^ *//; s/ *$//' | grep -Fx "$font_family" >/dev/null; then
     printf '%s\n' "Font is not installed: $font_family" >&2
     exit 3
 fi

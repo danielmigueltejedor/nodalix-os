@@ -95,7 +95,7 @@ WlSessionLock {
             Text {
                 text: surf.now.toLocaleTimeString(surf._fr, "HH:mm")
                 color: "white"
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: 120
                 font.weight: Font.Bold
             }
@@ -103,7 +103,7 @@ WlSessionLock {
                 text: surf.now.toLocaleDateString(surf._fr, "dddd, d MMMM yyyy")
                 color: "white"
                 opacity: 0.85
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: 26
             }
         }
@@ -123,7 +123,7 @@ WlSessionLock {
                 anchors.verticalCenter: parent.verticalCenter
                 text: WeatherService.icon
                 color: "white"
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: 56
             }
             Column {
@@ -132,13 +132,13 @@ WlSessionLock {
                 Text {
                     text: WeatherService.temp + WeatherService.unit
                     color: "white"
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 40; font.weight: Font.Bold
                 }
                 Text {
                     text: WeatherService.desc + "  ·  " + WeatherService.location
                     color: "white"; opacity: 0.85
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 18
                 }
             }
@@ -171,7 +171,7 @@ WlSessionLock {
                     visible: _face.status !== Image.Ready
                     text: "󰀄"
                     color: "white"
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 64
                 }
             }
@@ -182,7 +182,7 @@ WlSessionLock {
                 text: LockService.userName
                 visible: LockService.userName !== ""
                 color: "white"
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: 20; font.weight: Font.Medium
             }
 
@@ -190,7 +190,7 @@ WlSessionLock {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: surf.now.toLocaleTimeString(surf._fr, "HH:mm")
                 color: "white"
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: 34; font.weight: Font.Medium
             }
 
@@ -208,7 +208,7 @@ WlSessionLock {
                     anchors { fill: parent; leftMargin: 18; rightMargin: 18 }
                     verticalAlignment: TextInput.AlignVCenter
                     color: "white"
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 18
                     echoMode: TextInput.Password
                     passwordCharacter: "●"
@@ -231,7 +231,7 @@ WlSessionLock {
                     visible: LockService.busy
                     text: I18n.tr("Checking…")
                     color: Qt.rgba(1, 1, 1, 0.7)
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 16
                 }
             }
@@ -241,7 +241,7 @@ WlSessionLock {
                 text: LockService.error
                 visible: LockService.error !== ""
                 color: ThemeManager.error
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: 14
             }
         }

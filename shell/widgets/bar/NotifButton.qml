@@ -14,12 +14,11 @@ Item {
         PopoutService.hasCurrent && PopoutService.currentName === "notif" &&
         PopoutService.anchorScreen?.name === root.barScreen?.name
 
-    Text {
+    ColloidIcon {
         id: _icon
-        text: NotificationService.doNotDisturb ? "󰂛" : "󰂚"
+        iconName: NotificationService.doNotDisturb ? "notification-disabled-symbolic" : "notification-new-symbolic"
+        fallbackGlyph: NotificationService.doNotDisturb ? "󰂛" : "󰂚"
         color: root._thisScreenOpen ? ThemeManager.primary : ThemeManager.onSurface
-        font.family: ThemeManager.fontFamily
-        font.pixelSize: 15
         anchors.verticalCenter: parent.verticalCenter
 
         Behavior on color { ColorAnimation { duration: 120 } }
@@ -38,7 +37,7 @@ Item {
             id: _badgeText
             text: NotificationService.unreadCount > 99 ? "99+" : NotificationService.unreadCount
             color: ThemeManager.onError
-            font.family: ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: 8
             font.weight: Font.Bold
             anchors.centerIn: parent

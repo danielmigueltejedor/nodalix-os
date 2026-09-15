@@ -5,6 +5,7 @@ import Quickshell.Widgets
 import Quickshell.Wayland
 import "../theme"
 import "../services"
+import "../widgets/bar"
 
 PanelWindow {
     id: root
@@ -97,31 +98,46 @@ PanelWindow {
                         Layout.fillWidth: true
                         spacing: 6
 
-                        IconImage {
-                            readonly property string rawIcon: notif?.appIcon || notif?.image || ""
-                            source: rawIcon.startsWith("/")
-                                ? "file://" + rawIcon
-                                : rawIcon.indexOf("://") >= 0 ? rawIcon
-                                : Quickshell.iconPath(rawIcon, true)
-                            implicitSize: 16
+                        Item {
+                            implicitWidth: 18
+                            implicitHeight: 18
                             Layout.alignment: Qt.AlignVCenter
+                            IconImage {
+                                id: _toastAppIcon
+                                anchors.fill: parent
+                                readonly property string rawIcon: notif?.appIcon || notif?.image || ""
+                                source: rawIcon.startsWith("/")
+                                    ? "file://" + rawIcon
+                                    : rawIcon.indexOf("://") >= 0 ? rawIcon
+                                    : Quickshell.iconPath(rawIcon, true)
+                                implicitSize: 18
+                                visible: status === Image.Ready
+                            }
+                            ColloidIcon {
+                                anchors.fill: parent
+                                visible: !_toastAppIcon.visible
+                                iconName: "application-menu-symbolic"
+                                group: "actions"
+                                iconSize: 18
+                                color: ThemeManager.primary
+                            }
                         }
 
                         Text {
                             text: notif?.appName || ""
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: ThemeManager.fontSizeSm
                             elide: Text.ElideRight
                             Layout.fillWidth: true
                             Layout.alignment: Qt.AlignVCenter
                         }
 
-                        Text {
-                            text: "󰅖"
+                        ColloidIcon {
+                            iconName: "window-close-symbolic"
+                            group: "actions"
+                            iconSize: 16
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily
-                            font.pixelSize: 13
                             opacity: _closeArea.containsMouse ? 1.0 : 0.5
                             Layout.alignment: Qt.AlignVCenter
 
@@ -139,7 +155,7 @@ PanelWindow {
                         visible: (notif?.summary || "").length > 0
                         text: notif?.summary || ""
                         color: ThemeManager.onSurface
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: ThemeManager.fontSizeSm
                         font.weight: Font.Medium
                         wrapMode: Text.WordWrap
@@ -150,7 +166,7 @@ PanelWindow {
                         visible: (notif?.body || "").length > 0
                         text: notif?.body || ""
                         color: ThemeManager.onSurfaceVariant
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: ThemeManager.fontSizeSm
                         wrapMode: Text.WordWrap
                         maximumLineCount: 2

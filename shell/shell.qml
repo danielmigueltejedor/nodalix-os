@@ -149,6 +149,16 @@ ShellRoot {
         function close():  void { SettingsUi.hide() }
     }
 
+    IpcHandler {
+        target: "dashboard"
+        function open(): void {
+            if (root.uniqueScreens.length === 0) return
+            PopoutService.open("dashboard", 250, root.uniqueScreens[0])
+            PopoutService.pinned = true
+        }
+        function close(): void { PopoutService.close() }
+    }
+
     // Notification center control through its Quickshell IPC target.
     IpcHandler {
         target: "notifications"

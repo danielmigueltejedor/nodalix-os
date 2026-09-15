@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell.Io
 import "../theme"
 import "../services"
+import "../widgets/bar"
 
 Item {
     id: root
@@ -71,11 +72,10 @@ Item {
         }
         spacing: 8
 
-        Text {
+        ColloidIcon {
             Layout.alignment: Qt.AlignHCenter
             text: root._confirm === "reboot" ? "󰑙" : (root._confirm === "shutdown" ? "󰐥" : "󰍃")
             color: ThemeManager.error
-            font.family: ThemeManager.fontFamily
             font.pixelSize: 28
         }
         Text {
@@ -83,7 +83,7 @@ Item {
             text: I18n.tr(root._confirm === "reboot" ? "Reboot now?"
                 : (root._confirm === "shutdown" ? "Shut down now?" : "Log out now?"))
             color: ThemeManager.onSurface
-            font.family: ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: ThemeManager.fontSizeMd; font.weight: Font.Medium
         }
 
@@ -133,17 +133,16 @@ Item {
             anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
             spacing: 10
 
-            Text {
+            ColloidIcon {
                 text:             pa.icon
                 color:            _hov.hovered ? pa._accent : ThemeManager.onSurfaceVariant
-                font.family:      ThemeManager.fontFamily
                 font.pixelSize:   16
                 Layout.alignment: Qt.AlignVCenter
             }
             Text {
                 text:             pa.label
                 color:            _hov.hovered ? pa._accent : ThemeManager.onSurfaceVariant
-                font.family:      ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize:   ThemeManager.fontSizeSm
                 font.weight:      Font.Medium
                 Layout.fillWidth: true
@@ -176,7 +175,7 @@ Item {
             anchors.centerIn: parent
             text: cb.label
             color: cb.danger ? ThemeManager.onError : ThemeManager.onSurface
-            font.family: ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
         }
         HoverHandler { id: _cbHov; cursorShape: Qt.PointingHandCursor }

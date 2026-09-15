@@ -16,4 +16,22 @@ if [ ! -e "$marker" ] && [ -d "$old_state" ]; then
     fi
 fi
 
+# Set the Nodalix icon default once; later user choices remain untouched.
+icon_marker="$new_state/.colloid-icon-theme-v1"
+if [ ! -e "$icon_marker" ] && [ -d /usr/share/icons/Colloid-Teal ] && command -v gsettings >/dev/null 2>&1; then
+    current_icon=$(gsettings get org.gnome.desktop.interface icon-theme 2>/dev/null || true)
+    if [ -n "$current_icon" ]; then
+        icon_ready=1
+        case "$current_icon" in
+            "'Adwaita'"|"''")
+                gsettings set org.gnome.desktop.interface icon-theme Colloid-Teal >/dev/null 2>&1 || icon_ready=0
+                ;;
+        esac
+        if [ "$icon_ready" -eq 1 ]; then
+            mkdir -p "$new_state"
+            : > "$icon_marker"
+        fi
+    fi
+fi
+
 exec qs --no-duplicate -c nodalix "$@"

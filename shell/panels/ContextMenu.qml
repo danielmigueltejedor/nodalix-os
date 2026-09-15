@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import "../theme"
 import "../services"
+import "../widgets/bar"
 
 // Floating right-click context menu for a network or bluetooth device. Rendered
 // top-level by MainWindow at the cursor; reads its target from ContextMenuService.
@@ -40,7 +41,7 @@ Rectangle {
                 return root.target.name || root.target.deviceName || ("" + root.target.address)
             }
             color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: 10; font.weight: Font.Medium
             elide: Text.ElideRight
         }
@@ -78,7 +79,7 @@ Rectangle {
                     anchors { fill: parent; leftMargin: 10; rightMargin: 30 }
                     verticalAlignment: TextInput.AlignVCenter
                     color: ThemeManager.onSurface
-                    font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                    font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                     echoMode: _reveal.checked ? TextInput.Normal : TextInput.Password
                     clip: true
                     onAccepted: if (root.target) { root.target.connectWithPsk(text); ContextMenuService.close() }
@@ -89,13 +90,13 @@ Rectangle {
                         font: _psk.font
                     }
                 }
-                Text {
+                ColloidIcon {
                     id: _reveal
                     property bool checked: false
                     anchors { right: parent.right; verticalCenter: parent.verticalCenter; rightMargin: 8 }
                     text: checked ? "󰈉" : "󰈈"
                     color: ThemeManager.onSurfaceVariant
-                    font.family: ThemeManager.fontFamily; font.pixelSize: 14
+                    font.pixelSize: 14
                     MouseArea { anchors.fill: parent; anchors.margins: -6; cursorShape: Qt.PointingHandCursor; onClicked: _reveal.checked = !_reveal.checked }
                 }
             }
@@ -140,7 +141,7 @@ Rectangle {
                 anchors { fill: parent; leftMargin: 10; rightMargin: 30 }
                 verticalAlignment: TextInput.AlignVCenter
                 color: ThemeManager.onSurface
-                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 clip: true
                 text: (root.kind === "bt" && root.target) ? (root.target.name || root.target.deviceName || "") : ""
                 onAccepted: if (root.target) { root.target.name = text; focus = false }
@@ -148,7 +149,7 @@ Rectangle {
             Text {
                 anchors { right: parent.right; verticalCenter: parent.verticalCenter; rightMargin: 8 }
                 text: "󰸞"; color: ThemeManager.primary
-                font.family: ThemeManager.fontFamily; font.pixelSize: 15
+                font.family: ThemeManager.fontFor(text); font.pixelSize: 15
                 MouseArea { anchors.fill: parent; anchors.margins: -6; cursorShape: Qt.PointingHandCursor
                     onClicked: if (root.target) { root.target.name = _rename.text; _rename.focus = false } }
             }
@@ -159,7 +160,7 @@ Rectangle {
             Layout.fillWidth: true; Layout.leftMargin: 5; Layout.topMargin: 2
             text: I18n.tr("Audio profile")
             color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily; font.pixelSize: 9; font.weight: Font.Medium
+            font.family: ThemeManager.fontFor(text); font.pixelSize: 9; font.weight: Font.Medium
         }
         Repeater {
             model: (root.kind === "bt" && root.target?.connected) ? ContextMenuService._profiles : []
@@ -200,16 +201,16 @@ Rectangle {
         RowLayout {
             anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
             spacing: 8
-            Text {
+            ColloidIcon {
                 text: mi.icon
                 color: mi.danger ? ThemeManager.error : (mi.highlight ? ThemeManager.primary : ThemeManager.onSurfaceVariant)
-                font.family: ThemeManager.fontFamily; font.pixelSize: mi.small ? 12 : 14
+                font.pixelSize: mi.small ? 12 : 14
             }
             Text {
                 Layout.fillWidth: true
                 text: mi.label
                 color: mi.danger ? ThemeManager.error : (mi.highlight ? ThemeManager.primary : ThemeManager.onSurface)
-                font.family: ThemeManager.fontFamily; font.pixelSize: mi.small ? 11 : ThemeManager.fontSizeSm
+                font.family: ThemeManager.fontFor(text); font.pixelSize: mi.small ? 11 : ThemeManager.fontSizeSm
                 elide: Text.ElideRight
             }
         }

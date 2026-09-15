@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell.Bluetooth
 import "../theme"
 import "../services"
+import "../widgets/bar"
 
 // In-shell Bluetooth manager (replaces blueman-manager). Adapter toggle + scan;
 // left-click a device to connect/disconnect, right-click for the context menu
@@ -40,7 +41,7 @@ Item {
                 Text {
                     text: I18n.tr("Bluetooth")
                     color: ThemeManager.onSurfaceVariant
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
                     Layout.fillWidth: true
                 }
@@ -51,11 +52,11 @@ Item {
                     readonly property bool _on: root.adapter?.discovering ?? false
                     color: _on ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.2)
                                : (_scanMa.containsMouse ? Qt.rgba(ThemeManager.onSurface.r, ThemeManager.onSurface.g, ThemeManager.onSurface.b, 0.08) : "transparent")
-                    Text {
+                    ColloidIcon {
                         anchors.centerIn: parent
                         text: "󰜉"
                         color: _scanBtn._on ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                        font.family: ThemeManager.fontFamily; font.pixelSize: 13
+                        font.pixelSize: 13
                         RotationAnimation on rotation {
                             running: _scanBtn._on; from: 0; to: 360; duration: 1400; loops: Animation.Infinite
                         }
@@ -85,7 +86,7 @@ Item {
                 visible: !root.btEnabled
                 text: I18n.tr("Adapter off")
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 opacity: 0.6
                 Layout.topMargin: 4
             }
@@ -106,10 +107,10 @@ Item {
                     RowLayout {
                         anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
                         spacing: 8
-                        Text {
+                        ColloidIcon {
                             text: _devRow.modelData.connected ? "󰂱" : "󰂯"
                             color: _devRow.modelData.connected ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: 14
+                            font.pixelSize: 14
                         }
                         Text {
                             Layout.fillWidth: true
@@ -117,20 +118,20 @@ Item {
                                   ? _devRow.modelData.name
                                   : (_devRow.modelData.deviceName || ("" + _devRow.modelData.address))
                             color: _devRow.modelData.connected ? ThemeManager.primary : ThemeManager.onSurface
-                            font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                             elide: Text.ElideRight
                         }
                         Text {
                             visible: _devRow.modelData.connected && (_devRow.modelData.batteryAvailable ?? false)
                             text: Math.round((_devRow.modelData.battery ?? 0) * 100) + "%"
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                         }
                         Text {
                             visible: !_devRow.modelData.connected && _devRow.modelData.paired
                             text: I18n.tr("Paired")
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                         }
                     }
                     MouseArea {

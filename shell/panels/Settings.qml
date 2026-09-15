@@ -12,6 +12,7 @@ import Quickshell.Bluetooth
 import Quickshell.Services.UPower
 import "../theme"
 import "../services"
+import "../widgets/bar"
 
 // Settings window — centered modal (standalone per-screen window, shown on the
 // focused monitor). Sidebar categories + scrollable pane. Live-applies +
@@ -194,6 +195,43 @@ PanelWindow {
         { id: "services-group", label: I18n.tr("Services"), icon: "󰒓" },
         { id: "system-group", label: I18n.tr("System"), icon: "󰍹" }
     ]
+    readonly property var _colloidIcons: ({
+        "personal-group": { name: "system-users-symbolic", group: "apps" },
+        "appearance-group": { name: "dark-mode-symbolic", group: "actions" },
+        "connections-group": { name: "nm-signal-100-symbolic", group: "status" },
+        "devices-group": { name: "preferences-desktop-display-symbolic", group: "apps" },
+        "applications-group": { name: "view-app-grid-symbolic", group: "actions" },
+        "services-group": { name: "nodalix-services-symbolic", group: "actions" },
+        "system-group": { name: "utilities-system-monitor-symbolic", group: "apps" },
+        "user": { name: "system-users-symbolic", group: "apps" },
+        "security": { name: "system-lock-screen-symbolic", group: "actions" },
+        "date-time": { name: "clock-app-symbolic", group: "apps" },
+        "appearance": { name: "dark-mode-symbolic", group: "actions" },
+        "bar": { name: "application-menu-symbolic", group: "actions" },
+        "media": { name: "multimedia-volume-control-symbolic", group: "apps" },
+        "widgets": { name: "preferences-system-symbolic", group: "apps" },
+        "wallpaper": { name: "preferences-desktop-wallpaper-symbolic", group: "apps" },
+        "connectivity": { name: "nm-signal-100-symbolic", group: "status" },
+        "phone-link": { name: "phonelink-symbolic", group: "devices" },
+        "localsend": { name: "network-transmit-symbolic", group: "status" },
+        "hyprland": { name: "preferences-desktop-display-symbolic", group: "apps" },
+        "sound": { name: "multimedia-volume-control-symbolic", group: "apps" },
+        "power": { name: "preferences-system-power-symbolic", group: "apps" },
+        "default-apps": { name: "application-menu-symbolic", group: "actions" },
+        "storage": { name: "disk-usage-app-symbolic", group: "apps" },
+        "nodalix-updates": { name: "network-receive-symbolic", group: "status" },
+        "updates": { name: "network-receive-symbolic", group: "status" },
+        "tray": { name: "application-menu-symbolic", group: "actions" },
+        "notifications": { name: "notification-new-symbolic", group: "status" },
+        "privacy": { name: "preferences-system-privacy-symbolic", group: "apps" },
+        "weather": { name: "weather-app-symbolic", group: "apps" },
+        "keybindings": { name: "preferences-desktop-keyboard-symbolic", group: "apps" },
+        "tools": { name: "utilities-terminal-symbolic", group: "apps" },
+        "dependencies": { name: "preferences-system-symbolic", group: "apps" },
+        "advanced": { name: "preferences-system-symbolic", group: "apps" },
+        "about": { name: "utilities-system-monitor-symbolic", group: "apps" }
+    })
+    function _colloidFor(id) { return _colloidIcons[id] ?? { name: "preferences-system-symbolic", group: "apps" } }
     readonly property var _groups: ({
         "personal-group": [
             { id: "user", label: I18n.tr("User"), sub: I18n.tr("Profile, image and personal settings"), icon: "󰀄" },
@@ -335,7 +373,7 @@ PanelWindow {
                     Text {
                         text: I18n.tr("Settings")
                         color: ThemeManager.onSurface
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: ThemeManager.fontSizeLg
                         font.bold: true
                         Layout.bottomMargin: 8
@@ -370,12 +408,13 @@ PanelWindow {
                                         anchors.fill: parent
                                         anchors.leftMargin: 12; anchors.rightMargin: 12
                                         spacing: 10
-                                        Text {
+                                        ColloidIcon {
                                             Layout.preferredWidth: 22
-                                            horizontalAlignment: Text.AlignHCenter
-                                            text: modelData.icon
+                                            Layout.alignment: Qt.AlignVCenter
+                                            iconName: root._colloidFor(modelData.id).name
+                                            group: root._colloidFor(modelData.id).group
+                                            fallbackGlyph: modelData.icon
                                             color: sel ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                                            font.family: ThemeManager.fontFamily
                                             font.pixelSize: 16
                                         }
                                         Text {
@@ -383,7 +422,7 @@ PanelWindow {
                                             Layout.maximumWidth: parent.width - 38
                                             text: modelData.label
                                             color: sel ? ThemeManager.onSurface : ThemeManager.onSurfaceVariant
-                                            font.family: ThemeManager.fontFamily
+                                            font.family: ThemeManager.fontFor(text)
                                             font.pixelSize: ThemeManager.fontSizeMd
                                             maximumLineCount: 1
                                             elide: Text.ElideRight
@@ -421,19 +460,19 @@ PanelWindow {
                         Rectangle {
                             implicitWidth: 32; implicitHeight: 32; radius: 16
                             color: _backHover.hovered ? ThemeManager.surfaceContainerHigh : "transparent"
-                            Text { anchors.centerIn: parent; text: "󰁍"; color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: 18 }
+                            Text { anchors.centerIn: parent; text: "󰁍"; color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: 18 }
                             HoverHandler { id: _backHover }
                             TapHandler { onTapped: root._goBack() }
                         }
                         Text {
                             text: root._groupLabel(root._groupFor(SettingsUi.category))
-                            color: ThemeManager.primary; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                            color: ThemeManager.primary; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                             TapHandler { onTapped: SettingsUi.category = root._groupFor(SettingsUi.category) }
                         }
-                        Text { visible: root._groupFor(SettingsUi.category) !== SettingsUi.category; text: "›"; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily }
+                        Text { visible: root._groupFor(SettingsUi.category) !== SettingsUi.category; text: "›"; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text) }
                         Text {
                             visible: root._groupFor(SettingsUi.category) !== SettingsUi.category
-                            text: root._pageLabel(SettingsUi.category); color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                            text: root._pageLabel(SettingsUi.category); color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                         }
                         Item { Layout.fillWidth: true }
                     }
@@ -441,7 +480,7 @@ PanelWindow {
                     ColumnLayout {
                         visible: root._groups[SettingsUi.category] !== undefined
                         Layout.fillWidth: true; Layout.margins: 20; spacing: 10
-                        Text { text: root._groupLabel(SettingsUi.category); color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeLg + 4; font.bold: true }
+                        Text { text: root._groupLabel(SettingsUi.category); color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeLg + 4; font.bold: true }
                         Repeater {
                             model: root._groups[SettingsUi.category] || []
                             delegate: Rectangle {
@@ -452,12 +491,13 @@ PanelWindow {
                                 RowLayout {
                                     anchors { fill: parent; margins: 14 }
                                     spacing: 14
-                                    Text {
+                                    ColloidIcon {
                                         Layout.preferredWidth: 34
-                                        horizontalAlignment: Text.AlignHCenter
-                                        text: modelData.icon
+                                        Layout.alignment: Qt.AlignVCenter
+                                        iconName: root._colloidFor(modelData.id).name
+                                        group: root._colloidFor(modelData.id).group
+                                        fallbackGlyph: modelData.icon
                                         color: ThemeManager.primary
-                                        font.family: ThemeManager.fontFamily
                                         font.pixelSize: 23
                                     }
                                     ColumnLayout {
@@ -467,7 +507,7 @@ PanelWindow {
                                             horizontalAlignment: Text.AlignLeft
                                             text: modelData.label
                                             color: ThemeManager.onSurface
-                                            font.family: ThemeManager.fontFamily
+                                            font.family: ThemeManager.fontFor(text)
                                             font.pixelSize: ThemeManager.fontSizeMd
                                             font.bold: true
                                             maximumLineCount: 1
@@ -478,7 +518,7 @@ PanelWindow {
                                             horizontalAlignment: Text.AlignLeft
                                             text: modelData.sub
                                             color: ThemeManager.onSurfaceVariant
-                                            font.family: ThemeManager.fontFamily
+                                            font.family: ThemeManager.fontFor(text)
                                             font.pixelSize: 10
                                             maximumLineCount: 1
                                             elide: Text.ElideRight
@@ -489,7 +529,7 @@ PanelWindow {
                                         horizontalAlignment: Text.AlignHCenter
                                         text: "󰅂"
                                         color: ThemeManager.onSurfaceVariant
-                                        font.family: ThemeManager.fontFamily
+                                        font.family: ThemeManager.fontFor(text)
                                         font.pixelSize: 18
                                     }
                                 }
@@ -512,7 +552,7 @@ PanelWindow {
                             text: I18n.tr("Choose the image shown in the dashboard and on the lock screen.")
                             wrapMode: Text.WordWrap
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: ThemeManager.fontSizeSm
                         }
 
@@ -521,7 +561,7 @@ PanelWindow {
                             Layout.topMargin: 6
                             text: I18n.tr("Default avatars")
                             color: ThemeManager.onSurface
-                            font.family: ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: ThemeManager.fontSizeMd
                             font.weight: Font.Medium
                         }
@@ -565,7 +605,7 @@ PanelWindow {
                                         text: modelData.name
                                         color: ProfileService.selectedPreset === modelData.id
                                             ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                                        font.family: ThemeManager.fontFamily
+                                        font.family: ThemeManager.fontFor(text)
                                         font.pixelSize: ThemeManager.fontSizeSm
                                         elide: Text.ElideRight
                                     }
@@ -596,7 +636,7 @@ PanelWindow {
                                 visible: _profilePreview.status !== Image.Ready
                                 text: "󰀄"
                                 color: ThemeManager.onSurfaceVariant
-                                font.family: ThemeManager.fontFamily
+                                font.family: ThemeManager.fontFor(text)
                                 font.pixelSize: 64
                             }
                         }
@@ -618,7 +658,7 @@ PanelWindow {
                             Layout.alignment: Qt.AlignHCenter
                             text: I18n.tr("Profile image updated")
                             color: ThemeManager.primary
-                            font.family: ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: ThemeManager.fontSizeSm
                         }
                     }
@@ -636,7 +676,7 @@ PanelWindow {
                             text: I18n.tr("Protect your session by showing the Nodalix lock screen after a period without activity.")
                             wrapMode: Text.WordWrap
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: ThemeManager.fontSizeSm
                         }
 
@@ -659,7 +699,7 @@ PanelWindow {
                             Layout.fillWidth: true
                             text: I18n.tr("Fullscreen protection active · automatic lock paused")
                             color: ThemeManager.primary
-                            font.family: ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: ThemeManager.fontSizeSm
                         }
 
@@ -691,7 +731,7 @@ PanelWindow {
                                 Text {
                                     text: "󰈈"
                                     color: ThemeManager.primary
-                                    font.family: ThemeManager.fontFamily
+                                    font.family: ThemeManager.fontFor(text)
                                     font.pixelSize: 18
                                 }
                                 Text {
@@ -700,7 +740,7 @@ PanelWindow {
                                     text: I18n.tr("Videos, calls and applications that keep the screen awake are respected. Fullscreen games remain protected even when the controller is not reported as activity.")
                                     wrapMode: Text.WordWrap
                                     color: ThemeManager.onSurfaceVariant
-                                    font.family: ThemeManager.fontFamily
+                                    font.family: ThemeManager.fontFor(text)
                                     font.pixelSize: 10
                                 }
                             }
@@ -719,7 +759,7 @@ PanelWindow {
                             text: I18n.tr("Choose the language used by the shell, system and spell checker.")
                             wrapMode: Text.WordWrap
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: ThemeManager.fontSizeSm
                         }
                         SettingSeg {
@@ -737,7 +777,7 @@ PanelWindow {
                             text: SystemLocaleService.statusText
                             wrapMode: Text.WordWrap
                             color: SystemLocaleService.failed ? ThemeManager.error : ThemeManager.primary
-                            font.family: ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: ThemeManager.fontSizeSm
                         }
 
@@ -745,8 +785,8 @@ PanelWindow {
                             label: I18n.tr("System font")
                             sub: I18n.tr("Nodalix and compatible applications")
                             enabled: !FontService.busy
-                            options: [I18n.tr("Nodalix Mono"), I18n.tr("Nodalix Proportional"), "Noto Sans", "Adwaita"]
-                            keys: ["JetBrainsMono Nerd Font", "JetBrainsMono Nerd Font Propo", "Noto Sans", "Adwaita Sans"]
+                            options: ["Geist", I18n.tr("Nodalix Mono"), I18n.tr("Nodalix Proportional"), "Noto Sans", "Adwaita"]
+                            keys: ["Geist", "JetBrainsMono Nerd Font", "JetBrainsMono Nerd Font Propo", "Noto Sans", "Adwaita Sans"]
                             path: "appearance.fontFamily"
                             def: "JetBrainsMono Nerd Font"
                             applyFn: fontFamily => FontService.apply(fontFamily)
@@ -757,7 +797,7 @@ PanelWindow {
                             text: FontService.statusText
                             wrapMode: Text.WordWrap
                             color: FontService.failed ? ThemeManager.error : ThemeManager.primary
-                            font.family: ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: ThemeManager.fontSizeSm
                         }
 
@@ -796,7 +836,7 @@ PanelWindow {
                                                     color: modelData.dark ? "#222" : "#eee"; border.width: 1; border.color: ThemeManager.outlineVariant }
                                         Text { id: _tn; text: modelData.name
                                                color: sel ? ThemeManager.onSurface : ThemeManager.onSurfaceVariant
-                                               font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm }
+                                               font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
                                     }
                                     HoverHandler { id: _th }
                                     TapHandler { onTapped: ThemeManager.setTheme(modelData.id) }
@@ -822,7 +862,7 @@ PanelWindow {
                                 Layout.fillWidth: true; implicitHeight: 30
                                 placeholderText: I18n.tr("Theme name")
                                 placeholderTextColor: ThemeManager.onSurfaceVariant
-                                color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                                color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                 leftPadding: 10; rightPadding: 10
                                 background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh
                                                         border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
@@ -844,7 +884,7 @@ PanelWindow {
                             Layout.fillWidth: true
                             text: I18n.tr("Built-in themes are read-only — Duplicate one to edit its colors.")
                             wrapMode: Text.WordWrap; color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                         }
                         ColumnLayout {
                             visible: ThemeManager._isUser(ThemeManager.activeId)
@@ -871,7 +911,7 @@ PanelWindow {
                             text: I18n.tr("Exports the active theme's colors to ~/.local/state/nodalix/exports/")
                             wrapMode: Text.WordWrap
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                         }
                         Process {
                             id: _exportTheme
@@ -951,7 +991,7 @@ PanelWindow {
                             Layout.fillWidth: true; Layout.bottomMargin: 4
                             text: I18n.tr("Shortcuts for the shell's actions. Unbound by default. Type a Hyprland combo, e.g. SUPER + R or SUPER + SHIFT + L. Saving reloads Hyprland to apply. Requires hypr/quickshell.lua (Lua config).")
                             wrapMode: Text.WordWrap; color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                         }
                         Repeater {
                             model: BindingService.actions
@@ -962,7 +1002,7 @@ PanelWindow {
                                 Text {
                                     Layout.fillWidth: true
                                     text: modelData.label
-                                    color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                                    color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                     elide: Text.ElideRight
                                 }
                                 TextField {
@@ -971,7 +1011,7 @@ PanelWindow {
                                     text: SettingsService.get("binds." + modelData.key, "")
                                     placeholderText: I18n.tr("Unbound")
                                     placeholderTextColor: ThemeManager.onSurfaceVariant
-                                    color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                                    color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                     leftPadding: 8; rightPadding: 8
                                     background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh
                                                             border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
@@ -999,7 +1039,7 @@ PanelWindow {
                             Layout.fillWidth: true; Layout.bottomMargin: 2
                             text: I18n.tr("Pin any app to the tray, even ones without tray support. Each entry is one clickable icon.")
                             wrapMode: Text.WordWrap; color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                         }
 
                         Repeater {
@@ -1041,12 +1081,12 @@ PanelWindow {
                                         Text {
                                             Layout.fillWidth: true; elide: Text.ElideRight
                                             text: (_ce.modelData.name && _ce.modelData.name !== "") ? _ce.modelData.name : "Unnamed"
-                                            color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm; font.bold: true
+                                            color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm; font.bold: true
                                         }
                                         Text {
                                             Layout.fillWidth: true; elide: Text.ElideRight
                                             text: (_ce._ws ? "Toggle workspace · " : "Run · ") + ((_ce.modelData.value && _ce.modelData.value !== "") ? _ce.modelData.value : "not set")
-                                            color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeXs ?? 11
+                                            color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeXs ?? 11
                                         }
                                     }
                                     SettingBtn { label: I18n.tr("Edit"); onClicked: root._trayEditIdx = _ce.index }
@@ -1073,12 +1113,12 @@ PanelWindow {
                                         ColumnLayout {
                                             Layout.fillWidth: true; spacing: 2
                                             Text { text: I18n.tr("Label (tooltip on hover)"); color: ThemeManager.onSurfaceVariant
-                                                   font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeXs ?? 11 }
+                                                   font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeXs ?? 11 }
                                             TextField {
                                                 Layout.fillWidth: true; implicitHeight: 28
                                                 text: _ce.modelData.name ?? ""; placeholderText: I18n.tr("e.g. Firefox")
                                                 placeholderTextColor: ThemeManager.onSurfaceVariant
-                                                color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                                                color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                                 leftPadding: 8; rightPadding: 8
                                                 background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainer
                                                                         border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
@@ -1092,12 +1132,12 @@ PanelWindow {
                                         Layout.fillWidth: true; spacing: 2
                                         Text { text: I18n.tr("Icon — freedesktop name (e.g. firefox, spotify) or /path/to/icon.png")
                                                color: ThemeManager.onSurfaceVariant
-                                               font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeXs ?? 11 }
+                                               font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeXs ?? 11 }
                                         TextField {
                                             Layout.fillWidth: true; implicitHeight: 28
                                             text: _ce.modelData.icon ?? ""; placeholderText: I18n.tr("firefox")
                                             placeholderTextColor: ThemeManager.onSurfaceVariant
-                                            color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                                            color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                             leftPadding: 8; rightPadding: 8
                                             background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainer
                                                                     border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
@@ -1109,7 +1149,7 @@ PanelWindow {
                                     ColumnLayout {
                                         Layout.fillWidth: true; spacing: 4
                                         Text { text: I18n.tr("On left-click"); color: ThemeManager.onSurfaceVariant
-                                               font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeXs ?? 11 }
+                                               font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeXs ?? 11 }
                                         Row {
                                             spacing: 0
                                             Repeater {
@@ -1127,7 +1167,7 @@ PanelWindow {
                                                     border.width: 1; border.color: sel ? ThemeManager.primary : ThemeManager.outlineVariant
                                                     Text { id: _segT; anchors.centerIn: parent; text: modelData.t
                                                            color: parent.sel ? ThemeManager.onPrimary : ThemeManager.onSurfaceVariant
-                                                           font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm }
+                                                           font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
                                                     TapHandler { onTapped: root._trayCustomSet(_ce.index, "action", modelData.k) }
                                                 }
                                             }
@@ -1137,7 +1177,7 @@ PanelWindow {
                                             text: _ce.modelData.value ?? ""
                                             placeholderText: _ce._ws ? "special workspace name (e.g. spotify)" : "command to run (e.g. firefox)"
                                             placeholderTextColor: ThemeManager.onSurfaceVariant
-                                            color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                                            color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                             leftPadding: 8; rightPadding: 8
                                             background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainer
                                                                     border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
@@ -1149,7 +1189,7 @@ PanelWindow {
                                                 ? "Click peeks/hides that Hyprland special workspace (park the app there via a window rule)."
                                                 : "Click runs this shell command (launches or focuses the app)."
                                             color: ThemeManager.onSurfaceVariant
-                                            font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeXs ?? 11
+                                            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeXs ?? 11
                                         }
                                     }
 
@@ -1171,7 +1211,7 @@ PanelWindow {
                             Layout.fillWidth: true; Layout.bottomMargin: 4
                             text: I18n.tr("Per app: hide it, or set a special workspace (left-click then toggles that workspace instead of activating).")
                             wrapMode: Text.WordWrap; color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                         }
                         Repeater {
                             model: SystemTray.items
@@ -1184,13 +1224,13 @@ PanelWindow {
                                     Layout.fillWidth: true
                                     text: (modelData.tooltipTitle && modelData.tooltipTitle !== "") ? modelData.tooltipTitle
                                         : ((modelData.title && modelData.title !== "") ? modelData.title : (modelData.id ?? "item"))
-                                    color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                                    color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                     elide: Text.ElideRight
                                 }
                                 TextField {
                                     Layout.preferredWidth: 104; implicitHeight: 26
                                     text: root._trayWs(modelData); placeholderText: I18n.tr("workspace")
-                                    color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                                    color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                     leftPadding: 8; rightPadding: 8
                                     background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh
                                                             border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
@@ -1206,7 +1246,7 @@ PanelWindow {
                         Text {
                             visible: (SystemTray.items?.values ?? []).length === 0
                             text: I18n.tr("No tray items.")
-                            color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                            color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                         }
                     }
 
@@ -1225,7 +1265,7 @@ PanelWindow {
                             Layout.fillWidth: true; Layout.bottomMargin: 2
                             text: I18n.tr("Add your own rail buttons — each runs a command. Examples: a file manager or a screen recorder.")
                             wrapMode: Text.WordWrap; color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                         }
                         Repeater {
                             model: root._toolCustomList
@@ -1250,7 +1290,7 @@ PanelWindow {
                                     spacing: 10
                                     Text {
                                         text: _tc.modelData.icon || "󰘔"; color: ThemeManager.onSurface
-                                        font.family: ThemeManager.fontFamily; font.pixelSize: 22
+                                        font.family: ThemeManager.fontFor(text); font.pixelSize: 22
                                         Layout.preferredWidth: 28; horizontalAlignment: Text.AlignHCenter
                                     }
                                     ColumnLayout {
@@ -1258,12 +1298,12 @@ PanelWindow {
                                         Text {
                                             Layout.fillWidth: true; elide: Text.ElideRight
                                             text: (_tc.modelData.name && _tc.modelData.name !== "") ? _tc.modelData.name : "Unnamed"
-                                            color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm; font.bold: true
+                                            color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm; font.bold: true
                                         }
                                         Text {
                                             Layout.fillWidth: true; elide: Text.ElideRight
                                             text: (_tc.modelData.command && _tc.modelData.command !== "") ? _tc.modelData.command : "no command"
-                                            color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeXs ?? 11
+                                            color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeXs ?? 11
                                         }
                                     }
                                     SettingBtn { label: I18n.tr("Edit"); onClicked: root._toolEditIdx = _tc.index }
@@ -1280,11 +1320,11 @@ PanelWindow {
                                     ColumnLayout {
                                         Layout.fillWidth: true; spacing: 2
                                         Text { text: I18n.tr("Name (tooltip)"); color: ThemeManager.onSurfaceVariant
-                                               font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeXs ?? 11 }
+                                               font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeXs ?? 11 }
                                         TextField {
                                             Layout.fillWidth: true; implicitHeight: 28
                                             text: _tc.modelData.name ?? ""; placeholderText: I18n.tr("e.g. Files")
-                                            color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                                            color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                             leftPadding: 8; rightPadding: 8
                                             background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainer
                                                                     border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
@@ -1294,11 +1334,11 @@ PanelWindow {
                                     ColumnLayout {
                                         Layout.fillWidth: true; spacing: 2
                                         Text { text: I18n.tr("Command"); color: ThemeManager.onSurfaceVariant
-                                               font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeXs ?? 11 }
+                                               font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeXs ?? 11 }
                                         TextField {
                                             Layout.fillWidth: true; implicitHeight: 28
                                             text: _tc.modelData.command ?? ""; placeholderText: I18n.tr("kitty -e yazi")
-                                            color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                                            color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                             leftPadding: 8; rightPadding: 8
                                             background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainer
                                                                     border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
@@ -1309,7 +1349,7 @@ PanelWindow {
                                     ColumnLayout {
                                         Layout.fillWidth: true; spacing: 4
                                         Text { text: I18n.tr("Icon"); color: ThemeManager.onSurfaceVariant
-                                               font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeXs ?? 11 }
+                                               font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeXs ?? 11 }
                                         Flow {
                                             Layout.fillWidth: true; spacing: 4
                                             Repeater {
@@ -1323,7 +1363,7 @@ PanelWindow {
                                                     border.width: 1; border.color: sel ? ThemeManager.primary : ThemeManager.outlineVariant
                                                     Text { anchors.centerIn: parent; text: modelData
                                                            color: parent.sel ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                                                           font.family: ThemeManager.fontFamily; font.pixelSize: 20 }
+                                                           font.family: ThemeManager.fontFor(text); font.pixelSize: 20 }
                                                     TapHandler { onTapped: root._toolCustomSet(_tc.index, "icon", modelData) }
                                                 }
                                             }
@@ -1393,7 +1433,7 @@ PanelWindow {
                                     anchors.centerIn: parent
                                     text: WallpaperService.currentAnimated ? I18n.tr("Nodalix Motion") : "Hyprpaper"
                                     color: "white"
-                                    font.family: ThemeManager.fontFamily
+                                    font.family: ThemeManager.fontFor(text)
                                     font.pixelSize: 11
                                     font.weight: Font.DemiBold
                                 }
@@ -1405,7 +1445,7 @@ PanelWindow {
                                     width: parent.width
                                     text: I18n.tr("Selected background")
                                     color: Qt.rgba(1, 1, 1, 0.72)
-                                    font.family: ThemeManager.fontFamily
+                                    font.family: ThemeManager.fontFor(text)
                                     font.pixelSize: 10
                                     font.weight: Font.Medium
                                 }
@@ -1414,7 +1454,7 @@ PanelWindow {
                                     text: WallpaperService.displayName(WallpaperService.current)
                                     elide: Text.ElideRight
                                     color: "white"
-                                    font.family: ThemeManager.fontFamily
+                                    font.family: ThemeManager.fontFor(text)
                                     font.pixelSize: ThemeManager.fontSizeLg
                                     font.weight: Font.DemiBold
                                 }
@@ -1433,7 +1473,7 @@ PanelWindow {
                             Layout.fillWidth: true
                             text: I18n.tr("hyprpaper not installed — the wallpaper switcher is disabled.")
                             wrapMode: Text.WordWrap; color: ThemeManager.error
-                            font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                         }
 
                         Text {
@@ -1441,7 +1481,7 @@ PanelWindow {
                             Layout.fillWidth: true
                             text: I18n.tr("Install mpvpaper to use animated wallpapers.")
                             wrapMode: Text.WordWrap; color: ThemeManager.error
-                            font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                         }
 
                         // ── Tabs ──────────────────────────────────────────────────
@@ -1460,7 +1500,7 @@ PanelWindow {
                                     Text {
                                         id: _wtl; anchors.centerIn: parent; text: modelData.label
                                         color: parent.sel ? ThemeManager.primary : ThemeManager.onSurface
-                                        font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                                        font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                     }
                                     MouseArea { id: _wtMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root._wpTab = modelData.id }
                                 }
@@ -1475,7 +1515,7 @@ PanelWindow {
                             text: root._wpTab === "favorites" ? I18n.tr("No favorites yet — tap the heart on a wallpaper.")
                                   : (root._wpTab === "animated" ? I18n.tr("No animated wallpapers yet.") : I18n.tr("No wallpapers in your Nodalix Pictures folder."))
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                             opacity: 0.7
                         }
 
@@ -1522,7 +1562,7 @@ PanelWindow {
                                         color: "white"
                                         style: Text.Outline
                                         styleColor: "black"
-                                        font.family: ThemeManager.fontFamily
+                                        font.family: ThemeManager.fontFor(text)
                                         font.pixelSize: 30
                                     }
                                     // Border: current wallpaper (primary) or in-rotation (tertiary)
@@ -1543,7 +1583,7 @@ PanelWindow {
                                         width: 20; height: 20; radius: 10
                                         color: Qt.rgba(ThemeManager.tertiary.r, ThemeManager.tertiary.g, ThemeManager.tertiary.b, 0.9)
                                         Text { anchors.centerIn: parent; text: "󰑖"; color: ThemeManager.onTertiary
-                                               font.family: ThemeManager.fontFamily; font.pixelSize: 12 }
+                                               font.family: ThemeManager.fontFor(text); font.pixelSize: 12 }
                                     }
                                     // Click: plain = set; ctrl = toggle rotation; shift = range-add to rotation
                                     MouseArea {
@@ -1598,7 +1638,7 @@ PanelWindow {
                                     Layout.fillWidth: true; implicitHeight: 30
                                     placeholderText: I18n.tr("Search wallhaven.cc…")
                                     placeholderTextColor: ThemeManager.onSurfaceVariant
-                                    color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                                    color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                     leftPadding: 10; rightPadding: 10
                                     background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh
                                                             border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
@@ -1621,7 +1661,7 @@ PanelWindow {
                                                    : (_whsMa.containsMouse ? Qt.rgba(ThemeManager.onSurface.r, ThemeManager.onSurface.g, ThemeManager.onSurface.b, 0.08) : "transparent")
                                         Text { id: _whsl; anchors.centerIn: parent; text: modelData.l
                                                color: parent.sel ? ThemeManager.primary : ThemeManager.onSurface
-                                               font.family: ThemeManager.fontFamily; font.pixelSize: 11 }
+                                               font.family: ThemeManager.fontFor(text); font.pixelSize: 11 }
                                         MouseArea { id: _whsMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
                                                     onClicked: { _whSort.cur = modelData.k; WallhavenService.search(_whSearch.text, modelData.k) } }
                                     }
@@ -1638,23 +1678,23 @@ PanelWindow {
                                 Layout.fillWidth: true
                                 text: I18n.tr("Browsing works, but downloading a wallpaper needs curl (install it to set/favorite from here).")
                                 wrapMode: Text.WordWrap; color: ThemeManager.error
-                                font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                                font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                             }
                             Text {
                                 visible: WallhavenService.error !== ""
                                 Layout.fillWidth: true
                                 text: WallhavenService.error
-                                color: ThemeManager.error; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                                color: ThemeManager.error; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                             }
                             Text {
                                 visible: WallhavenService.loading && WallhavenService.results.length === 0
                                 text: I18n.tr("Searching…"); color: ThemeManager.onSurfaceVariant
-                                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm; opacity: 0.7
+                                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm; opacity: 0.7
                             }
                             Text {
                                 visible: !WallhavenService.loading && WallhavenService.error === "" && WallhavenService.results.length === 0
                                 text: I18n.tr("Search wallhaven.cc for wallpapers."); color: ThemeManager.onSurfaceVariant
-                                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm; opacity: 0.7
+                                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm; opacity: 0.7
                             }
 
                             Flow {
@@ -1685,13 +1725,13 @@ PanelWindow {
                                             anchors { bottom: parent.bottom; left: parent.left; margins: 4 }
                                             text: _rtile.modelData.resolution || ""
                                             color: "white"; style: Text.Outline; styleColor: "black"
-                                            font.family: ThemeManager.fontFamily; font.pixelSize: 9
+                                            font.family: ThemeManager.fontFor(text); font.pixelSize: 9
                                         }
                                         Text {
                                             anchors.centerIn: parent
                                             visible: _rtile._busy
                                             text: "󰇚"; color: "white"
-                                            font.family: ThemeManager.fontFamily; font.pixelSize: 22
+                                            font.family: ThemeManager.fontFor(text); font.pixelSize: 22
                                         }
                                         MouseArea {
                                             id: _rtMa; anchors.fill: parent
@@ -1751,19 +1791,23 @@ PanelWindow {
                             Text {
                                 text: WallpaperService.rotationIntervalMin + " min"
                                 color: ThemeManager.onSurfaceVariant
-                                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm; Layout.rightMargin: 8
+                                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm; Layout.rightMargin: 8
                             }
                             Rectangle {
                                 id: _wpIvTrack
-                                Layout.preferredWidth: 160; implicitHeight: 6; radius: 3
-                                color: ThemeManager.surfaceContainerHigh
+                                Layout.preferredWidth: 160; implicitHeight: 18; radius: 9
+                                color: ThemeManager.outlineVariant
+                                antialiasing: true
                                 readonly property int _min: 1
                                 readonly property int _max: 120
                                 readonly property real _frac: Math.max(0, Math.min(1, (WallpaperService.rotationIntervalMin - _min) / (_max - _min)))
                                 Rectangle { anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                                            width: _wpIvTrack.width * _wpIvTrack._frac; radius: 3; color: ThemeManager.primary }
-                                Rectangle { width: 14; height: 14; radius: 7; color: ThemeManager.primary
-                                            y: -4; x: Math.max(0, Math.min(_wpIvTrack.width - width, _wpIvTrack.width * _wpIvTrack._frac - width / 2)) }
+                                            anchors.margins: 2
+                                            width: Math.max(0, (_wpIvTrack.width - 4) * _wpIvTrack._frac); radius: 7
+                                            antialiasing: true
+                                            color: Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.42) }
+                                Rectangle { width: 20; height: 20; radius: 10; color: ThemeManager.onSurface
+                                            y: -1; x: Math.max(0, Math.min(_wpIvTrack.width - width, _wpIvTrack.width * _wpIvTrack._frac - width / 2)) }
                                 MouseArea {
                                     anchors.fill: parent; anchors.margins: -6
                                     onPressed: (e) => _set(e.x); onPositionChanged: (e) => { if (pressed) _set(e.x) }
@@ -1778,7 +1822,7 @@ PanelWindow {
                             Layout.fillWidth: true; Layout.topMargin: 2
                             text: I18n.tr("Each change re-generates the Material You theme from the new wallpaper.")
                             wrapMode: Text.WordWrap; color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: 10; opacity: 0.7
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: 10; opacity: 0.7
                         }
                     }
 
@@ -1795,7 +1839,7 @@ PanelWindow {
                             Layout.fillWidth: true; Layout.bottomMargin: 4
                             text: I18n.tr("Configure displays, image quality, input and window appearance. Changes are saved without replacing your original compositor configuration.")
                             wrapMode: Text.WordWrap; color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                         }
 
                         // ── Sub-tabs ──────────────────────────────────────────────
@@ -1814,7 +1858,7 @@ PanelWindow {
                                     Text {
                                         id: _htl; anchors.centerIn: parent; text: modelData.label
                                         color: parent.sel ? ThemeManager.primary : ThemeManager.onSurface
-                                        font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                                        font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                     }
                                     MouseArea { id: _htMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root._hlTab = modelData.id }
                                 }
@@ -1868,7 +1912,7 @@ PanelWindow {
                                 Layout.fillWidth: true
                                 text: I18n.tr("Drag a screen to reposition it; it snaps to its neighbours' edges. Click to select and edit its settings below.")
                                 wrapMode: Text.WordWrap; color: ThemeManager.onSurfaceVariant
-                                font.family: ThemeManager.fontFamily; font.pixelSize: 10; opacity: 0.7
+                                font.family: ThemeManager.fontFor(text); font.pixelSize: 10; opacity: 0.7
                             }
 
                             // ── Visual layout canvas ──────────────────────────────────
@@ -1926,14 +1970,14 @@ PanelWindow {
                                             Text {
                                                 anchors.horizontalCenter: parent.horizontalCenter
                                                 text: _mtile._mn
-                                                color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily
+                                                color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text)
                                                 font.pixelSize: ThemeManager.fontSizeSm; font.bold: true
                                             }
                                             Text {
                                                 anchors.horizontalCenter: parent.horizontalCenter
                                                 visible: _mtile.height > 34
                                                 text: _mtile.b.on ? (_mtile.b.lw + "×" + _mtile.b.lh) : "off"
-                                                color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 9
+                                                color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 9
                                             }
                                         }
 
@@ -2020,16 +2064,16 @@ PanelWindow {
                                         Layout.fillWidth: true; spacing: 8
                                         Text {
                                             text: _det._mn
-                                            color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily
+                                            color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text)
                                             font.pixelSize: ThemeManager.fontSizeMd; font.bold: true
                                         }
                                         Text {
                                             Layout.fillWidth: true
                                             text: _det.m ? (_det.m.width + "×" + _det.m.height + " @" + Number(_det.m.refreshRate).toFixed(0) + "Hz") : ""
-                                            color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                                            color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                                             elide: Text.ElideRight
                                         }
-                                        Text { text: I18n.tr("On"); color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 10 }
+                                        Text { text: I18n.tr("On"); color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 10 }
                                         Rectangle {
                                             implicitWidth: 40; implicitHeight: 22; radius: 11
                                             color: _det._on ? ThemeManager.primary : ThemeManager.surfaceContainerHigh
@@ -2047,7 +2091,7 @@ PanelWindow {
                                         spacing: 4
                                         RowLayout {
                                             Layout.fillWidth: true; spacing: 8
-                                            Text { text: I18n.tr("Resolution"); color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm }
+                                            Text { text: I18n.tr("Resolution"); color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
                                             Item { Layout.fillWidth: true }
                                             Rectangle {
                                                 implicitWidth: _detRes.implicitWidth + 26; implicitHeight: 28
@@ -2057,7 +2101,7 @@ PanelWindow {
                                                 Text {
                                                     id: _detRes; anchors.centerIn: parent
                                                     text: (_det.m ? _det._get("mode", _det.m.width + "x" + _det.m.height + "@" + Number(_det.m.refreshRate).toFixed(2)) : "") + "  ▾"
-                                                    color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                                                    color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                                 }
                                                 MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: _dispTab._detModeOpen = !_dispTab._detModeOpen }
                                             }
@@ -2076,7 +2120,7 @@ PanelWindow {
                                                     color: sel ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.18) : ThemeManager.surfaceContainerHigh
                                                     border.width: 1; border.color: ThemeManager.outlineVariant
                                                     Text { id: _dmo; anchors.centerIn: parent; text: modelData
-                                                           color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: 10 }
+                                                           color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: 10 }
                                                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                                                                 onClicked: { HyprlandConfigService.stageMonitor(_det._mn, "mode", modelData); _dispTab._detModeOpen = false } }
                                                 }
@@ -2090,24 +2134,24 @@ PanelWindow {
                                         Layout.fillWidth: true
                                         columns: 2; columnSpacing: 12; rowSpacing: 6
 
-                                        Text { text: I18n.tr("Scale"); color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm }
+                                        Text { text: I18n.tr("Scale"); color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
                                         TextField {
                                             Layout.preferredWidth: 90; implicitHeight: 28
                                             text: _det.m ? "" + _det._get("scale", _det.m.scale) : ""
-                                            color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                                            color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                             leftPadding: 8; rightPadding: 8
                                             background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh
                                                                     border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
                                             onEditingFinished: { const v = parseFloat(text); if (!isNaN(v)) HyprlandConfigService.stageMonitor(_det._mn, "scale", v) }
                                         }
 
-                                        Text { text: I18n.tr("Position (x, y)"); color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm }
+                                        Text { text: I18n.tr("Position (x, y)"); color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
                                         RowLayout {
                                             spacing: 6
                                             TextField {
                                                 Layout.preferredWidth: 70; implicitHeight: 28
                                                 text: _det.m ? "" + _det._get("x", _det.m.x) : ""
-                                                color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                                                color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                                 leftPadding: 8; rightPadding: 8
                                                 background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh
                                                                         border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
@@ -2116,7 +2160,7 @@ PanelWindow {
                                             TextField {
                                                 Layout.preferredWidth: 70; implicitHeight: 28
                                                 text: _det.m ? "" + _det._get("y", _det.m.y) : ""
-                                                color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                                                color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                                 leftPadding: 8; rightPadding: 8
                                                 background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh
                                                                         border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
@@ -2124,7 +2168,7 @@ PanelWindow {
                                             }
                                         }
 
-                                        Text { text: I18n.tr("Rotation"); color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm }
+                                        Text { text: I18n.tr("Rotation"); color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
                                         Row {
                                             spacing: 0
                                             Repeater {
@@ -2138,7 +2182,7 @@ PanelWindow {
                                                     border.width: 1; border.color: ThemeManager.outlineVariant
                                                     Text { id: _dtr; anchors.centerIn: parent; text: modelData
                                                            color: sel ? ThemeManager.onPrimary : ThemeManager.onSurfaceVariant
-                                                           font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm }
+                                                           font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
                                                     TapHandler { onTapped: HyprlandConfigService.stageMonitor(_det._mn, "transform", index) }
                                                 }
                                             }
@@ -2166,7 +2210,7 @@ PanelWindow {
                                                 Layout.fillWidth: true; spacing: 8
                                                 Text {
                                                     text: "HDR"
-                                                    color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily
+                                                    color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text)
                                                     font.pixelSize: ThemeManager.fontSizeMd; font.bold: true
                                                 }
                                                 Rectangle {
@@ -2181,7 +2225,7 @@ PanelWindow {
                                                               + (_det._hdrCap.maxLuminance > 0 ? " · " + Math.round(_det._hdrCap.maxLuminance) + " nits" : "")
                                                             : I18n.tr("Not supported by this display")
                                                         color: _det._hdrSupported ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                                                        font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                                                        font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                                                     }
                                                 }
                                                 Item { Layout.fillWidth: true }
@@ -2211,7 +2255,7 @@ PanelWindow {
                                                             text: modelData.label
                                                             color: _det._hdrMode === modelData.key
                                                                 ? ThemeManager.onPrimary : ThemeManager.onSurfaceVariant
-                                                            font.family: ThemeManager.fontFamily
+                                                            font.family: ThemeManager.fontFor(text)
                                                             font.pixelSize: ThemeManager.fontSizeSm
                                                         }
                                                         TapHandler {
@@ -2240,7 +2284,7 @@ PanelWindow {
                                                             ? I18n.tr("Forces HDR output at all times, including the desktop.")
                                                             : I18n.tr("Uses an 8-bit SDR link and never enables HDR.")))
                                                 wrapMode: Text.WordWrap; color: ThemeManager.onSurfaceVariant
-                                                font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                                                font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                                             }
 
                                             ColumnLayout {
@@ -2251,7 +2295,7 @@ PanelWindow {
                                                     Layout.fillWidth: true
                                                     text: I18n.tr("Adjust how ordinary SDR applications look while HDR output is active. HDR videos and games keep their own luminance metadata.")
                                                     wrapMode: Text.WordWrap; color: ThemeManager.onSurfaceVariant
-                                                    font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                                                    font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                                                 }
                                                 HdrSlider {
                                                     label: I18n.tr("SDR brightness")
@@ -2271,7 +2315,7 @@ PanelWindow {
                                                     Layout.fillWidth: true; spacing: 6
                                                     Text {
                                                         text: I18n.tr("Presets")
-                                                        color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily
+                                                        color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text)
                                                         font.pixelSize: ThemeManager.fontSizeSm
                                                     }
                                                     Item { Layout.fillWidth: true }
@@ -2321,7 +2365,7 @@ PanelWindow {
                                     Layout.fillWidth: true
                                     text: I18n.tr("Display changes ask for confirmation and auto-revert after 15 s if not kept.")
                                     wrapMode: Text.WordWrap; color: ThemeManager.onSurfaceVariant
-                                    font.family: ThemeManager.fontFamily; font.pixelSize: 10; opacity: 0.7
+                                    font.family: ThemeManager.fontFor(text); font.pixelSize: 10; opacity: 0.7
                                 }
                             }
                         }
@@ -2394,7 +2438,7 @@ PanelWindow {
                         SettingSection { text: I18n.tr("Storage") }
                         RowLayout {
                             Layout.fillWidth: true
-                            Text { Layout.fillWidth: true; text: StorageService.formatBytes(StorageService.usedBytes) + " " + I18n.tr("used of") + " " + StorageService.formatBytes(StorageService.totalBytes); color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeMd; font.bold: true }
+                            Text { Layout.fillWidth: true; text: StorageService.formatBytes(StorageService.usedBytes) + " " + I18n.tr("used of") + " " + StorageService.formatBytes(StorageService.totalBytes); color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeMd; font.bold: true }
                             SettingBtn { label: StorageService.loading ? I18n.tr("Calculating…") : I18n.tr("Refresh"); enabled: !StorageService.loading; onClicked: StorageService.refresh() }
                         }
                         Rectangle {
@@ -2425,9 +2469,9 @@ PanelWindow {
                                     anchors { fill: parent; margins: 12 }
                                     spacing: 10
                                     Rectangle { width: 10; height: 10; radius: 5; color: [ThemeManager.primary, ThemeManager.tertiary, ThemeManager.secondary, "#79c7ff", "#ffb4ab", ThemeManager.outline][index % 6] }
-                                    Text { Layout.fillWidth: true; text: I18n.tr(modelData.key); color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeMd }
-                                    Text { text: StorageService.formatBytes(modelData.bytes); color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm }
-                                    Text { visible: modelData.key === "Applications"; text: "󰅂"; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily }
+                                    Text { Layout.fillWidth: true; text: I18n.tr(modelData.key); color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeMd }
+                                    Text { text: StorageService.formatBytes(modelData.bytes); color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
+                                    Text { visible: modelData.key === "Applications"; text: "󰅂"; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text) }
                                 }
                                 HoverHandler { id: _storageHover }
                                 TapHandler { enabled: modelData.key === "Applications"; onTapped: { StorageService.loadApps(); SettingsUi.category = "storage-apps" } }
@@ -2444,11 +2488,11 @@ PanelWindow {
                             placeholderText: I18n.tr("Search applications…")
                             placeholderTextColor: ThemeManager.onSurfaceVariant
                             onTextChanged: root._storageSearch = text.toLowerCase()
-                            color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily
+                            color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text)
                             background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh; border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
                         }
-                        Text { visible: StorageService.appsLoading; text: I18n.tr("Loading applications…"); color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily }
-                        Text { visible: StorageService.statusText !== ""; text: StorageService.statusText; color: StorageService.passwordError ? ThemeManager.error : ThemeManager.primary; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm }
+                        Text { visible: StorageService.appsLoading; text: I18n.tr("Loading applications…"); color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text) }
+                        Text { visible: StorageService.statusText !== ""; text: StorageService.statusText; color: StorageService.passwordError ? ThemeManager.error : ThemeManager.primary; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
                         Repeater {
                             model: StorageService.apps.filter(a => root._storageSearch === "" || a.name.toLowerCase().includes(root._storageSearch) || a.id.toLowerCase().includes(root._storageSearch))
                             delegate: Rectangle {
@@ -2475,8 +2519,8 @@ PanelWindow {
                                     }
                                     ColumnLayout {
                                         Layout.fillWidth: true; spacing: 0
-                                        Text { text: modelData.name; color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm; elide: Text.ElideRight; Layout.fillWidth: true }
-                                        Text { text: modelData.id + " · " + (modelData.kind === "pacman" ? StorageService.formatBytes(modelData.size) : modelData.size); color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 9 }
+                                        Text { text: modelData.name; color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm; elide: Text.ElideRight; Layout.fillWidth: true }
+                                        Text { text: modelData.id + " · " + (modelData.kind === "pacman" ? StorageService.formatBytes(modelData.size) : modelData.size); color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 9 }
                                     }
                                     SettingBtn { label: I18n.tr("Uninstall"); danger: true; onClicked: StorageService.requestUninstall(modelData.kind, modelData.id) }
                                 }
@@ -2489,7 +2533,7 @@ PanelWindow {
                             ColumnLayout {
                                 anchors { fill: parent; margins: 12 }
                                 spacing: 8
-                                Text { text: I18n.tr("Administrator password") + " · " + StorageService.pendingPackage; color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.bold: true }
+                                Text { text: I18n.tr("Administrator password") + " · " + StorageService.pendingPackage; color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.bold: true }
                                 TextField {
                                     id: _removePassword
                                     Layout.fillWidth: true
@@ -2497,7 +2541,7 @@ PanelWindow {
                                     placeholderText: I18n.tr("Password")
                                     placeholderTextColor: ThemeManager.onSurfaceVariant
                                     color: ThemeManager.onSurface
-                                    font.family: ThemeManager.fontFamily
+                                    font.family: ThemeManager.fontFor(text)
                                     background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainer; border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
                                     onAccepted: { const p = text; text = ""; StorageService.submitPassword(p) }
                                 }
@@ -2538,17 +2582,17 @@ PanelWindow {
                                 Rectangle {
                                     implicitWidth: 42; implicitHeight: 42; radius: 14
                                     color: Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.16)
-                                    Text { anchors.centerIn: parent; text: "󰚰"; color: ThemeManager.primary; font.family: ThemeManager.fontFamily; font.pixelSize: 22 }
+                                    Text { anchors.centerIn: parent; text: "󰚰"; color: ThemeManager.primary; font.family: ThemeManager.fontFor(text); font.pixelSize: 22 }
                                 }
                                 ColumnLayout {
                                     Layout.fillWidth: true; spacing: 2
-                                    Text { text: "Nodalix " + UpdateService.nodalixCurrent; color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeLg; font.weight: Font.DemiBold }
+                                    Text { text: "Nodalix " + UpdateService.nodalixCurrent; color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeLg; font.weight: Font.DemiBold }
                                     Text {
                                         text: UpdateService.nodalixChannelError
                                             ? I18n.tr("Update channel unavailable")
                                             : (I18n.tr(UpdateService.channel === "beta" ? "Beta channel" : "Stable channel") + " · " + I18n.tr("Available version") + " " + UpdateService.nodalixAvailable)
                                         color: UpdateService.nodalixChannelError ? ThemeManager.error : ThemeManager.onSurfaceVariant
-                                        font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                                        font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                                     }
                                 }
                                 Rectangle {
@@ -2561,7 +2605,7 @@ PanelWindow {
                                         text: UpdateService.nodalixChecking ? I18n.tr("Checking…")
                                             : I18n.tr(UpdateService.nodalixUpdateAvailable ? "Update available" : "Up to date")
                                         color: UpdateService.nodalixUpdateAvailable ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                                        font.family: ThemeManager.fontFamily; font.pixelSize: 10; font.weight: Font.DemiBold
+                                        font.family: ThemeManager.fontFor(text); font.pixelSize: 10; font.weight: Font.DemiBold
                                     }
                                 }
                             }
@@ -2582,7 +2626,7 @@ PanelWindow {
                                 Text {
                                     text: I18n.tr("Update channel")
                                     color: ThemeManager.onSurface
-                                    font.family: ThemeManager.fontFamily
+                                    font.family: ThemeManager.fontFor(text)
                                     font.pixelSize: ThemeManager.fontSizeMd
                                     font.weight: Font.DemiBold
                                 }
@@ -2591,7 +2635,7 @@ PanelWindow {
                                     text: I18n.tr("Stable receives finished releases. Beta receives new Nodalix features first.")
                                     wrapMode: Text.WordWrap
                                     color: ThemeManager.onSurfaceVariant
-                                    font.family: ThemeManager.fontFamily
+                                    font.family: ThemeManager.fontFor(text)
                                     font.pixelSize: 10
                                 }
                                 RowLayout {
@@ -2617,8 +2661,8 @@ PanelWindow {
                                             Row {
                                                 anchors.centerIn: parent
                                                 spacing: 8
-                                                Text { text: _channelChoice.modelData.icon; color: _channelChoice.selected ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 16 }
-                                                Text { text: _channelChoice.modelData.label; color: _channelChoice.selected ? ThemeManager.primary : ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.DemiBold }
+                                                Text { text: _channelChoice.modelData.icon; color: _channelChoice.selected ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 16 }
+                                                Text { text: _channelChoice.modelData.label; color: _channelChoice.selected ? ThemeManager.primary : ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.DemiBold }
                                             }
                                             HoverHandler { id: _channelHover }
                                             TapHandler {
@@ -2645,7 +2689,7 @@ PanelWindow {
                             text: UpdateService.nodalixNotes
                             wrapMode: Text.WordWrap
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: 10
                         }
 
@@ -2665,16 +2709,16 @@ PanelWindow {
                                 RowLayout {
                                     anchors { fill: parent; margins: 10 }
                                     spacing: 10
-                                    Text { text: modelData.icon; color: ThemeManager.primary; font.family: ThemeManager.fontFamily; font.pixelSize: 19 }
+                                    Text { text: modelData.icon; color: ThemeManager.primary; font.family: ThemeManager.fontFor(text); font.pixelSize: 19 }
                                     ColumnLayout {
                                         Layout.fillWidth: true; spacing: 1
-                                        Text { text: modelData.title; color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeMd; font.weight: Font.Medium }
-                                        Text { text: modelData.detail; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 10; elide: Text.ElideRight; Layout.fillWidth: true }
+                                        Text { text: modelData.title; color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeMd; font.weight: Font.Medium }
+                                        Text { text: modelData.detail; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 10; elide: Text.ElideRight; Layout.fillWidth: true }
                                     }
                                     Text {
                                         text: I18n.tr(modelData.available ? "Available" : "Installed")
                                         color: modelData.available ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                                        font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                                        font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                                     }
                                     SettingBtn {
                                         label: I18n.tr("Update")
@@ -2733,7 +2777,7 @@ PanelWindow {
                             text: I18n.tr("Update Arch, applications and firmware from one place. System updates always include the kernel to keep Arch consistent.")
                             wrapMode: Text.WordWrap
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: ThemeManager.fontSizeSm
                         }
 
@@ -2747,7 +2791,7 @@ PanelWindow {
                                     ? I18n.tr("Checking for updates…")
                                     : (I18n.tr("Last checked") + ": " + (UpdateService.lastChecked || "—"))
                                 color: ThemeManager.onSurfaceVariant
-                                font.family: ThemeManager.fontFamily
+                                font.family: ThemeManager.fontFor(text)
                                 font.pixelSize: 10
                             }
                             SettingBtn {
@@ -2781,17 +2825,17 @@ PanelWindow {
                                     RowLayout {
                                         anchors { fill: parent; margins: 10 }
                                         spacing: 10
-                                        Text { text: modelData.icon; color: ThemeManager.primary; font.family: ThemeManager.fontFamily; font.pixelSize: 20 }
+                                        Text { text: modelData.icon; color: ThemeManager.primary; font.family: ThemeManager.fontFor(text); font.pixelSize: 20 }
                                         ColumnLayout {
                                             Layout.fillWidth: true; spacing: 1
-                                            Text { text: modelData.title; color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeMd; font.weight: Font.Medium }
-                                            Text { text: modelData.detail; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 10 }
+                                            Text { text: modelData.title; color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeMd; font.weight: Font.Medium }
+                                            Text { text: modelData.detail; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 10 }
                                         }
                                         Text {
                                             visible: modelData.count >= 0
                                             text: modelData.count + " " + I18n.tr(modelData.count === 1 ? "update" : "updates")
                                             color: modelData.count > 0 ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                                            font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                                            font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                                         }
                                         SettingBtn {
                                             label: I18n.tr("Update")
@@ -2809,7 +2853,7 @@ PanelWindow {
                             Layout.fillWidth: true
                             text: UpdateService.statusText
                             color: UpdateService.running ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                         }
 
                         SettingSection { visible: SettingsUi.category === "updates"; text: I18n.tr("Automatic updates"); Layout.topMargin: 10 }
@@ -2852,7 +2896,7 @@ PanelWindow {
                         Layout.margins: 20
                         spacing: 10
                         SettingSection { text: I18n.tr("Desktop widgets") }
-                        Text { Layout.fillWidth: true; text: I18n.tr("Choose which widgets appear on this monitor, then enter edit mode to drag them into place."); wrapMode: Text.WordWrap; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm }
+                        Text { Layout.fillWidth: true; text: I18n.tr("Choose which widgets appear on this monitor, then enter edit mode to drag them into place."); wrapMode: Text.WordWrap; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
                         SettingToggle { label: I18n.tr("Clock"); path: "desktopWidgets." + root.modelData.name + ".clock.visible"; def: true }
                         SettingToggle { label: I18n.tr("Calendar"); path: "desktopWidgets." + root.modelData.name + ".calendar.visible"; def: true }
                         SettingToggle { label: I18n.tr("System performance"); path: "desktopWidgets." + root.modelData.name + ".system.visible"; def: true }
@@ -2899,16 +2943,16 @@ PanelWindow {
                                     color: PhoneLinkService.active
                                         ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.18)
                                         : ThemeManager.surfaceContainer
-                                    Text { anchors.centerIn: parent; text: "󰄜"; color: PhoneLinkService.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 22 }
+                                    Text { anchors.centerIn: parent; text: "󰄜"; color: PhoneLinkService.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 22 }
                                 }
                                 ColumnLayout {
                                     Layout.fillWidth: true; spacing: 1
-                                    Text { text: PhoneLinkService.exposedName; color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeMd; font.bold: true }
+                                    Text { text: PhoneLinkService.exposedName; color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeMd; font.bold: true }
                                     Text {
                                         text: !PhoneLinkService.configured ? I18n.tr("No phone has been configured")
                                             : (PhoneLinkService.active ? I18n.tr("Service active and ready") : I18n.tr("Service stopped"))
                                         color: PhoneLinkService.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                                        font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                                        font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                                     }
                                 }
                                 Rectangle {
@@ -2936,7 +2980,7 @@ PanelWindow {
                                 color: ThemeManager.onSurface
                                 placeholderText: "Nodalix"
                                 placeholderTextColor: ThemeManager.onSurfaceVariant
-                                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                 leftPadding: 10; rightPadding: 10
                                 background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh; border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
                                 onAccepted: PhoneLinkService.setName(text)
@@ -2985,7 +3029,7 @@ PanelWindow {
                             Layout.fillWidth: true
                             text: PhoneLinkService.statusText
                             color: ThemeManager.primary
-                            font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                             wrapMode: Text.WordWrap
                         }
                     }
@@ -2997,7 +3041,7 @@ PanelWindow {
                         Layout.margins: 20
                         spacing: 10
                         SettingSection { text: I18n.tr("Nearby sharing") }
-                        Text { Layout.fillWidth: true; text: I18n.tr("Nodalix stays available on your local network and receives files like AirDrop."); wrapMode: Text.WordWrap; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm }
+                        Text { Layout.fillWidth: true; text: I18n.tr("Nodalix stays available on your local network and receives files like AirDrop."); wrapMode: Text.WordWrap; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
                         RowLayout {
                             Layout.fillWidth: true; spacing: 8
                             TextField {
@@ -3006,15 +3050,15 @@ PanelWindow {
                                 text: LocalSendService.alias
                                 placeholderText: I18n.tr("Visible device name")
                                 placeholderTextColor: ThemeManager.onSurfaceVariant
-                                color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily
+                                color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text)
                                 background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh; border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
                                 onAccepted: LocalSendService.setAlias(text)
                             }
                             SettingBtn { label: I18n.tr("Save"); onClicked: LocalSendService.setAlias(_localSendAlias.text) }
                         }
                         SettingSection { text: I18n.tr("Favorite devices"); Layout.topMargin: 12 }
-                        Text { Layout.fillWidth: true; text: I18n.tr("Files from favorite devices are accepted automatically. Only favorite devices should be trusted."); wrapMode: Text.WordWrap; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 10 }
-                        Text { visible: LocalSendService.favorites.length === 0; text: I18n.tr("No favorite devices yet"); color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm }
+                        Text { Layout.fillWidth: true; text: I18n.tr("Files from favorite devices are accepted automatically. Only favorite devices should be trusted."); wrapMode: Text.WordWrap; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 10 }
+                        Text { visible: LocalSendService.favorites.length === 0; text: I18n.tr("No favorite devices yet"); color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
                         Repeater {
                             model: LocalSendService.favorites
                             delegate: Rectangle {
@@ -3024,8 +3068,8 @@ PanelWindow {
                                 RowLayout {
                                     anchors { fill: parent; margins: 10 }
                                     spacing: 10
-                                    Text { text: "󰋑"; color: ThemeManager.primary; font.family: ThemeManager.fontFamily; font.pixelSize: 18 }
-                                    Text { Layout.fillWidth: true; text: modelData.alias; color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; elide: Text.ElideRight }
+                                    Text { text: "󰋑"; color: ThemeManager.primary; font.family: ThemeManager.fontFor(text); font.pixelSize: 18 }
+                                    Text { Layout.fillWidth: true; text: modelData.alias; color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); elide: Text.ElideRight }
                                     SettingBtn { label: I18n.tr("Remove"); danger: true; onClicked: LocalSendService.setFavorite(modelData.fingerprint, false, modelData.alias) }
                                 }
                             }
@@ -3048,7 +3092,7 @@ PanelWindow {
                                     ? I18n.tr("Connected to") + " " + root._connectedWifi.name
                                     : I18n.tr("No active network connection"))
                             color: (root._ethernetConnected || root._connectedWifi) ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                         }
                         LiveToggle {
                             label: I18n.tr("Wi-Fi")
@@ -3077,7 +3121,7 @@ PanelWindow {
                                 Layout.fillWidth: true
                                 text: SystemControlService.statusText
                                 color: ThemeManager.onSurfaceVariant
-                                font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                                font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                                 elide: Text.ElideRight
                             }
                             SettingBtn {
@@ -3128,7 +3172,7 @@ PanelWindow {
                             visible: AudioService.sinks.length === 0
                             text: I18n.tr("No output devices detected")
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                         }
                         Repeater {
                             model: AudioService.sinks
@@ -3144,7 +3188,7 @@ PanelWindow {
                             visible: AudioService.sources.length === 0
                             text: I18n.tr("No input devices detected")
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                         }
                         Repeater {
                             model: AudioService.sources
@@ -3170,7 +3214,7 @@ PanelWindow {
                             text: I18n.tr("Choose between lower consumption and maximum performance.")
                             wrapMode: Text.WordWrap
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                         }
                         RowLayout {
                             Layout.fillWidth: true; spacing: 6
@@ -3189,8 +3233,8 @@ PanelWindow {
                                     border.width: 1; border.color: selected ? ThemeManager.primary : ThemeManager.outlineVariant
                                     ColumnLayout {
                                         anchors.centerIn: parent; spacing: 1
-                                        Text { Layout.alignment: Qt.AlignHCenter; text: modelData.icon; color: parent.parent.selected ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 18 }
-                                        Text { Layout.alignment: Qt.AlignHCenter; text: modelData.label; color: parent.parent.selected ? ThemeManager.primary : ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: 10 }
+                                        Text { Layout.alignment: Qt.AlignHCenter; text: modelData.icon; color: parent.parent.selected ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 18 }
+                                        Text { Layout.alignment: Qt.AlignHCenter; text: modelData.label; color: parent.parent.selected ? ThemeManager.primary : ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: 10 }
                                     }
                                     TapHandler { onTapped: PowerProfiles.profile = modelData.value }
                                 }
@@ -3201,7 +3245,7 @@ PanelWindow {
                             Layout.fillWidth: true
                             text: I18n.tr("Performance is temporarily limited by the system")
                             color: ThemeManager.error
-                            font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                         }
 
                         SettingSection { text: I18n.tr("Session") }
@@ -3216,7 +3260,7 @@ PanelWindow {
                             Layout.fillWidth: true
                             text: I18n.tr("Automatic locking is configured in Security.")
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                         }
                     }
 
@@ -3255,7 +3299,7 @@ PanelWindow {
                             text: I18n.tr("Privacy indicators around the clock light up only while a device or location service is in use.")
                             wrapMode: Text.WordWrap
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                         }
                     }
 
@@ -3283,7 +3327,7 @@ PanelWindow {
                                 text: SystemControlService.timezone
                                 color: ThemeManager.onSurface
                                 placeholderTextColor: ThemeManager.onSurfaceVariant
-                                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                 leftPadding: 10; rightPadding: 10
                                 background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh; border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
                                 onAccepted: SystemControlService.setTimezone(text)
@@ -3299,7 +3343,7 @@ PanelWindow {
                             Layout.fillWidth: true
                             text: SystemControlService.statusText
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                         }
                     }
 
@@ -3316,7 +3360,7 @@ PanelWindow {
                             text: I18n.tr("These applications will be used by Nodalix and other compatible programs when opening links and files.")
                             wrapMode: Text.WordWrap
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                         }
                         DefaultAppPicker { label: I18n.tr("Web browser"); role: "browser"; currentId: SystemControlService.defaultBrowser }
                         DefaultAppPicker { label: I18n.tr("File manager"); role: "files"; currentId: SystemControlService.defaultFileManager }
@@ -3329,7 +3373,7 @@ PanelWindow {
                             Layout.fillWidth: true
                             text: SystemControlService.statusText
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                         }
                     }
 
@@ -3366,7 +3410,7 @@ PanelWindow {
                             text: I18n.tr("Optional features need these. Nothing is installed automatically.")
                             wrapMode: Text.WordWrap
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                         }
                         Repeater {
                             model: Object.keys(DependencyService.deps)
@@ -3376,13 +3420,13 @@ PanelWindow {
                                 spacing: 10
                                 readonly property bool ok: DependencyService.available(modelData)
                                 Text { text: ok ? "󰄬" : "󰅖"; color: ok ? "#7bd88f" : ThemeManager.error
-                                       font.family: ThemeManager.fontFamily; font.pixelSize: 14 }
+                                       font.family: ThemeManager.fontFor(text); font.pixelSize: 14 }
                                 ColumnLayout {
                                     Layout.fillWidth: true; spacing: 0
                                     Text { text: modelData + "  ·  " + DependencyService.desc(modelData)
-                                           color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm }
+                                           color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
                                     Text { visible: !parent.parent.ok; text: I18n.tr("install: ") + DependencyService.pkg(modelData)
-                                           color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 10 }
+                                           color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 10 }
                                 }
                             }
                         }
@@ -3392,7 +3436,7 @@ PanelWindow {
                             radius: ThemeManager.chipRadius; color: _rcH.hovered ? ThemeManager.surfaceContainerHigh : ThemeManager.surfaceContainerLow
                             border.width: 1; border.color: ThemeManager.outlineVariant
                             Text { id: _recheck; anchors.centerIn: parent; text: I18n.tr("Re-check"); color: ThemeManager.onSurface
-                                   font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm }
+                                   font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
                             HoverHandler { id: _rcH }
                             TapHandler { onTapped: DependencyService.recheck() }
                         }
@@ -3444,13 +3488,13 @@ PanelWindow {
                 Text {
                     Layout.fillWidth: true
                     text: I18n.tr("Keep these display settings?")
-                    color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily
+                    color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text)
                     font.pixelSize: ThemeManager.fontSizeLg; font.bold: true; wrapMode: Text.WordWrap
                 }
                 Text {
                     Layout.fillWidth: true
                     text: I18n.tr("Reverting to the previous settings in ") + HyprlandConfigService.monitorCountdown + " s…"
-                    color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily
+                    color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text)
                     font.pixelSize: ThemeManager.fontSizeSm; wrapMode: Text.WordWrap
                 }
                 RowLayout {
@@ -3469,7 +3513,7 @@ PanelWindow {
         Layout.topMargin: 10
         Layout.bottomMargin: 2
         color: ThemeManager.primary
-        font.family: ThemeManager.fontFamily
+        font.family: ThemeManager.fontFor(text)
         font.pixelSize: ThemeManager.fontSizeSm
         font.bold: true
     }
@@ -3486,17 +3530,17 @@ PanelWindow {
             spacing: 0
             RowLayout {
                 spacing: 6
-                Text { text: rowBase.label; color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeMd }
+                Text { text: rowBase.label; color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeMd }
                 Rectangle {
                     visible: rowBase.dep !== "" && !rowBase.depOk
                     implicitWidth: _dt.implicitWidth + 10; implicitHeight: 16; radius: 8
                     color: Qt.rgba(ThemeManager.error.r, ThemeManager.error.g, ThemeManager.error.b, 0.18)
                     Text { id: _dt; anchors.centerIn: parent; text: I18n.tr("needs ") + (rowBase.dep ? DependencyService.pkg(rowBase.dep) : "")
-                           color: ThemeManager.error; font.family: ThemeManager.fontFamily; font.pixelSize: 9 }
+                           color: ThemeManager.error; font.family: ThemeManager.fontFor(text); font.pixelSize: 9 }
                 }
             }
             Text { visible: rowBase.sub !== ""; text: rowBase.sub; color: ThemeManager.onSurfaceVariant
-                   font.family: ThemeManager.fontFamily; font.pixelSize: 10 }
+                   font.family: ThemeManager.fontFor(text); font.pixelSize: 10 }
         }
     }
     component LiveToggle: SettingRowBase {
@@ -3533,22 +3577,26 @@ PanelWindow {
         Text {
             text: Math.round(liveSlider.shownValue) + liveSlider.unit
             color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
             Layout.rightMargin: 8
         }
         Rectangle {
             id: liveTrack
-            Layout.preferredWidth: 160; implicitHeight: 6; radius: 3
-            color: ThemeManager.surfaceContainerHigh
+            Layout.preferredWidth: 160; implicitHeight: 18; radius: 9
+            color: ThemeManager.outlineVariant
+            antialiasing: true
             readonly property real fraction: (liveSlider.shownValue - liveSlider.from) / Math.max(1, liveSlider.to - liveSlider.from)
             Rectangle {
                 anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                width: liveTrack.width * liveTrack.fraction; radius: 3; color: ThemeManager.primary
+                anchors.margins: 2
+                width: Math.max(0, (liveTrack.width - 4) * liveTrack.fraction); radius: 7
+                antialiasing: true
+                color: Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.42)
             }
             Rectangle {
-                width: 14; height: 14; radius: 7; y: -4
+                width: 20; height: 20; radius: 10; y: -1
                 x: Math.max(0, Math.min(liveTrack.width - width, liveTrack.width * liveTrack.fraction - width / 2))
-                color: ThemeManager.primary
+                color: ThemeManager.onSurface
             }
             MouseArea {
                 anchors.fill: parent; anchors.margins: -6
@@ -3573,15 +3621,15 @@ PanelWindow {
         RowLayout {
             anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
             spacing: 8
-            Text { text: audioNode.selected ? "󰄬" : "󰓃"; color: audioNode.selected ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 14 }
+            Text { text: audioNode.selected ? "󰄬" : "󰓃"; color: audioNode.selected ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 14 }
             Text {
                 Layout.fillWidth: true
                 text: audioNode.node?.description || audioNode.node?.name || I18n.tr("Unknown")
                 color: audioNode.selected ? ThemeManager.primary : ThemeManager.onSurface
-                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 elide: Text.ElideRight
             }
-            Text { visible: audioNode.selected; text: I18n.tr("Default"); color: ThemeManager.primary; font.family: ThemeManager.fontFamily; font.pixelSize: 10 }
+            Text { visible: audioNode.selected; text: I18n.tr("Default"); color: ThemeManager.primary; font.family: ThemeManager.fontFor(text); font.pixelSize: 10 }
         }
         HoverHandler { id: _audioHover; cursorShape: Qt.PointingHandCursor }
         TapHandler { onTapped: audioNode.clicked() }
@@ -3598,9 +3646,9 @@ PanelWindow {
         border.width: 1; border.color: active ? ThemeManager.primary : ThemeManager.outlineVariant
         ColumnLayout {
             anchors.centerIn: parent; spacing: 2
-            Text { Layout.alignment: Qt.AlignHCenter; text: privacyState.icon; color: privacyState.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 19 }
-            Text { Layout.alignment: Qt.AlignHCenter; text: privacyState.label; color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: 10 }
-            Text { Layout.alignment: Qt.AlignHCenter; text: I18n.tr(privacyState.active ? "In use" : "Not in use"); color: privacyState.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 9 }
+            Text { Layout.alignment: Qt.AlignHCenter; text: privacyState.icon; color: privacyState.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 19 }
+            Text { Layout.alignment: Qt.AlignHCenter; text: privacyState.label; color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: 10 }
+            Text { Layout.alignment: Qt.AlignHCenter; text: I18n.tr(privacyState.active ? "In use" : "Not in use"); color: privacyState.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 9 }
         }
     }
     component DefaultAppPicker: SettingRowBase {
@@ -3620,7 +3668,7 @@ PanelWindow {
             textRole: "name"
             currentIndex: root._defaultAppIndex(appPicker.currentId)
             displayText: currentIndex >= 0 ? currentText : (appPicker.currentId || I18n.tr("Not set"))
-            font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+            font.family: ThemeManager.fontFor(displayText); font.pixelSize: ThemeManager.fontSizeSm
             contentItem: Text {
                 leftPadding: 10; rightPadding: 28
                 text: appCombo.displayText
@@ -3632,7 +3680,7 @@ PanelWindow {
             indicator: Text {
                 x: appCombo.width - width - 10; anchors.verticalCenter: parent.verticalCenter
                 text: "󰅀"; color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily; font.pixelSize: 13
+                font.family: ThemeManager.fontFor(text); font.pixelSize: 13
             }
             background: Rectangle {
                 radius: ThemeManager.chipRadius
@@ -3656,13 +3704,13 @@ PanelWindow {
         RowLayout {
             anchors { fill: parent; leftMargin: 12; rightMargin: 12 }
             spacing: 10
-            Text { text: infoRow.icon; color: ThemeManager.primary; font.family: ThemeManager.fontFamily; font.pixelSize: 17 }
-            Text { text: infoRow.label; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm }
+            Text { text: infoRow.icon; color: ThemeManager.primary; font.family: ThemeManager.fontFor(text); font.pixelSize: 17 }
+            Text { text: infoRow.label; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
             Item { Layout.fillWidth: true }
             Text {
                 Layout.maximumWidth: parent.width * 0.62
                 text: infoRow.value
-                color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 font.weight: Font.Medium; elide: Text.ElideRight
             }
         }
@@ -3697,16 +3745,20 @@ PanelWindow {
         property var applyFn: null
         readonly property real val: SettingsService.get(path, def)
         Text { text: Math.round(sl.val) + sl.unit; color: ThemeManager.onSurfaceVariant
-               font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm; Layout.rightMargin: 8 }
+               font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm; Layout.rightMargin: 8 }
         Rectangle {
             id: track
-            Layout.preferredWidth: 160; implicitHeight: 6; radius: 3
-            color: ThemeManager.surfaceContainerHigh
+            Layout.preferredWidth: 160; implicitHeight: 18; radius: 9
+            color: ThemeManager.outlineVariant
+            antialiasing: true
             readonly property real _frac: Math.max(0, Math.min(1, (sl.val - sl.from) / (sl.to - sl.from)))
             Rectangle { anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                        width: track.width * track._frac; radius: 3; color: ThemeManager.primary }
-            Rectangle { width: 14; height: 14; radius: 7; color: ThemeManager.primary
-                        y: -4; x: Math.max(0, Math.min(track.width - width, track.width * track._frac - width / 2)) }
+                        anchors.margins: 2
+                        width: Math.max(0, (track.width - 4) * track._frac); radius: 7
+                        antialiasing: true
+                        color: Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.42) }
+            Rectangle { width: 20; height: 20; radius: 10; color: ThemeManager.onSurface
+                        y: -1; x: Math.max(0, Math.min(track.width - width, track.width * track._frac - width / 2)) }
             MouseArea {
                 anchors.fill: parent; anchors.margins: -6
                 onPressed: (e) => _set(e.x); onPositionChanged: (e) => { if (pressed) _set(e.x) }
@@ -3731,22 +3783,26 @@ PanelWindow {
         readonly property real val: SettingsService.get("hypr.monitors." + monitorName + "." + keyName, def)
         Text {
             text: Number(hs.val).toFixed(hs.decimals) + hs.unit
-            color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily
+            color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text)
             font.pixelSize: ThemeManager.fontSizeSm; Layout.rightMargin: 8
         }
         Rectangle {
             id: hdrTrack
-            Layout.preferredWidth: 160; implicitHeight: 6; radius: 3
-            color: ThemeManager.surfaceContainerLow
+            Layout.preferredWidth: 160; implicitHeight: 18; radius: 9
+            color: ThemeManager.outlineVariant
+            antialiasing: true
             readonly property real frac: Math.max(0, Math.min(1, (hs.val - hs.from) / (hs.to - hs.from)))
             Rectangle {
                 anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                width: hdrTrack.width * hdrTrack.frac; radius: 3; color: ThemeManager.primary
+                anchors.margins: 2
+                width: Math.max(0, (hdrTrack.width - 4) * hdrTrack.frac); radius: 7
+                antialiasing: true
+                color: Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.42)
             }
             Rectangle {
-                width: 14; height: 14; radius: 7; y: -4
+                width: 20; height: 20; radius: 10; y: -1
                 x: Math.max(0, Math.min(hdrTrack.width - width, hdrTrack.width * hdrTrack.frac - width / 2))
-                color: ThemeManager.primary
+                color: ThemeManager.onSurface
             }
             MouseArea {
                 anchors.fill: parent; anchors.margins: -6
@@ -3784,7 +3840,7 @@ PanelWindow {
                     border.width: 1; border.color: ThemeManager.outlineVariant
                     Text { id: _st; anchors.centerIn: parent; text: modelData
                            color: sel ? ThemeManager.onPrimary : ThemeManager.onSurfaceVariant
-                           font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm }
+                           font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
                     TapHandler { enabled: seg.enabled; onTapped: { SettingsService.set(seg.path, seg.keys[index]); if (seg.applyFn) seg.applyFn(seg.keys[index]) } }
                 }
             }
@@ -3802,12 +3858,12 @@ PanelWindow {
         }
         Text {
             Layout.fillWidth: true; text: clr.role
-            color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+            color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
         }
         TextField {
             Layout.preferredWidth: 100; implicitHeight: 26
             text: ThemeManager.roleHex(clr.role)
-            color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+            color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
             leftPadding: 8; rightPadding: 8
             background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh
                                     border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
@@ -3827,7 +3883,7 @@ PanelWindow {
             placeholderText: tx.placeholder
             placeholderTextColor: ThemeManager.onSurfaceVariant
             color: ThemeManager.onSurface
-            font.family: ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: ThemeManager.fontSizeSm
             leftPadding: 10; rightPadding: 10
             background: Rectangle {
@@ -3857,7 +3913,7 @@ PanelWindow {
             Text {
                 text: I18n.tr("Administrator password")
                 color: ThemeManager.onSurface
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: ThemeManager.fontSizeMd
                 font.bold: true
             }
@@ -3865,7 +3921,7 @@ PanelWindow {
                 Layout.fillWidth: true
                 text: I18n.tr("The password is used only to authorize this update and is never saved.")
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: 10
                 wrapMode: Text.WordWrap
             }
@@ -3878,7 +3934,7 @@ PanelWindow {
                 placeholderText: I18n.tr("Password")
                 placeholderTextColor: ThemeManager.onSurfaceVariant
                 color: ThemeManager.onSurface
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 background: Rectangle {
                     radius: ThemeManager.chipRadius
                     color: ThemeManager.surfaceContainer
@@ -3895,7 +3951,7 @@ PanelWindow {
                 visible: UpdateService.passwordError
                 text: I18n.tr("Incorrect password")
                 color: ThemeManager.error
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: 10
             }
             RowLayout {
@@ -3934,7 +3990,7 @@ PanelWindow {
         border.width: 1; border.color: danger ? ThemeManager.error : ThemeManager.outlineVariant
         Text { id: _bt; anchors.centerIn: parent; text: btn.label
                color: btn.danger ? ThemeManager.error : ThemeManager.onSurface
-               font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm }
+               font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
         HoverHandler { id: _bH; enabled: btn.enabled; cursorShape: Qt.PointingHandCursor }
         TapHandler { enabled: btn.enabled; onTapped: btn.clicked() }
     }
@@ -3952,7 +4008,7 @@ PanelWindow {
             anchors.centerIn: parent
             text: wtb.icon
             color: wtb.active ? ThemeManager.onPrimary : "white"
-            font.family: ThemeManager.fontFamily; font.pixelSize: 13
+            font.family: ThemeManager.fontFor(text); font.pixelSize: 13
         }
         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: wtb.clicked() }
     }

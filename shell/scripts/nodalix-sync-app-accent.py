@@ -63,15 +63,22 @@ def fluenty_css(c: dict[str, str]) -> str:
     --nodalix-on-surface: {c['onSurface']};
     --nodalix-on-surface-variant: {c['onSurfaceVariant']};
     --nodalix-outline: {c['outline']};
-    --SystemAccentColor: var(--nodalix-primary);
-    --SystemAccentColorLight1: color-mix(in srgb, var(--nodalix-primary) 86%, white);
-    --SystemAccentColorLight2: var(--nodalix-primary);
-    --SystemAccentColorLight3: var(--nodalix-primary-container);
-    --main-accent-default: var(--nodalix-primary);
-    --fill-color-accent-default: var(--nodalix-primary);
-    --fill-color-accent-secondary: var(--nodalix-primary-container);
-    --accent-main: var(--nodalix-primary);
-    --accent: var(--nodalix-primary);
+    --nodalix-hover-surface: color-mix(in srgb, var(--nodalix-primary) 18%, var(--nodalix-surface-high));
+    --nodalix-selected-surface: var(--nodalix-primary-container);
+    --SystemAccentColor: var(--nodalix-primary) !important;
+    --SystemAccentColorAccent: var(--nodalix-primary) !important;
+    --SystemAccentColorLight1: color-mix(in srgb, var(--nodalix-primary) 86%, white) !important;
+    --SystemAccentColorLight2: var(--nodalix-primary) !important;
+    --SystemAccentColorLight3: var(--nodalix-primary-container) !important;
+    --SystemAccentColorDark1: color-mix(in srgb, var(--nodalix-primary) 62%, var(--nodalix-surface-high)) !important;
+    --SystemAccentColorDark2: var(--nodalix-primary-container) !important;
+    --main-accent-default: var(--nodalix-primary) !important;
+    --fill-color-accent-default: var(--nodalix-primary) !important;
+    --fill-color-accent-secondary: var(--nodalix-primary-container) !important;
+    --settings-sidebar-hover-bg: var(--nodalix-hover-surface) !important;
+    --settings-sidebar-hover-not-select: var(--nodalix-hover-surface) !important;
+    --accent-main: var(--nodalix-primary) !important;
+    --accent: var(--nodalix-primary) !important;
     accent-color: var(--nodalix-primary);
 }}
 
@@ -112,6 +119,52 @@ html body :is(.DialogButton.Primary, ._3cI5TXsFX3bvpR-7EBOtxq > ._2AzIX5kl9k6Jnx
     color: var(--nodalix-on-primary) !important;
     fill: var(--nodalix-on-primary) !important;
 }}
+
+/* Selected navigation and menu items inherit Material containers, not black. */
+html body :is(.activeTab, [role="tab"][aria-selected="true"],
+    [role="option"][aria-selected="true"]) {{
+    background: var(--nodalix-selected-surface) !important;
+    color: var(--nodalix-on-primary-container) !important;
+    border-color: color-mix(in srgb, var(--nodalix-primary) 55%, transparent) !important;
+}}
+
+html body :is(.contextMenuItem:hover, ._1n7Wloe5jZ6fSuvV18NNWI.contextMenuItem:hover,
+    ._2oAiZidGyUxL-hfupFDQ2m:hover, .DialogButton:hover:not(.Primary),
+    ._2-O4ZG0KrnSrzISHBKctFQ:hover, ._5wILZhsLODVwGfcJ0hKmJ:hover,
+    .RtSv39ZoBOySnb8XQ5hJf:hover, ._161IKq84RwQO4abJSCqv7q:hover,
+    ._3i62HEXIhsNTd5-Z4uL3K:hover,
+    ._2jXHP0742MyApMUVUM8IFn._2uiDecKkKjAq7nimy3uLhG:hover) {{
+    background: var(--nodalix-hover-surface) !important;
+    color: var(--nodalix-on-surface) !important;
+    border-color: color-mix(in srgb, var(--nodalix-primary) 38%, transparent) !important;
+}}
+
+html body ._1UBpAXP408Ez_L_mXhW5Q9 ._2-O4ZG0KrnSrzISHBKctFQ:hover,
+html body ._1UBpAXP408Ez_L_mXhW5Q9 ._2-O4ZG0KrnSrzISHBKctFQ._3cMVyOc-9F9Jvp3uKF7_xj,
+html body ._1UBpAXP408Ez_L_mXhW5Q9._2-O4ZG0KrnSrzISHBKctFQ:hover,
+html body ._1UBpAXP408Ez_L_mXhW5Q9._2-O4ZG0KrnSrzISHBKctFQ._3cMVyOc-9F9Jvp3uKF7_xj,
+html body ._1UBpAXP408Ez_L_mXhW5Q9._2-O4ZG0KrnSrzISHBKctFQ :hover {{
+    background: var(--nodalix-hover-surface) !important;
+}}
+
+/* Focused search and text fields should remain dark, but gain a tinted surface. */
+html body :is(._20QAC4WMXm8qFE8waUT5oo:focus-within,
+    ._3x31AgESSlUqX3D4MTHv2m ._1JlC29Ic6L-QvL-39X_d-X:focus) {{
+    background: color-mix(in srgb, var(--nodalix-primary) 10%, var(--nodalix-surface-high)) !important;
+    border-bottom-color: var(--nodalix-primary) !important;
+}}
+
+html body .btn_grey_black:not(.btn_disabled):not(:disabled):hover,
+html body .btn_grey_black:not(.btn_disabled):not(:disabled):hover > span {{
+    background: var(--nodalix-hover-surface) !important;
+    color: var(--nodalix-on-surface) !important;
+    border-color: color-mix(in srgb, var(--nodalix-primary) 45%, transparent) !important;
+}}
+html body .btn_grey_black:is(.btn_active, .active),
+html body .btn_grey_black:is(.btn_active, .active) > span {{
+    background: var(--nodalix-selected-surface) !important;
+    color: var(--nodalix-on-primary-container) !important;
+}}
 """
 
 
@@ -120,7 +173,12 @@ def ensure_import(path: Path, import_line: str) -> None:
         return
     original = path.read_text(encoding="utf-8")
     lines = [line for line in original.splitlines() if line.strip() != import_line]
-    lines.insert(0, import_line)
+    # CSS imports must precede rules. Place ours after the theme's own imports
+    # so equal-specificity declarations do not replace the Nodalix palette.
+    position = 0
+    while position < len(lines) and lines[position].lstrip().startswith("@import"):
+        position += 1
+    lines.insert(position, import_line)
     rendered = "\n".join(lines).rstrip() + "\n"
     if rendered != original:
         path.write_text(rendered, encoding="utf-8")
