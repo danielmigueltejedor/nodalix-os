@@ -47,6 +47,24 @@ class HardwareProfileTests(unittest.TestCase):
         self.assertIn('"default nodalix-cachyos.conf\\n"', source)
         self.assertIn('["bootctl", "set-default", target.name]', source)
 
+    def test_polished_boot_options_replace_noisy_console_settings(self):
+        options = MODULE["polished_boot_options"](
+            "root=UUID=test rw quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3"
+        )
+        self.assertIn("root=UUID=test", options)
+        self.assertIn("quiet", options)
+        self.assertIn("loglevel=2", options)
+        self.assertIn("systemd.show_status=false", options)
+        self.assertIn("rd.systemd.show_status=false", options)
+        self.assertIn("rd.udev.log_level=2", options)
+        self.assertIn("udev.log_level=2", options)
+        self.assertNotIn("loglevel=3", options)
+        self.assertNotIn("systemd.show_status=auto", options)
+
+    def test_polished_boot_options_are_idempotent(self):
+        first = MODULE["polished_boot_options"]("root=/dev/test rw")
+        self.assertEqual(MODULE["polished_boot_options"](first), first)
+
 
 if __name__ == "__main__":
     unittest.main()

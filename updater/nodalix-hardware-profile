@@ -14,6 +14,13 @@ from pathlib import Path
 
 VENDOR_REPO = Path("/usr/lib/nodalix-updater/cachyos-repo")
 PROFILE_FILE = Path("/etc/nodalix/hardware-profile.json")
+POLISHED_BOOT_OPTIONS = {
+    "loglevel": "2",
+    "systemd.show_status": "false",
+    "rd.systemd.show_status": "false",
+    "rd.udev.log_level": "2",
+    "udev.log_level": "2",
+}
 
 
 def run_text(command: list[str]) -> str:
@@ -103,6 +110,27 @@ def detect() -> dict[str, object]:
     }
 
 
+def polished_boot_options(options: str) -> str:
+    """Keep boot diagnostics in the journal without painting harmless warnings."""
+    managed = set(POLISHED_BOOT_OPTIONS)
+    tokens = [
+        token for token in options.split()
+        if token.split("=", 1)[0] not in managed and token != "quiet"
+    ]
+    tokens.append("quiet")
+    tokens.extend(f"{key}={value}" for key, value in POLISHED_BOOT_OPTIONS.items())
+    return " ".join(tokens)
+
+
+def polish_boot_entry(content: str) -> str:
+    return re.sub(
+        r"^options\s+(.*)$",
+        lambda match: f"options {polished_boot_options(match.group(1))}",
+        content,
+        flags=re.MULTILINE,
+    )
+
+
 def write_systemd_boot_entry(kernel: str) -> str:
     entries = Path("/boot/loader/entries")
     source = entries / "nodalix.conf"
@@ -113,7 +141,18 @@ def write_systemd_boot_entry(kernel: str) -> str:
     content = re.sub(r"^title\s+.*$", "title Nodalix · CachyOS (optimizado)", original, flags=re.MULTILINE)
     content = re.sub(r"^linux\s+\S+", "linux /vmlinuz-linux-cachyos", content, flags=re.MULTILINE)
     content = re.sub(r"^initrd\s+/initramfs-linux\.img$", "initrd /initramfs-linux-cachyos.img", content, flags=re.MULTILINE)
+    content = polish_boot_entry(content)
     target.write_text(content, encoding="utf-8")
+
+    kernel_cmdline = Path("/etc/kernel/cmdline")
+    if kernel_cmdline.exists():
+        cmdline_backup = kernel_cmdline.with_suffix(".nodalix-backup")
+        if not cmdline_backup.exists():
+            shutil.copy2(kernel_cmdline, cmdline_backup)
+        kernel_cmdline.write_text(
+            polished_boot_options(kernel_cmdline.read_text(encoding="utf-8")) + "\n",
+            encoding="utf-8",
+        )
 
     loader = Path("/boot/loader/loader.conf")
     if loader.exists():
