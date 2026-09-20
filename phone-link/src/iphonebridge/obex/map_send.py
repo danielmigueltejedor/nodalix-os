@@ -14,13 +14,13 @@ just passes its path here.
 from __future__ import annotations
 
 import logging
-import tempfile
 import time
 from pathlib import Path
 
 import dbus
 import dbus.exceptions
 
+from iphonebridge import config
 from iphonebridge.bus import obex
 
 log = logging.getLogger(__name__)
@@ -95,7 +95,7 @@ def send_message(
     or 'gone'. Raises on InvalidArguments or transfer error.
     """
     bmsg = build_bmessage(recipient, body)
-    tmp = Path(tempfile.mkstemp(prefix="ibridge_send_", suffix=".bmsg")[1])
+    tmp = config.transfer_file("ibridge_send_", ".bmsg")
     tmp.write_text(bmsg, encoding="utf-8")
     try:
         map_iface = obex(session_path, "org.bluez.obex.MessageAccess1")

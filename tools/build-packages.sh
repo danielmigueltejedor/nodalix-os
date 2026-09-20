@@ -96,6 +96,9 @@ cp "$root/packaging/nodalix-fluent-emoji/PKGBUILD" \
    "$fluent_dir/"
 
 cp "$root/packaging/nodalix-colloid-icons/PKGBUILD" "$colloid_dir/"
+hymission_dir="$workdir/nodalix-hymission"
+mkdir -p "$hymission_dir"
+cp "$root/packaging/nodalix-hymission/PKGBUILD" "$hymission_dir/"
 
 cp "$root/packaging/nodalix-wallpapers/PKGBUILD" \
    "$root/packaging/nodalix-wallpapers/SOURCES.md" \
@@ -113,6 +116,7 @@ if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
   makepkg_one "$phone_link_dir"
   makepkg_one "$fluent_dir"
   makepkg_one "$colloid_dir"
+  makepkg_one "$hymission_dir"
   makepkg_one "$wallpaper_dir"
   makepkg_one "$release_dir"
   find "$workdir" -name '*.pkg.tar.zst' ! -name '*-debug-*' -exec cp {} "$outdir/" \;

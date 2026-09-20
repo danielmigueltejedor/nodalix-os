@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import os
 import stat
+import tempfile
 from pathlib import Path
 
 
@@ -101,3 +102,16 @@ def ensure_dirs() -> None:
 # ---- dbus paths used in the daemon --------------------------------------
 
 BLE_ADVERT_DBUS_PATH: str = "/com/gabriel/iphonebridge/ancs_advert"
+
+
+def transfer_directory() -> Path:
+    root = Path(os.environ.get("XDG_CACHE_HOME") or (Path.home() / ".cache")) / "nodalix/phone-link/transfers"
+    root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    root.chmod(0o700)
+    return root
+
+
+def transfer_file(prefix: str, suffix: str) -> Path:
+    descriptor, filename = tempfile.mkstemp(prefix=prefix, suffix=suffix, dir=transfer_directory())
+    os.close(descriptor)
+    return Path(filename)

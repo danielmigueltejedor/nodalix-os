@@ -1008,7 +1008,7 @@ PanelWindow {
                                 TextField {
                                     id: _bindField
                                     Layout.preferredWidth: 180; implicitHeight: 28
-                                    text: SettingsService.get("binds." + modelData.key, "")
+                                    text: BindingService.combo(modelData.key)
                                     placeholderText: I18n.tr("Unbound")
                                     placeholderTextColor: ThemeManager.onSurfaceVariant
                                     color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm

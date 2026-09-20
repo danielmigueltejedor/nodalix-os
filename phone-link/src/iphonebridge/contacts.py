@@ -96,69 +96,63 @@ def pull_phonebook(sessions: SessionManager, *, max_contacts: int = 65535) -> in
     log.info("PBAP Select(int, pb)")
     pbap.Select("int", "pb")
 
-    out = Path(tempfile.mkdtemp(prefix="iphonebridge_pb_")) / "pb.vcf"
-    log.info("PBAP PullAll → %s (max=%d)", out, max_contacts)
-    ret = pbap.PullAll(
-        str(out),
-        {"MaxListCount": dbus.UInt16(max_contacts),
-         "Format": dbus.String("Vcard30")},
-    )
-    transfer_path = str(ret[0]) if isinstance(ret, (tuple, list)) else str(ret)
+    with tempfile.TemporaryDirectory(prefix="phonebook-", dir=config.transfer_directory()) as directory:
+        out = Path(directory) / "pb.vcf"
+        log.info("PBAP PullAll → %s (max=%d)", out, max_contacts)
+        ret = pbap.PullAll(
+            str(out),
+            {"MaxListCount": dbus.UInt16(max_contacts),
+             "Format": dbus.String("Vcard30")},
+        )
+        transfer_path = str(ret[0]) if isinstance(ret, (tuple, list)) else str(ret)
 
-    # Wait for transfer to complete (poll properties)
-    tprops = obex(transfer_path, "org.freedesktop.DBus.Properties")
-    for _ in range(600):  # up to 60s for huge phonebooks
-        try:
-            status = str(tprops.Get("org.bluez.obex.Transfer1", "Status"))
-        except dbus.exceptions.DBusException:
-            status = "gone"
-            break
-        if status in ("complete", "error"):
-            break
-        time.sleep(0.1)
-    log.info("transfer status: %s, file size: %d bytes",
-             status, out.stat().st_size if out.exists() else 0)
+        # Wait for transfer to complete (poll properties)
+        tprops = obex(transfer_path, "org.freedesktop.DBus.Properties")
+        for _ in range(600):  # up to 60s for huge phonebooks
+            try:
+                status = str(tprops.Get("org.bluez.obex.Transfer1", "Status"))
+            except dbus.exceptions.DBusException:
+                status = "gone"
+                break
+            if status in ("complete", "error"):
+                break
+            time.sleep(0.1)
+        log.info("transfer status: %s, file size: %d bytes",
+                 status, out.stat().st_size if out.exists() else 0)
 
-    if not out.exists() or out.stat().st_size == 0:
-        raise RuntimeError("PBAP transfer wrote no file")
+        if not out.exists() or out.stat().st_size == 0:
+            raise RuntimeError("PBAP transfer wrote no file")
 
-    blob = out.read_text(errors="replace")
-    parsed = _parse_vcards(blob)
-    log.info("parsed %d contacts from %d bytes", len(parsed), out.stat().st_size)
+        blob = out.read_text(errors="replace")
+        parsed = _parse_vcards(blob)
+        log.info("parsed %d contacts from %d bytes", len(parsed), out.stat().st_size)
 
-    now = time.time()
-    with closing(_open_db()) as db:
-        with db:  # transaction
-            db.execute("DELETE FROM contacts")
-            db.execute("DELETE FROM phones")
-            for fn, phones in parsed:
-                if not fn and not phones:
-                    continue
-                cur = db.execute(
-                    "INSERT INTO contacts(full_name, updated_at) VALUES (?, ?)",
-                    (fn or "", now),
-                )
-                cid = cur.lastrowid
-                for p in phones:
-                    db.execute(
-                        "INSERT OR IGNORE INTO phones(phone_norm, contact_id) "
-                        "VALUES (?, ?)",
-                        (p, cid),
+        now = time.time()
+        with closing(_open_db()) as db:
+            with db:  # transaction
+                db.execute("DELETE FROM contacts")
+                db.execute("DELETE FROM phones")
+                for fn, phones in parsed:
+                    if not fn and not phones:
+                        continue
+                    cur = db.execute(
+                        "INSERT INTO contacts(full_name, updated_at) VALUES (?, ?)",
+                        (fn or "", now),
                     )
-            db.execute(
-                "INSERT OR REPLACE INTO meta(key, value) VALUES "
-                "('last_pull', ?), ('count', ?)",
-                (str(now), str(len(parsed))),
-            )
+                    cid = cur.lastrowid
+                    for p in phones:
+                        db.execute(
+                            "INSERT OR IGNORE INTO phones(phone_norm, contact_id) "
+                            "VALUES (?, ?)",
+                            (p, cid),
+                        )
+                db.execute(
+                    "INSERT OR REPLACE INTO meta(key, value) VALUES "
+                    "('last_pull', ?), ('count', ?)",
+                    (str(now), str(len(parsed))),
+                )
 
-    # Clean up the temp file
-    try:
-        out.unlink()
-        out.parent.rmdir()
-    except OSError:
-        pass
-
-    return len(parsed)
+        return len(parsed)
 
 
 # ---- Lookup -------------------------------------------------------------

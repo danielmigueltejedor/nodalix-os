@@ -25,7 +25,7 @@ QtObject {
 
     // Resolve a themed icon path for an entry (fallback: generic exec icon).
     function iconFor(entry) {
-        return Quickshell.iconPath(entry?.icon ?? "", "application-x-executable")
+        return Quickshell.iconPath(entry?.icon || "application-x-executable", "application-x-executable")
     }
 
     // Stable key for usage tracking / pin storage.
@@ -65,6 +65,11 @@ QtObject {
         for (let i = 0; i < a.length; i++) {
             const id = (keyOf(a[i]) || "").toLowerCase()
             if (id.endsWith("." + c) || (a[i].name || "").toLowerCase() === c) return a[i]
+        }
+        const base = c.replace(/\s+r\d{4}[ab].*$/, "")
+        if (base === "matlab") {
+            for (let i = 0; i < a.length; i++)
+                if (/^matlab(?:\s|$)/i.test(a[i].name || "")) return a[i]
         }
         return null
     }

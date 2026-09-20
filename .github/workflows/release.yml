@@ -40,7 +40,7 @@ jobs:
             bash -lc '
               set -euo pipefail
               pacman -Syu --noconfirm
-              pacman -S --noconfirm base-devel cmake ninja qt6-base qt6-declarative qt6-shadertools python tar zstd git sudo gtk-update-icon-cache
+              pacman -S --noconfirm base-devel cmake ninja qt6-base qt6-declarative qt6-shadertools python tar zstd git sudo gtk-update-icon-cache hyprland gtk4-layer-shell libadwaita lua
               useradd -m builder
               echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
               chown -R builder:builder /src

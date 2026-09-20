@@ -39,3 +39,5 @@ singleton GamingService          1.0 GamingService.qml
 singleton SystemControlService   1.0 SystemControlService.qml
 singleton WindowLayoutService    1.0 WindowLayoutService.qml
 singleton PhoneLinkService       1.0 PhoneLinkService.qml
+
+singleton ShortcutGuideService 1.0 ShortcutGuideService.qml

@@ -36,6 +36,8 @@ case "$language" in
         ;;
 esac
 
+/usr/bin/nodalix-user-layout --apply --language "$language"
+
 # LANG is the proper fallback; avoiding LC_ALL still permits per-category
 # overrides and prevents tools from being forced to an unrelated locale.
 environment_dir="$HOME/.config/environment.d"

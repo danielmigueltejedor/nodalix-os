@@ -1,0 +1,5 @@
+[Unit]
+Description=Nodalix user-layout
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/nodalix-user-layout --apply

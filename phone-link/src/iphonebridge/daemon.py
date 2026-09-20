@@ -66,6 +66,8 @@ class Daemon:
         self.listener: MapEventListener | None = None
         self.ancs: AncsClient | None = None
         self.hfp: HfpManager | None = None
+        self._hfp_retry_id: int | None = None
+        self._bluetooth_retry_id: int | None = None
         self._contacts_refresh_id: int | None = None
         self._session_retry_id: int | None = None
         self._reconnect_id: int | None = None
@@ -84,7 +86,7 @@ class Daemon:
 
         # Class-of-device is maintained by the root-owned Nodalix system
         # service.  Never attempt sudo from this hardened user service.
-        if not bluez_setup.prepare(allow_sudo=False):
+        if not self._prepare_bluetooth():
             log.warning(
                 "bluez_setup.prepare reported issues — continuing anyway, "
                 "but MAP/PBAP may be refused. Re-pair on iPhone after the "
@@ -102,7 +104,10 @@ class Daemon:
         )
         if config.NOTIFICATIONS_ENABLED:
             self.ancs = AncsClient(device_path, on_event=self._fanout_ancs)
-            self.ancs.start()
+            try:
+                self.ancs.start()
+            except (dbus.exceptions.DBusException, OSError):
+                log.exception("ANCS not ready yet; other phone services remain active")
         else:
             log.info("ANCS application notifications disabled in Nodalix Settings")
 
@@ -113,7 +118,8 @@ class Daemon:
                 on_event=self._fanout_call,
                 resolve_contact=lambda raw: self.contacts.resolve(raw),
             )
-            self.hfp.start()
+            if not self._start_hfp():
+                self._hfp_retry_id = GLib.timeout_add_seconds(SESSION_RETRY_SEC, self._retry_hfp)
         else:
             log.info("HFP calls disabled in Nodalix Settings")
 
@@ -157,6 +163,39 @@ class Daemon:
                         SESSION_RETRY_SEC)
         # The "ready" line in the happy path is emitted by
         # _post_sessions_setup, so we don't duplicate it here.
+
+    def _prepare_bluetooth(self) -> bool:
+        try:
+            ready = bluez_setup.prepare(allow_sudo=False)
+        except (dbus.exceptions.DBusException, OSError):
+            log.exception("Bluetooth preparation unavailable; continuing with independent services")
+            ready = False
+        if not ready and self._bluetooth_retry_id is None:
+            self._bluetooth_retry_id = GLib.timeout_add_seconds(SESSION_RETRY_SEC, self._retry_bluetooth)
+        return ready
+
+    def _retry_bluetooth(self) -> bool:
+        if self._prepare_bluetooth():
+            self._bluetooth_retry_id = None
+            return False
+        return True
+
+    def _start_hfp(self) -> bool:
+        try:
+            return self.hfp.start() is not False
+        except (dbus.exceptions.DBusException, OSError):
+            log.exception("Call backend unavailable; continuing without HFP")
+            try:
+                self.hfp.stop()
+            except Exception:
+                log.debug("HFP cleanup failed", exc_info=True)
+            return False
+
+    def _retry_hfp(self) -> bool:
+        if self._start_hfp():
+            self._hfp_retry_id = None
+            return False
+        return True
 
     def _try_open_sessions(self, *, first_attempt: bool) -> None:
         """Open MAP + PBAP. On Forbidden, schedule a periodic retry instead
@@ -323,7 +362,7 @@ class Daemon:
 
     def stop(self) -> None:
         log.info("=== iphonebridge stopping ===")
-        for tid_attr in ("_contacts_refresh_id", "_session_retry_id", "_reconnect_id"):
+        for tid_attr in ("_contacts_refresh_id", "_session_retry_id", "_reconnect_id", "_hfp_retry_id", "_bluetooth_retry_id"):
             tid = getattr(self, tid_attr, None)
             if tid is not None:
                 try:

@@ -57,6 +57,24 @@ ShellRoot {
         DesktopWidgets {}
     }
 
+    Variants {
+        model: uniqueScreens
+        DesktopDock {}
+    }
+    ShortcutGuide {}
+    IpcHandler {
+        target: "shortcuts"
+        function open(): void { ShortcutGuideService.open = true }
+        function close(): void { ShortcutGuideService.open = false }
+        function toggle(): void { ShortcutGuideService.open = !ShortcutGuideService.open }
+    }
+    IpcHandler {
+        target: "overview"
+        function toggle(): void {
+            const screen = Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) || Quickshell.screens[0]
+            if (screen) PopoutService.togglePin("workspaces", screen.width / 2, screen)
+        }
+    }
     IpcHandler {
         target: "desktopwidgets"
         function toggle(): void { DesktopWidgetService.toggleEdit() }

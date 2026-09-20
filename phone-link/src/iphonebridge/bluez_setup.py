@@ -172,15 +172,13 @@ def register_advert() -> bool:
     second registration and we treat that as success.
     """
     global _advert_instance
-    if _advert_instance is None:
-        _advert_instance = _AncsAdvert(system_bus, _AncsAdvert.PATH)
-
-    ad_mgr = bluez(f"/org/bluez/{config.ADAPTER}",
-                   "org.bluez.LEAdvertisingManager1")
     try:
+        if _advert_instance is None:
+            _advert_instance = _AncsAdvert(system_bus, _AncsAdvert.PATH)
+        ad_mgr = bluez(f"/org/bluez/{config.ADAPTER}", "org.bluez.LEAdvertisingManager1")
         # BlueZ's RegisterAdvertisement frequently NoReply-timeouts even
-        # though it actually registers. Pass a long timeout and treat
-        # NoReply as a probable success — we verify via ActiveInstances.
+        # though it actually registers. Retry after NoReply; only an explicit
+        # AlreadyExists response confirms that our advertisement is present.
         # python-dbus cannot infer a signature from an empty Python dict when
         # introspection is temporarily unavailable (common just after an HCI
         # firmware reset).  Give BlueZ the explicit a{sv} it expects.
@@ -193,19 +191,10 @@ def register_advert() -> bool:
         if name == "org.bluez.Error.AlreadyExists":
             log.info("BLE advert already registered")
             return True
-        if name == "org.freedesktop.DBus.Error.NoReply":
-            # Probable success — check ActiveInstances to confirm
-            try:
-                v = dbus.Interface(
-                    system_bus.get_object("org.bluez", f"/org/bluez/{config.ADAPTER}"),
-                    "org.freedesktop.DBus.Properties",
-                ).Get("org.bluez.LEAdvertisingManager1", "ActiveInstances")
-                if int(v) > 0:
-                    log.info("BLE advert registered despite NoReply "
-                             "(ActiveInstances=%d)", int(v))
-                    return True
-            except dbus.exceptions.DBusException:
-                pass
+        if name in {"org.bluez.Error.NotPermitted", "org.bluez.Error.Failed",
+                    "org.freedesktop.DBus.Error.NoReply"}:
+            log.warning("BLE advertising temporarily unavailable (%s); will retry without stopping phone services", name)
+            return False
         log.error("RegisterAdvertisement failed: %s: %s",
                   name, e.get_dbus_message())
         return False
@@ -234,13 +223,21 @@ def prepare(*, allow_sudo: bool = True) -> bool:
     except dbus.exceptions.DBusException as e:
         log.error("No usable Bluetooth adapter: %s", e.get_dbus_message())
         return False
-    cod = current_cod()
+    try:
+        cod = current_cod()
+    except (dbus.exceptions.DBusException, OSError) as error:
+        log.warning("Cannot read Bluetooth adapter state: %s", error)
+        return False
     log.info("current adapter Class = 0x%06x", cod or 0)
     if not desired_cod_matches(cod):
         if not allow_sudo and os.geteuid() != 0:
             log.warning("CoD wrong but sudo disabled — skipping CoD set")
         else:
-            ok &= set_cod()
+            try:
+                ok &= set_cod()
+            except (dbus.exceptions.DBusException, OSError) as error:
+                log.warning("Cannot prepare Bluetooth class: %s", error)
+                ok = False
     else:
         log.info("CoD already matches A/V Hands-Free, leaving as-is")
 
