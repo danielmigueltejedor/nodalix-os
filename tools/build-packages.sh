@@ -110,12 +110,17 @@ mkdir -p "$greeter_dir"
 cp "$root/packaging/nodalix-greeter-theme/"* "$greeter_dir/"
 inject_sha256 "$greeter_dir/PKGBUILD" "$greeter_dir/regreet.css"
 
+engine_dir="$workdir/nodalix-wallpaper-engine"
+mkdir -p "$engine_dir"
+cp "$root/packaging/nodalix-wallpaper-engine/PKGBUILD" "$engine_dir/"
+
 makepkg_one() {
   local dir=$1
   (cd "$dir" && makepkg -f --noconfirm --nodeps --cleanbuild)
 }
 
 if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
+  makepkg_one "$engine_dir"
   makepkg_one "$updater_dir"
   makepkg_one "$shell_dir"
   makepkg_one "$phone_link_dir"

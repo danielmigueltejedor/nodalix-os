@@ -132,7 +132,7 @@ def apply(mode: str) -> int:
                     dispatch('hl.dsp.window.center({window=' + json.dumps('address:' + address) + '})')
                     if address not in managed:
                         managed.append(address)
-                elif mode != "desktop" and (address in managed or "nodalix-desktop" in client.get("tags", [])):
+                elif mode != "desktop" and (address in managed or "nodalix-desktop" in [tag.rstrip("*") for tag in client.get("tags", [])]):
                     dispatch('hl.dsp.window.float({action="unset",window=' + json.dumps('address:' + address) + '})')
             remembered.write_text(json.dumps(managed if mode == "desktop" else []))
         except (OSError, ValueError, subprocess.SubprocessError):

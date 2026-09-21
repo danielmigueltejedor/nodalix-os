@@ -25,7 +25,9 @@ QtObject {
 
     // Resolve a themed icon path for an entry (fallback: generic exec icon).
     function iconFor(entry) {
-        return Quickshell.iconPath(entry?.icon || "application-x-executable", "application-x-executable")
+        const name = entry?.icon || "application-x-executable"
+        if (name.startsWith("/")) return "file://" + name
+        return Quickshell.iconPath(name, "application-x-executable")
     }
 
     // Stable key for usage tracking / pin storage.
@@ -51,7 +53,7 @@ QtObject {
     // Best-effort map from a Hyprland window class to a DesktopEntry.
     function byClass(cls) {
         if (!cls) return null
-        const c = cls.toLowerCase()
+        const c = cls.toLowerCase().replace(/\.desktop$/, "")
         const a = apps
         // 1) StartupWMClass exact
         for (let i = 0; i < a.length; i++) {
@@ -71,7 +73,8 @@ QtObject {
             for (let i = 0; i < a.length; i++)
                 if (/^matlab(?:\s|$)/i.test(a[i].name || "")) return a[i]
         }
-        return null
+        const lookup = DesktopEntries.heuristicLookup(cls)
+        return lookup && !lookup.noDisplay ? lookup : null
     }
 
     // ── Global usage tracking ───────────────────────────────────────────────--

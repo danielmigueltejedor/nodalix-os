@@ -160,7 +160,7 @@ PanelWindow {
 
     // ── App launcher (Win11 start menu) — blob merges into the bottom border ──
     readonly property bool _launcherActive:
-        LauncherService.open && LauncherService.screenName === root.modelData?.name
+        LauncherService.open && LauncherService.screenName === root.modelData?.name && WindowLayoutService.mode === "tiling"
     readonly property real _launcherW: Math.min(660, root.width - 80)
     readonly property real _launcherTargetH: Math.min(640, root.height - ThemeManager.barTotalHeight - 60)
     property real _launcherH: _launcherActive ? _launcherTargetH : 0

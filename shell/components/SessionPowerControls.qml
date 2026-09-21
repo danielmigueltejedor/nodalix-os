@@ -29,15 +29,15 @@ Item {
         id: operation
         onExited: function(code) { if (code !== 0) root.error = I18n.tr("The system could not complete this action. Your session remains locked.") }
     }
-    Rectangle { anchors.fill: parent; radius: 24; color: Qt.rgba(0.06, 0.07, 0.09, 0.72); border.color: Qt.rgba(1,1,1,0.12) }
+    Rectangle { anchors.fill: parent; radius: 24; visible: root.pending !== "" || root.error !== ""; color: Qt.rgba(0.06, 0.07, 0.09, 0.84); border.color: Qt.rgba(1,1,1,0.12) }
     ColumnLayout {
         id: content
         anchors { left: parent.left; right: parent.right; top: parent.top; margins: 14 }
         spacing: 12
         RowLayout {
-            Layout.fillWidth: true
+            Layout.alignment: Qt.AlignHCenter
             visible: root.pending === ""
-            spacing: 8
+            spacing: 22
             PowerTile { label: I18n.tr("Suspend"); glyph: "󰒲"; onClicked: root.request("suspend") }
             PowerTile { label: I18n.tr("Reboot"); glyph: "󰑙"; onClicked: root.request("reboot") }
             PowerTile { label: I18n.tr("Shut down"); glyph: "󰐥"; onClicked: root.request("poweroff") }
@@ -70,14 +70,25 @@ Item {
         id: tile
         required property string label
         required property string glyph
-        Layout.fillWidth: true
-        implicitHeight: 68
+        Layout.preferredWidth: 88
+        implicitHeight: 88
         Accessible.name: label
-        background: Rectangle { radius: 16; color: tile.hovered || tile.activeFocus ? Qt.rgba(1,1,1,0.12) : "transparent"; border.width: tile.activeFocus ? 1 : 0; border.color: ThemeManager.primary }
-        contentItem: Column {
-            spacing: 7
-            ColloidIcon { anchors.horizontalCenter: parent.horizontalCenter; text: tile.glyph; color: "white"; font.pixelSize: 22 }
-            Text { anchors.horizontalCenter: parent.horizontalCenter; text: tile.label; color: Qt.rgba(1,1,1,0.85); font.family: ThemeManager.fontFor(text); font.pixelSize: 12 }
+        background: Item {
+            Rectangle {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: parent.top
+                width: 52; height: 52; radius: 26
+                color: tile.hovered || tile.activeFocus ? Qt.rgba(1,1,1,0.22) : Qt.rgba(1,1,1,0.09)
+                border.width: 1
+                border.color: tile.activeFocus ? ThemeManager.primary : Qt.rgba(1,1,1,0.16)
+                scale: tile.down ? 0.93 : 1
+                Behavior on color { ColorAnimation { duration: 160 } }
+                Behavior on scale { NumberAnimation { duration: 120 } }
+            }
+        }
+        contentItem: Item {
+            ColloidIcon { anchors.horizontalCenter: parent.horizontalCenter; y: 15; text: tile.glyph; color: "white"; font.pixelSize: 22 }
+            Text { anchors.horizontalCenter: parent.horizontalCenter; y: 64; text: tile.label; color: Qt.rgba(1,1,1,0.76); font.family: ThemeManager.fontFor(text); font.pixelSize: 12 }
         }
     }
 }

@@ -1,11 +1,11 @@
 pkgname=nodalix-shell
-pkgver=0.2.0beta.9.1
+pkgver=0.2.0beta.9.2
 pkgrel=1
 pkgdesc="Nodalix desktop shell"
 arch=("x86_64")
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-depends=("quickshell" "qt6-declarative" "qt6-5compat" "fontconfig" "python" "zenity" "xdg-user-dirs")
+depends=("nodalix-wallpaper-engine" "quickshell" "qt6-declarative" "qt6-5compat" "fontconfig" "python" "zenity" "xdg-user-dirs")
 makedepends=("cmake" "ninja" "qt6-shadertools")
 options=("!debug")
 source=("nodalix-shell-$pkgver.tar.zst" "nodalix-shell" "nodalix-shell.service" "nodalix-app-accent.service" "nodalix-app-accent.path" "VERSION")

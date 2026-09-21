@@ -1471,7 +1471,7 @@ PanelWindow {
                         Text {
                             visible: !WallpaperService.available
                             Layout.fillWidth: true
-                            text: I18n.tr("hyprpaper not installed — the wallpaper switcher is disabled.")
+                            text: I18n.tr("The wallpaper engine is not installed. Update Nodalix to enable backgrounds.")
                             wrapMode: Text.WordWrap; color: ThemeManager.error
                             font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                         }
@@ -1479,7 +1479,7 @@ PanelWindow {
                         Text {
                             visible: root._wpTab === "animated" && !WallpaperService.animatedAvailable
                             Layout.fillWidth: true
-                            text: I18n.tr("Install mpvpaper to use animated wallpapers.")
+                            text: I18n.tr("Update Nodalix to enable animated wallpapers.")
                             wrapMode: Text.WordWrap; color: ThemeManager.error
                             font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                         }

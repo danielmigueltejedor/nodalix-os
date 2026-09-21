@@ -22,8 +22,8 @@ QtObject {
 
     // Keyboard + automatic focus restore are handled by MainWindow's
     // HyprlandFocusGrab while the launcher is open.
-    function show() {
-        screenName = _focusedName()
+    function show(screen) {
+        screenName = screen || _focusedName()
         query = ""
         open = true
     }
@@ -31,5 +31,5 @@ QtObject {
         open = false
         query = ""
     }
-    function toggle() { if (open) hide(); else show() }
+    function toggle(screen) { if (open && (!screen || screenName === screen)) hide(); else show(screen) }
 }

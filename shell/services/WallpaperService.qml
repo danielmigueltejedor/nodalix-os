@@ -4,11 +4,11 @@ import Quickshell.Io
 import "."
 import "../theme"
 
-// Wallpaper backend (hyprpaper) + Material You theming (matugen), plus favorites
+// Unified Skwd wallpaper engine + Nodalix theming, favorites
 // and a timed rotation. User media lives under the standard Pictures directory:
 // ~/Imágenes/Nodalix/Fondos/{Estáticos,Animados}.
 //   preview(path) — set live + re-theme, no persistence
-//   commit(path)  — preview + persist (settings + hyprpaper.conf)
+//   commit(path)  — preview + persist (settings + engine state)
 QtObject {
     id: root
 
@@ -20,7 +20,7 @@ QtObject {
 
     // The tools rail presents one collection even though static and animated
     // backgrounds use different renderers. Entries carry their type so hover,
-    // keyboard preview and commit never try to feed a video to hyprpaper.
+    // keyboard preview and commit never try to feed a video to the wallpaper engine.
     readonly property var railEntries: {
         const paths = (favorites?.length ?? 0) > 0
             ? favorites : wallpapers.concat(animatedWallpapers)
@@ -30,18 +30,18 @@ QtObject {
 
     readonly property string downloadDir: Paths.wallpaperImageDir
     readonly property string animatedDir: Paths.wallpaperAnimatedDir
-    readonly property bool animatedAvailable: DependencyService.available("mpvpaper")
+    readonly property bool animatedAvailable: DependencyService.available("skwd-helm")
     readonly property bool pauseAnimatedFullscreen:
         SettingsService.get("wallpaper.pauseAnimatedFullscreen", true)
 
-    // hyprpaper is the wallpaper backend; without it the whole switcher is off.
-    readonly property bool available: DependencyService.available("hyprpaper")
+    // the wallpaper engine is the wallpaper backend; without it the whole switcher is off.
+    readonly property bool available: DependencyService.available("skwd-helm")
     onAvailableChanged: {
         if (available && current !== "" && !currentAnimated) _restore(current)
     }
     onAnimatedAvailableChanged: {
         // Dependency discovery is asynchronous. At login the saved video can
-        // be read before mpvpaper has been detected, so retry as soon as the
+        // be read before the engine has been detected, so retry as soon as the
         // backend becomes available.
         if (animatedAvailable && current !== "" && currentAnimated)
             _applyAnimated(current)
@@ -50,10 +50,6 @@ QtObject {
         if (currentAnimated && animatedAvailable) _syncAnimatedPause()
     }
 
-    property Connections _gamingConnections: Connections {
-        target: GamingService
-        function onFullscreenMonitorNamesChanged() { root._syncAnimatedPause() }
-    }
 
     // Listing the files needs no backend (only applying does), so don't gate it
     // on `available` — that's resolved asynchronously and would leave an empty
@@ -114,7 +110,7 @@ QtObject {
         if (!ps || ps.length === 0) return
         _rotIndex = (_rotIndex + 1) % ps.length
         SettingsService.set("wallpaper.rotation.index", _rotIndex)
-        commit(ps[_rotIndex])
+        commitEntry({path: ps[_rotIndex], animated: isAnimatedPath(ps[_rotIndex])})
     }
 
     // Apply the current rotation entry immediately (on enable / set change).
@@ -122,7 +118,7 @@ QtObject {
         const ps = rotationPaths
         if (!ps || ps.length === 0) return
         if (_rotIndex >= ps.length) _rotIndex = 0
-        commit(ps[_rotIndex])
+        commitEntry({path: ps[_rotIndex], animated: isAnimatedPath(ps[_rotIndex])})
     }
     onRotationEnabledChanged: if (rotationEnabled) _applyRotationCurrent()
 
@@ -135,14 +131,14 @@ QtObject {
     }
 
     // ── Apply / persist ───────────────────────────────────────────────────────
-    // Live apply (hyprpaper) + matugen theme; no config persistence.
+    // Live apply (the wallpaper engine) + matugen theme; no config persistence.
     function preview(path) {
         if (!path) return
         current = path
         currentAnimated = false
         _appliedAnimatedPath = ""
         if (available) {
-            _live.command = ["sh", "-c", _liveScript, "sh", path]
+            _live.command = ["python3", Paths.configDir + "/scripts/nodalix-wallpaper.py", path, "--pause-fullscreen", pauseAnimatedFullscreen ? "1" : "0"]
             _live.running = true
         }
         ThemeManager.generateWallpaperTheme(path)
@@ -156,15 +152,13 @@ QtObject {
         if (animatedAvailable) _applyAnimated(path)
     }
 
-    // Preview + persist (settings + hyprpaper.conf) so it survives a restart.
+    // Preview + persist (settings + engine state) so it survives a restart.
     function commit(path) {
         if (!path) return
         preview(path)
         SettingsService.set("wallpaper.path", path)
         SettingsService.set("wallpaper.type", "image")
         _syncGreeterWallpaper(path)
-        _persistProc.command = ["sh", "-c", _persistScript, "sh", path]
-        _persistProc.running = true
     }
 
     // Re-apply the saved wallpaper image on startup WITHOUT regenerating the
@@ -176,8 +170,8 @@ QtObject {
         currentAnimated = false
         _appliedAnimatedPath = ""
         _syncGreeterWallpaper(path)
-        if (!available) return         // can't apply without hyprpaper
-        _live.command = ["sh", "-c", _liveScript, "sh", path]
+        if (!available) return         // can't apply without the wallpaper engine
+        _live.command = ["python3", Paths.configDir + "/scripts/nodalix-wallpaper.py", path, "--pause-fullscreen", pauseAnimatedFullscreen ? "1" : "0"]
         _live.running = true
     }
 
@@ -188,10 +182,7 @@ QtObject {
         return path.slice(0, slash) + "/.thumbs/" + path.slice(slash + 1) + ".jpg"
     }
 
-    // Video wallpapers are rendered natively on the Wayland background layer
-    // through one mpvpaper instance per output. Nodalix controls those processes
-    // separately so only a fullscreen window on the visible workspace freezes
-    // its monitor; fullscreen windows parked on hidden workspaces are ignored.
+    // Static and video media share one daemon; decoding is shared across outputs.
     function commitAnimated(path, updateTheme) {
         if (!path) return
         if (updateTheme === undefined) updateTheme = true
@@ -220,49 +211,16 @@ QtObject {
 
     function _applyAnimated(path) {
         if (!path || !animatedAvailable) return
-        if (_appliedAnimatedPath === path && _animated.running) return
         _appliedAnimatedPath = path
-        _animated.running = false
-        _animated.command = ["sh", "-c",
-            "pkill -CONT -x mpvpaper 2>/dev/null || true; " +
-            "FRAME=$2; " +
-            "pgrep -x hyprpaper >/dev/null || { hyprpaper >/dev/null 2>&1 & sleep 0.6; }; " +
-            "if [ -f \"$FRAME\" ]; then " +
-            "hyprctl hyprpaper preload \"$FRAME\" >/dev/null 2>&1; " +
-            "hyprctl hyprpaper wallpaper \",$FRAME\" >/dev/null 2>&1; fi; " +
-            "pkill -x mpvpaper 2>/dev/null || true; " +
-            "OUTPUTS=$(hyprctl monitors -j | jq -r '.[].name'); " +
-            "for OUTPUT in $OUTPUTS; do " +
-            "mpvpaper -o 'no-audio loop-file=inf hwdec=auto-safe panscan=1.0' \"$OUTPUT\" \"$1\" & " +
-            "done; wait",
-            "sh", path, thumbnailFor(path)]
-        _animated.running = true
-        _pauseSyncTimer.restart()
+        _live.command = ["python3", Paths.configDir + "/scripts/nodalix-wallpaper.py", path,
+                         "--pause-fullscreen", pauseAnimatedFullscreen ? "1" : "0"]
+        _live.running = true
     }
 
-    // Match each renderer by its exact output argument and stop/continue only
-    // the process that belongs to a currently visible fullscreen workspace.
     function _syncAnimatedPause() {
-        if (!currentAnimated || !animatedAvailable) return
-        _animatedControl.running = false
-        _animatedControl.command = ["sh", "-c",
-            "PAUSED=,$1,; ENABLED=$2; " +
-            "for PID in $(pgrep -x mpvpaper); do " +
-            "ARGS=$(tr '\\0' '\\n' < /proc/$PID/cmdline); OUTPUT=''; " +
-            "for MONITOR in $(hyprctl monitors -j | jq -r '.[].name'); do " +
-            "printf '%s\\n' \"$ARGS\" | grep -Fxq \"$MONITOR\" && { OUTPUT=$MONITOR; break; }; done; " +
-            "if [ \"$ENABLED\" = 1 ] && [ -n \"$OUTPUT\" ] && " +
-            "printf '%s' \"$PAUSED\" | grep -Fq \",$OUTPUT,\"; then " +
-            "kill -STOP $PID; else kill -CONT $PID; fi; done",
-            "sh", GamingService.fullscreenMonitorNames,
-            pauseAnimatedFullscreen ? "1" : "0"]
+        _animatedControl.command = ["python3", Paths.configDir + "/scripts/nodalix-wallpaper.py",
+                                    "--pause-fullscreen", pauseAnimatedFullscreen ? "1" : "0"]
         _animatedControl.running = true
-    }
-
-    property Timer _pauseSyncTimer: Timer {
-        interval: 700
-        repeat: false
-        onTriggered: root._syncAnimatedPause()
     }
 
     // greetd runs as an isolated user and cannot read Daniel's home directory.
@@ -327,21 +285,10 @@ QtObject {
         }
     }
 
-    readonly property string _liveScript:
-        "WP=\"$1\"; " +
-        "pkill -CONT -x mpvpaper 2>/dev/null || true; " +
-        "pkill -x mpvpaper 2>/dev/null || true; " +
-        "pgrep -x hyprpaper >/dev/null || { hyprpaper >/dev/null 2>&1 & sleep 0.6; }; " +
-        "hyprctl hyprpaper preload \"$WP\" >/dev/null 2>&1; " +
-        "hyprctl hyprpaper wallpaper \",$WP\" >/dev/null 2>&1"
-
-    readonly property string _persistScript:
-        "WP=\"$1\"; " +
-        "printf 'preload = %s\\nwallpaper = ,%s\\nsplash = false\\n' \"$WP\" \"$WP\" > \"$HOME/.config/hypr/hyprpaper.conf\""
-
-    property Process _live:        Process { running: false }
-    property Process _persistProc: Process { running: false }
-    property Process _animated:    Process { running: false }
+    property Process _live: Process {
+        running: false
+        onExited: function(code) { if (code !== 0) console.warn("Wallpaper engine failed; previous renderer preserved") }
+    }
     property Process _animatedControl: Process { running: false }
     property Process _greeterSync: Process { running: false }
 
