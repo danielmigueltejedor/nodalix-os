@@ -23,6 +23,18 @@ QtObject {
     }
 
     readonly property var _es: ({
+        "Windows": "Ventanas",
+        "Make yourself at home": "Tu espacio, a tu manera",
+        "A few shortcuts. Everything else is within reach of your dock.": "Lo esencial, a un gesto. Tus aplicaciones y ventanas, siempre a mano desde el dock.",
+        "Move with ease": "MUÉVETE CON NATURALIDAD",
+        "Super + drag": "Super + arrastrar",
+        "Super + right drag": "Super + arrastrar derecho",
+        "Resize a window": "Cambiar el tamaño",
+        "Got it": "Entendido",
+        "Suspend now?": "¿Suspender ahora?",
+        "Unsaved work in open applications may be lost.": "Podrías perder los cambios sin guardar de las aplicaciones abiertas.",
+        "The system could not complete this action. Your session remains locked.": "No se pudo completar la acción. Tu sesión sigue bloqueada.",
+        "Preview \u00b7 no system action performed": "Vista previa · no se ejecutó ninguna acción",
         "Window overview": "Vista de ventanas",
         "Shortcut guide": "Guía de atajos",
         "Desktop": "Escritorio",

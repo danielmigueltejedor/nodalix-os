@@ -1,5 +1,5 @@
 pkgname=nodalix-updater
-pkgver=0.2.0beta.9
+pkgver=0.2.0beta.9.1
 pkgrel=1
 pkgdesc="Nodalix GitHub Releases update service"
 arch=('any')

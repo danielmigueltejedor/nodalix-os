@@ -69,6 +69,10 @@ ShellRoot {
         function toggle(): void { ShortcutGuideService.open = !ShortcutGuideService.open }
     }
     IpcHandler {
+        target: "windows"
+        function setMode(mode: string): void { WindowLayoutService.setMode(mode) }
+    }
+    IpcHandler {
         target: "overview"
         function toggle(): void {
             const screen = Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) || Quickshell.screens[0]

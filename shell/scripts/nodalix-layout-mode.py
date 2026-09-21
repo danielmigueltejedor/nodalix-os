@@ -10,7 +10,7 @@ import sys
 from pathlib import Path
 
 
-MODES = {"desktop", "tiling", "scrolling", "tabs"}
+MODES = {"desktop", "tiling", "scrolling"}
 
 
 def state_dir() -> Path:
@@ -37,11 +37,11 @@ def lua_for(mode: str) -> str:
         },
     },
 })
-""" % ("true" if mode == "tabs" else "false", "true" if mode == "tabs" else "false")
+""" % ("false", "false")
 
     if mode == "desktop":
         body = """hl.config({ general = { layout = "dwindle" } })
-hl.window_rule({ name = "nodalix-desktop", match = { modal = false }, float = true, tag = "nodalix-desktop" })
+hl.window_rule({ name = "nodalix-desktop", match = { modal = false }, float = true, center = true, tag = "nodalix-desktop" })
 """
     elif mode == "scrolling":
         body = """hl.config({
@@ -65,15 +65,6 @@ hl.bind("SUPER + mouse_up", hl.dsp.focus({ workspace = "e-1" }))
 hl.bind("SUPER + period", hl.dsp.layout("move +col"))
 hl.bind("SUPER + comma", hl.dsp.layout("move -col"))
 """
-    elif mode == "tabs":
-        body = """hl.config({ general = { layout = "dwindle" } })
-
--- Hyprland groups are native i3-style tabbed containers. New windows join the
--- active unlocked group while this profile is selected.
-hl.bind("SUPER + CTRL + TAB", hl.dsp.group.next())
-hl.bind("SUPER + CTRL + SHIFT + TAB", hl.dsp.group.prev())
-hl.bind("SUPER + G", hl.dsp.group.toggle())
-"""
     else:
         body = """hl.config({ general = { layout = "dwindle" } })
 """
@@ -86,7 +77,16 @@ hl.bind("SUPER + SHIFT + RIGHT", hl.dsp.window.move({ direction = "r" }))
     return header + common + body + navigation
 
 
+def dispatch(expression):
+    result = subprocess.run(["hyprctl", "dispatch", expression], capture_output=True, text=True, check=True)
+    output = (result.stdout or "") + (result.stderr or "")
+    if "error:" in output.lower() or "unknown request" in output.lower():
+        raise subprocess.SubprocessError(output.strip())
+
+
 def apply(mode: str) -> int:
+    if mode == "tabs":
+        mode = "desktop"  # Migrate the former traditional-window choice.
     if mode not in MODES:
         raise SystemExit(f"unsupported layout mode: {mode}")
     target_dir = state_dir()
@@ -114,6 +114,7 @@ def apply(mode: str) -> int:
     if reload_result.returncode == 0:
         try:
             clients = json.loads(subprocess.check_output(["hyprctl", "clients", "-j"], text=True))
+            monitors = json.loads(subprocess.check_output(["hyprctl", "monitors", "-j"], text=True))
             remembered = target_dir / "desktop-managed-windows.json"
             managed = json.loads(remembered.read_text()) if remembered.exists() else []
             for client in clients:
@@ -121,27 +122,27 @@ def apply(mode: str) -> int:
                 if not address or client.get("fullscreen") or client.get("workspace", {}).get("id", 0) < 0:
                     continue
                 if mode == "desktop" and not client.get("floating"):
-                    subprocess.run(["hyprctl", "dispatch", 'hl.dsp.window.float({action="set",window=' + json.dumps('address:' + address) + '})'], check=True, capture_output=True)
+                    dispatch('hl.dsp.window.float({action="set",window=' + json.dumps('address:' + address) + '})')
+                    monitor = next((m for m in monitors if m.get("id") == client.get("monitor") and m.get("width")), None)
+                    if monitor and len(client.get("size", [])) == 2:
+                        scale = monitor.get("scale", 1) or 1
+                        width = min(client["size"][0], int(monitor["width"] / scale * 0.82))
+                        height = min(client["size"][1], int(monitor["height"] / scale * 0.78))
+                        dispatch('hl.dsp.window.resize({window=' + json.dumps('address:' + address) + ',x=' + str(width) + ',y=' + str(height) + ',relative=false})')
+                    dispatch('hl.dsp.window.center({window=' + json.dumps('address:' + address) + '})')
                     if address not in managed:
                         managed.append(address)
                 elif mode != "desktop" and (address in managed or "nodalix-desktop" in client.get("tags", [])):
-                    subprocess.run(["hyprctl", "dispatch", 'hl.dsp.window.float({action="unset",window=' + json.dumps('address:' + address) + '})'], check=True, capture_output=True)
+                    dispatch('hl.dsp.window.float({action="unset",window=' + json.dumps('address:' + address) + '})')
             remembered.write_text(json.dumps(managed if mode == "desktop" else []))
         except (OSError, ValueError, subprocess.SubprocessError):
             return 1
-    if mode == "tabs" and reload_result.returncode == 0:
-        # Start an unlocked group for the active window. If no regular window is
-        # focused Hyprland safely treats the dispatcher as a no-op.
-        subprocess.run(
-            ["hyprctl", "dispatch", "hl.dsp.group.toggle()"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False,
-        )
     return reload_result.returncode
 
 
 def main() -> int:
     if len(sys.argv) != 2:
-        print("usage: nodalix-layout-mode desktop|tiling|scrolling|tabs", file=sys.stderr)
+        print("usage: nodalix-layout-mode desktop|tiling|scrolling", file=sys.stderr)
         return 2
     return apply(sys.argv[1])
 

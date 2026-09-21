@@ -1,0 +1,11 @@
+post_install() {
+    # Preserve the configured authentication/session backend. Only replace
+    # the visual stylesheet on machines that already use Nodalix ReGreet.
+    if [ -f /etc/greetd/regreet.css ] && [ -x /usr/local/bin/regreet-nodalix ]; then
+        if ! cmp -s /etc/greetd/regreet.css /usr/share/nodalix/greeter/regreet.css; then
+            cp -a /etc/greetd/regreet.css "/etc/greetd/regreet.css.before-nodalix-$(date +%s)"
+            install -m644 /usr/share/nodalix/greeter/regreet.css /etc/greetd/regreet.css
+        fi
+    fi
+}
+post_upgrade() { post_install; }

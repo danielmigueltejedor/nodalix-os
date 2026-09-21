@@ -896,7 +896,7 @@ Item {
             QsIcon { imageSource: "../assets/icons/localsend-official-mask.png"; key: "localsend" }
             QsIcon {
                 iconName: WindowLayoutService.mode === "scrolling" ? "nodalix-layout-scrolling-symbolic"
-                    : (WindowLayoutService.mode === "tabs" ? "nodalix-layout-tabs-symbolic" : "nodalix-layout-tiling-symbolic")
+                    : (WindowLayoutService.mode === "desktop" ? "nodalix-layout-tabs-symbolic" : "nodalix-layout-tiling-symbolic")
                 iconGroup: "actions"
                 key: "layout"
             }
@@ -1179,7 +1179,7 @@ Item {
                                 ColloidIcon {
                                     anchors.centerIn: parent
                                     iconName: modelData.id === "scrolling" ? "nodalix-layout-scrolling-symbolic"
-                                        : (modelData.id === "tabs" ? "nodalix-layout-tabs-symbolic" : "nodalix-layout-tiling-symbolic")
+                                        : (modelData.id === "desktop" ? "nodalix-layout-tabs-symbolic" : "nodalix-layout-tiling-symbolic")
                                     group: "actions"
                                     fallbackGlyph: modelData.icon
                                     color: selected ? ThemeManager.primary : ThemeManager.onSurfaceVariant

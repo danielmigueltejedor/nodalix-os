@@ -14,13 +14,14 @@ PanelWindow {
     visible: WindowLayoutService.mode === "desktop" || WindowLayoutService.mode === "scrolling"
     anchors.bottom: true
     margins.bottom: 12
-    implicitWidth: Math.min(modelData.width - 32, 860)
+    implicitWidth: Math.min(modelData.width - 32, Math.max(430, tasks.implicitWidth + (WindowLayoutService.mode === "scrolling" ? 360 : 260)))
     implicitHeight: 64
     exclusiveZone: 80
     color: "transparent"
     WlrLayershell.layer: WlrLayer.Top
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     property var windows: Hyprland.toplevels.values.filter(w => w.monitor?.name === modelData.name || w.workspace?.name === "special:nodalix-minimized")
+    readonly property var runningKeys: windows.map(w => AppService.keyOf(AppService.byClass(w.lastIpcObject?.class || w.appId || "")))
     function focusWindow(win) {
         const address = win.lastIpcObject?.address || win.address
         if (win.workspace?.name === "special:nodalix-minimized") {
@@ -30,6 +31,8 @@ PanelWindow {
         Hyprland.dispatch('hl.dsp.focus({window="address:' + address + '"})')
     }
     component DockButton: Button {
+        id: dockButton
+        property string fallbackText: "◇"
         implicitWidth: 44
         implicitHeight: 46
         background: Rectangle {
@@ -37,7 +40,8 @@ PanelWindow {
             color: parent.down ? ThemeManager.primary : (parent.hovered || parent.highlighted ? ThemeManager.surfaceContainerHigh : "transparent")
         }
         contentItem: Item {
-            Image { anchors.centerIn: parent; width: 30; height: 30; source: parent.parent.icon.source; visible: source.toString() !== ""; fillMode: Image.PreserveAspectFit }
+            Image { id: appIcon; anchors.centerIn: parent; width: 30; height: 30; source: dockButton.icon.source; visible: status === Image.Ready; fillMode: Image.PreserveAspectFit }
+            Text { anchors.centerIn: parent; visible: dockButton.text === "" && appIcon.status !== Image.Ready; text: dockButton.fallbackText; color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: 21 }
             Text { anchors.centerIn: parent; text: parent.parent.text; color: ThemeManager.onSurface; font.pixelSize: 22; visible: text !== "" }
         }
     }
@@ -67,10 +71,12 @@ PanelWindow {
                             required property var modelData
                             width: 46; height: 46
                             readonly property var app: AppService.byClass(modelData.lastIpcObject?.class || modelData.appId || "")
-                            icon.source: AppService.iconFor(app)
+                            fallbackText: (app?.name || modelData.title || "◇").slice(0, 1).toUpperCase()
+                            icon.source: app ? AppService.iconFor(app) : ""
                             icon.width: 30; icon.height: 30
                             icon.color: "transparent"
                             highlighted: modelData === Hyprland.activeToplevel
+                            Rectangle { anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; width: parent.highlighted ? 12 : 4; height: 3; radius: 2; color: ThemeManager.primary }
                             Accessible.name: modelData.title || app?.name || I18n.tr("Window")
                             ToolTip.visible: hovered
                             ToolTip.text: Accessible.name
@@ -78,7 +84,7 @@ PanelWindow {
                         }
                     }
                     Repeater {
-                        model: PinnedService.pinned.slice(0, 5).map(key => AppService.byKey(key)).filter(app => app !== null)
+                        model: PinnedService.pinned.slice(0, 5).map(key => AppService.byKey(key)).filter(app => app !== null && root.runningKeys.indexOf(AppService.keyOf(app)) < 0)
                         delegate: DockButton {
                             required property var modelData
                             width: 46; height: 46

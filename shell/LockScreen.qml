@@ -4,6 +4,7 @@ import QtMultimedia
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Widgets
+import "./components"
 import "./theme"
 import "./services"
 
@@ -78,14 +79,14 @@ WlSessionLock {
         Rectangle {
             anchors.fill: parent
             color:   "black"
-            opacity: surf.showPrompt ? 0.45 : 0.0
+            opacity: surf.showPrompt ? 0.48 : 0.16
             Behavior on opacity { NumberAnimation { duration: 280 } }
         }
 
         // ── Idle: clock + date (left, vertically centered) ────────────────────
         Column {
             anchors {
-                left: parent.left; leftMargin: 80
+                left: parent.left; leftMargin: Math.max(48, surf.width * 0.065)
                 verticalCenter: parent.verticalCenter
             }
             spacing: 0
@@ -96,8 +97,8 @@ WlSessionLock {
                 text: surf.now.toLocaleTimeString(surf._fr, "HH:mm")
                 color: "white"
                 font.family: ThemeManager.fontFor(text)
-                font.pixelSize: 120
-                font.weight: Font.Bold
+                font.pixelSize: Math.min(112, surf.width / 12)
+                font.weight: Font.Medium
             }
             Text {
                 text: surf.now.toLocaleDateString(surf._fr, "dddd, d MMMM yyyy")
@@ -133,7 +134,7 @@ WlSessionLock {
                     text: WeatherService.temp + WeatherService.unit
                     color: "white"
                     font.family: ThemeManager.fontFor(text)
-                    font.pixelSize: 40; font.weight: Font.Bold
+                    font.pixelSize: 40; font.weight: Font.Medium
                 }
                 Text {
                     text: WeatherService.desc + "  ·  " + WeatherService.location
@@ -243,6 +244,22 @@ WlSessionLock {
                 color: ThemeManager.error
                 font.family: ThemeManager.fontFor(text)
                 font.pixelSize: 14
+            }
+        }
+
+        // Power actions remain inside the secure lock surface; they never
+        // dismiss authentication or start a separate unlocked window.
+        SessionPowerControls {
+            id: lockPower
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 36
+            width: Math.min(480, parent.width - 48)
+            z: 10
+            onVisibleChanged: if (!visible) { pending = ""; error = "" }
+            Connections {
+                target: LockService
+                function onLockedChanged() { if (!LockService.locked) { lockPower.pending = ""; lockPower.error = "" } }
             }
         }
 

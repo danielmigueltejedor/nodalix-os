@@ -1,5 +1,5 @@
 pkgname=nodalix-colloid-icons
-pkgver=0.2.0beta.9
+pkgver=0.2.0beta.9.1
 pkgrel=1
 pkgdesc='Colloid-Teal GTK icon theme for Nodalix'
 arch=('any')

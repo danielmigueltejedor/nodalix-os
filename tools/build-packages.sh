@@ -105,6 +105,11 @@ cp "$root/packaging/nodalix-wallpapers/PKGBUILD" \
    "$root/packaging/nodalix-wallpapers/"*.jpg \
    "$wallpaper_dir/"
 
+greeter_dir="$workdir/nodalix-greeter-theme"
+mkdir -p "$greeter_dir"
+cp "$root/packaging/nodalix-greeter-theme/"* "$greeter_dir/"
+inject_sha256 "$greeter_dir/PKGBUILD" "$greeter_dir/regreet.css"
+
 makepkg_one() {
   local dir=$1
   (cd "$dir" && makepkg -f --noconfirm --nodeps --cleanbuild)
@@ -117,6 +122,7 @@ if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
   makepkg_one "$fluent_dir"
   makepkg_one "$colloid_dir"
   makepkg_one "$hymission_dir"
+  makepkg_one "$greeter_dir"
   makepkg_one "$wallpaper_dir"
   makepkg_one "$release_dir"
   find "$workdir" -name '*.pkg.tar.zst' ! -name '*-debug-*' -exec cp {} "$outdir/" \;
