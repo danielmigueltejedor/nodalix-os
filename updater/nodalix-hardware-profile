@@ -140,7 +140,8 @@ def write_systemd_boot_entry(kernel: str) -> str:
         # Archinstall names entries with a timestamp. Match their kernel,
         # keeping root/encryption options and microcode lines intact.
         source = next((entry for entry in sorted(entries.glob("*.conf"))
-                       if re.search(r"^linux\s+/vmlinuz-linux$", entry.read_text(), re.MULTILINE)), source)
+                       if re.search(r"^linux\s+/vmlinuz-linux$", entry.read_text(), re.MULTILINE)
+                       and re.search(r"^initrd\s+/initramfs-linux\.img$", entry.read_text(), re.MULTILINE)), source)
     if not source.exists():
         return "not-managed"
     original = source.read_text(encoding="utf-8")

@@ -28,10 +28,10 @@ def prepare(assets, work):
             raise ValueError(f'Invalid checksum: {name}')
         packages.append(package)
     profile = work / 'profile'
-    shutil.copytree('/usr/share/archiso/configs/releng', profile)
+    shutil.copytree('/usr/share/archiso/configs/releng', profile, symlinks=True)
     root = profile / 'airootfs'
     payload = root / 'usr/share/nodalix-installer'
-    shutil.copytree(ROOT / 'iso/installer', payload)
+    shutil.copytree(ROOT / 'iso/installer', payload, ignore=shutil.ignore_patterns('__pycache__'))
     shutil.copytree(ROOT / 'iso/overlay', payload / 'overlay')
     shutil.copytree(ROOT / 'iso/overlay', root, dirs_exist_ok=True)
     package_dir = payload / 'packages'
@@ -45,7 +45,7 @@ def prepare(assets, work):
         stream.write(f'\n[nodalix]\nSigLevel = Never\nServer = file://{package_dir}\n')
     # This repository is local to the build. The target gets verified package
     # files and retains normal signature validation for every Arch repository.
-    base = 'base linux linux-firmware amd-ucode intel-ucode arch-install-scripts archinstall mkinitcpio mkinitcpio-archiso mkinitcpio-nfs-utils syslinux edk2-shell memtest86+ memtest86+-efi dosfstools e2fsprogs btrfs-progs xfsprogs cryptsetup lvm2 parted gptfdisk efibootmgr grub nano zsh grml-zsh-config openssh pciutils usbutils iw iwd wireless-regdb wget curl git rsync squashfs-tools less man-db dialog alsa-utils'.split()
+    base = 'base linux linux-firmware amd-ucode intel-ucode arch-install-scripts archinstall mkinitcpio mkinitcpio-archiso mkinitcpio-nfs-utils nbd syslinux edk2-shell memtest86+ memtest86+-efi dosfstools e2fsprogs btrfs-progs xfsprogs cryptsetup lvm2 parted gptfdisk efibootmgr grub nano zsh grml-zsh-config openssh pciutils usbutils iw iwd wireless-regdb wget curl git rsync squashfs-tools less man-db dialog alsa-utils'.split()
     desktop = (ROOT / 'iso/installer/packages.txt').read_text().split()
     (profile / 'packages.x86_64').write_text('\n'.join(sorted(set(base + desktop + [e['package'] for e in manifest['components']]))) + '\n')
     definition = (profile / 'profiledef.sh').read_text()
@@ -66,7 +66,7 @@ file_permissions+=(
     # Remove remote automation and SSH access inherited from Arch's rescue ISO.
     for directory in ('etc/systemd/system',):
         for path in (root / directory).rglob('*'):
-            if path.is_symlink() and any(s in path.name for s in ('sshd', 'cloud-', 'networkd', 'iwd', 'ModemManager')):
+            if path.is_symlink() and any(s in path.name for s in ('sshd', 'cloud-', 'networkd', 'iwd', 'ModemManager', 'vbox', 'vmware', 'vmtools', 'livecd-talk')):
                 path.unlink()
     (root / 'root/.automated_script.sh').unlink(missing_ok=True)
     (root / 'root/.zlogin').write_text('')
@@ -79,6 +79,8 @@ file_permissions+=(
 set -euo pipefail
 useradd -m -G wheel,audio,video -s /bin/bash nodalix
 passwd -d nodalix
+python3 -c 'import json,pathlib;p=pathlib.Path("/home/nodalix/.local/state/nodalix/settings.json");d=json.loads(p.read_text());d["security"]={"autoLock":{"enabled":False}};p.write_text(json.dumps(d))'
+chown -R nodalix:nodalix /home/nodalix
 install -d -o greeter -g greeter /var/lib/nodalix-greeter /var/lib/nodalix-greeter/cache
 systemctl enable NetworkManager bluetooth greetd power-profiles-daemon
 systemctl disable systemd-networkd systemd-networkd-wait-online iwd sshd 2>/dev/null || true

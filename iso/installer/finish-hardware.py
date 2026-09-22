@@ -15,6 +15,8 @@ def main():
     profile = json.loads(subprocess.check_output(['nodalix-hardware-profile', 'detect', '--json'], text=True))
     virtual = subprocess.run(['systemd-detect-virt', '--vm', '--quiet']).returncode == 0
     policy = hardware_policy(profile, virtual)
+    if subprocess.run(['pacman', '-Q', 'nvidia-open'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
+        policy = {'optimized': False, 'kernel': 'linux', 'reason': 'NVIDIA module tied to the standard kernel'}
     report = {'detected': profile, 'selection': policy, 'optimization_applied': False}
     # Ensure the recovery kernel really exists, irrespective of menu choices.
     subprocess.run(['pacman', '-S', '--needed', '--noconfirm', 'linux', 'linux-headers'], check=True)

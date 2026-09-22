@@ -15,6 +15,7 @@ input('Pulsa Intro para abrir el asistente… ')
 config = {
     'hostname': 'nodalix', 'kernels': ['linux'], 'ntp': True,
     'network_config': {'type': 'nm'},
+    'bootloader_config': {'bootloader': 'Systemd-boot' if Path('/sys/firmware/efi').exists() else 'Grub', 'uki': False, 'removable': True},
     'profile_config': {
         'profile': {'main': 'Desktop', 'details': ['Nodalix'],
                     'path': '/usr/share/nodalix-installer/nodalix_profile.py'},

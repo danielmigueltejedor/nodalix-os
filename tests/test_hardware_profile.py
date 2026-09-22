@@ -47,6 +47,27 @@ class HardwareProfileTests(unittest.TestCase):
         self.assertIn('"default nodalix-cachyos.conf\\n"', source)
         self.assertIn('["bootctl", "set-default", target.name]', source)
 
+    def test_archinstall_entry_preserves_encryption_and_uses_matching_initrd(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            entries = base / 'boot/loader/entries'
+            entries.mkdir(parents=True)
+            original = 'title Arch\nlinux /vmlinuz-linux\ninitrd /initramfs-linux.img\noptions rd.luks.name=uuid=root root=/dev/mapper/root rw\n'
+            (entries / '2026_linux.conf').write_text(original)
+            (entries / '000_fallback.conf').write_text(original.replace('initramfs-linux.img', 'initramfs-linux-fallback.img'))
+            (base / 'boot/loader/loader.conf').write_text('default 2026_linux.conf\n')
+            def target_path(value):
+                return base / str(value).lstrip('/')
+            function = MODULE['write_systemd_boot_entry']
+            with mock.patch.dict(function.__globals__, {'Path': target_path}), mock.patch('subprocess.run'):
+                function('linux-cachyos-deckify')
+            result = (entries / 'nodalix-cachyos.conf').read_text()
+            self.assertIn('linux /vmlinuz-linux-cachyos-deckify', result)
+            self.assertIn('initrd /initramfs-linux-cachyos-deckify.img', result)
+            self.assertIn('rd.luks.name=uuid=root', result)
+            self.assertEqual((entries / '2026_linux.conf').read_text(), original)
+
     def test_polished_boot_options_replace_noisy_console_settings(self):
         options = MODULE["polished_boot_options"](
             "root=UUID=test rw quiet loglevel=3 systemd.show_status=auto rd.udev.log_level=3"

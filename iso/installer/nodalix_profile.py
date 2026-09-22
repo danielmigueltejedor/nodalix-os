@@ -59,3 +59,16 @@ class NodalixProfile(Profile):
         subprocess.run(['arch-chroot', str(target), 'python3', '/var/cache/nodalix-installer/finish-hardware.py'], check=True)
         # The live account, autologin and sudo exception never enter the target.
         shutil.rmtree(cache)
+
+    def provision(self, install_session, users):
+        for user in users:
+            home = install_session.target / 'home' / user.username
+            skeleton = PAYLOAD / 'overlay/etc/skel'
+            for source in skeleton.rglob('*'):
+                destination = home / source.relative_to(skeleton)
+                if source.is_file() and not destination.exists():
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(source, destination)
+            subprocess.run(['arch-chroot', str(install_session.target), 'chown', '-R',
+                            user.username + ':' + user.username, '/home/' + user.username + '/.config',
+                            '/home/' + user.username + '/.local'], check=True)
