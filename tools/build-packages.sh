@@ -130,7 +130,7 @@ if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
   makepkg_one "$greeter_dir"
   makepkg_one "$wallpaper_dir"
   makepkg_one "$release_dir"
-  find "$workdir" -name '*.pkg.tar.zst' ! -name '*-debug-*' -exec cp {} "$outdir/" \;
+  find "$workdir" -mindepth 2 -maxdepth 2 -type f -name '*.pkg.tar.zst' ! -name '*-debug-*' -exec cp {} "$outdir/" \;
 fi
 
 python3 "$root/tools/generate-manifest.py" \

@@ -1,17 +1,23 @@
 pkgname=nodalix-shell
-pkgver=0.2.0beta.9.2
+pkgver=0.2.0beta.9.3
 pkgrel=1
 pkgdesc="Nodalix desktop shell"
 arch=("x86_64")
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
 depends=("nodalix-wallpaper-engine" "quickshell" "qt6-declarative" "qt6-5compat" "fontconfig" "python" "zenity" "xdg-user-dirs")
-makedepends=("cmake" "ninja" "qt6-shadertools")
+makedepends=("hyprland" "pkgconf" "cmake" "ninja" "qt6-shadertools")
 options=("!debug")
 source=("nodalix-shell-$pkgver.tar.zst" "nodalix-shell" "nodalix-shell.service" "nodalix-app-accent.service" "nodalix-app-accent.path" "VERSION")
 sha256sums=("SKIP" "SKIP" "SKIP" "SKIP" "SKIP" "SKIP")
 
 build() {
+    g++ -std=c++23 -shared -fPIC -O2 $(pkg-config --cflags hyprland) \
+        "$srcdir/shell/window-controls/main.cpp" -o "$srcdir/libnodalix-window-controls.so"
+    sed -n 's/^#define GIT_COMMIT_HASH[[:space:]]*"\([^"]*\)".*/\1/p' \
+        /usr/include/hyprland/src/version.h > "$srcdir/window-controls-commit"
+    test -s "$srcdir/window-controls-commit"
+
     cmake -S "$srcdir/shell/blobs-plugin" -B "$srcdir/build" -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr \
@@ -20,6 +26,9 @@ build() {
 }
 
 package() {
+    install -Dm755 "$srcdir/libnodalix-window-controls.so" "$pkgdir/usr/lib/nodalix/window-controls/libnodalix-window-controls.so"
+    install -Dm644 "$srcdir/window-controls-commit" "$pkgdir/usr/share/nodalix/window-controls/hyprland-commit"
+
     install -d "$pkgdir/etc/xdg/quickshell/nodalix"
     cp -a --no-preserve=ownership "$srcdir/shell/." "$pkgdir/etc/xdg/quickshell/nodalix/"
     rm -rf "$pkgdir/etc/xdg/quickshell/nodalix/blobs-plugin"

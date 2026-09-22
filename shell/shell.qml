@@ -71,6 +71,11 @@ ShellRoot {
     IpcHandler {
         target: "windows"
         function setMode(mode: string): void { WindowLayoutService.setMode(mode) }
+        function request(action: string, address: string): void {
+            if (["minimize", "activate"].indexOf(action) < 0) return
+            const win = Hyprland.toplevels.values.find(w => DockService.address(w) === address)
+            if (win) DockService.run(action, win, "")
+        }
     }
     IpcHandler {
         target: "overview"
@@ -204,6 +209,7 @@ ShellRoot {
         target: "tools"
         function toggle(): void { ToolsService.toggle() }
         function open():   void { ToolsService.openKbd() }
+        function wallpapers(): void { WallpaperService.refresh(); ToolsService.open = true; ToolsService.wpOpen = true }
         function close():  void { ToolsService.close() }
     }
 

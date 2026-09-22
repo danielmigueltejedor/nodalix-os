@@ -59,5 +59,8 @@ QtObject {
             }
         }
     }
-    Component.onCompleted: _refresh.start()
+    Component.onCompleted: {
+        _refresh.start()
+        Quickshell.execDetached(["python3", Paths.configDir + "/scripts/nodalix-window-controls.py"])
+    }
 }

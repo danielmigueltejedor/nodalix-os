@@ -112,7 +112,7 @@ QtObject {
         "Icon": "Icono", "Add your own rail buttons — each runs a command. Examples: file manager (kitty -e yazi), screen record (wf-recorder -g ": "Añade botones propios; cada uno ejecuta un comando. Ejemplos: gestor de archivos (kitty -e yazi), grabación de pantalla (wf-recorder -g ",
         "Add your own rail buttons — each runs a command. Examples: a file manager or a screen recorder.": "Añade botones propios; cada uno ejecuta un comando, como un gestor de archivos o un grabador de pantalla.",
         "Enable toolbar": "Activar barra de herramientas", "Wallpaper picker": "Selector de fondos", "Built-in background/theme tool": "Herramienta integrada de fondos y temas",
-        "Wallpaper collection": "Colección de fondos", "Selected background": "Fondo seleccionado", "Nodalix Motion": "Nodalix Motion",
+        "All": "Todos", "Static": "Estáticos", "Choose a background for your desktop": "Elige un fondo para tu escritorio", "Search wallpapers": "Buscar fondos", "No matching wallpapers": "No hay fondos que coincidan", "Select to preview · Enter to apply": "Selecciona para previsualizar · Intro para aplicar", "Wallpaper collection": "Colección de fondos", "Selected background": "Fondo seleccionado", "Nodalix Motion": "Nodalix Motion",
         "Local": "Local", "Favorites": "Favoritos", "Browse": "Explorar", "Search": "Buscar", "Searching…": "Buscando…",
         "Search wallhaven.cc…": "Buscar en wallhaven.cc…", "Search wallhaven.cc for wallpapers.": "Busca fondos en wallhaven.cc.", "Load more": "Cargar más", "Refresh": "Actualizar",
         "Wallhaven API key": "Clave API de Wallhaven", "Optional — only needed to browse NSFW results": "Opcional; solo necesaria para resultados NSFW",

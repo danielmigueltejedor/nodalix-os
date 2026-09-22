@@ -143,7 +143,9 @@ PanelWindow {
     readonly property int  _toolsRailW:  48      // expanded rail width
     readonly property int  _toolsHoverW: 14      // collapsed hover/input zone
     readonly property int  _toolsH:      186     // rail height (4 buttons)
-    readonly property int  _toolsWpW:    210     // wallpaper picker width
+    readonly property int  _toolsWpW:    Math.min(650, root.width - 100)     // wallpaper picker width
+    readonly property real _toolsWpH: Math.min(660, root.height - ThemeManager.barHeight - 100)
+    readonly property real _toolsWpY: Math.max(ThemeManager.barHeight + 12, (root.height - _toolsWpH) / 2)
     readonly property real _toolsRight:  root.width - ThemeManager.borderWidth
     readonly property real _toolsY:      Math.round((root.height - _toolsH) / 2)
 
@@ -290,9 +292,9 @@ PanelWindow {
         // Wallpaper picker
         Region {
             x:      root._toolsWpOpen ? root._toolsRight - root._toolsRailW - 8 - root._toolsWpW : root.width
-            y:      ThemeManager.barHeight + 8
+            y:      root._toolsWpY
             width:  root._toolsWpOpen ? root._toolsWpW : 0
-            height: root._toolsWpOpen ? root.height - ThemeManager.barHeight - 24 : 0
+            height: root._toolsWpOpen ? root._toolsWpH : 0
         }
         // Full-screen dismiss region while toolbar is keyboard-open
         Region {
@@ -780,10 +782,10 @@ PanelWindow {
                 switch (e.key) {
                     case Qt.Key_Up:                          ToolsService.up();       e.accepted = true; break
                     case Qt.Key_Down:                        ToolsService.down();     e.accepted = true; break
-                    case Qt.Key_Left:
+                    case Qt.Key_Left: if (ToolsService.wpOpen) ToolsService.moveSelection(-1); else ToolsService.activate(); e.accepted = true; break
                     case Qt.Key_Return:
                     case Qt.Key_Enter:                       ToolsService.activate(); e.accepted = true; break
-                    case Qt.Key_Right:
+                    case Qt.Key_Right: if (ToolsService.wpOpen) ToolsService.moveSelection(1); else ToolsService.back(); e.accepted = true; break
                     case Qt.Key_Escape:                      ToolsService.back();     e.accepted = true; break
                 }
             }
@@ -827,86 +829,16 @@ PanelWindow {
         layer.effect: Elevation { level: 3 }
         width:   root._toolsWpW
         x:       root._toolsRight - root._toolsRailW - 8 - root._toolsWpW
-        y:       ThemeManager.barHeight + 8
-        height:  root.height - ThemeManager.barHeight - 24
+        y:       root._toolsWpY
+        height:  root._toolsWpH
         radius:  ThemeManager.panelRadius
         color:   ThemeManager.surfaceContainerHigh
-        border.width: 1
-        border.color: Qt.rgba(ThemeManager.onSurface.r, ThemeManager.onSurface.g, ThemeManager.onSurface.b, 0.08)
         opacity: root._toolsWpOpen ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 150 } }
 
         HoverHandler { id: _toolsPickHover; onHoveredChanged: root._toolsEval() }
 
-        Text {
-            id: _wpTitle
-            anchors { left: parent.left; top: parent.top; margins: 12 }
-            text: I18n.tr((WallpaperService.favorites?.length ?? 0) > 0 ? "Favorites" : "Wallpaper collection")
-            color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFor(text)
-            font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
-        }
-
-        Flickable {
-            anchors { left: parent.left; right: parent.right; top: _wpTitle.bottom; bottom: parent.bottom; margins: 12; topMargin: 8 }
-            clip: true
-            contentWidth: width
-            contentHeight: _wpCol.height
-            boundsBehavior: Flickable.StopAtBounds
-
-            Column {
-                id: _wpCol
-                width: parent.width
-                spacing: 8
-                Repeater {
-                    model: WallpaperService.railEntries
-                    delegate: ClippingRectangle {
-                        id: _wpTile
-                        required property var modelData
-                        required property int index
-                        readonly property bool _kbdSel: ToolsService.wpOpen && ToolsService.wpSelected === index
-                        width:  parent.width
-                        height: 90
-                        radius: ThemeManager.chipRadius
-                        color:  ThemeManager.surfaceContainer
-                        Image {
-                            anchors.fill: parent
-                            source: "file://" + (modelData.animated ? WallpaperService.thumbnailFor(modelData.path) : modelData.path)
-                            fillMode: Image.PreserveAspectCrop
-                            asynchronous: true
-                            cache: false
-                            sourceSize.width: 360
-                        }
-                        Rectangle {
-                            anchors.fill: parent; radius: _wpTile.radius; color: "transparent"
-                            border.width: (WallpaperService.current === modelData.path || _wpTile._kbdSel) ? 2 : 0
-                            border.color: ThemeManager.primary
-                        }
-                        Rectangle {
-                            visible: modelData.animated
-                            anchors { right: parent.right; bottom: parent.bottom; margins: 7 }
-                            width: 26; height: 22; radius: 8
-                            color: Qt.rgba(0, 0, 0, 0.58)
-                            Text { anchors.centerIn: parent; text: "󰕧"; color: "white"; font.family: ThemeManager.fontFor(text); font.pixelSize: 14 }
-                        }
-                        HoverHandler {
-                            id: _wpItemHov
-                            // Hovering previews the wallpaper, reusing the keyboard
-                            // selection + debounced-preview machinery. Leaving the
-                            // picker without clicking reverts (onWpOpenChanged).
-                            onHoveredChanged: if (hovered) ToolsService.wpSelected = index
-                        }
-                        Rectangle {
-                            anchors.fill: parent; radius: _wpTile.radius
-                            color: Qt.rgba(0, 0, 0, (_wpItemHov.hovered || _wpTile._kbdSel) ? 0.18 : 0)
-                        }
-                        TapHandler {
-                            onTapped: { ToolsService.commitWallpaper(modelData); root._toolsHovered = false }
-                        }
-                    }
-                }
-            }
-        }
+        WallpaperGallery { anchors.fill: parent; anchors.margins: 22 }
     }
 
     // ── App launcher content + click-outside dismiss ──────────────────────────
