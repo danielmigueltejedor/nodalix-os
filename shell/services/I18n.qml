@@ -23,6 +23,28 @@ QtObject {
     }
 
     readonly property var _es: ({
+        "Backups and recovery": "Copias y recuperación",
+        "Recovery points and daily protection": "Puntos de recuperación y protección diaria",
+        "Working…": "Trabajando…",
+        "Recovery points updated": "Puntos de recuperación actualizados",
+        "Recovery could not complete. Check administrator authorization.": "No se pudo completar la operación. Comprueba la autorización de administrador.",
+        "Return your system to a working state. Btrfs snapshots share unchanged data and preserve your personal files.": "Vuelve a un estado anterior del sistema. Las instantáneas Btrfs comparten los datos sin cambios y conservan tus archivos personales.",
+        "Efficient system snapshots": "Instantáneas eficientes del sistema",
+        "Check your recovery setup": "Comprueba la configuración de recuperación",
+        "Includes the system and its boot files. Documents, downloads and personal files need a separate backup. A snapshot on this disk cannot protect against disk failure.": "Incluye el sistema y sus archivos de arranque. Tus documentos, descargas y archivos personales necesitan una copia aparte. Una instantánea en este disco no protege frente a una avería del disco.",
+        "Check setup": "Comprobar configuración",
+        "Create recovery point": "Crear punto de recuperación",
+        "Advanced recovery": "Recuperación avanzada",
+        "Daily protection": "Protección diaria",
+        "Keep the latest three automatic points. Manual points stay until you delete them.": "Conserva los tres últimos puntos automáticos. Los manuales permanecen hasta que los borres.",
+        "Recovery is ready. Save your work and restart to use the restored system.": "La recuperación está preparada. Guarda tu trabajo y reinicia para usar el sistema restaurado.",
+        "Restore this recovery point? System changes made after it will be reverted. Save your work first; a restart will be needed.": "¿Restaurar este punto? Se revertirán los cambios posteriores del sistema. Guarda primero tu trabajo; será necesario reiniciar.",
+        "Delete this recovery point? This cannot be undone.": "¿Eliminar este punto de recuperación? No se puede deshacer.",
+        "Restore system": "Restaurar sistema",
+        "Restore…": "Restaurar…",
+        "No recovery points yet": "Todavía no hay puntos de recuperación",
+        "Manual": "Manual",
+
         "Windows": "Ventanas",
         "Make yourself at home": "Tu espacio, a tu manera",
         "A few shortcuts. Everything else is within reach of your dock.": "Lo esencial, a un gesto. Tus aplicaciones y ventanas, siempre a mano desde el dock.",

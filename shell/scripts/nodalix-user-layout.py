@@ -66,11 +66,17 @@ def reconcile(home, language, apply=False, compatibility=False):
     original = filename.read_text() if filename.exists() else ''
     current = {key: Path(value.replace('$HOME', str(home))) for key, value in
                re.findall(r'^XDG_(\w+)_DIR="([^"\n]+)"', original, re.M)}
-    paths, operations = {}, []
-    def schedule(src, dst, alias=False):
+    paths, operations, conflicts = {}, [], []
+    def schedule(src, dst, alias=False, strict=True):
         if src == dst or not src.exists() or src.is_symlink():
             return
-        preflight(src, dst)
+        try:
+            preflight(src, dst)
+        except ValueError as error:
+            if strict:
+                raise
+            conflicts.append(str(error))
+            return
         operations.append((src, dst, alias))
     for key, pair in NAMES.items():
         target = home / pair[language != 'es']
@@ -82,22 +88,25 @@ def reconcile(home, language, apply=False, compatibility=False):
         for name in pair:
             # Localized XDG aliases protect existing application paths.
             schedule(home / name, target, True)
+    applications = home / ('Aplicaciones' if language == 'es' else 'Applications')
+    for name in ('Applications', 'Aplicaciones'):
+        schedule(home / name, applications, True)
     docs = Path(paths['DOCUMENTS'])
     projects = docs / ('Proyectos' if language == 'es' else 'Projects')
     # The document tree can be moving in this transaction; migrate internal
     # sources on the next reconciliation rather than referring to stale paths.
     document_move = any(dst == docs for _, dst, _ in operations)
-    schedule(home / 'Nodalix', projects / 'Nodalix', compatibility)
-    schedule(home / 'src', projects / 'Sources', compatibility)
+    schedule(home / 'Nodalix', projects / 'Nodalix', compatibility, strict=False)
+    schedule(home / 'src', projects / 'Sources', compatibility, strict=False)
     for entry in sorted(home.iterdir()):
         if not entry.name.startswith('.') and entry.is_dir() and not entry.is_symlink() and (entry / '.git').is_dir():
             if entry.name not in {name for pair in NAMES.values() for name in pair} and entry.name not in ('Nodalix', 'src'):
-                schedule(entry, projects / entry.name, compatibility)
+                schedule(entry, projects / entry.name, compatibility, strict=False)
     if not document_move:
         old_projects = docs / ('Projects' if language == 'es' else 'Proyectos')
         schedule(old_projects, projects, True)
-    report = {'schema': 1, 'language': language, 'paths': paths,
-              'projects': str(projects), 'data': str(data / 'nodalix'),
+    report = {'schema': 1, 'conflicts': conflicts, 'language': language, 'paths': paths,
+              'applications': str(applications), 'projects': str(projects), 'data': str(data / 'nodalix'),
               'cache': str(cache / 'nodalix'),
               'moves': [{'from': str(s), 'to': str(d), 'compatibility': c} for s, d, c in operations]}
     if not apply:
@@ -115,6 +124,7 @@ def reconcile(home, language, apply=False, compatibility=False):
     for value in paths.values():
         Path(value).mkdir(parents=True, exist_ok=True)
     projects.mkdir(parents=True, exist_ok=True)
+    applications.mkdir(parents=True, exist_ok=True)
     for folder in (data / 'nodalix', cache / 'nodalix/build', cache / 'nodalix/tmp', state):
         folder.mkdir(parents=True, exist_ok=True)
     (cache / 'nodalix/tmp').chmod(0o700)
@@ -129,12 +139,12 @@ def reconcile(home, language, apply=False, compatibility=False):
     atomic(config / 'user-dirs.locale', ('es_ES' if language == 'es' else 'en_US') + '\n')
     hidden = home / '.hidden'
     lines = hidden.read_text().splitlines() if hidden.exists() else []
-    managed = {n for pair in NAMES.values() for n in pair} | {'Nodalix', 'src'}
+    managed = {n for pair in NAMES.values() for n in pair} | {'Nodalix', 'src', 'Applications', 'Aplicaciones'}
     lines = [line for line in lines if line not in managed]
     lines += [name for name in managed if (home / name).is_symlink()]
     atomic(hidden, '\n'.join(sorted(set(lines))) + '\n')
     # Kept compatible with beta-8 local integrations.
-    atomic(state.parent / 'folders/paths.json', json.dumps(paths, ensure_ascii=False) + '\n')
+    atomic(state.parent / 'folders/paths.json', json.dumps({**paths, 'APPLICATIONS': str(applications)}, ensure_ascii=False) + '\n')
     atomic(state / 'paths.json', json.dumps(report, ensure_ascii=False, indent=2) + '\n')
     return report
 

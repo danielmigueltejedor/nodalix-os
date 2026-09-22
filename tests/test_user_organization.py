@@ -34,6 +34,23 @@ class Organization(unittest.TestCase):
         layout.reconcile(self.home,'en',True)
         self.assertEqual((self.home/'Documents/link').read_text(),'important')
         self.assertTrue((self.home/'Documents/Projects/vinilo/.git').is_dir())
+    def test_appimages_follow_language_without_breaking_old_launch_paths(self):
+        apps = self.home / 'Applications'
+        apps.mkdir()
+        image = apps / 'Audacity.AppImage'
+        image.write_bytes(b'appimage')
+        image.chmod(0o755)
+        layout.reconcile(self.home, 'es', True)
+        self.assertTrue(apps.is_symlink())
+        self.assertEqual((self.home/'Aplicaciones/Audacity.AppImage').read_bytes(), b'appimage')
+        self.assertTrue((self.home/'Aplicaciones/Audacity.AppImage').stat().st_mode & 0o111)
+        self.assertIn('Applications', (self.home/'.hidden').read_text().splitlines())
+        layout.reconcile(self.home, 'en', True)
+        self.assertFalse(apps.is_symlink())
+        self.assertEqual((apps/'Audacity.AppImage').read_bytes(), b'appimage')
+        layout.reconcile(self.home, 'en', True)
+        self.assertEqual(layout.reconcile(self.home, 'en')['moves'], [])
+
     def test_conflict_stops_before_changes(self):
         for name in ('Documents','Documentos'):
             (self.home/name).mkdir(); (self.home/name/'keep').write_text(name)

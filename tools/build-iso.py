@@ -47,6 +47,10 @@ def prepare(assets, work):
     # files and retains normal signature validation for every Arch repository.
     base = 'base linux linux-firmware amd-ucode intel-ucode arch-install-scripts archinstall mkinitcpio mkinitcpio-archiso mkinitcpio-nfs-utils nbd syslinux edk2-shell memtest86+ memtest86+-efi dosfstools e2fsprogs btrfs-progs xfsprogs cryptsetup lvm2 parted gptfdisk efibootmgr grub nano zsh grml-zsh-config openssh pciutils usbutils iw iwd wireless-regdb wget curl git rsync squashfs-tools less man-db dialog alsa-utils'.split()
     desktop = (ROOT / 'iso/installer/packages.txt').read_text().split()
+    # The installed desktop receives the full font/browser/compiler selection.
+    # Keep the live medium below the release asset limit without trimming firmware.
+    desktop = [p for p in desktop if p not in {'noto-fonts-cjk', 'firefox', 'gcc'}]
+    base += ['python-systemd', 'timeshift']
     (profile / 'packages.x86_64').write_text('\n'.join(sorted(set(base + desktop + [e['package'] for e in manifest['components']]))) + '\n')
     definition = (profile / 'profiledef.sh').read_text()
     definition += f'''\niso_name="nodalix"

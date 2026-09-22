@@ -1,0 +1,216 @@
+#!/usr/bin/env python3
+"""Nodalix recovery: bounded Btrfs system snapshots using Timeshift.
+
+Personal files are excluded. Existing Timeshift configurations are never replaced.
+Restoration targets only this installation and requires an explicit confirmation.
+"""
+import argparse
+import contextlib
+import fcntl
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+import uuid
+
+STATE = Path('/var/lib/nodalix-recovery')
+CONFIG = Path('/etc/timeshift/timeshift.json')
+NAME = re.compile(r'\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}')
+
+
+def run(*args):
+    result = subprocess.run(args, text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    if result.returncode:
+        raise RuntimeError(result.stdout[-4000:] or f'{args[0]} failed')
+    return result.stdout
+
+
+def atomic_json(path, data, mode=0o644):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temp = path.with_suffix('.tmp')
+    temp.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
+    temp.chmod(mode)
+    temp.replace(path)
+
+
+def root_info():
+    info = json.loads(run('findmnt', '-J', '-o', 'FSTYPE,FSROOT,UUID', '/'))['filesystems'][0]
+    home = json.loads(run('findmnt', '-J', '-T', '/home', '-o', 'FSROOT,UUID'))['filesystems'][0]
+    info['separate_home'] = home.get('uuid') != info.get('uuid') or home.get('fsroot') != info.get('fsroot')
+    return info
+
+
+def supported(info):
+    return info.get('fstype') == 'btrfs' and info.get('fsroot') == '/@' and bool(info.get('uuid')) and info.get('separate_home', False)
+
+
+def config_for(info, current):
+    if not supported(info):
+        raise RuntimeError('Fast recovery requires a Btrfs root subvolume named @ and a separate home subvolume or partition. Use Timeshift advanced setup for other layouts.')
+    if current and (current.get('backup_device_uuid') not in ('', info['uuid']) or current.get('btrfs_mode') not in ('true', True)):
+        raise RuntimeError('An existing Timeshift configuration uses another location or mode. Manage it in Timeshift; Nodalix will not replace it.')
+    result = dict(current)
+    result.update(backup_device_uuid=info['uuid'], btrfs_mode='true', do_first_run='false',
+                  include_btrfs_home='false', include_btrfs_home_for_restore='false')
+    # Nodalix owns its schedule; do not silently alter an existing Timeshift one.
+    for period in ('hourly', 'daily', 'weekly', 'monthly', 'boot'):
+        result.setdefault('schedule_' + period, 'false')
+    return result
+
+
+@contextlib.contextmanager
+def repository(info):
+    with tempfile.TemporaryDirectory(prefix='nodalix-recovery-', dir='/run') as directory:
+        run('mount', '-t', 'btrfs', '-o', 'ro,subvolid=5', 'UUID=' + info['uuid'], directory)
+        try:
+            yield Path(directory) / 'timeshift-btrfs/snapshots'
+        finally:
+            run('umount', directory)
+
+
+def snapshots(base, uuid):
+    result = []
+    for entry in base.glob('*/info.json'):
+        if not NAME.fullmatch(entry.parent.name):
+            continue
+        try:
+            data = json.loads(entry.read_text())
+            if data.get('sys-uuid') != uuid:
+                continue
+            result.append({'name': entry.parent.name, 'created': int(data['created']),
+                           'description': data.get('comments', ''),
+                           'restorable': (entry.parent / '@/var/lib/nodalix-recovery/boot-ready.json').is_file()})
+        except (ValueError, OSError, KeyError):
+            continue
+    return sorted(result, key=lambda x: x['created'], reverse=True)
+
+
+def enough_space():
+    disk = shutil.disk_usage('/')
+    if disk.free < max(5 * 1024**3, disk.total // 10):
+        raise RuntimeError('Not enough free space: keep at least 5 GiB and 10% free before creating a snapshot.')
+
+
+def preserve_boot():
+    # /boot is commonly a separate ESP and is not part of a Btrfs @ snapshot.
+    # Keep its matching files inside @ before taking the system snapshot.
+    STATE.mkdir(parents=True, exist_ok=True)
+    boot = STATE / 'boot'
+    boot.mkdir(exist_ok=True)
+    run('rsync', '-rt', '--delete', '--exclude=EFI/Microsoft/', '--exclude=EFI/Apple/', '/boot/', str(boot) + '/')
+    atomic_json(STATE / 'boot-ready.json', {'version': 1, 'created': int(time.time()), 'id': str(uuid.uuid4())})
+
+
+def status(info):
+    data = {'supported': supported(info), 'mode': 'btrfs' if supported(info) else 'advanced',
+            'snapshots': [], 'automatic': (STATE / 'automatic').exists(),
+            'rebootRequired': (Path('/run/nodalix-recovery-reboot')).exists(),
+            'freeBytes': shutil.disk_usage('/').free}
+    if supported(info):
+        with repository(info) as base:
+            data['snapshots'] = snapshots(base, info['uuid'])
+    atomic_json(STATE / 'status.json', data)
+    return data
+
+
+def execute(args):
+    info = root_info()
+    if args.action == 'refresh':
+        return status(info)
+    current = json.loads(CONFIG.read_text()) if CONFIG.exists() else {}
+    configuration = config_for(info, current)
+    if args.action == 'schedule':
+        if args.value == 'on':
+            (STATE / 'automatic').touch()
+        else:
+            (STATE / 'automatic').unlink(missing_ok=True)
+        return status(info)
+    if args.action == 'scheduled' and not (STATE / 'automatic').exists():
+        return status(info)
+    if Path('/run/nodalix-recovery-reboot').exists():
+        raise RuntimeError('Restart before making further recovery changes.')
+    with repository(info) as base:
+        existing = snapshots(base, info['uuid'])
+        if args.action in ('delete', 'restore'):
+            match = next((s for s in existing if s['name'] == args.value), None)
+            if not match:
+                raise RuntimeError('Snapshot does not belong to this installation.')
+            if args.action == 'restore' and not match['restorable']:
+                raise RuntimeError('This snapshot has no matching boot backup. Use advanced recovery.')
+        if args.action == 'scheduled':
+            automatic = [s for s in existing if s['description'] == 'Nodalix automatic']
+            if automatic and time.time() - automatic[0]['created'] < 86400:
+                return status(info)
+    atomic_json(CONFIG, configuration, 0o600)
+    if args.action in ('create', 'scheduled'):
+        enough_space()
+        preserve_boot()
+        run('timeshift', '--create', '--btrfs', '--comments',
+            'Nodalix automatic' if args.action == 'scheduled' else 'Nodalix manual',
+            '--tags', 'O', '--scripted')
+        updated = status(info)
+        if not any(s['name'] not in {old['name'] for old in existing} for s in updated['snapshots']):
+            raise RuntimeError('Timeshift did not produce a new snapshot.')
+        # Only prune Nodalix automatic snapshots, after a successful replacement.
+        if args.action == 'scheduled':
+            automatic = [s for s in updated['snapshots'] if s['description'] == 'Nodalix automatic']
+            for old in automatic[3:]:
+                run('timeshift', '--delete', '--snapshot', old['name'], '--scripted', '--yes')
+    elif args.action == 'delete':
+        run('timeshift', '--delete', '--snapshot', args.value, '--scripted', '--yes')
+    elif args.action == 'restore':
+        if not args.confirm:
+            raise RuntimeError('Restoration requires explicit confirmation.')
+        enough_space()
+        preserve_boot()  # Timeshift creates a pre-restore snapshot as a fallback.
+        with tempfile.TemporaryDirectory(prefix='nodalix-restore-', dir='/var/tmp') as staging:
+            with repository(info) as base:
+                expected = json.loads((base / args.value / '@/var/lib/nodalix-recovery/boot-ready.json').read_text())
+                run('rsync', '-rt', str(base / args.value / '@/var/lib/nodalix-recovery/boot') + '/', staging + '/')
+            run('timeshift', '--restore', '--snapshot', args.value, '--target', info['uuid'],
+                '--skip-grub', '--scripted', '--yes')
+            with repository(info) as base:
+                restored = base.parents[1] / '@/var/lib/nodalix-recovery/boot-ready.json'
+                if not restored.is_file() or json.loads(restored.read_text()) != expected:
+                    raise RuntimeError('The restored root could not be verified. Boot files were not changed; inspect recovery before restarting.')
+            # Do not delete other operating systems' or newer firmware files.
+            run('rsync', '-rt', staging + '/', '/boot/')
+            run('sync')
+            Path('/run/nodalix-recovery-reboot').touch()
+    return status(info)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('action', choices=['status', 'refresh', 'create', 'delete', 'restore', 'schedule', 'scheduled'])
+    parser.add_argument('value', nargs='?', default='')
+    parser.add_argument('--confirm', action='store_true')
+    args = parser.parse_args()
+    if args.action == 'status':
+        print((STATE / 'status.json').read_text() if (STATE / 'status.json').exists() else '{}')
+        return 0
+    if os.geteuid() != 0:
+        parser.error('Administrator authentication is required.')
+    if args.action in ('delete', 'restore') and not NAME.fullmatch(args.value):
+        parser.error('Invalid snapshot name.')
+    if args.action == 'schedule' and args.value not in ('on', 'off'):
+        parser.error('Choose on or off.')
+    STATE.mkdir(parents=True, exist_ok=True)
+    try:
+        with open('/run/nodalix-recovery.lock', 'w') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            result = execute(args)
+        print(json.dumps(result))
+        return 0
+    except (OSError, ValueError, RuntimeError) as error:
+        print(json.dumps({'error': str(error)}))
+        return 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())

@@ -218,6 +218,7 @@ PanelWindow {
         "sound": { name: "multimedia-volume-control-symbolic", group: "apps" },
         "power": { name: "preferences-system-power-symbolic", group: "apps" },
         "default-apps": { name: "application-menu-symbolic", group: "actions" },
+        "recovery": { name: "document-revert-symbolic", group: "actions" },
         "storage": { name: "disk-usage-app-symbolic", group: "apps" },
         "nodalix-updates": { name: "network-receive-symbolic", group: "status" },
         "updates": { name: "network-receive-symbolic", group: "status" },
@@ -257,6 +258,7 @@ PanelWindow {
         ],
         "applications-group": [
             { id: "default-apps", label: I18n.tr("Default applications"), sub: I18n.tr("Choose which app opens each file type"), icon: "󰏖" },
+            { id: "recovery", label: I18n.tr("Backups and recovery"), sub: I18n.tr("Recovery points and daily protection"), icon: "󰋊" },
             { id: "storage", label: I18n.tr("Storage"), sub: I18n.tr("Disk usage and installed applications"), icon: "󰋊" },
             { id: "nodalix-updates", label: I18n.tr("Nodalix OS updates"), sub: I18n.tr("Shell, services, applications and themes"), icon: "󰚰" },
             { id: "updates", label: I18n.tr("Updates"), sub: I18n.tr("System, applications and firmware"), icon: "󰚰" },
@@ -661,6 +663,12 @@ PanelWindow {
                             font.family: ThemeManager.fontFor(text)
                             font.pixelSize: ThemeManager.fontSizeSm
                         }
+                    }
+
+                    RecoverySettings {
+                        visible: SettingsUi.category === "recovery"
+                        Layout.fillWidth: true
+                        Layout.margins: 20
                     }
 
                     // Security ----------------------------------------------------
