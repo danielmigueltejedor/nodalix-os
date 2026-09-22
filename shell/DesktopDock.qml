@@ -17,28 +17,38 @@ PanelWindow {
     margins.bottom: 0
     readonly property bool expanded: LauncherService.open && LauncherService.screenName === modelData.name
     readonly property real dockWidth: Math.min(modelData.width - 40, Math.max(380, tasks.implicitWidth + (WindowLayoutService.mode === "scrolling" ? 360 : 260)))
-    readonly property real drawerHeight: Math.min(640, modelData.height - 150)
+    readonly property real drawerWidth: Math.min(626, modelData.width - 48)
+    readonly property real maxDrawerHeight: Math.min(640, modelData.height - 150)
+    readonly property real drawerHeight: Math.min(maxDrawerHeight, launcherContent.item ? launcherContent.item.implicitHeight : 420)
     property real reveal: expanded ? 1 : 0
     Behavior on reveal { NumberAnimation { duration: 300; easing.type: Easing.Bezier; easing.bezierCurve: root.expanded ? [0.05,0.7,0.1,1,1,1] : [0.3,0,0.8,0.15,1,1] } }
     readonly property bool drawerVisible: expanded || reveal > 0.001
-    implicitWidth: drawerVisible ? Math.max(dockWidth, Math.min(660, modelData.width - 48)) : dockWidth
-    implicitHeight: 64 + drawerHeight * reveal
+    // Keep the layer surface fixed: only its painted/input region expands.
+    implicitWidth: Math.max(dockWidth, drawerWidth)
+    implicitHeight: 64 + maxDrawerHeight
     exclusiveZone: 72
     color: "transparent"
-    WlrLayershell.layer: drawerVisible ? WlrLayer.Overlay : WlrLayer.Top
+    WlrLayershell.namespace: "nodalix-dock"
+    WlrLayershell.layer: WlrLayer.Top
+    mask: Region {
+        Region { item: dockBody }
+        Region { x: drawer.x; y: drawer.y; width: drawer.width; height: root.drawerVisible ? drawer.height : 0 }
+    }
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     HyprlandFocusGrab { windows: [root]; active: root.expanded; onCleared: LauncherService.hide() }
     Rectangle {
         id: drawer
-        anchors { left: parent.left; right: parent.right; bottom: parent.bottom; bottomMargin: 48 }
+        anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 48 }
+        width: root.drawerWidth
         height: root.drawerHeight * root.reveal + 16
         visible: root.drawerVisible
         radius: 26
         color: ThemeManager.surface
         clip: true
-        Loader { anchors { left: parent.left; right: parent.right; top: parent.top } height: root.drawerHeight; active: root.drawerVisible; opacity: root.reveal; sourceComponent: Launcher { active: root.expanded } }
+        Loader { id: launcherContent; anchors { left: parent.left; right: parent.right; top: parent.top } height: root.drawerHeight; active: true; opacity: root.reveal; sourceComponent: Launcher { active: root.expanded } }
     }
     Rectangle {
+        id: dockBody
         anchors { bottom: parent.bottom; horizontalCenter: parent.horizontalCenter }
         width: root.dockWidth; height: 64
         radius: 21

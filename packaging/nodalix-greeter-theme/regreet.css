@@ -6,17 +6,17 @@ button.reveal-surface, button.reveal-surface:hover, button.reveal-surface:active
 button.reveal-surface:focus { padding: 0; border: none; outline: none; border-radius: 0; background: transparent; box-shadow: none; }
 .idle-surface { padding: 0; }
 frame.idle-clock, frame.idle-date, frame.lock-clock { border: none; background: transparent; padding: 0; }
-frame.idle-clock label { font-size: 112px; font-weight: 500; letter-spacing: -4px; color: white; text-shadow: 0 4px 32px rgba(0,0,0,0.25); }
+frame.idle-clock label { font-size: 104px; font-weight: 400; letter-spacing: -4px; color: white; text-shadow: 0 4px 32px rgba(0,0,0,0.25); }
 frame.idle-date label { font-size: 22px; font-weight: 400; color: rgba(255,255,255,0.8); text-shadow: 0 2px 12px rgba(0,0,0,0.3); }
-.login-surface { padding: 40px 44px 32px; border-radius: 32px; border: 1px solid rgba(255,255,255,0.13); background-color: rgba(17,23,20,0.92); box-shadow: 0 20px 64px rgba(0,0,0,0.28); }
-frame.avatar-frame { min-width: 96px; min-height: 96px; border-radius: 999px; border: 2px solid rgba(221,237,226,0.5); background-color: rgba(255,255,255,0.07); box-shadow: 0 8px 26px rgba(0,0,0,0.18); }
+.login-surface { padding: 36px 42px 30px; border-radius: 30px; border: none; background: linear-gradient(145deg, rgba(29,39,39,0.94), rgba(14,21,22,0.94)); box-shadow: 0 24px 72px rgba(0,0,0,0.28); }
+frame.avatar-frame { min-width: 96px; min-height: 96px; border-radius: 999px; border: 1px solid rgba(221,237,226,0.3); background-color: rgba(255,255,255,0.07); box-shadow: 0 8px 26px rgba(0,0,0,0.18); }
 .avatar-picture { border-radius: 999px; }
 .avatar-fallback { color: #d7e6dc; }
 label.selected-user { font-size: 22px; font-weight: 500; color: #f6f7f2; }
 frame.lock-clock { padding: 0 0 8px; }
 frame.lock-clock label { font-size: 32px; font-weight: 400; color: rgba(255,255,255,0.72); }
 .password-row { margin-top: 8px; }
-entry.password-pill, passwordentry.password-pill { min-height: 52px; border-radius: 18px; padding: 0 18px; background-color: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.18); color: white; caret-color: #c7dfcf; box-shadow: none; }
+entry.password-pill, passwordentry.password-pill { min-height: 52px; border-radius: 16px; padding: 0 18px; background-color: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.18); color: white; caret-color: #c7dfcf; box-shadow: none; }
 entry.password-pill:focus, passwordentry.password-pill:focus-within { background-color: rgba(255,255,255,0.10); border-color: #b8d5c3; box-shadow: 0 0 0 3px rgba(184,213,195,0.12); }
 entry.password-pill placeholder, passwordentry.password-pill placeholder { color: rgba(255,255,255,0.5); }
 button.login-submit { min-width: 52px; min-height: 52px; border-radius: 18px; padding: 0; background: #c7dfcf; border: none; color: #1c3426; box-shadow: none; }
@@ -37,7 +37,7 @@ button.user-option:hover { background: rgba(199,223,207,0.09); border-color: rgb
 frame.user-option-avatar { min-width: 42px; min-height: 42px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.06); }
 label.user-option-name { font-size: 14px; font-weight: 500; }
 label.user-option-account { font-size: 11px; color: rgba(255,255,255,0.5); }
-button.power-action { min-height: 48px; border-radius: 16px; padding: 0 20px; background: rgba(17,23,20,0.82); border: 1px solid rgba(255,255,255,0.14); color: #e7eee9; box-shadow: 0 6px 22px rgba(0,0,0,0.15); font-weight: 500; }
+button.power-action { min-height: 42px; border-radius: 21px; padding: 0 18px; background: rgba(16,24,25,0.68); border: none; color: #e7eee9; box-shadow: none; font-size: 13px; font-weight: 400; transition: background-color 160ms ease; }
 button.power-action:hover { background: rgba(199,223,207,0.18); border-color: rgba(199,223,207,0.5); }
 button.power-action.power-off:hover { background: rgba(230,162,152,0.16); border-color: rgba(230,162,152,0.5); color: #ffccc4; }
 button:focus-visible { outline: 2px solid #c7dfcf; outline-offset: 3px; }

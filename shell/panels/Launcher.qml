@@ -18,6 +18,9 @@ Item {
 
     // Driven by MainWindow's loader: true while open on this screen.
     property bool active: false
+    // Search header, spacing, actual grids, and outer padding. The host caps
+    // this natural height and the Flickable handles large result collections.
+    implicitHeight: 44 + 18 + _content.implicitHeight + 44 + ThemeManager.borderWidth
 
     onActiveChanged: {
         if (active) {
@@ -131,7 +134,7 @@ Item {
     //   _sec: "none" | "results" | "pinned" | "reco"   _idx: index within section
     property string _sec: "none"
     property int    _idx: -1
-    readonly property int _cols: 6
+    readonly property int _cols: Math.max(1, Math.min(6, Math.floor((width - 38) / 98)))
 
     function _resetSel() { _sec = _searching ? "results" : "none"; _idx = -1 }
 
@@ -348,6 +351,7 @@ Item {
                     title: I18n.tr("Results")
                     apps: root._results
                     columns: root._cols
+                    tileW: Math.max(32, (root.width - 44 - 6 * (root._cols - 1)) / root._cols)
                     selectedIndex: root._sec === "results" ? root._idx : -1
                     onActivated: app => root._launch(app)
                     onContextRequested: (app, mx, my) => root._openMenuFor("results", app, mx, my)
@@ -359,6 +363,7 @@ Item {
                     title: I18n.tr("Pinned")
                     apps: root._pinnedPageApps
                     columns: root._cols
+                    tileW: Math.max(32, (root.width - 44 - 6 * (root._cols - 1)) / root._cols)
                     selectedIndex: root._sec === "pinned" ? root._idx : -1
                     draggable: true
                     onActivated: app => root._launch(app)
@@ -407,6 +412,7 @@ Item {
                     title: I18n.tr("Recommended")
                     apps: root._recommended
                     columns: root._cols
+                    tileW: Math.max(32, (root.width - 44 - 6 * (root._cols - 1)) / root._cols)
                     selectedIndex: root._sec === "reco" ? root._idx : -1
                     onActivated: app => root._launch(app)
                     onContextRequested: (app, mx, my) => root._openMenuFor("reco", app, mx, my)

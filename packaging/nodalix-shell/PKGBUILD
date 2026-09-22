@@ -1,5 +1,5 @@
 pkgname=nodalix-shell
-pkgver=0.2.0beta.9.3
+pkgver=0.2.0beta.9.4
 pkgrel=1
 pkgdesc="Nodalix desktop shell"
 arch=("x86_64")
