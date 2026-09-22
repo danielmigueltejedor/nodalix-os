@@ -9,7 +9,11 @@ on:
       release_tag:
         description: Existing GitHub release tag that should receive the built assets
         required: true
-        default: "0.2.0-beta.6"
+        default: "0.2.0"
+      publish:
+        description: Publish the release after building (disable for ISO candidate validation)
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -66,6 +70,7 @@ jobs:
           path: dist/packages/*
 
   publish:
+    if: github.event_name != 'workflow_dispatch' || inputs.publish
     needs: build
     runs-on: ubuntu-latest
     steps:

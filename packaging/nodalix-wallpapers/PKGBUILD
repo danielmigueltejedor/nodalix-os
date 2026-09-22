@@ -1,5 +1,5 @@
 pkgname=nodalix-wallpapers
-pkgver=0.2.0beta.9.5
+pkgver=0.2.0
 pkgrel=1
 pkgdesc="Curated original-resolution wallpapers for Nodalix"
 arch=('any')

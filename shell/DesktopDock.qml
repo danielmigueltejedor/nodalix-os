@@ -17,7 +17,7 @@ PanelWindow {
     margins.bottom: 0
     readonly property bool expanded: LauncherService.open && LauncherService.screenName === modelData.name
     readonly property real dockWidth: Math.min(modelData.width - 40, Math.max(380, tasks.implicitWidth + (WindowLayoutService.mode === "scrolling" ? 360 : 260)))
-    readonly property real drawerWidth: Math.min(626, modelData.width - 48)
+    readonly property real drawerWidth: dockWidth
     readonly property real maxDrawerHeight: Math.min(640, modelData.height - 150)
     readonly property real drawerHeight: Math.min(maxDrawerHeight, launcherContent.item ? launcherContent.item.implicitHeight : 420)
     property real reveal: expanded ? 1 : 0
@@ -36,24 +36,40 @@ PanelWindow {
     }
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
     HyprlandFocusGrab { windows: [root]; active: root.expanded; onCleared: LauncherService.hide() }
+    // One painted surface for the launcher and dock: only the outer top
+    // corners are rounded, so their shared edge never creates a seam.
     Rectangle {
-        id: drawer
-        anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 48 }
-        width: root.drawerWidth
-        height: root.drawerHeight * root.reveal + 16
-        visible: root.drawerVisible
-        radius: 26
+        anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom }
+        width: root.dockWidth
+        height: 64 + root.drawerHeight * root.reveal
+        radius: 21 + 5 * root.reveal
         color: ThemeManager.surface
-        clip: true
-        Loader { id: launcherContent; anchors { left: parent.left; right: parent.right; top: parent.top } height: root.drawerHeight; active: true; opacity: root.reveal; sourceComponent: Launcher { active: root.expanded } }
+        Rectangle {
+            anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
+            height: parent.radius
+            color: ThemeManager.surface
+        }
     }
-    Rectangle {
+    Item {
+        id: drawer
+        anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 64 }
+        width: root.drawerWidth
+        height: root.drawerHeight * root.reveal
+        visible: root.drawerVisible
+        clip: true
+        Loader {
+            id: launcherContent
+            anchors { left: parent.left; right: parent.right; top: parent.top }
+            height: root.drawerHeight
+            active: true
+            opacity: root.reveal
+            sourceComponent: Launcher { active: root.expanded; fillAvailableColumns: true }
+        }
+    }
+    Item {
         id: dockBody
         anchors { bottom: parent.bottom; horizontalCenter: parent.horizontalCenter }
         width: root.dockWidth; height: 64
-        radius: 21
-        color: ThemeManager.surface
-        Rectangle { anchors { left: parent.left; right: parent.right; bottom: parent.bottom } height: 24; color: ThemeManager.surface }
         RowLayout {
             anchors { fill: parent; margins: 8 }
             spacing: 6

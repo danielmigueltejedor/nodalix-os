@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo="${NODALIX_REPOSITORY:-danielmigueltejedor/nodalix-os}"
-channel="${NODALIX_CHANNEL:-beta}"
+channel="${NODALIX_CHANNEL:-stable}"
 
 say() { printf '\033[1;36m::\033[0m %s\n' "$*"; }
 die() { printf '\033[1;31mError:\033[0m %s\n' "$*" >&2; exit 1; }

@@ -18,6 +18,8 @@ Item {
 
     // Driven by MainWindow's loader: true while open on this screen.
     property bool active: false
+    // Docked menus use the full bar width; standalone menus retain six columns.
+    property bool fillAvailableColumns: false
     // Search header, spacing, actual grids, and outer padding. The host caps
     // this natural height and the Flickable handles large result collections.
     implicitHeight: 44 + 18 + _content.implicitHeight + 44 + ThemeManager.borderWidth
@@ -36,7 +38,7 @@ Item {
     readonly property var _pinned:
         _pinnedKeys.map(k => AppService.byKey(k)).filter(a => a)
     readonly property var _recommended:
-        AppUsageService.recommended(_pinnedKeys, 6)
+        AppUsageService.recommended(_pinnedKeys, root.fillAvailableColumns ? root._cols : 6)
             .map(k => AppService.byKey(k)).filter(a => a)
 
     // Pinned pagination (tabs on overflow): cols × 3 rows per page.
@@ -134,7 +136,9 @@ Item {
     //   _sec: "none" | "results" | "pinned" | "reco"   _idx: index within section
     property string _sec: "none"
     property int    _idx: -1
-    readonly property int _cols: Math.max(1, Math.min(6, Math.floor((width - 38) / 98)))
+    readonly property int _cols: Math.max(1, fillAvailableColumns
+        ? Math.floor((width - 38) / 94)
+        : Math.min(6, Math.floor((width - 38) / 98)))
 
     function _resetSel() { _sec = _searching ? "results" : "none"; _idx = -1 }
 

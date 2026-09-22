@@ -134,13 +134,20 @@ def polish_boot_entry(content: str) -> str:
 def write_systemd_boot_entry(kernel: str) -> str:
     entries = Path("/boot/loader/entries")
     source = entries / "nodalix.conf"
-    if not source.exists() or kernel != "linux-cachyos":
+    if kernel not in {"linux-cachyos", "linux-cachyos-deckify"}:
+        return "not-managed"
+    if not source.exists():
+        # Archinstall names entries with a timestamp. Match their kernel,
+        # keeping root/encryption options and microcode lines intact.
+        source = next((entry for entry in sorted(entries.glob("*.conf"))
+                       if re.search(r"^linux\s+/vmlinuz-linux$", entry.read_text(), re.MULTILINE)), source)
+    if not source.exists():
         return "not-managed"
     original = source.read_text(encoding="utf-8")
     target = entries / "nodalix-cachyos.conf"
     content = re.sub(r"^title\s+.*$", "title Nodalix · CachyOS (optimizado)", original, flags=re.MULTILINE)
-    content = re.sub(r"^linux\s+\S+", "linux /vmlinuz-linux-cachyos", content, flags=re.MULTILINE)
-    content = re.sub(r"^initrd\s+/initramfs-linux\.img$", "initrd /initramfs-linux-cachyos.img", content, flags=re.MULTILINE)
+    content = re.sub(r"^linux\s+\S+", f"linux /vmlinuz-{kernel}", content, flags=re.MULTILINE)
+    content = re.sub(r"^initrd\s+/initramfs-linux\.img$", f"initrd /initramfs-{kernel}.img", content, flags=re.MULTILINE)
     content = polish_boot_entry(content)
     target.write_text(content, encoding="utf-8")
 
@@ -192,7 +199,7 @@ def apply_profile(profile: dict[str, object]) -> None:
         subprocess.run([str(VENDOR_REPO / "cachyos-repo.sh"), "--install"], cwd=VENDOR_REPO, check=True)
 
     subprocess.run(
-        ["pacman", "-Syu", "--needed", "--noconfirm", str(profile["kernel"]), str(profile["headers"])],
+        ["pacman", "-Syu", "--needed", "--noconfirm", "linux", "linux-headers", str(profile["kernel"]), str(profile["headers"])],
         check=True,
     )
     # Re-resolve every repository-managed package after introducing the

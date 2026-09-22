@@ -1,0 +1,5 @@
+[terminal]
+vt = 1
+[default_session]
+command = "env HOME=/var/lib/nodalix-greeter XDG_CACHE_HOME=/var/lib/nodalix-greeter/cache dbus-run-session cage -s -- regreet --config /etc/greetd/regreet.toml --style /usr/share/nodalix/greeter/regreet.css"
+user = "greeter"

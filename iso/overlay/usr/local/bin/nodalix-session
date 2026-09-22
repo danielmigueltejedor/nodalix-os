@@ -1,0 +1,10 @@
+#!/bin/sh
+export XDG_CURRENT_DESKTOP=Hyprland
+export XDG_SESSION_TYPE=wayland
+if [ -r /etc/vconsole.conf ]; then
+    keymap=$(sed -n 's/^KEYMAP=//p' /etc/vconsole.conf | tr -d '"')
+    case "$keymap" in es*|latam|us|uk|de*|fr*|it|pt*|br*) export XKB_DEFAULT_LAYOUT="${keymap%%-*}";; esac
+    [ "${XKB_DEFAULT_LAYOUT:-}" != uk ] || export XKB_DEFAULT_LAYOUT=gb
+fi
+[ ! -e /run/archiso/bootmnt ] || export NODALIX_LIVE=1
+exec /usr/bin/start-hyprland -- -c /etc/xdg/nodalix/hyprland.lua
