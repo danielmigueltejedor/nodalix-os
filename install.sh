@@ -91,8 +91,8 @@ say "Instalando Nodalix $release_tag…"
 "${as_root[@]}" pacman -U --needed --noconfirm "${packages[@]}"
 "${as_root[@]}" systemctl enable --now nodalix-update-check.timer
 systemctl --user daemon-reload || true
-systemctl --user enable nodalix-shell.service nodalix-app-accent.path nodalix-phone-link.service || true
-systemctl --user start nodalix-app-accent.path nodalix-phone-link.service || true
+systemctl --user enable nodalix-shell.service nodalix-app-accent.path nodalix-phone-link.service nodalix-localsend.service || true
+systemctl --user start nodalix-app-accent.path nodalix-phone-link.service nodalix-localsend.service || true
 if [[ -n ${WAYLAND_DISPLAY:-} ]]; then
     systemctl --user restart nodalix-shell.service || true
 fi

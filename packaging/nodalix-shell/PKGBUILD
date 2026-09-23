@@ -1,6 +1,6 @@
 pkgname=nodalix-shell
 pkgver=0.2.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Nodalix desktop shell"
 arch=("x86_64")
 url="https://github.com/danielmigueltejedor/nodalix-os"
@@ -8,6 +8,7 @@ license=("GPL-3.0-or-later")
 depends=("nodalix-wallpaper-engine" "quickshell" "qt6-declarative" "qt6-5compat" "fontconfig" "python" "zenity" "xdg-user-dirs")
 makedepends=("hyprland" "pkgconf" "cmake" "ninja" "qt6-shadertools")
 options=("!debug")
+install=nodalix-shell.install
 source=("nodalix-shell-$pkgver.tar.zst" "nodalix-shell" "nodalix-shell.service" "nodalix-app-accent.service" "nodalix-app-accent.path" "VERSION")
 sha256sums=("SKIP" "SKIP" "SKIP" "SKIP" "SKIP" "SKIP")
 
@@ -40,12 +41,13 @@ package() {
     for unit in "$srcdir/shell/systemd/"*; do
         install -m644 "$unit" "$pkgdir/usr/lib/systemd/user/"
         case "$unit" in
-            *.timer|*.path) ln -s "../$(basename "$unit")" "$pkgdir/usr/lib/systemd/user/default.target.wants/$(basename "$unit")" ;;
+            *.timer|*.path|*nodalix-localsend.service) ln -s "../$(basename "$unit")" "$pkgdir/usr/lib/systemd/user/default.target.wants/$(basename "$unit")" ;;
         esac
     done
     install -Dm755 "$srcdir/nodalix-shell" "$pkgdir/usr/bin/nodalix-shell"
     install -Dm755 "$srcdir/shell/scripts/nodalix-sync-app-accent.py" "$pkgdir/usr/bin/nodalix-sync-app-accent"
     install -Dm755 "$srcdir/shell/scripts/nodalix-layout-mode.py" "$pkgdir/usr/bin/nodalix-layout-mode"
+    install -Dm755 "$srcdir/shell/scripts/nodalix-localsend.py" "$pkgdir/usr/lib/nodalix/nodalix-localsend.py"
     install -Dm644 "$srcdir/shell/assets/fonts/NodalixPhosphorCompat.ttf" "$pkgdir/usr/share/fonts/nodalix/NodalixPhosphorCompat.ttf"
     install -Dm644 "$srcdir/shell/assets/fonts/LICENSE-phosphor" "$pkgdir/usr/share/licenses/nodalix-shell/LICENSE-phosphor"
     install -Dm644 "$srcdir/shell/assets/fonts/geist-v1.7.2/OFL.txt" "$pkgdir/usr/share/licenses/nodalix-shell/OFL-geist.txt"
