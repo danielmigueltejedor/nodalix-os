@@ -70,6 +70,7 @@ inject_sha256 "$updater_dir/PKGBUILD" "$updater_dir/nodalix-updater-$pkgver.tar.
 
 cp "$root/packaging/nodalix-shell/PKGBUILD" \
    "$root/packaging/nodalix-shell/nodalix-shell" \
+   "$root/packaging/nodalix-shell/nodalix-shell.install" 
    "$root/packaging/nodalix-shell/nodalix-shell.service" \
    "$root/packaging/nodalix-shell/nodalix-app-accent.service" \
    "$root/packaging/nodalix-shell/nodalix-app-accent.path" \
