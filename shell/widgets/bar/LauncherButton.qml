@@ -14,11 +14,10 @@ Rectangle {
 
     Behavior on color { ColorAnimation { duration: 100 } }
 
-    ColloidIcon {
+    ShellIcon {
         anchors.centerIn: parent
         iconName: "application-menu-symbolic"
         group: "actions"
-        fallbackGlyph: "󰀻"
         color: hovered ? ThemeManager.onPrimaryContainer : ThemeManager.onSurfaceVariant
 
         Behavior on color { ColorAnimation { duration: 100 } }

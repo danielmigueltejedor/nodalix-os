@@ -173,7 +173,7 @@ ColumnLayout {
         implicitHeight: 36
         radius: 12
         opacity: enabled && !RecoveryService.busy ? 1 : 0.45
-        color: hover.hovered ? ThemeManager.surfaceContainerHighest : ThemeManager.surfaceContainerHigh
+        color: hover.hovered ? ThemeManager.surfaceContainerHigh : ThemeManager.surfaceContainer
         Text {
             id: caption
             anchors.centerIn: parent

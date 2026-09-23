@@ -52,11 +52,12 @@ Item {
                     readonly property bool _on: root.adapter?.discovering ?? false
                     color: _on ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.2)
                                : (_scanMa.containsMouse ? Qt.rgba(ThemeManager.onSurface.r, ThemeManager.onSurface.g, ThemeManager.onSurface.b, 0.08) : "transparent")
-                    ColloidIcon {
+                    ShellIcon {
                         anchors.centerIn: parent
-                        text: "󰜉"
+                        role: "bluetooth.scan"
+                        state: _scanBtn._on ? "active" : "idle"
+                        iconSize: 14
                         color: _scanBtn._on ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                        font.pixelSize: 13
                         RotationAnimation on rotation {
                             running: _scanBtn._on; from: 0; to: 360; duration: 1400; loops: Animation.Infinite
                         }
@@ -107,10 +108,11 @@ Item {
                     RowLayout {
                         anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
                         spacing: 8
-                        ColloidIcon {
-                            text: _devRow.modelData.connected ? "󰂱" : "󰂯"
+                        ShellIcon {
+                            role: "bluetooth.device"
+                            state: _devRow.modelData.connected ? "connected" : "disconnected"
+                            iconSize: 15
                             color: _devRow.modelData.connected ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                            font.pixelSize: 14
                         }
                         Text {
                             Layout.fillWidth: true

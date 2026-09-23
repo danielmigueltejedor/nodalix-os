@@ -32,8 +32,8 @@ Item {
 
         Repeater {
             model: [
-                { icon: "󰓃", tip: "Volume"  },
-                { icon: "󰒓", tip: "Devices" }
+                { role: "audio.volume", state: "high", tip: "Volume"  },
+                { role: "audio.devices", state: "", tip: "Devices" }
             ]
             delegate: Item {
                 required property var  modelData
@@ -53,11 +53,12 @@ Item {
                     Behavior on color { ColorAnimation { duration: 150 } }
                 }
 
-                ColloidIcon {
+                ShellIcon {
                     anchors.centerIn: parent
-                    text:           modelData.icon
-                    font.pixelSize: 15
-                    color:          parent.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
+                    role: modelData.role
+                    state: modelData.state
+                    iconSize: 16
+                    color: parent.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
                     Behavior on color { ColorAnimation { duration: 150 } }
                 }
 
@@ -109,12 +110,13 @@ Item {
 
                     VolumeSlider {
                         Layout.fillWidth: true; Layout.fillHeight: true
-                        icon: {
+                        iconRole: "audio.volume"
+                        iconState: {
                             const v = AudioService.sinkVolPct
-                            if (AudioService.sinkMuted || v === 0) return "󰝟"
-                            if (v < 33) return "󰕿"
-                            if (v < 66) return "󰖀"
-                            return "󰕾"
+                            if (AudioService.sinkMuted || v === 0) return "muted"
+                            if (v < 33) return "low"
+                            if (v < 66) return "medium"
+                            return "high"
                         }
                         muted:     AudioService.sinkMuted
                         volume:    AudioService.sinkVolume
@@ -130,7 +132,8 @@ Item {
 
                     VolumeSlider {
                         Layout.fillWidth: true; Layout.fillHeight: true
-                        icon:      AudioService.sourceMuted ? "󰍭" : "󰍬"
+                        iconRole: "audio.microphone"
+                        iconState: AudioService.sourceMuted ? "muted" : "active"
                         muted:     AudioService.sourceMuted
                         volume:    AudioService.sourceVolume
                         maxVolume: 1.0
@@ -253,7 +256,8 @@ Item {
     component VolumeSlider: Item {
         id: vs
 
-        property string icon:      ""
+        property string iconRole:  ""
+        property string iconState: ""
         property bool   muted:     false
         property real   volume:    0
         property real   maxVolume: 1.0
@@ -338,14 +342,19 @@ Item {
                 }
             }
 
-            ColloidIcon {
-                Layout.alignment:  Qt.AlignHCenter
-                text:             vs.icon; font.pixelSize: 16
-                color:            vs.muted ? ThemeManager.error : ThemeManager.primary
+            ShellIcon {
+                Layout.alignment: Qt.AlignHCenter
+                role: vs.iconRole
+                state: vs.iconState
+                iconSize: 18
+                color: vs.muted ? ThemeManager.error : ThemeManager.primary
                 Behavior on color { ColorAnimation { duration: 120 } }
+
                 MouseArea {
-                    anchors.fill: parent; anchors.margins: -6
-                    cursorShape:  Qt.PointingHandCursor; onClicked: vs.toggleMute()
+                    anchors.fill: parent
+                    anchors.margins: -6
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: vs.toggleMute()
                 }
             }
         }

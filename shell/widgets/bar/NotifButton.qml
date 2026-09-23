@@ -14,10 +14,9 @@ Item {
         PopoutService.hasCurrent && PopoutService.currentName === "notif" &&
         PopoutService.anchorScreen?.name === root.barScreen?.name
 
-    ColloidIcon {
+    ShellIcon {
         id: _icon
         iconName: NotificationService.doNotDisturb ? "notification-disabled-symbolic" : "notification-new-symbolic"
-        fallbackGlyph: NotificationService.doNotDisturb ? "󰂛" : "󰂚"
         color: root._thisScreenOpen ? ThemeManager.primary : ThemeManager.onSurface
         anchors.verticalCenter: parent.verticalCenter
 

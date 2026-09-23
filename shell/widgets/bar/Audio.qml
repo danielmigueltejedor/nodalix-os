@@ -20,14 +20,13 @@ Item {
         anchors.fill: parent
         spacing: 4
 
-        ColloidIcon {
-            iconName: {
-                if (root.muted || root.volPct === 0) return "audio-volume-muted-symbolic"
-                if (root.volPct < 33)                return "audio-volume-low-symbolic"
-                if (root.volPct < 66)                return "audio-volume-medium-symbolic"
-                return "audio-volume-high-symbolic"
-            }
-            fallbackGlyph: "󰕾"
+        ShellIcon {
+            role: "audio.volume"
+            state: root.muted || root.volPct === 0
+                ? "muted"
+                : (root.volPct < 33
+                    ? "low"
+                    : (root.volPct < 66 ? "medium" : "high"))
             color:          root.muted ? ThemeManager.onSurfaceVariant : ThemeManager.onSurface
             opacity:        root.muted ? 0.5 : 1.0
             Layout.alignment: Qt.AlignVCenter

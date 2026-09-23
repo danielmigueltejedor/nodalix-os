@@ -22,7 +22,7 @@ RowLayout {
 
     visible: available
 
-    ColloidIcon {
+    ShellIcon {
         iconName: {
             if      (pct < 0)    return "battery-missing-symbolic"
             if      (charging)   return pct >= 90 ? "battery-full-charging-symbolic" : pct >= 50 ? "battery-good-charging-symbolic" : "battery-low-charging-symbolic"
@@ -33,7 +33,6 @@ RowLayout {
             else if (pct >= 15)  return "battery-low-symbolic"
             else                 return "battery-caution-symbolic"
         }
-        fallbackGlyph: "󰁹"
         color: critical ? ThemeManager.error : ThemeManager.onSurface
         Layout.alignment: Qt.AlignVCenter
 

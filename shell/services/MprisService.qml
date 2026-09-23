@@ -53,16 +53,28 @@ QtObject {
         return c ? c.charAt(0).toUpperCase() + c.slice(1) : "Player"
     }
 
-    // Nerd-font glyph per player
-    function icon(p) {
-        if (root._isYtm(p)) return "󰗃"
+    // Semantic player category. Rendering belongs to IconTheme.
+    function playerKind(p) {
+        if (root._isYtm(p))
+            return "video"
+
         const n = (p?.identity ?? "").toString().toLowerCase()
-        if (n.indexOf("youtube") >= 0) return "󰗃"
-        if (n.indexOf("spotify") >= 0) return "󰓇"
-        if (n.indexOf("firefox") >= 0 || n.indexOf("mozilla") >= 0) return "󰈹"
-        if (n.indexOf("vlc") >= 0)     return "󰕼"
-        if (n.indexOf("chrom") >= 0)   return "󰊯"
-        return "󰝚"
+
+        if (n.indexOf("youtube") >= 0)
+            return "video"
+
+        if (n.indexOf("spotify") >= 0)
+            return "audio"
+
+        if (n.indexOf("vlc") >= 0 || n.indexOf("mpv") >= 0)
+            return "video"
+
+        if (n.indexOf("firefox") >= 0
+                || n.indexOf("mozilla") >= 0
+                || n.indexOf("chrom") >= 0)
+            return "browser"
+
+        return "generic"
     }
 
     // Re-pick whenever the player set changes or the tick advances.

@@ -18,7 +18,7 @@ QtObject {
     property int feelsC: 0
     property string desc: ""
     property int humidity: 0
-    property string icon: "󰖐"
+    property string condition: "unknown"
     property string location: ""
     property var forecast: []
 
@@ -30,15 +30,27 @@ QtObject {
     readonly property int temp: conv(tempC)
     readonly property int feels: conv(feelsC)
 
-    function _glyph(code) {
+    function _condition(code) {
         const c = Number(code)
-        if (c === 0 || c === 1) return "󰖙"
-        if (c === 2 || c === 3) return "󰖕"
-        if (c === 45 || c === 48) return "󰖑"
-        if (c >= 95) return "󰖓"
-        if ((c >= 71 && c <= 77) || c === 85 || c === 86) return "󰖘"
-        if (c >= 51 && c <= 82) return "󰖗"
-        return "󰖐"
+
+        if (c === 0)
+            return "clear"
+        if (c === 1 || c === 2)
+            return "partly-cloudy"
+        if (c === 3)
+            return "cloudy"
+        if (c === 45 || c === 48)
+            return "fog"
+        if (c >= 95)
+            return "storm"
+        if ((c >= 71 && c <= 77) || c === 85 || c === 86)
+            return "snow"
+        if (c >= 51 && c <= 57)
+            return "drizzle"
+        if ((c >= 61 && c <= 67) || (c >= 80 && c <= 82))
+            return "rain"
+
+        return "unknown"
     }
 
     function _description(code) {
@@ -101,13 +113,13 @@ QtObject {
                     day: new Date(d.time[i] + "T12:00:00").toLocaleDateString(locale, "ddd"),
                     min: Number(d.temperature_2m_min[i]),
                     max: Number(d.temperature_2m_max[i]),
-                    icon: root._glyph(d.weather_code[i])
+                    condition: root._condition(d.weather_code[i])
                 })
             }
             root.tempC = Math.round(Number(cc.temperature_2m))
             root.feelsC = Math.round(Number(cc.apparent_temperature))
             root.humidity = Math.round(Number(cc.relative_humidity_2m ?? 0))
-            root.icon = root._glyph(cc.weather_code)
+            root.condition = root._condition(cc.weather_code)
             root.desc = root._description(cc.weather_code)
             root.location = coords.city
             root.forecast = days

@@ -4,6 +4,8 @@ import Quickshell
 import Quickshell.Widgets
 import "../../theme"
 import "../../services"
+import "../bar" as Bar
+import "../bar"
 
 // A titled fixed-column grid of app tiles.
 //   activated(app)        — click / keyboard-enter
@@ -15,6 +17,7 @@ ColumnLayout {
 
     property string title: ""
     property var    apps:  []          // list of DesktopEntry
+
     property int    columns: 6
     property int    selectedIndex: -1
     property bool   draggable: false
@@ -158,21 +161,17 @@ ColumnLayout {
                         spacing: 6
 
                         IconImage {
-                            visible: !(tile.modelData?._nodalixGlyph ?? "")
+                            visible: (tile.modelData?._nodalixKind ?? "") === ""
                             Layout.alignment: Qt.AlignHCenter
                             implicitSize: 40
                             source: AppService.iconFor(tile.modelData)
                         }
-                        Text {
-                            visible: (tile.modelData?._nodalixGlyph ?? "") !== ""
+                        Bar.ShellIcon {
+                            visible: (tile.modelData?._nodalixIconName ?? "") !== ""
                             Layout.alignment: Qt.AlignHCenter
-                            text: tile.modelData?._nodalixGlyph ?? ""
+                            iconName: tile.modelData?._nodalixIconName ?? ""
                             color: ThemeManager.primary
-                            // Functional shell glyphs follow Nodalix's icon
-                            // family, independently of the selected UI font.
-                            font.family: ThemeManager.fontFor(text)
-                            font.pixelSize: 34
-                            horizontalAlignment: Text.AlignHCenter
+                            iconSize: 30
                         }
                         Text {
                             Layout.fillWidth: true

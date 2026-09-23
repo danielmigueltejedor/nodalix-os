@@ -6,6 +6,7 @@ import Quickshell.Wayland
 import Quickshell.Hyprland
 import "../theme"
 import "../services"
+import "../widgets/bar" as BarWidgets
 
 // Workspace overview: one cell per workspace on the bar's monitor, each a
 // scaled mini-screen showing live thumbnails of its windows (app icon
@@ -280,12 +281,11 @@ Item {
                 Column {
                     anchors.centerIn: parent
                     spacing: 2
-                    Text {
+                    BarWidgets.ShellIcon {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "󰐕"
+                        iconName: "list-add-symbolic"
                         color: ThemeManager.primary
-                        font.family: ThemeManager.fontFor(text)
-                        font.pixelSize: 28
+                        iconSize: 28
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter

@@ -8,6 +8,7 @@ import Quickshell.Bluetooth
 import Quickshell.Hyprland
 import "../theme"
 import "../services"
+import "../widgets/bar" as Bar
 import "../widgets/bar"
 
 Item {
@@ -369,13 +370,13 @@ Item {
         spacing: 8
 
         Item { Layout.fillWidth: true }
-        DashTab { icon: "󰕮"; active: root.tab === "home";  onClicked: root.tab = "home" }
-        DashTab { icon: "󰎈"; active: root.tab === "media"; onClicked: root.tab = "media" }
+        DashTab { state: "home"; active: root.tab === "home"; onClicked: root.tab = "home" }
+        DashTab { state: "media"; active: root.tab === "media"; onClicked: root.tab = "media" }
         Item { Layout.fillWidth: true }
     }
 
     component DashTab: Rectangle {
-        property string icon: ""
+        property string state: ""
         property bool active: false
         signal clicked()
         implicitWidth: 56
@@ -385,9 +386,10 @@ Item {
             ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, _tabMa.containsMouse ? 0.28 : 0.18)
             : (_tabMa.containsMouse ? Qt.rgba(ThemeManager.onSurface.r, ThemeManager.onSurface.g, ThemeManager.onSurface.b, 0.08) : "transparent")
         Behavior on color { ColorAnimation { duration: 100 } }
-        ColloidIcon {
+        ShellIcon {
             anchors.centerIn: parent
-            text: parent.icon
+            role: "dashboard.tab"
+            state: parent.state
             color: parent.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
             iconSize: 22
         }
@@ -566,13 +568,12 @@ Item {
                         cache: true
                         visible: status === Image.Ready
                     }
-                    Text {
+                    ShellIcon {
                         anchors.centerIn: parent
                         visible: _bigArt.status !== Image.Ready
-                        text: "󰝚"
+                        role: "media.placeholder"
                         color: ThemeManager.onSurfaceVariant
-                        font.family: ThemeManager.fontFor(text)
-                        font.pixelSize: 56
+                        iconSize: 56
                     }
                 }
             }
@@ -655,12 +656,13 @@ Item {
                     Layout.alignment: Qt.AlignHCenter
                     Layout.topMargin: 18
                     spacing: 4
-                    MediaBtn { icon: "󰒝"; enabled: MprisService.canShuffle; active: MprisService.shuffle; onClicked: MprisService.toggleShuffle() }
-                    MediaBtn { icon: "󰒮"; enabled: MprisService.canPrev; onClicked: MprisService.previous() }
-                    MediaBtn { icon: MprisService.playing ? "󰏤" : "󰐊"; big: true; onClicked: MprisService.playPause() }
-                    MediaBtn { icon: "󰒭"; enabled: MprisService.canNext; onClicked: MprisService.next() }
+                    MediaBtn { role: "media.shuffle"; enabled: MprisService.canShuffle; active: MprisService.shuffle; onClicked: MprisService.toggleShuffle() }
+                    MediaBtn { role: "media.previous"; enabled: MprisService.canPrev; onClicked: MprisService.previous() }
+                    MediaBtn { role: "media.playback"; state: MprisService.playing ? "pause" : "play"; big: true; onClicked: MprisService.playPause() }
+                    MediaBtn { role: "media.next"; enabled: MprisService.canNext; onClicked: MprisService.next() }
                     MediaBtn {
-                        icon: MprisService.loopState === 2 ? "󰑘" : "󰑖"   // 2 = Track
+                        role: "media.repeat"
+                        state: MprisService.loopState === 2 ? "one" : (MprisService.loopState === 0 ? "off" : "all")
                         enabled: MprisService.canLoop
                         active: MprisService.loopState !== 0
                         onClicked: MprisService.cycleLoop()
@@ -673,8 +675,8 @@ Item {
                     Layout.topMargin: 18
                     spacing: 6
                     PlayerDropdown { visible: MprisService.players.length > 0; Layout.alignment: Qt.AlignVCenter }
-                    MediaBtn { icon: "󰍹"; visible: root._playerWs !== ""; small: true; onClicked: root._openPlayerWs() }
-                    MediaBtn { icon: "󰏋"; visible: MprisService.canRaise && root._playerWs === ""; small: true; onClicked: { MprisService.raise(); PopoutService.close() } }
+                    MediaBtn { role: "media.window"; visible: root._playerWs !== ""; small: true; onClicked: root._openPlayerWs() }
+                    MediaBtn { role: "media.raise"; visible: MprisService.canRaise && root._playerWs === ""; small: true; onClicked: { MprisService.raise(); PopoutService.close() } }
                 }
 
                 Item { Layout.fillHeight: true }
@@ -742,7 +744,12 @@ Item {
                     RowLayout {
                         anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
                         spacing: 8
-                        Text { text: MprisService.icon(modelData); color: parent.parent.sel ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 17 }
+                        ShellIcon {
+                            role: "media.player"
+                            state: MprisService.playerKind(modelData)
+                            color: parent.parent.sel ? ThemeManager.primary : ThemeManager.onSurfaceVariant
+                            iconSize: 17
+                        }
                         Text {
                             Layout.fillWidth: true
                             text: MprisService.label(modelData)
@@ -805,7 +812,8 @@ Item {
 
     component MediaBtn: Rectangle {
         id: mbt
-        property string icon: ""
+        property string role: ""
+        property string state: ""
         property bool   big:   false
         property bool   small: false
         property bool   active: false
@@ -818,9 +826,10 @@ Item {
             : (active ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.18)
                       : (_mbtMa.containsMouse ? Qt.rgba(ThemeManager.onSurface.r, ThemeManager.onSurface.g, ThemeManager.onSurface.b, 0.10) : "transparent"))
         opacity: mbt.enabled ? 1 : 0.35
-        ColloidIcon {
+        ShellIcon {
             anchors.centerIn: parent
-            text: mbt.icon
+            role: mbt.role
+            state: mbt.state
             color: mbt.big ? ThemeManager.onPrimary : (mbt.active ? ThemeManager.primary : ThemeManager.onSurface)
             iconSize: mbt.big ? 22 : (mbt.small ? 20 : 24)
         }
@@ -839,14 +848,24 @@ Item {
         RowLayout {
             anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
             spacing: 8
-            Text { text: MprisService.icon(MprisService.active); color: ThemeManager.primary; font.family: ThemeManager.fontFor(text); font.pixelSize: 17 }
+            ShellIcon {
+                role: "media.player"
+                state: MprisService.playerKind(MprisService.active)
+                color: ThemeManager.primary
+                iconSize: 17
+            }
             Text {
                 Layout.fillWidth: true
                 text: MprisService.label(MprisService.active)
                 color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 elide: Text.ElideRight
             }
-            Text { text: root._playerMenu ? "󰅃" : "󰅀"; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 13 }
+            ShellIcon {
+                role: "ui.disclosure"
+                state: root._playerMenu ? "open" : "closed"
+                color: ThemeManager.onSurfaceVariant
+                iconSize: 14
+            }
         }
         MouseArea {
             id: _ddMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -890,31 +909,35 @@ Item {
             anchors.centerIn: parent
             spacing: 4
 
-            QsIcon { icon: "󰕾"; iconName: "audio-volume-high-symbolic"; key: "volume" }
-            QsIcon { icon: "󰃠"; iconName: "brightness-high-symbolic"; iconVisualSize: 22; key: "brightness" }
-            QsIcon { icon: "󰖩"; iconName: "nm-signal-100-symbolic"; key: "wifi" }
+            QsIcon {
+                role: "audio.volume"
+                state: AudioService.sinkMuted || AudioService.sinkVolPct === 0
+                    ? "muted"
+                    : (AudioService.sinkVolPct < 33 ? "low"
+                    : (AudioService.sinkVolPct < 66 ? "medium" : "high"))
+                key: "volume"
+            }
+            QsIcon { role: "display.brightness"; iconVisualSize: 18; key: "brightness" }
+            QsIcon { role: "network.wifi.signal"; state: "excellent"; key: "wifi" }
             QsIcon { imageSource: "../assets/icons/localsend-official-mask.png"; key: "localsend" }
             QsIcon {
-                iconName: WindowLayoutService.mode === "scrolling" ? "nodalix-layout-scrolling-symbolic"
-                    : (WindowLayoutService.mode === "desktop" ? "nodalix-layout-tabs-symbolic" : "nodalix-layout-tiling-symbolic")
-                iconGroup: "actions"
+                role: "layout.mode"
+                state: WindowLayoutService.mode
                 key: "layout"
             }
-            QsIcon { icon: ScreenRecorderService.recording ? "󰑊" : "󰻃"; iconName: "screenshooter-symbolic"; iconGroup: "actions"; key: "capture"; highlighted: ScreenRecorderService.recording }
-            QsIcon { icon: "󰖂"; iconName: "network-vpn-symbolic"; key: "vpn" }
-            QsIcon { icon: "󰂯"; iconName: "bluetooth-active-symbolic"; key: "bluetooth" }
+            QsIcon { role: "capture.screen"; state: ScreenRecorderService.recording ? "recording" : "idle"; key: "capture"; highlighted: ScreenRecorderService.recording }
+            QsIcon { role: "network.vpn.connection"; state: "inactive"; key: "vpn" }
+            QsIcon { role: "bluetooth.device"; state: "connected"; key: "bluetooth" }
             QsIcon {
-                icon: NotificationService.doNotDisturb ? "󰂛" : "󰂚"
-                iconName: NotificationService.doNotDisturb ? "notification-disabled-symbolic" : "notification-new-symbolic"
+                role: NotificationService.doNotDisturb ? "notifications.dnd" : "notifications"
                 key: "dnd"
-                // DND toggles directly (no flyout)
                 toggle: true
                 onActivated: NotificationService.doNotDisturb = !NotificationService.doNotDisturb
                 highlighted: NotificationService.doNotDisturb
             }
-            QsIcon { icon: "󰔎"; iconName: "dark-mode-symbolic"; iconGroup: "actions"; key: "theme" }
+            QsIcon { role: "theme.mode"; key: "theme" }
             QsIcon {
-                icon: "󰒓"; iconName: "preferences-system-symbolic"; iconGroup: "apps"; key: "settings"
+                role: "settings"; key: "settings"
                 toggle: true
                 onActivated: { SettingsUi.show(); PopoutService.close() }
             }
@@ -1079,7 +1102,8 @@ Item {
                         MenuRow {
                             Layout.fillWidth: true
                             text: modelData.alias
-                            icon: modelData.deviceType === "mobile" ? "󰄜" : "󰍹"
+                            iconRole: "device.peer"
+                            iconState: modelData.deviceType === "mobile" ? "mobile" : "computer"
                             trailing: I18n.tr("Send files")
                             onClicked: {
                                 root.localSendTarget = modelData.fingerprint
@@ -1089,7 +1113,13 @@ Item {
                         Rectangle {
                             implicitWidth: 32; implicitHeight: 32; radius: ThemeManager.chipRadius
                             color: _favMa.containsMouse ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.15) : "transparent"
-                            Text { anchors.centerIn: parent; text: modelData.favorite ? "󰋑" : "󰋕"; color: modelData.favorite ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 16 }
+                            ShellIcon {
+                                anchors.centerIn: parent
+                                role: "favorite"
+                                state: modelData.favorite ? "yes" : "no"
+                                color: modelData.favorite ? ThemeManager.primary : ThemeManager.onSurfaceVariant
+                                iconSize: 17
+                            }
                             MouseArea { id: _favMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: LocalSendService.setFavorite(modelData.fingerprint, !modelData.favorite, modelData.alias) }
                         }
                     }
@@ -1176,12 +1206,10 @@ Item {
                                 color: selected
                                     ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.20)
                                     : ThemeManager.surfaceContainerHigh
-                                ColloidIcon {
+                                ShellIcon {
                                     anchors.centerIn: parent
-                                    iconName: modelData.id === "scrolling" ? "nodalix-layout-scrolling-symbolic"
-                                        : (modelData.id === "desktop" ? "nodalix-layout-tabs-symbolic" : "nodalix-layout-tiling-symbolic")
-                                    group: "actions"
-                                    fallbackGlyph: modelData.icon
+                                    role: "layout.mode"
+                                    state: modelData.id
                                     color: selected ? ThemeManager.primary : ThemeManager.onSurfaceVariant
                                     iconSize: 19
                                 }
@@ -1204,10 +1232,12 @@ Item {
                                     elide: Text.ElideRight
                                 }
                             }
-                            Text {
+                            ShellIcon {
                                 visible: selected
-                                text: "󰄬"; color: ThemeManager.primary
-                                font.family: ThemeManager.fontFor(text); font.pixelSize: 15
+                                role: "selection"
+                                state: "selected"
+                                color: ThemeManager.primary
+                                iconSize: 15
                             }
                         }
                         HoverHandler { id: _layoutHover; cursorShape: Qt.PointingHandCursor }
@@ -1240,8 +1270,8 @@ Item {
                 anchors { left: parent.left; right: parent.right; top: parent.top }
                 spacing: 7
                 MenuHeader { title: I18n.tr("Screen capture"); on: ScreenRecorderService.recording }
-                MenuRow { text: I18n.tr("Capture full screen"); icon: "󰹑"; trailing: "Ctrl Shift 3"; onClicked: ScreenRecorderService.screenshotFull() }
-                MenuRow { text: I18n.tr("Capture a region"); icon: "󰩭"; trailing: "Ctrl Shift 4"; onClicked: ScreenRecorderService.screenshotRegion() }
+                MenuRow { text: I18n.tr("Capture full screen"); iconRole: "capture.action"; iconState: "full"; trailing: "Ctrl Shift 3"; onClicked: ScreenRecorderService.screenshotFull() }
+                MenuRow { text: I18n.tr("Capture a region"); iconRole: "capture.action"; iconState: "region"; trailing: "Ctrl Shift 4"; onClicked: ScreenRecorderService.screenshotRegion() }
                 Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: ThemeManager.outlineVariant; opacity: 0.35 }
 
                 Rectangle {
@@ -1267,11 +1297,10 @@ Item {
                             color: ScreenRecorderService.recording
                                 ? Qt.rgba(ThemeManager.error.r, ThemeManager.error.g, ThemeManager.error.b, 0.20)
                                 : Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.16)
-                            ColloidIcon {
+                            ShellIcon {
                                 anchors.centerIn: parent
-                                iconName: "screenshooter-symbolic"
-                                group: "actions"
-                                fallbackGlyph: ScreenRecorderService.recording ? "󰑋" : "󰑊"
+                                role: "capture.screen"
+                                state: ScreenRecorderService.recording ? "recording" : "idle"
                                 color: ScreenRecorderService.recording ? ThemeManager.error : ThemeManager.primary
                                 iconSize: 17
                             }
@@ -1381,12 +1410,12 @@ Item {
             anchors { left: parent.left; right: parent.right; top: parent.top; margins: 16 }
             spacing: 8
 
-            Text {
+            ShellIcon {
                 Layout.alignment: Qt.AlignHCenter
-                text: root._confirmAction === "reboot" ? "󰑙" : (root._confirmAction === "shutdown" ? "󰐥" : "󰍃")
+                role: "session.action"
+                state: root._confirmAction
                 color: ThemeManager.error
-                font.family: ThemeManager.fontFor(text)
-                font.pixelSize: 32
+                iconSize: 32
             }
             Text {
                 Layout.alignment: Qt.AlignHCenter
@@ -1496,8 +1525,8 @@ Item {
                         font.pixelSize: ThemeManager.fontSizeMd; font.weight: Font.Bold
                         elide: Text.ElideRight
                     }
-                    CalIconBtn { visible: CalendarService.canCreate; icon: root.calCreating ? "󰅖" : "󰐕"; onClicked: root.calCreating = !root.calCreating }
-                    CalIconBtn { icon: "󰅖"; onClicked: root.calSelectedDate = "" }
+                    CalIconBtn { visible: CalendarService.canCreate; state: root.calCreating ? "close" : "add"; onClicked: root.calCreating = !root.calCreating }
+                    CalIconBtn { state: "close"; onClicked: root.calSelectedDate = "" }
                 }
 
                 // ── Create form ───────────────────────────────────────────────
@@ -1614,10 +1643,11 @@ Item {
                                 visible: _evRow.expanded && _evRow.modelData.stime !== ""
                                 Layout.leftMargin: 11
                                 spacing: 6
-                                Text {
-                                    text: "󱎫"
+                                ShellIcon {
+                                    role: "calendar.detail"
+                                    state: "time"
                                     color: ThemeManager.onSurfaceVariant
-                                    font.family: ThemeManager.fontFor(text); font.pixelSize: 11
+                                    iconSize: 13
                                 }
                                 Text {
                                     text: _evRow.modelData.stime + " – " + _evRow.modelData.etime
@@ -1630,10 +1660,11 @@ Item {
                                 Layout.fillWidth: true
                                 Layout.leftMargin: 11
                                 spacing: 6
-                                Text {
-                                    text: "󰍎"
+                                ShellIcon {
+                                    role: "calendar.detail"
+                                    state: "location"
                                     color: ThemeManager.onSurfaceVariant
-                                    font.family: ThemeManager.fontFor(text); font.pixelSize: 11
+                                    iconSize: 13
                                 }
                                 Text {
                                     Layout.fillWidth: true
@@ -1695,11 +1726,11 @@ Item {
                         RowLayout {
                             anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
                             spacing: 8
-                            Text {
-                                text: "󰄱"
+                            ShellIcon {
+                                role: "calendar.detail"
+                                state: "reminder"
                                 color: ThemeManager.primary
-                                font.family: ThemeManager.fontFor(text)
-                                font.pixelSize: 15
+                                iconSize: 15
                             }
                             Text {
                                 Layout.fillWidth: true
@@ -1717,16 +1748,17 @@ Item {
     }
 
     component CalIconBtn: Rectangle {
-        property string icon: ""
+        property string state: ""
         signal clicked()
         implicitWidth: 26; implicitHeight: 26; radius: 6
         color: _cibMa.containsMouse ? Qt.rgba(ThemeManager.onSurface.r, ThemeManager.onSurface.g, ThemeManager.onSurface.b, 0.08) : "transparent"
         Behavior on color { ColorAnimation { duration: 80 } }
-        Text {
+        ShellIcon {
             anchors.centerIn: parent
-            text: parent.icon
+            role: "calendar.action"
+            state: parent.state
             color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFor(text); font.pixelSize: 15
+            iconSize: 16
         }
         MouseArea { id: _cibMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
     }
@@ -1777,7 +1809,7 @@ Item {
                     spacing: 5
                     VertSlider {
                         Layout.alignment: Qt.AlignHCenter
-                        icon: "󰍹"
+                        iconRole: "display.monitor"
                         value: _monitorBrightness.localValue / 100
                         label: Math.round(_monitorBrightness.localValue) + "%"
                         onMoved: (f) => {
@@ -1802,7 +1834,7 @@ Item {
                 Layout.preferredWidth: 90
                 VertSlider {
                     Layout.alignment: Qt.AlignHCenter
-                    icon: "󰃠"
+                    iconRole: "display.brightness"
                     value: BrightnessService.value / 100
                     label: BrightnessService.value + "%"
                     onMoved: (f) => BrightnessService.set(f * 100)
@@ -1896,7 +1928,8 @@ Item {
                     required property var modelData
                     text:     (modelData.deviceName && modelData.deviceName !== "")
                               ? modelData.deviceName : modelData.address
-                    icon:     modelData.connected ? "󰂱" : "󰂯"
+                    iconRole: "bluetooth.device"
+                    iconState: modelData.connected ? "connected" : "disconnected"
                     active:   modelData.connected
                     trailing: I18n.tr(modelData.connected ? "Disconnect" : (modelData.paired ? "Connect" : "Pair"))
                     onClicked: modelData.connected ? modelData.disconnect() : modelData.connect()
@@ -1942,12 +1975,13 @@ Item {
                 delegate: MenuRow {
                     required property var modelData
                     text:     modelData.ssid
-                    icon: {
+                    iconRole: "network.wifi.signal"
+                    iconState: {
                         const s = modelData.signal
-                        if (s >= 80) return "󰤨"
-                        if (s >= 55) return "󰤥"
-                        if (s >= 30) return "󰤢"
-                        return "󰤟"
+                        if (s >= 80) return "excellent"
+                        if (s >= 55) return "good"
+                        if (s >= 30) return "ok"
+                        return "weak"
                     }
                     active:   modelData.active
                     trailing: modelData.active ? I18n.tr("Disconnect") : I18n.tr("Connect")
@@ -2021,13 +2055,14 @@ Item {
                                 font: _wifiPassword.font
                             }
                         }
-                        Text {
+                        ShellIcon {
                             id: _wifiReveal
                             property bool checked: false
                             anchors { right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
-                            text: checked ? "󰈉" : "󰈈"
+                            role: "action.reveal"
+                            state: checked ? "revealed" : "hidden"
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFor(text); font.pixelSize: 14
+                            iconSize: 15
                             MouseArea { anchors.fill: parent; anchors.margins: -7; cursorShape: Qt.PointingHandCursor; onClicked: _wifiReveal.checked = !_wifiReveal.checked }
                         }
                     }
@@ -2096,7 +2131,8 @@ Item {
             MenuRow {
                 visible: root.tailscaleDetected
                 text: "Tailscale"
-                icon: "󰖂"
+                iconRole: "network.vpn.connection"
+                iconState: root.tailscaleActive ? "active" : "inactive"
                 active: root.tailscaleActive
                 trailing: root.tailscaleBusy
                     ? I18n.tr("Working…")
@@ -2111,7 +2147,8 @@ Item {
                 delegate: MenuRow {
                     required property var modelData
                     text:     modelData.name
-                    icon:     "󰖂"
+                    iconRole: "network.vpn.connection"
+                    iconState: modelData.active ? "active" : "inactive"
                     active:   modelData.active
                     trailing: I18n.tr(modelData.active ? "On" : "Off")
                     onClicked: root._nm(
@@ -2163,9 +2200,10 @@ Item {
 
     component MenuRow: Rectangle {
         id: mr
-        property string text:     ""
-        property string icon:     ""
-        property string trailing: ""
+        property string text:      ""
+        property string iconRole:  ""
+        property string iconState: ""
+        property string trailing:  ""
         property bool   active:   false
         signal clicked()
 
@@ -2180,8 +2218,9 @@ Item {
         RowLayout {
             anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
             spacing: 8
-            ColloidIcon {
-                text: mr.icon
+            ShellIcon {
+                role: mr.iconRole
+                state: mr.iconState
                 color: mr.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
                 iconSize: 16
             }
@@ -2219,10 +2258,8 @@ Item {
         RowLayout {
             anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
             spacing: 6
-            ColloidIcon {
-                iconName: "go-next-symbolic"
-                group: "actions"
-                fallbackGlyph: "󰏌"
+            ShellIcon {
+                role: "navigation.next"
                 color: ThemeManager.primary
                 iconSize: 13
             }
@@ -2261,9 +2298,8 @@ Item {
     // ── QuickSettings rail icon ──────────────────────────────────────────────
     component QsIcon: Item {
         id: qi
-        property string icon: ""
-        property string iconName: ""
-        property string iconGroup: "status"
+        property string role: ""
+        property string state: ""
         property int iconVisualSize: 18
         property url imageSource: ""
         property string key:  ""
@@ -2284,12 +2320,11 @@ Item {
                 : (_ma.containsMouse ? Qt.rgba(ThemeManager.onSurface.r, ThemeManager.onSurface.g, ThemeManager.onSurface.b, 0.08) : "transparent")
             Behavior on color { ColorAnimation { duration: 100 } }
         }
-        ColloidIcon {
+        ShellIcon {
             visible: qi.imageSource.toString() === ""
             anchors.centerIn: parent
-            iconName: qi.iconName
-            group: qi.iconGroup
-            fallbackGlyph: qi.icon
+            role: qi.role
+            state: qi.state
             color: qi.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
             iconSize: qi.iconVisualSize
             iconPadding: qi.iconVisualSize > 18 ? 0 : 1
@@ -2347,13 +2382,12 @@ Item {
                     cache: false
                     visible: status === Image.Ready
                 }
-                Text {
+                ShellIcon {
                     anchors.centerIn: parent
                     visible: _face.status !== Image.Ready
-                    text: "󰀄"
+                    role: "user.avatar"
                     color: ThemeManager.onSurfaceVariant
-                    font.family: ThemeManager.fontFor(text)
-                    font.pixelSize: 26
+                    iconSize: 26
                 }
             }
 
@@ -2389,11 +2423,11 @@ Item {
                         anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter }
                         visible: pc._hover
                         spacing: 4
-                        MiniSession { Layout.fillWidth: true; icon: "󰌾"; onClicked: LockService.lock() }
-                        MiniSession { Layout.fillWidth: true; icon: "󰒲"; onClicked: root._suspendProc.running = true }
-                        MiniSession { Layout.fillWidth: true; icon: "󰍃"; danger: true; onClicked: root._confirmAction = "logout" }
-                        MiniSession { Layout.fillWidth: true; icon: "󰑙"; danger: true; onClicked: root._confirmAction = "reboot" }
-                        MiniSession { Layout.fillWidth: true; icon: "󰐥"; danger: true; onClicked: root._confirmAction = "shutdown" }
+                        MiniSession { Layout.fillWidth: true; state: "lock"; onClicked: LockService.lock() }
+                        MiniSession { Layout.fillWidth: true; state: "suspend"; onClicked: root._suspendProc.running = true }
+                        MiniSession { Layout.fillWidth: true; state: "logout"; danger: true; onClicked: root._confirmAction = "logout" }
+                        MiniSession { Layout.fillWidth: true; state: "reboot"; danger: true; onClicked: root._confirmAction = "reboot" }
+                        MiniSession { Layout.fillWidth: true; state: "shutdown"; danger: true; onClicked: root._confirmAction = "shutdown" }
                     }
                 }
             }
@@ -2404,7 +2438,7 @@ Item {
 
     component MiniSession: Rectangle {
         id: ms
-        property string icon: ""
+        property string state: ""
         property bool danger: false
         signal clicked()
         implicitWidth: 26; implicitHeight: 26; radius: 6
@@ -2412,9 +2446,10 @@ Item {
         color: _msHov.hovered
             ? Qt.rgba(_accent.r, _accent.g, _accent.b, 0.16)
             : ThemeManager.surfaceContainerHigh
-        ColloidIcon {
+        ShellIcon {
             anchors.centerIn: parent
-            text: ms.icon
+            role: "session.action"
+            state: ms.state
             color: _msHov.hovered ? ms._accent : ThemeManager.onSurfaceVariant
             iconSize: 15
         }
@@ -2488,13 +2523,12 @@ Item {
                         source: MprisService.artUrl
                         visible: status === Image.Ready
                     }
-                    Text {
+                    ShellIcon {
                         anchors.centerIn: parent
                         visible: _art.status !== Image.Ready
-                        text: "󰝚"
+                        role: "media.placeholder"
                         color: ThemeManager.onSurfaceVariant
-                        font.family: ThemeManager.fontFor(text)
-                        font.pixelSize: 30
+                        iconSize: 30
                     }
                 }
             }
@@ -2524,9 +2558,9 @@ Item {
                 visible: MprisService.hasPlayer
                 Layout.alignment: Qt.AlignHCenter
                 spacing: 8
-                MprisBtn { icon: "󰒮"; enabled: MprisService.canPrev; onClicked: MprisService.previous() }
-                MprisBtn { icon: MprisService.playing ? "󰏤" : "󰐊"; big: true; onClicked: MprisService.playPause() }
-                MprisBtn { icon: "󰒭"; enabled: MprisService.canNext; onClicked: MprisService.next() }
+                MprisBtn { role: "media.previous"; enabled: MprisService.canPrev; onClicked: MprisService.previous() }
+                MprisBtn { role: "media.playback"; state: MprisService.playing ? "pause" : "play"; big: true; onClicked: MprisService.playPause() }
+                MprisBtn { role: "media.next"; enabled: MprisService.canNext; onClicked: MprisService.next() }
             }
 
             Item { Layout.fillHeight: true }
@@ -2535,7 +2569,8 @@ Item {
 
     component MprisBtn: Rectangle {
         id: mb
-        property string icon: ""
+        property string role: ""
+        property string state: ""
         property bool big: false
         signal clicked()
         width: big ? 40 : 32; height: big ? 40 : 32
@@ -2545,9 +2580,10 @@ Item {
             : (_mbMa.containsMouse ? Qt.rgba(ThemeManager.onSurface.r, ThemeManager.onSurface.g, ThemeManager.onSurface.b, 0.10) : "transparent")
         opacity: mb.enabled ? 1 : 0.35
         Behavior on color { ColorAnimation { duration: 100 } }
-        ColloidIcon {
+        ShellIcon {
             anchors.centerIn: parent
-            text: mb.icon
+            role: mb.role
+            state: mb.state
             color: mb.big ? ThemeManager.onPrimary : ThemeManager.onSurface
             iconSize: mb.big ? 18 : 16
         }
@@ -2588,11 +2624,11 @@ Item {
                 visible: WeatherService.ok
                 Layout.fillWidth: true
                 spacing: 8
-                Text {
-                    text: WeatherService.icon
+                ShellIcon {
+                    role: "weather.condition"
+                    state: WeatherService.condition
                     color: ThemeManager.primary
-                    font.family: ThemeManager.fontFor(text)
-                    font.pixelSize: 32
+                    iconSize: 32
                 }
                 ColumnLayout {
                     spacing: 0
@@ -2641,11 +2677,12 @@ Item {
                             color: ThemeManager.onSurfaceVariant
                             font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                         }
-                        Text {
+                        ShellIcon {
                             Layout.alignment: Qt.AlignHCenter
-                            text: modelData.icon
+                            role: "weather.condition"
+                            state: modelData.condition
                             color: ThemeManager.primary
-                            font.family: ThemeManager.fontFor(text); font.pixelSize: 14
+                            iconSize: 14
                         }
                         Text {
                             Layout.alignment: Qt.AlignHCenter
@@ -2747,8 +2784,8 @@ Item {
                 font.pixelSize: ThemeManager.fontSizeMd; font.weight: Font.Medium
                 Layout.fillWidth: true
             }
-            CalNav { icon: "󰅁"; onClicked: cal.view = new Date(cal.view.getFullYear(), cal.view.getMonth() - 1, 1) }
-            CalNav { icon: "󰅂"; onClicked: cal.view = new Date(cal.view.getFullYear(), cal.view.getMonth() + 1, 1) }
+            CalNav { state: "previous"; onClicked: cal.view = new Date(cal.view.getFullYear(), cal.view.getMonth() - 1, 1) }
+            CalNav { state: "next"; onClicked: cal.view = new Date(cal.view.getFullYear(), cal.view.getMonth() + 1, 1) }
         }
 
         GridLayout {
@@ -2835,7 +2872,7 @@ Item {
     }
 
     component CalNav: Item {
-        property string icon: ""
+        property string state: ""
         signal clicked()
         implicitWidth: 22; implicitHeight: 22
         Rectangle {
@@ -2843,11 +2880,12 @@ Item {
             color: _ma.containsMouse ? Qt.rgba(ThemeManager.onSurface.r, ThemeManager.onSurface.g, ThemeManager.onSurface.b, 0.08) : "transparent"
             Behavior on color { ColorAnimation { duration: 80 } }
         }
-        Text {
+        ShellIcon {
             anchors.centerIn: parent
-            text: parent.icon
+            role: "calendar.nav"
+            state: parent.state
             color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFor(text); font.pixelSize: 14
+            iconSize: 15
         }
         MouseArea {
             id: _ma; anchors.fill: parent
@@ -2859,7 +2897,8 @@ Item {
     // ── Vertical M3 slider (brightness flyout) ───────────────────────────────
     component VertSlider: ColumnLayout {
         id: vs
-        property string icon:  ""
+        property string iconRole: ""
+        property string iconState: ""
         property string label: ""
         property real   value: 0          // 0..1
         signal moved(real frac)
@@ -2929,9 +2968,10 @@ Item {
             }
         }
 
-        ColloidIcon {
+        ShellIcon {
             Layout.alignment: Qt.AlignHCenter
-            text: vs.icon
+            role: vs.iconRole
+            state: vs.iconState
             color: ThemeManager.primary
             iconSize: 18
         }

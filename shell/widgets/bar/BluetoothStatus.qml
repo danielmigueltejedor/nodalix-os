@@ -33,9 +33,11 @@ Item {
         anchors.fill: parent
         spacing: 4
 
-        ColloidIcon {
-            iconName: enabled ? (root.connectedDevice ? "bluetooth-paired-symbolic" : "bluetooth-active-symbolic") : "bluetooth-disabled-symbolic"
-            fallbackGlyph: enabled ? (root.connectedDevice ? "󰂱" : "󰂯") : "󰂲"
+        ShellIcon {
+            role: "bluetooth.device"
+            state: !enabled
+                ? "disabled"
+                : (root.connectedDevice ? "connected" : "disconnected")
             color: root.connectedDevice
                 ? ThemeManager.primary
                 : enabled

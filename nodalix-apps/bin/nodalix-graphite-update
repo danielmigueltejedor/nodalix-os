@@ -1,0 +1,216 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+source "/usr/share/nodalix-apps/bin/nodalix-apps-lib.sh"
+
+UPSTREAM_HOST="github.com"
+UPSTREAM="https://${UPSTREAM_HOST}/GraphiteEditor/Graphite.git"
+
+# Vacío mientras Graphite no tenga modificaciones locales Nodalix.
+# Si las añadimos:
+# FORK="https://github.com/danielmigueltejedor/Graphite.git"
+FORK=""
+
+OVERLAY_REMOTE="nodalix"
+OVERLAY_BRANCH="nodalix"
+
+SRC="$HOME/.cache/nodalix-apps/src/graphite"
+ROOT="$HOME/.local/opt/nodalix/apps/graphite"
+VERSIONS="$ROOT/versions"
+CURRENT="$ROOT/current"
+
+mkdir -p "$VERSIONS"
+mkdir -p "$(dirname "$SRC")"
+mkdir -p "$HOME/.local/bin"
+mkdir -p "$HOME/.local/share/applications"
+
+TMPDEST=""
+
+cleanup() {
+    if [ -n "$TMPDEST" ] && [ -d "$TMPDEST" ]; then
+        rm -rf "$TMPDEST"
+    fi
+}
+
+trap cleanup EXIT
+
+echo "==> Nodalix Graphite updater"
+
+if [ ! -d "$SRC/.git" ]; then
+    echo "==> Clonando upstream..."
+    git clone "$UPSTREAM" "$SRC"
+fi
+
+cd "$SRC"
+
+git cherry-pick --abort >/dev/null 2>&1 || true
+git am --abort >/dev/null 2>&1 || true
+git reset --hard >/dev/null
+git clean -fd >/dev/null
+
+echo "==> Actualizando upstream..."
+git fetch origin master --tags --prune
+
+COMMIT="$(git rev-parse origin/master)"
+SHORT="$(git rev-parse --short=12 "$COMMIT")"
+DATE="$(git show -s --format=%cs "$COMMIT")"
+VERSION="${DATE}-${SHORT}"
+
+CPU="$(nodalix_cpu_name)"
+SAFE_CPU="$(nodalix_safe_cpu "$CPU")"
+
+UPSTREAM_REF="$COMMIT"
+
+OVERLAY_HASH="none"
+OVERLAY_ID="none"
+OVERLAY_REF=""
+
+if [ -n "$FORK" ]; then
+    echo "==> Actualizando overlay Nodalix..."
+
+    nodalix_ensure_overlay_remote "$OVERLAY_REMOTE" "$FORK"
+    nodalix_fetch_overlay "$OVERLAY_REMOTE" "$OVERLAY_BRANCH"
+
+    OVERLAY_REF="refs/remotes/$OVERLAY_REMOTE/$OVERLAY_BRANCH"
+    nodalix_prepare_overlay "graphite" "$UPSTREAM_REF" "$OVERLAY_REF"
+    OVERLAY_HASH="$NODALIX_OVERLAY_HASH"
+    OVERLAY_ID="${OVERLAY_HASH:0:12}"
+fi
+
+DEST="$VERSIONS/${VERSION}-${SAFE_CPU}-${OVERLAY_ID}"
+
+echo
+echo "Commit:   $COMMIT"
+echo "Fecha:    $DATE"
+echo "Versión:  $VERSION"
+echo "CPU:      $CPU"
+echo "Overlay:  $OVERLAY_ID"
+
+if [ -n "$OVERLAY_REF" ]; then
+    echo
+    echo "Cambios Nodalix efectivos:"
+    nodalix_show_prepared_overlay
+fi
+
+echo
+
+if [ -x "$DEST/graphite" ] && [ -f "$DEST/cef/libcef.so" ]; then
+    echo "==> Esta combinación upstream + CPU + overlay ya está compilada."
+else
+    echo "==> Preparando fuente limpia..."
+
+    git checkout --detach "$UPSTREAM_REF"
+    git reset --hard "$UPSTREAM_REF"
+    git clean -fd
+
+    if [ -n "$OVERLAY_REF" ]; then
+        nodalix_apply_prepared_overlay
+    fi
+
+    echo
+    echo "==> Configurando optimización CPU nativa..."
+
+    case "$(uname -m)" in
+        x86_64)
+            export CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C target-cpu=native"
+            ;;
+        aarch64)
+            export CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C target-cpu=native"
+            ;;
+        *)
+            echo "==> Arquitectura sin override específico."
+            ;;
+    esac
+
+    echo "==> Compilando frontend + WASM + desktop..."
+    cargo run build desktop
+
+    LIBCEF="$(find target/release/build -type f -name libcef.so -print -quit)"
+
+    if [ -z "$LIBCEF" ]; then
+        echo "ERROR: no se encontró libcef.so."
+        exit 1
+    fi
+
+    if [ ! -x target/release/graphite ]; then
+        echo "ERROR: no se encontró target/release/graphite."
+        exit 1
+    fi
+
+    CEF_DIR="$(realpath "$(dirname "$LIBCEF")")"
+
+    TMPDEST="$VERSIONS/.graphite-build-${VERSION}-${OVERLAY_ID}-$$"
+
+    rm -rf "$TMPDEST"
+    mkdir -p "$TMPDEST/cef"
+
+    install -Dm755 \
+        target/release/graphite \
+        "$TMPDEST/graphite"
+
+    cp -a "$CEF_DIR"/. "$TMPDEST/cef/"
+
+    if [ ! -x "$TMPDEST/graphite" ]; then
+        echo "ERROR: no se generó el binario de Graphite."
+        exit 1
+    fi
+
+    if [ ! -f "$TMPDEST/cef/libcef.so" ]; then
+        echo "ERROR: no se instaló CEF correctamente."
+        exit 1
+    fi
+
+    echo "$VERSION" > "$TMPDEST/version"
+    echo "$COMMIT" > "$TMPDEST/commit"
+    echo "$CPU" > "$TMPDEST/cpu"
+    echo "$OVERLAY_HASH" > "$TMPDEST/overlay"
+
+    mv "$TMPDEST" "$DEST"
+    TMPDEST=""
+
+    echo "==> Build terminada correctamente."
+fi
+
+echo
+echo "==> Activando Graphite..."
+
+CURRENT_TMP="$ROOT/.current.new.$$"
+rm -f "$CURRENT_TMP"
+ln -s "$DEST" "$CURRENT_TMP"
+mv -Tf "$CURRENT_TMP" "$CURRENT"
+
+WRAPPER_TMP="$HOME/.local/bin/.graphite.new.$$"
+
+printf "%s\n" \
+    "#!/bin/sh" \
+    'ROOT="$HOME/.local/opt/nodalix/apps/graphite/current"' \
+    'export DRI_PRIME=1' \
+    'export LD_LIBRARY_PATH="$ROOT/cef${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"' \
+    'exec "$ROOT/graphite" "$@"' \
+    > "$WRAPPER_TMP"
+
+chmod +x "$WRAPPER_TMP"
+mv -Tf "$WRAPPER_TMP" "$HOME/.local/bin/graphite"
+
+DESKTOP="$HOME/.local/share/applications/art.graphite.Graphite.desktop"
+
+if [ -f "$DESKTOP" ]; then
+    sed -i \
+        "s|^Exec=.*|Exec=$HOME/.local/bin/graphite %F|" \
+        "$DESKTOP"
+
+    sed -i \
+        "s|^Icon=.*|Icon=art.graphite.Graphite|" \
+        "$DESKTOP"
+fi
+
+echo "==> Reaplicando integración e iconos Nodalix..."
+nodalix_finish_update
+
+echo
+echo "==> Graphite activo"
+echo "    Versión: $VERSION"
+echo "    Commit:  $SHORT"
+echo "    CPU:     $CPU"
+echo "    Overlay: $OVERLAY_ID"
+echo "    Ruta:    $CURRENT"

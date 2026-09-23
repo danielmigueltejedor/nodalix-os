@@ -19,8 +19,8 @@ Item {
         spacing: 4
 
         ColloidIcon {
-            iconName:       root.muted ? "audio-input-microphone-muted-symbolic" : "audio-input-microphone-high-symbolic"
-            fallbackGlyph:  root.muted ? "󰍭" : "󰍬"
+            role: "audio.microphone"
+            state: root.muted ? "muted" : "active"
             color:          root.muted ? ThemeManager.error : ThemeManager.onSurface
             Layout.alignment: Qt.AlignVCenter
 

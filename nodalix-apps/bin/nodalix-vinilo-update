@@ -1,0 +1,178 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+BASE="/usr/share/nodalix-apps"
+ROOT="$HOME/.local/opt/nodalix/apps/vinilo"
+VERSIONS="$ROOT/versions"
+CURRENT="$ROOT/current"
+BIN="$HOME/.local/bin"
+DATA="${XDG_DATA_HOME:-$HOME/.local/share}"
+
+REPO="https://github.com/danielmigueltejedor/vinilo"
+APPID="dev.danielmiguelt.Vinilo"
+AGUJA="dev.danielmiguelt.Aguja"
+
+source "$BASE/bin/nodalix-apps-lib.sh"
+
+for cmd in curl tar zstd sha256sum; do
+    command -v "$cmd" >/dev/null || {
+        echo "Falta dependencia: $cmd" >&2
+        exit 1
+    }
+done
+
+mkdir -p "$VERSIONS" "$BIN"
+
+LATEST_URL="$(curl -fsSLI -o /dev/null -w "%{url_effective}" "$REPO/releases/latest")"
+TAG="${LATEST_URL##*/}"
+VERSION="${TAG#v}"
+
+[[ "$TAG" == v* ]] || {
+    echo "No pude determinar la ultima release estable" >&2
+    exit 1
+}
+
+ASSET="vinilo-${VERSION}-1-x86_64.pkg.tar.zst"
+URL="$REPO/releases/download/$TAG/$ASSET"
+SUM_URL="$REPO/releases/download/$TAG/SHA256SUMS"
+
+VERSION_DIR="$VERSIONS/$VERSION"
+
+echo "Vinilo estable: $VERSION"
+
+if [[ -L "$CURRENT" ]] &&
+   [[ -f "$CURRENT/version" ]] &&
+   [[ "$(cat "$CURRENT/version")" == "$VERSION" ]]; then
+    echo "Vinilo $VERSION ya esta instalado."
+else
+    TMP="$(mktemp -d)"
+    STAGE="$ROOT/.stage-${VERSION}-$$"
+    trap "rm -rf "$TMP" "$STAGE"" EXIT
+
+    echo "Descargando SHA256SUMS..."
+    curl -fL --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 15 -o "$TMP/SHA256SUMS" "$SUM_URL"
+
+    echo "Descargando $ASSET..."
+    curl -fL --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 15 -o "$TMP/$ASSET" "$URL"
+
+    EXPECTED="$(grep -F "  $ASSET" "$TMP/SHA256SUMS" | head -n1 | cut -d " " -f1)"
+    ACTUAL="$(sha256sum "$TMP/$ASSET" | cut -d " " -f1)"
+
+    [[ -n "$EXPECTED" && "$EXPECTED" == "$ACTUAL" ]] || {
+        echo "SHA256 incorrecto para $ASSET" >&2
+        exit 1
+    }
+
+    echo "SHA256 correcto."
+
+    rm -rf "$STAGE"
+    mkdir -p "$STAGE"
+    tar --zstd -xf "$TMP/$ASSET" -C "$STAGE"
+
+    for required in         usr/bin/vinilo         usr/bin/vinilod         usr/bin/aguja         usr/bin/vinilo-desktop         usr/share/vinilo/sidecar/main.js
+    do
+        [[ -e "$STAGE/$required" ]] || {
+            echo "Paquete incompleto: falta $required" >&2
+            exit 1
+        }
+    done
+
+    printf "%s
+" "$VERSION" > "$STAGE/version"
+    printf "%s
+" "x86_64 official-release" > "$STAGE/cpu"
+    printf "%s
+" "$ACTUAL" > "$STAGE/artifact.sha256"
+
+    rm -rf "$VERSION_DIR"
+    mv "$STAGE" "$VERSION_DIR"
+
+    CURRENT_TMP="$ROOT/.current.new.$$"
+    rm -f "$CURRENT_TMP"
+    ln -s "$VERSION_DIR" "$CURRENT_TMP"
+    mv -Tf "$CURRENT_TMP" "$CURRENT"
+
+    trap - EXIT
+    rm -rf "$TMP"
+
+    echo "Activado Vinilo $VERSION"
+fi
+
+# Los cuatro entry points siempre siguen current, tambien tras un rollback.
+for exe in vinilo vinilod aguja vinilo-desktop; do
+    rm -f "$BIN/$exe"
+    ln -s "$CURRENT/usr/bin/$exe" "$BIN/$exe"
+done
+
+# El reproductor busca primero el sidecar del usuario.
+mkdir -p "$DATA/vinilo"
+rm -rf "$DATA/vinilo/sidecar"
+ln -s "$CURRENT/usr/share/vinilo/sidecar" "$DATA/vinilo/sidecar"
+
+# Desktop entries.
+mkdir -p "$DATA/applications"
+sed "s|/usr/bin|$BIN|g"     "$CURRENT/usr/share/applications/$APPID.desktop"     > "$DATA/applications/$APPID.desktop"
+sed "s|/usr/bin|$BIN|g"     "$CURRENT/usr/share/applications/$AGUJA.desktop"     > "$DATA/applications/$AGUJA.desktop"
+
+# D-Bus activation.
+mkdir -p "$DATA/dbus-1/services"
+sed "s|/usr/bin|$BIN|g"     "$CURRENT/usr/share/dbus-1/services/$APPID.service"     > "$DATA/dbus-1/services/$APPID.service"
+
+# Servicio de usuario.
+mkdir -p "$DATA/systemd/user"
+sed "s|/usr/bin|$BIN|g"     "$CURRENT/usr/lib/systemd/user/vinilod.service"     > "$DATA/systemd/user/vinilod.service"
+
+# Iconos hicolor siempre enlazados a current.
+for size in 16 32 48 64 128 256 512; do
+    dest="$DATA/icons/hicolor/${size}x${size}/apps"
+    mkdir -p "$dest"
+
+    for id in "$APPID" "$AGUJA"; do
+        rm -f "$dest/$id.png"
+        ln -s "$CURRENT/usr/share/icons/hicolor/${size}x${size}/apps/$id.png"             "$dest/$id.png"
+    done
+done
+
+mkdir -p "$DATA/icons/hicolor/symbolic/apps"
+rm -f "$DATA/icons/hicolor/symbolic/apps/$APPID-symbolic.svg"
+ln -s "$CURRENT/usr/share/icons/hicolor/symbolic/apps/$APPID-symbolic.svg"     "$DATA/icons/hicolor/symbolic/apps/$APPID-symbolic.svg"
+
+mkdir -p "$DATA/icons/hicolor/symbolic/actions"
+for src in "$CURRENT"/usr/share/icons/hicolor/symbolic/actions/*.svg; do
+    [[ -e "$src" ]] || continue
+    name="$(basename "$src")"
+    rm -f "$DATA/icons/hicolor/symbolic/actions/$name"
+    ln -s "$src" "$DATA/icons/hicolor/symbolic/actions/$name"
+done
+
+systemctl --user daemon-reload 2>/dev/null || true
+
+# Integracion global de Nodalix.
+nodalix_finish_update
+
+# Vinilo y Aguja tienen iconos propios: no permitimos que un override Colloid
+# antiguo vuelva a apuntar al SVG pre-1.0.
+for desktop in     "$DATA/applications/$APPID.desktop"     "$DATA/applications/$AGUJA.desktop"
+do
+    id="$APPID"
+    [[ "$desktop" == *Aguja.desktop ]] && id="$AGUJA"
+    sed -i "s|^Icon=.*|Icon=$id|" "$desktop"
+done
+
+for theme in "$DATA"/icons/Colloid*; do
+    [[ -d "$theme/apps/scalable" ]] || continue
+
+    for id in "$APPID" "$AGUJA"; do
+        rm -f "$theme/apps/scalable/$id.svg"
+        cp -f "$CURRENT/usr/share/icons/hicolor/512x512/apps/$id.png"             "$theme/apps/scalable/$id.png"
+    done
+
+    gtk-update-icon-cache -q -t -f "$theme" 2>/dev/null || true
+done
+
+gtk-update-icon-cache -q -t -f "$DATA/icons/hicolor" 2>/dev/null || true
+update-desktop-database -q "$DATA/applications" 2>/dev/null || true
+systemctl --user restart nodalix-shell.service 2>/dev/null || true
+
+echo
+echo "Vinilo $VERSION instalado mediante Nodalix Apps."

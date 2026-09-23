@@ -10,6 +10,7 @@ import "./bar"
 import "./panels"
 import "./theme"
 import "./services"
+import "widgets/bar" as BarWidgets
 
 PanelWindow {
     id: root
@@ -173,6 +174,15 @@ PanelWindow {
     readonly property real _launcherX: Math.round((root.width - _launcherW) / 2)
     readonly property real _launcherY: root.height - _launcherH   // flush with bottom edge
 
+    // Launcher modal guard: hover popouts must not compete with search focus.
+    Connections {
+        target: LauncherService
+        function onOpenChanged() {
+            if (root._launcherActive) PopoutService.close()
+        }
+    }
+
+
     // Every large surface used to keep the declaration order as its stacking
     // order.  That meant a launcher declared near the end of this file could
     // cover a control-centre panel opened afterwards.  Keep a small monotonic
@@ -225,9 +235,27 @@ PanelWindow {
     // only while a hover-popout text field is actually being edited, so plain
     // hover never grabs. Network/bluetooth text entry is its own PopupWindow.
     readonly property bool _layerWantsKbd: ToolsService.open
-        || root._launcherActive || PopoutService.textActive
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
-    HyprlandFocusGrab { windows: [root]; active: root._layerWantsKbd }
+        || PopoutService.textActive
+    WlrLayershell.keyboardFocus: root._launcherActive
+        ? WlrKeyboardFocus.Exclusive
+        : WlrKeyboardFocus.None
+    HyprlandFocusGrab {
+        id: _layerFocusGrab
+        windows: [root]
+        active: root._layerWantsKbd
+
+        // The first launcher open can race component creation against the
+        // compositor focus grab. Request TextField focus when the grab is
+        // actually active, not merely when the launcher state flips open.
+        onActiveChanged: {
+            if (active && root._launcherActive) {
+                Qt.callLater(() => {
+                    if (_launcherLoader.item)
+                        _launcherLoader.item.requestSearchFocus()
+                })
+            }
+        }
+    }
 
     // Animated current width + height (notch nub ↔ rail), kept vertically centred
     property real _toolsW: _toolsShow ? _toolsRailW : _toolsNotchW
@@ -425,6 +453,7 @@ PanelWindow {
 
     // ── Bar ───────────────────────────────────────────────────────────────────
     Bar {
+        enabled: !root._launcherActive
         anchors { top: parent.top; left: parent.left; right: parent.right }
         anchors.topMargin: root._islands ? ThemeManager.barFloatTop : 0
         height:    ThemeManager.barHeight
@@ -450,10 +479,10 @@ PanelWindow {
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 8
-                Text {
-                    text: "󰇚"
-                    color: ThemeManager.primary; font.family: ThemeManager.fontFor(text)
-                    font.pixelSize: ThemeManager.fontSizeLg
+                BarWidgets.ShellIcon {
+                    iconName: "send-to-symbolic"
+                    color: ThemeManager.primary
+                    iconSize: ThemeManager.fontSizeLg
                 }
                 Text {
                     Layout.fillWidth: true
@@ -806,7 +835,7 @@ PanelWindow {
                 delegate: ToolBtn {
                     required property var modelData
                     required property int index
-                    icon:   modelData.icon || "󰘔"
+                    iconName: ToolsService.toolIconName(modelData.icon)
                     kbdSel: ToolsService.open && ToolsService.selected === index
                     onClicked: { ToolsService._launch(modelData.command); ToolsService.close(); root._toolsHovered = false }
                 }
@@ -814,7 +843,7 @@ PanelWindow {
             // Built-in wallpaper / background picker
             ToolBtn {
                 visible: ToolsService.wpEnabled
-                icon: "󰸉"; active: root._toolsWpOpen
+                iconRole: "wallpaper.picker"; active: root._toolsWpOpen
                 kbdSel: ToolsService.open && ToolsService.selected === ToolsService.wpIndex
                 onClicked: { if (ToolsService.wpOpen) ToolsService.wpOpen = false; else { ToolsService.wpOpen = true; WallpaperService.refresh() } }
             }
@@ -866,16 +895,31 @@ PanelWindow {
         }
 
         Loader {
+            // Preload once at shell startup so first open is already warm.
+            id: _launcherLoader
             anchors.fill: parent
-            active:          root._launcherActive || parent.opacity > 0
+            active: true
             sourceComponent: Launcher { active: root._launcherActive }
+
+            // Covers the opposite ordering: the focus grab may already be
+            // active by the time the Launcher component finishes loading.
+            onLoaded: {
+                if (root._launcherActive && _layerFocusGrab.active) {
+                    Qt.callLater(() => {
+                        if (item)
+                            item.requestSearchFocus()
+                    })
+                }
+            }
         }
     }
 
     // ── Tool button ────────────────────────────────────────────────────────────
     component ToolBtn: Rectangle {
         id: tb
-        property string icon:   ""
+        property string iconRole: ""
+        property string iconState: ""
+        property string iconName: ""
         property bool   active: false
         property bool   kbdSel: false     // keyboard selection highlight
         signal clicked()
@@ -887,12 +931,13 @@ PanelWindow {
                : "transparent")
         border.width: tb.kbdSel ? 1 : 0
         border.color: ThemeManager.primary
-        Text {
+        BarWidgets.ShellIcon {
             anchors.centerIn: parent
-            text: tb.icon
+            role: tb.iconRole
+            state: tb.iconState
+            iconName: tb.iconName
             color: (tb.active || tb.kbdSel) ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFor(text)
-            font.pixelSize: 24
+            iconSize: 24
         }
         HoverHandler { id: _tbHov; cursorShape: Qt.PointingHandCursor }
         TapHandler { onTapped: tb.clicked() }

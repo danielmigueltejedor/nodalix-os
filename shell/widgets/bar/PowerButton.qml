@@ -10,10 +10,10 @@ Item {
 
     property var barScreen: null
 
-    ColloidIcon {
+    ShellIcon {
         anchors.centerIn: parent
-        iconName:       "system-shutdown-symbolic"
-        fallbackGlyph:  "󰐥"
+        role: "power.action"
+        state: "shutdown"
         color:          _hoverMa.containsMouse
                         ? ThemeManager.error
                         : ThemeManager.onSurfaceVariant

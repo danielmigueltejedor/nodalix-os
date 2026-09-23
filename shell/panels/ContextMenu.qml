@@ -51,7 +51,8 @@ Rectangle {
         // Connect / Disconnect
         MenuItem {
             visible: root.kind === "wifi" && root.target
-            icon: root.target?.connected ? "󰖪" : "󰖩"
+            iconRole: "network.wifi.connection"
+            iconState: root.target?.connected ? "connected" : "disconnected"
             label: I18n.tr(root.target?.connected ? "Disconnect" : "Connect")
             // Unknown secured networks need a password (entered below) — for those
             // the Connect row is hidden and the user uses the field.
@@ -90,31 +91,37 @@ Rectangle {
                         font: _psk.font
                     }
                 }
-                ColloidIcon {
+                ShellIcon {
                     id: _reveal
                     property bool checked: false
                     anchors { right: parent.right; verticalCenter: parent.verticalCenter; rightMargin: 8 }
-                    text: checked ? "󰈉" : "󰈈"
+                    role: "action.reveal"
+                    state: checked ? "revealed" : "hidden"
+                    iconSize: 15
                     color: ThemeManager.onSurfaceVariant
                     font.pixelSize: 14
                     MouseArea { anchors.fill: parent; anchors.margins: -6; cursorShape: Qt.PointingHandCursor; onClicked: _reveal.checked = !_reveal.checked }
                 }
             }
             MenuItem {
-                icon: "󰖩"; label: I18n.tr("Connect")
+                iconRole: "network.wifi.connection"
+                iconState: "disconnected"
+                label: I18n.tr("Connect")
                 onTriggered: if (root.target) { root.target.connectWithPsk(_psk.text); ContextMenuService.close() }
             }
         }
         MenuItem {
             visible: root.kind === "wifi" && root.target?.known
-            icon: "󰆴"; label: I18n.tr("Forget"); danger: true
+            iconRole: "action.forget"
+            label: I18n.tr("Forget"); danger: true
             onTriggered: { root.target.forget(); ContextMenuService.close() }
         }
 
         // ══════════════════ Bluetooth ══════════════════
         MenuItem {
             visible: root.kind === "bt" && root.target
-            icon: root.target?.connected ? "󰂲" : "󰂱"
+            iconRole: "bluetooth.device"
+            iconState: root.target?.connected ? "connected" : "disconnected"
             label: I18n.tr(root.target?.connected ? "Disconnect" : "Connect")
             onTriggered: {
                 root.target.connected ? root.target.disconnect() : root.target.connect()
@@ -123,7 +130,8 @@ Rectangle {
         }
         MenuItem {
             visible: root.kind === "bt" && root.target
-            icon: root.target?.trusted ? "󰄬" : "󰒙"
+            iconRole: "action.trust"
+            iconState: root.target?.trusted ? "trusted" : "untrusted"
             label: I18n.tr(root.target?.trusted ? "Trusted" : "Trust")
             onTriggered: { root.target.trusted = !root.target.trusted }
         }
@@ -146,10 +154,11 @@ Rectangle {
                 text: (root.kind === "bt" && root.target) ? (root.target.name || root.target.deviceName || "") : ""
                 onAccepted: if (root.target) { root.target.name = text; focus = false }
             }
-            Text {
+            ShellIcon {
                 anchors { right: parent.right; verticalCenter: parent.verticalCenter; rightMargin: 8 }
-                text: "󰸞"; color: ThemeManager.primary
-                font.family: ThemeManager.fontFor(text); font.pixelSize: 15
+                role: "action.save"
+                iconSize: 16
+                color: ThemeManager.primary
                 MouseArea { anchors.fill: parent; anchors.margins: -6; cursorShape: Qt.PointingHandCursor
                     onClicked: if (root.target) { root.target.name = _rename.text; _rename.focus = false } }
             }
@@ -166,7 +175,8 @@ Rectangle {
             model: (root.kind === "bt" && root.target?.connected) ? ContextMenuService._profiles : []
             delegate: MenuItem {
                 required property var modelData
-                icon: modelData.active ? "󰄬" : "  "
+                iconRole: "selection"
+                iconState: modelData.active ? "selected" : "empty"
                 label: modelData.desc
                 small: true
                 highlight: modelData.active
@@ -175,7 +185,8 @@ Rectangle {
         }
         MenuItem {
             visible: root.kind === "bt" && (root.target?.paired || root.target?.bonded)
-            icon: "󰆴"; label: I18n.tr("Forget"); danger: true
+            iconRole: "action.forget"
+            label: I18n.tr("Forget"); danger: true
             onTriggered: { root.target.forget(); ContextMenuService.close() }
         }
     }
@@ -183,7 +194,8 @@ Rectangle {
     // ── Menu item ─────────────────────────────────────────────────────────────
     component MenuItem: Rectangle {
         id: mi
-        property string icon:  ""
+        property string iconRole:  ""
+        property string iconState: ""
         property string label: ""
         property bool   danger: false
         property bool   highlight: false
@@ -201,10 +213,11 @@ Rectangle {
         RowLayout {
             anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
             spacing: 8
-            ColloidIcon {
-                text: mi.icon
+            ShellIcon {
+                role: mi.iconRole
+                state: mi.iconState
+                iconSize: mi.small ? 13 : 15
                 color: mi.danger ? ThemeManager.error : (mi.highlight ? ThemeManager.primary : ThemeManager.onSurfaceVariant)
-                font.pixelSize: mi.small ? 12 : 14
             }
             Text {
                 Layout.fillWidth: true

@@ -8,7 +8,7 @@
       "id": "nodalix-release",
       "name": "Nodalix system identity",
       "package": "nodalix-release",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "required": true,
       "restart": "none"
     },
@@ -16,7 +16,15 @@
       "id": "updater",
       "name": "Nodalix Updater",
       "package": "nodalix-updater",
-      "version": "0.2.0",
+      "version": "0.2.1",
+      "required": true,
+      "restart": "none"
+    },
+    {
+      "id": "apps",
+      "name": "Nodalix Apps",
+      "package": "nodalix-apps",
+      "version": "0.2.1",
       "required": true,
       "restart": "none"
     },
@@ -24,7 +32,7 @@
       "id": "shell",
       "name": "Nodalix Shell",
       "package": "nodalix-shell",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "required": true,
       "restart": "shell"
     },
@@ -32,7 +40,7 @@
       "id": "colloid-icons",
       "name": "Colloid-Teal icon theme",
       "package": "nodalix-colloid-icons",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "required": true,
       "restart": "shell"
     },
@@ -40,7 +48,7 @@
       "id": "phone-link",
       "name": "Enlace móvil",
       "package": "nodalix-phone-link",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "required": true,
       "restart": "system"
     },
@@ -56,7 +64,7 @@
       "id": "wallpapers",
       "name": "Nodalix wallpaper collection",
       "package": "nodalix-wallpapers",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "required": true,
       "restart": "shell"
     },
@@ -72,7 +80,7 @@
       "id": "greeter-theme",
       "name": "Nodalix login screen",
       "package": "nodalix-greeter-theme",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "required": true,
       "restart": "none"
     },

@@ -38,9 +38,9 @@ Item {
             Layout.alignment: Qt.AlignHCenter
             visible: root.pending === ""
             spacing: 22
-            PowerTile { label: I18n.tr("Suspend"); glyph: "󰒲"; onClicked: root.request("suspend") }
-            PowerTile { label: I18n.tr("Reboot"); glyph: "󰑙"; onClicked: root.request("reboot") }
-            PowerTile { label: I18n.tr("Shut down"); glyph: "󰐥"; onClicked: root.request("poweroff") }
+            PowerTile { label: I18n.tr("Suspend"); iconState: "suspend"; onClicked: root.request("suspend") }
+            PowerTile { label: I18n.tr("Reboot"); iconState: "reboot"; onClicked: root.request("reboot") }
+            PowerTile { label: I18n.tr("Shut down"); iconState: "shutdown"; onClicked: root.request("poweroff") }
         }
         ColumnLayout {
             visible: root.pending !== ""
@@ -69,7 +69,7 @@ Item {
     component PowerTile: AbstractButton {
         id: tile
         required property string label
-        required property string glyph
+        required property string iconState
         Layout.preferredWidth: 88
         implicitHeight: 88
         Accessible.name: label
@@ -87,7 +87,14 @@ Item {
             }
         }
         contentItem: Item {
-            ColloidIcon { anchors.horizontalCenter: parent.horizontalCenter; y: 15; text: tile.glyph; color: "white"; font.pixelSize: 22 }
+            ShellIcon {
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: 15
+                role: "power.action"
+                state: tile.iconState
+                color: "white"
+                iconSize: 22
+            }
             Text { anchors.horizontalCenter: parent.horizontalCenter; y: 64; text: tile.label; color: Qt.rgba(1,1,1,0.76); font.family: ThemeManager.fontFor(text); font.pixelSize: 12 }
         }
     }

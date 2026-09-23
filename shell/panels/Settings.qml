@@ -12,6 +12,7 @@ import Quickshell.Bluetooth
 import Quickshell.Services.UPower
 import "../theme"
 import "../services"
+import "../widgets/bar" as Bar
 import "../widgets/bar"
 
 // Settings window — centered modal (standalone per-screen window, shown on the
@@ -146,35 +147,47 @@ PanelWindow {
         _trayEditIdx = -1
     }
 
-    // Custom tools: [{name, icon (glyph), command}] — rendered in the rail.
+    // Custom tools: [{name, icon theme name, command}] — rendered in the rail.
     readonly property var _toolCustomList: SettingsService.get("tools.custom", [])
     property int _toolEditIdx: -1
-    function _toolCustom() { return SettingsService.get("tools.custom", []) }
+
+    function _toolCustom() {
+        return SettingsService.get("tools.custom", [])
+    }
+
     function _toolCustomAdd() {
         let a = _toolCustom().slice()
-        a.push({ name: I18n.tr("Tool"), icon: "󰘔", command: "" })
+        a.push({
+            name: I18n.tr("Tool"),
+            icon: "application-x-executable-symbolic",
+            command: ""
+        })
         SettingsService.set("tools.custom", a)
         _toolEditIdx = a.length - 1
     }
+
     function _toolCustomSet(i, field, val) {
         let a = _toolCustom().slice()
-        if (i < 0 || i >= a.length) return
-        let e = Object.assign({}, a[i]); e[field] = val; a[i] = e
+        if (i < 0 || i >= a.length)
+            return
+
+        let e = Object.assign({}, a[i])
+        e[field] = val
+        a[i] = e
         SettingsService.set("tools.custom", a)
     }
+
     function _toolCustomRemove(i) {
         let a = _toolCustom().slice()
-        if (i < 0 || i >= a.length) return
+        if (i < 0 || i >= a.length)
+            return
+
         a.splice(i, 1)
         SettingsService.set("tools.custom", a)
         _toolEditIdx = -1
     }
-    // Curated glyph palette (Material Design Icons / nerd font) for the picker.
-    readonly property var _toolIcons: [
-        "󰆍","󰉋","󰈔","󰏫","󰆼","󰊢","󰃤","󰖟","󰝚","󰕧","󰄀","󰻃","󰋩","󰡨","󰒓","󰪚",
-        "󰃭","󰇮","󰭹","󰇚","󰍉","󰩹","󰋊","󰂯","󰍹","󰌌","󰸌","󰊗","󰠮","󰥔","󰅟","󰒃",
-        "󰋜","󰖷","󰓎","󰣐","󰀻","󰘔"
-    ]
+
+    readonly property var _toolIcons: ToolsService.toolIcons
 
     // Theme name-entry flow: "" | "new" | "duplicate" | "rename"
     property string _themeAction: ""
@@ -187,94 +200,56 @@ PanelWindow {
     }
 
     readonly property var _cats: [
-        { id: "personal-group", label: I18n.tr("Personal"), icon: "󰀄" },
-        { id: "appearance-group", label: I18n.tr("Appearance"), icon: "󰉼" },
-        { id: "connections-group", label: I18n.tr("Connections"), icon: "󰖩" },
-        { id: "devices-group", label: I18n.tr("Devices"), icon: "󰍹" },
-        { id: "applications-group", label: I18n.tr("Applications"), icon: "󰀻" },
-        { id: "services-group", label: I18n.tr("Services"), icon: "󰒓" },
-        { id: "system-group", label: I18n.tr("System"), icon: "󰍹" }
+        { id: "personal-group", label: I18n.tr("Personal") },
+        { id: "appearance-group", label: I18n.tr("Appearance") },
+        { id: "connections-group", label: I18n.tr("Connections") },
+        { id: "devices-group", label: I18n.tr("Devices") },
+        { id: "applications-group", label: I18n.tr("Applications") },
+        { id: "services-group", label: I18n.tr("Services") },
+        { id: "system-group", label: I18n.tr("System") }
     ]
-    readonly property var _colloidIcons: ({
-        "personal-group": { name: "system-users-symbolic", group: "apps" },
-        "appearance-group": { name: "dark-mode-symbolic", group: "actions" },
-        "connections-group": { name: "nm-signal-100-symbolic", group: "status" },
-        "devices-group": { name: "preferences-desktop-display-symbolic", group: "apps" },
-        "applications-group": { name: "view-app-grid-symbolic", group: "actions" },
-        "services-group": { name: "nodalix-services-symbolic", group: "actions" },
-        "system-group": { name: "utilities-system-monitor-symbolic", group: "apps" },
-        "user": { name: "system-users-symbolic", group: "apps" },
-        "security": { name: "system-lock-screen-symbolic", group: "actions" },
-        "date-time": { name: "clock-app-symbolic", group: "apps" },
-        "appearance": { name: "dark-mode-symbolic", group: "actions" },
-        "bar": { name: "application-menu-symbolic", group: "actions" },
-        "media": { name: "multimedia-volume-control-symbolic", group: "apps" },
-        "widgets": { name: "preferences-system-symbolic", group: "apps" },
-        "wallpaper": { name: "preferences-desktop-wallpaper-symbolic", group: "apps" },
-        "connectivity": { name: "nm-signal-100-symbolic", group: "status" },
-        "phone-link": { name: "phonelink-symbolic", group: "devices" },
-        "localsend": { name: "network-transmit-symbolic", group: "status" },
-        "hyprland": { name: "preferences-desktop-display-symbolic", group: "apps" },
-        "sound": { name: "multimedia-volume-control-symbolic", group: "apps" },
-        "power": { name: "preferences-system-power-symbolic", group: "apps" },
-        "default-apps": { name: "application-menu-symbolic", group: "actions" },
-        "recovery": { name: "document-revert-symbolic", group: "actions" },
-        "storage": { name: "disk-usage-app-symbolic", group: "apps" },
-        "nodalix-updates": { name: "network-receive-symbolic", group: "status" },
-        "updates": { name: "network-receive-symbolic", group: "status" },
-        "tray": { name: "application-menu-symbolic", group: "actions" },
-        "notifications": { name: "notification-new-symbolic", group: "status" },
-        "privacy": { name: "preferences-system-privacy-symbolic", group: "apps" },
-        "weather": { name: "weather-app-symbolic", group: "apps" },
-        "keybindings": { name: "preferences-desktop-keyboard-symbolic", group: "apps" },
-        "tools": { name: "utilities-terminal-symbolic", group: "apps" },
-        "dependencies": { name: "preferences-system-symbolic", group: "apps" },
-        "advanced": { name: "preferences-system-symbolic", group: "apps" },
-        "about": { name: "utilities-system-monitor-symbolic", group: "apps" }
-    })
-    function _colloidFor(id) { return _colloidIcons[id] ?? { name: "preferences-system-symbolic", group: "apps" } }
     readonly property var _groups: ({
         "personal-group": [
-            { id: "user", label: I18n.tr("User"), sub: I18n.tr("Profile, image and personal settings"), icon: "󰀄" },
-            { id: "security", label: I18n.tr("Security"), sub: I18n.tr("Automatic lock and inactivity"), icon: "󰒃" },
-            { id: "date-time", label: I18n.tr("Date and time"), sub: I18n.tr("Time zone and automatic synchronization"), icon: "󰥔" }
+            { id: "user", label: I18n.tr("User"), sub: I18n.tr("Profile, image and personal settings") },
+            { id: "security", label: I18n.tr("Security"), sub: I18n.tr("Automatic lock and inactivity") },
+            { id: "date-time", label: I18n.tr("Date and time"), sub: I18n.tr("Time zone and automatic synchronization") }
         ],
         "appearance-group": [
-            { id: "appearance", label: I18n.tr("General appearance"), sub: I18n.tr("Theme, colors, language and layout"), icon: "󰉼" },
-            { id: "bar", label: I18n.tr("Bar"), sub: I18n.tr("Clock, workspaces and indicators"), icon: "󰍜" },
-            { id: "media", label: I18n.tr("Media"), sub: I18n.tr("Player and audio visualizer"), icon: "󰝚" },
-            { id: "widgets", label: I18n.tr("Desktop widgets"), sub: I18n.tr("Visible widgets and positions"), icon: "󰜬" },
-            { id: "wallpaper", label: I18n.tr("Wallpaper"), sub: I18n.tr("Static and animated backgrounds"), icon: "󰸉" }
+            { id: "appearance", label: I18n.tr("General appearance"), sub: I18n.tr("Theme, colors, language and layout") },
+            { id: "bar", label: I18n.tr("Bar"), sub: I18n.tr("Clock, workspaces and indicators") },
+            { id: "media", label: I18n.tr("Media"), sub: I18n.tr("Player and audio visualizer") },
+            { id: "widgets", label: I18n.tr("Desktop widgets"), sub: I18n.tr("Visible widgets and positions") },
+            { id: "wallpaper", label: I18n.tr("Wallpaper"), sub: I18n.tr("Static and animated backgrounds") }
         ],
         "connections-group": [
-            { id: "connectivity", label: I18n.tr("Connectivity"), sub: I18n.tr("Wi-Fi, Bluetooth and VPN"), icon: "󰖩" },
-            { id: "phone-link", label: I18n.tr("Phone Link"), sub: I18n.tr("Calls, notifications and iPhone connection"), icon: "󰄜" },
-            { id: "localsend", label: "LocalSend", sub: I18n.tr("Nearby sharing"), icon: "󰇚" }
+            { id: "connectivity", label: I18n.tr("Connectivity"), sub: I18n.tr("Wi-Fi, Bluetooth and VPN") },
+            { id: "phone-link", label: I18n.tr("Phone Link"), sub: I18n.tr("Calls, notifications and iPhone connection") },
+            { id: "localsend", label: "LocalSend", sub: I18n.tr("Nearby sharing") }
         ],
         "devices-group": [
-            { id: "hyprland", label: I18n.tr("Display settings"), sub: I18n.tr("Displays, HDR, input and animations"), icon: "󰍹" },
-            { id: "sound", label: I18n.tr("Sound"), sub: I18n.tr("Volume, microphone and audio devices"), icon: "󰕾" },
-            { id: "power", label: I18n.tr("Power"), sub: I18n.tr("Performance profile and session controls"), icon: "󰚥" }
+            { id: "hyprland", label: I18n.tr("Display settings"), sub: I18n.tr("Displays, HDR, input and animations") },
+            { id: "sound", label: I18n.tr("Sound"), sub: I18n.tr("Volume, microphone and audio devices") },
+            { id: "power", label: I18n.tr("Power"), sub: I18n.tr("Performance profile and session controls") }
         ],
         "applications-group": [
-            { id: "default-apps", label: I18n.tr("Default applications"), sub: I18n.tr("Choose which app opens each file type"), icon: "󰏖" },
-            { id: "recovery", label: I18n.tr("Backups and recovery"), sub: I18n.tr("Recovery points and daily protection"), icon: "󰋊" },
-            { id: "storage", label: I18n.tr("Storage"), sub: I18n.tr("Disk usage and installed applications"), icon: "󰋊" },
-            { id: "nodalix-updates", label: I18n.tr("Nodalix OS updates"), sub: I18n.tr("Shell, services, applications and themes"), icon: "󰚰" },
-            { id: "updates", label: I18n.tr("Updates"), sub: I18n.tr("System, applications and firmware"), icon: "󰚰" },
-            { id: "tray", label: I18n.tr("Tray"), sub: I18n.tr("Application indicators"), icon: "󰍡" }
+            { id: "default-apps", label: I18n.tr("Default applications"), sub: I18n.tr("Choose which app opens each file type") },
+            { id: "recovery", label: I18n.tr("Backups and recovery"), sub: I18n.tr("Recovery points and daily protection") },
+            { id: "storage", label: I18n.tr("Storage"), sub: I18n.tr("Disk usage and installed applications") },
+            { id: "nodalix-updates", label: I18n.tr("Nodalix OS updates"), sub: I18n.tr("Shell, services, applications and themes") },
+            { id: "updates", label: I18n.tr("Updates"), sub: I18n.tr("System, applications and firmware") },
+            { id: "tray", label: I18n.tr("Tray"), sub: I18n.tr("Application indicators") }
         ],
         "services-group": [
-            { id: "notifications", label: I18n.tr("Notifications"), sub: I18n.tr("Alerts and Do Not Disturb"), icon: "󰂚" },
-            { id: "privacy", label: I18n.tr("Privacy"), sub: I18n.tr("Microphone, camera, location and interruptions"), icon: "󰒃" },
-            { id: "weather", label: I18n.tr("Weather"), sub: I18n.tr("Location and units"), icon: "󰖐" }
+            { id: "notifications", label: I18n.tr("Notifications"), sub: I18n.tr("Alerts and Do Not Disturb") },
+            { id: "privacy", label: I18n.tr("Privacy"), sub: I18n.tr("Microphone, camera, location and interruptions") },
+            { id: "weather", label: I18n.tr("Weather"), sub: I18n.tr("Location and units") }
         ],
         "system-group": [
-            { id: "keybindings", label: I18n.tr("Keybindings"), sub: I18n.tr("Keyboard shortcuts"), icon: "󰌌" },
-            { id: "tools", label: I18n.tr("Tools"), sub: I18n.tr("Quick actions and custom tools"), icon: "󱁤" },
-            { id: "dependencies", label: I18n.tr("Dependencies"), sub: I18n.tr("Optional system features"), icon: "󰏖" },
-            { id: "advanced", label: I18n.tr("Advanced"), sub: I18n.tr("Configuration and reset"), icon: "󰒓" },
-            { id: "about", label: I18n.tr("About this system"), sub: I18n.tr("Hardware and operating system information"), icon: "󰋼" }
+            { id: "keybindings", label: I18n.tr("Keybindings"), sub: I18n.tr("Keyboard shortcuts") },
+            { id: "tools", label: I18n.tr("Tools"), sub: I18n.tr("Quick actions and custom tools") },
+            { id: "dependencies", label: I18n.tr("Dependencies"), sub: I18n.tr("Optional system features") },
+            { id: "advanced", label: I18n.tr("Advanced"), sub: I18n.tr("Configuration and reset") },
+            { id: "about", label: I18n.tr("About this system"), sub: I18n.tr("Hardware and operating system information") }
         ]
     })
     function _groupFor(page) {
@@ -410,14 +385,13 @@ PanelWindow {
                                         anchors.fill: parent
                                         anchors.leftMargin: 12; anchors.rightMargin: 12
                                         spacing: 10
-                                        ColloidIcon {
+                                        ShellIcon {
                                             Layout.preferredWidth: 22
                                             Layout.alignment: Qt.AlignVCenter
-                                            iconName: root._colloidFor(modelData.id).name
-                                            group: root._colloidFor(modelData.id).group
-                                            fallbackGlyph: modelData.icon
+                                            role: "settings.item"
+                                            state: modelData.id
                                             color: sel ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                                            font.pixelSize: 16
+                                            iconSize: 18
                                         }
                                         Text {
                                             Layout.fillWidth: true
@@ -462,7 +436,7 @@ PanelWindow {
                         Rectangle {
                             implicitWidth: 32; implicitHeight: 32; radius: 16
                             color: _backHover.hovered ? ThemeManager.surfaceContainerHigh : "transparent"
-                            Text { anchors.centerIn: parent; text: "󰁍"; color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: 18 }
+                            ShellIcon { anchors.centerIn: parent; role: "navigation.back"; color: ThemeManager.onSurface; iconSize: 18 }
                             HoverHandler { id: _backHover }
                             TapHandler { onTapped: root._goBack() }
                         }
@@ -493,14 +467,13 @@ PanelWindow {
                                 RowLayout {
                                     anchors { fill: parent; margins: 14 }
                                     spacing: 14
-                                    ColloidIcon {
+                                    ShellIcon {
                                         Layout.preferredWidth: 34
                                         Layout.alignment: Qt.AlignVCenter
-                                        iconName: root._colloidFor(modelData.id).name
-                                        group: root._colloidFor(modelData.id).group
-                                        fallbackGlyph: modelData.icon
+                                        role: "settings.item"
+                                        state: modelData.id
                                         color: ThemeManager.primary
-                                        font.pixelSize: 23
+                                        iconSize: 24
                                     }
                                     ColumnLayout {
                                         Layout.fillWidth: true; spacing: 2
@@ -526,13 +499,11 @@ PanelWindow {
                                             elide: Text.ElideRight
                                         }
                                     }
-                                    Text {
+                                    ShellIcon {
                                         Layout.preferredWidth: 20
-                                        horizontalAlignment: Text.AlignHCenter
-                                        text: "󰅂"
+                                        role: "navigation.next"
                                         color: ThemeManager.onSurfaceVariant
-                                        font.family: ThemeManager.fontFor(text)
-                                        font.pixelSize: 18
+                                        iconSize: 18
                                     }
                                 }
                                 HoverHandler { id: _pageHover }
@@ -633,13 +604,12 @@ PanelWindow {
                                 cache: false
                                 visible: status === Image.Ready
                             }
-                            Text {
+                            ShellIcon {
                                 anchors.centerIn: parent
                                 visible: _profilePreview.status !== Image.Ready
-                                text: "󰀄"
+                                role: "user.avatar"
                                 color: ThemeManager.onSurfaceVariant
-                                font.family: ThemeManager.fontFor(text)
-                                font.pixelSize: 64
+                                iconSize: 64
                             }
                         }
 
@@ -736,11 +706,11 @@ PanelWindow {
                             RowLayout {
                                 anchors { fill: parent; margins: 12 }
                                 spacing: 10
-                                Text {
-                                    text: "󰈈"
+                                ShellIcon {
+                                    role: "action.reveal"
+                                    state: "hidden"
                                     color: ThemeManager.primary
-                                    font.family: ThemeManager.fontFor(text)
-                                    font.pixelSize: 18
+                                    iconSize: 18
                                 }
                                 Text {
                                     id: _idleInfo
@@ -1296,10 +1266,17 @@ PanelWindow {
                                     visible: !_tc.editing
                                     anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter; leftMargin: 12; rightMargin: 12 }
                                     spacing: 10
-                                    Text {
-                                        text: _tc.modelData.icon || "󰘔"; color: ThemeManager.onSurface
-                                        font.family: ThemeManager.fontFor(text); font.pixelSize: 22
-                                        Layout.preferredWidth: 28; horizontalAlignment: Text.AlignHCenter
+                                    Item {
+                                        Layout.preferredWidth: 28
+                                        implicitWidth: 28
+                                        implicitHeight: 24
+
+                                        ShellIcon {
+                                            anchors.centerIn: parent
+                                            iconName: ToolsService.toolIconName(_tc.modelData.icon)
+                                            color: ThemeManager.onSurface
+                                            iconSize: 22
+                                        }
                                     }
                                     ColumnLayout {
                                         Layout.fillWidth: true; spacing: 1
@@ -1353,7 +1330,7 @@ PanelWindow {
                                             onEditingFinished: if (text !== (_tc.modelData.command ?? "")) root._toolCustomSet(_tc.index, "command", text)
                                         }
                                     }
-                                    // Icon picker — grid of glyphs
+                                    // Icon picker — system theme icons
                                     ColumnLayout {
                                         Layout.fillWidth: true; spacing: 4
                                         Text { text: I18n.tr("Icon"); color: ThemeManager.onSurfaceVariant
@@ -1364,14 +1341,17 @@ PanelWindow {
                                                 model: root._toolIcons
                                                 delegate: Rectangle {
                                                     required property var modelData
-                                                    readonly property bool sel: (_tc.modelData.icon || "") === modelData
+                                                    readonly property bool sel: ToolsService.toolIconName(_tc.modelData.icon) === modelData
                                                     width: 34; height: 34; radius: 8
                                                     color: sel ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.22)
                                                                : ThemeManager.surfaceContainer
                                                     border.width: 1; border.color: sel ? ThemeManager.primary : ThemeManager.outlineVariant
-                                                    Text { anchors.centerIn: parent; text: modelData
-                                                           color: parent.sel ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                                                           font.family: ThemeManager.fontFor(text); font.pixelSize: 20 }
+                                                    ShellIcon {
+                                                        anchors.centerIn: parent
+                                                        iconName: modelData
+                                                        color: parent.sel ? ThemeManager.primary : ThemeManager.onSurfaceVariant
+                                                        iconSize: 20
+                                                    }
                                                     TapHandler { onTapped: root._toolCustomSet(_tc.index, "icon", modelData) }
                                                 }
                                             }
@@ -1563,14 +1543,12 @@ PanelWindow {
                                         asynchronous: true; cache: false
                                         sourceSize.width: 336
                                     }
-                                    Text {
+                                    ShellIcon {
                                         visible: _tile._isVideo
                                         anchors.centerIn: parent
-                                        text: "󰕧"
+                                        role: "wallpaper.media"
+                                        state: "video"
                                         color: "white"
-                                        style: Text.Outline
-                                        styleColor: "black"
-                                        font.family: ThemeManager.fontFor(text)
                                         font.pixelSize: 30
                                     }
                                     // Border: current wallpaper (primary) or in-rotation (tertiary)
@@ -1590,8 +1568,12 @@ PanelWindow {
                                         anchors { left: parent.left; bottom: parent.bottom; margins: 5 }
                                         width: 20; height: 20; radius: 10
                                         color: Qt.rgba(ThemeManager.tertiary.r, ThemeManager.tertiary.g, ThemeManager.tertiary.b, 0.9)
-                                        Text { anchors.centerIn: parent; text: "󰑖"; color: ThemeManager.onTertiary
-                                               font.family: ThemeManager.fontFor(text); font.pixelSize: 12 }
+                                        ShellIcon {
+                                            anchors.centerIn: parent
+                                            role: "wallpaper.rotation"
+                                            color: ThemeManager.onTertiary
+                                            iconSize: 12
+                                        }
                                     }
                                     // Click: plain = set; ctrl = toggle rotation; shift = range-add to rotation
                                     MouseArea {
@@ -1623,7 +1605,8 @@ PanelWindow {
                                     // Favorite button (on top of the tile MouseArea so it stays clickable)
                                     WpTileBtn {
                                         anchors { top: parent.top; right: parent.right; margins: 5 }
-                                        icon: WallpaperService.isFavorite(_tile._path) ? "󰋑" : "󰋕"
+                                        iconRole: "favorite"
+                                        iconState: WallpaperService.isFavorite(_tile._path) ? "yes" : "no"
                                         active: WallpaperService.isFavorite(_tile._path)
                                         onClicked: WallpaperService.toggleFavorite(_tile._path)
                                     }
@@ -1735,11 +1718,12 @@ PanelWindow {
                                             color: "white"; style: Text.Outline; styleColor: "black"
                                             font.family: ThemeManager.fontFor(text); font.pixelSize: 9
                                         }
-                                        Text {
+                                        ShellIcon {
                                             anchors.centerIn: parent
                                             visible: _rtile._busy
-                                            text: "󰇚"; color: "white"
-                                            font.family: ThemeManager.fontFor(text); font.pixelSize: 22
+                                            role: "wallpaper.download"
+                                            color: "white"
+                                            iconSize: 22
                                         }
                                         MouseArea {
                                             id: _rtMa; anchors.fill: parent
@@ -1751,7 +1735,8 @@ PanelWindow {
                                         // Favorite (download + favorite) — above the tile MouseArea so it stays clickable
                                         WpTileBtn {
                                             anchors { top: parent.top; right: parent.right; margins: 5 }
-                                            icon: "󰋕"
+                                            iconRole: "favorite"
+                                            iconState: "no"
                                             onClicked: WallpaperService.download(_rtile.modelData.full, _rtile.modelData.id, _rtile.modelData.fileType, true)
                                         }
                                     }
@@ -2479,7 +2464,7 @@ PanelWindow {
                                     Rectangle { width: 10; height: 10; radius: 5; color: [ThemeManager.primary, ThemeManager.tertiary, ThemeManager.secondary, "#79c7ff", "#ffb4ab", ThemeManager.outline][index % 6] }
                                     Text { Layout.fillWidth: true; text: I18n.tr(modelData.key); color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeMd }
                                     Text { text: StorageService.formatBytes(modelData.bytes); color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
-                                    Text { visible: modelData.key === "Applications"; text: "󰅂"; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text) }
+                                    ShellIcon { visible: modelData.key === "Applications"; role: "navigation.next"; color: ThemeManager.onSurfaceVariant; iconSize: 14 }
                                 }
                                 HoverHandler { id: _storageHover }
                                 TapHandler { enabled: modelData.key === "Applications"; onTapped: { StorageService.loadApps(); SettingsUi.category = "storage-apps" } }
@@ -2590,7 +2575,13 @@ PanelWindow {
                                 Rectangle {
                                     implicitWidth: 42; implicitHeight: 42; radius: 14
                                     color: Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.16)
-                                    Text { anchors.centerIn: parent; text: "󰚰"; color: ThemeManager.primary; font.family: ThemeManager.fontFor(text); font.pixelSize: 22 }
+                                    ShellIcon {
+                                        anchors.centerIn: parent
+                                        role: "settings.item"
+                                        state: "nodalix-updates"
+                                        color: ThemeManager.primary
+                                        iconSize: 22
+                                    }
                                 }
                                 ColumnLayout {
                                     Layout.fillWidth: true; spacing: 2
@@ -2651,8 +2642,8 @@ PanelWindow {
                                     spacing: 6
                                     Repeater {
                                         model: [
-                                            { key: "stable", icon: "󰄬", label: I18n.tr("Stable") },
-                                            { key: "beta", icon: "󰚰", label: I18n.tr("Beta") }
+                                            { key: "stable", label: I18n.tr("Stable") },
+                                            { key: "beta", label: I18n.tr("Beta") }
                                         ]
                                         delegate: Rectangle {
                                             id: _channelChoice
@@ -2669,7 +2660,12 @@ PanelWindow {
                                             Row {
                                                 anchors.centerIn: parent
                                                 spacing: 8
-                                                Text { text: _channelChoice.modelData.icon; color: _channelChoice.selected ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 16 }
+                                                ShellIcon {
+                                                    role: "settings.update-channel"
+                                                    state: _channelChoice.modelData.key
+                                                    color: _channelChoice.selected ? ThemeManager.primary : ThemeManager.onSurfaceVariant
+                                                    iconSize: 16
+                                                }
                                                 Text { text: _channelChoice.modelData.label; color: _channelChoice.selected ? ThemeManager.primary : ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.DemiBold }
                                             }
                                             HoverHandler { id: _channelHover }
@@ -2703,9 +2699,9 @@ PanelWindow {
 
                         Repeater {
                             model: SettingsUi.category === "nodalix-updates" ? [
-                                { key: "shell", icon: "󰖯", title: I18n.tr("Nodalix Shell"), detail: I18n.tr("Interface, panels and system settings"), available: UpdateService.nodalixShellUpdate },
-                                { key: "apps", icon: "󰏖", title: I18n.tr("Nodalix applications"), detail: I18n.tr("Integrated applications and services"), available: UpdateService.nodalixAppsUpdate },
-                                { key: "themes", icon: "󰉼", title: I18n.tr("Nodalix themes"), detail: I18n.tr("Visual themes and application integrations"), available: UpdateService.nodalixThemesUpdate }
+                                { key: "shell", title: I18n.tr("Nodalix Shell"), detail: I18n.tr("Interface, panels and system settings"), available: UpdateService.nodalixShellUpdate },
+                                { key: "apps", title: I18n.tr("Nodalix applications"), detail: I18n.tr("Integrated applications and services"), available: UpdateService.nodalixAppsUpdate },
+                                { key: "themes", title: I18n.tr("Nodalix themes"), detail: I18n.tr("Visual themes and application integrations"), available: UpdateService.nodalixThemesUpdate }
                             ] : []
                             delegate: Rectangle {
                                 required property var modelData
@@ -2717,7 +2713,12 @@ PanelWindow {
                                 RowLayout {
                                     anchors { fill: parent; margins: 10 }
                                     spacing: 10
-                                    Text { text: modelData.icon; color: ThemeManager.primary; font.family: ThemeManager.fontFor(text); font.pixelSize: 19 }
+                                    ShellIcon {
+                                        role: "settings.update-component"
+                                        state: modelData.key
+                                        color: ThemeManager.primary
+                                        iconSize: 19
+                                    }
                                     ColumnLayout {
                                         Layout.fillWidth: true; spacing: 1
                                         Text { text: modelData.title; color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeMd; font.weight: Font.Medium }
@@ -2814,10 +2815,10 @@ PanelWindow {
 
                         Repeater {
                             model: SettingsUi.category === "updates" ? [
-                                { key: "system", icon: "󰏖", title: I18n.tr("System and kernel"), detail: I18n.tr("Official Arch packages, dependencies and kernel"), count: UpdateService.systemUpdates },
-                                { key: "aur", icon: "󰣇", title: "AUR", detail: I18n.tr("User repository applications"), count: UpdateService.aurUpdates },
-                                { key: "flatpak", icon: "󰏗", title: "Flatpak", detail: I18n.tr("Sandboxed applications and runtimes"), count: UpdateService.flatpakUpdates },
-                                { key: "firmware", icon: "󰒋", title: I18n.tr("Firmware"), detail: I18n.tr("Device firmware through fwupd"), count: -1 }
+                                { key: "system", title: I18n.tr("System and kernel"), detail: I18n.tr("Official Arch packages, dependencies and kernel"), count: UpdateService.systemUpdates },
+                                { key: "aur", title: "AUR", detail: I18n.tr("User repository applications"), count: UpdateService.aurUpdates },
+                                { key: "flatpak", title: "Flatpak", detail: I18n.tr("Sandboxed applications and runtimes"), count: UpdateService.flatpakUpdates },
+                                { key: "firmware", title: I18n.tr("Firmware"), detail: I18n.tr("Device firmware through fwupd"), count: -1 }
                             ] : []
                             delegate: ColumnLayout {
                                 required property var modelData
@@ -2833,7 +2834,12 @@ PanelWindow {
                                     RowLayout {
                                         anchors { fill: parent; margins: 10 }
                                         spacing: 10
-                                        Text { text: modelData.icon; color: ThemeManager.primary; font.family: ThemeManager.fontFor(text); font.pixelSize: 20 }
+                                        ShellIcon {
+                                            role: "settings.update-source"
+                                            state: modelData.key
+                                            color: ThemeManager.primary
+                                            iconSize: 20
+                                        }
                                         ColumnLayout {
                                             Layout.fillWidth: true; spacing: 1
                                             Text { text: modelData.title; color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeMd; font.weight: Font.Medium }
@@ -2951,7 +2957,7 @@ PanelWindow {
                                     color: PhoneLinkService.active
                                         ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.18)
                                         : ThemeManager.surfaceContainer
-                                    Text { anchors.centerIn: parent; text: "󰄜"; color: PhoneLinkService.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 22 }
+                                    ShellIcon { anchors.centerIn: parent; role: "settings.item"; state: "phone-link"; color: PhoneLinkService.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant; iconSize: 22 }
                                 }
                                 ColumnLayout {
                                     Layout.fillWidth: true; spacing: 1
@@ -3076,7 +3082,7 @@ PanelWindow {
                                 RowLayout {
                                     anchors { fill: parent; margins: 10 }
                                     spacing: 10
-                                    Text { text: "󰋑"; color: ThemeManager.primary; font.family: ThemeManager.fontFor(text); font.pixelSize: 18 }
+                                    ShellIcon { role: "favorite"; state: "yes"; color: ThemeManager.primary; iconSize: 18 }
                                     Text { Layout.fillWidth: true; text: modelData.alias; color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); elide: Text.ElideRight }
                                     SettingBtn { label: I18n.tr("Remove"); danger: true; onClicked: LocalSendService.setFavorite(modelData.fingerprint, false, modelData.alias) }
                                 }
@@ -3228,9 +3234,9 @@ PanelWindow {
                             Layout.fillWidth: true; spacing: 6
                             Repeater {
                                 model: [
-                                    { value: PowerProfile.PowerSaver, label: I18n.tr("Power Saver"), icon: "󰾆", available: true },
-                                    { value: PowerProfile.Balanced, label: I18n.tr("Balanced"), icon: "󰾅", available: true },
-                                    { value: PowerProfile.Performance, label: I18n.tr("Performance"), icon: "󰓅", available: PowerProfiles.hasPerformanceProfile }
+                                    { value: PowerProfile.PowerSaver, label: I18n.tr("Power Saver"), state: "power-saver", available: true },
+                                    { value: PowerProfile.Balanced, label: I18n.tr("Balanced"), state: "balanced", available: true },
+                                    { value: PowerProfile.Performance, label: I18n.tr("Performance"), state: "performance", available: PowerProfiles.hasPerformanceProfile }
                                 ]
                                 delegate: Rectangle {
                                     required property var modelData
@@ -3241,7 +3247,13 @@ PanelWindow {
                                     border.width: 1; border.color: selected ? ThemeManager.primary : ThemeManager.outlineVariant
                                     ColumnLayout {
                                         anchors.centerIn: parent; spacing: 1
-                                        Text { Layout.alignment: Qt.AlignHCenter; text: modelData.icon; color: parent.parent.selected ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 18 }
+                                        ShellIcon {
+                                            Layout.alignment: Qt.AlignHCenter
+                                            role: "settings.power-profile"
+                                            state: modelData.state
+                                            color: parent.parent.selected ? ThemeManager.primary : ThemeManager.onSurfaceVariant
+                                            iconSize: 18
+                                        }
                                         Text { Layout.alignment: Qt.AlignHCenter; text: modelData.label; color: parent.parent.selected ? ThemeManager.primary : ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: 10 }
                                     }
                                     TapHandler { onTapped: PowerProfiles.profile = modelData.value }
@@ -3282,9 +3294,9 @@ PanelWindow {
                         SettingSection { text: I18n.tr("Privacy") }
                         RowLayout {
                             Layout.fillWidth: true; spacing: 8
-                            PrivacyState { icon: "󰍬"; label: I18n.tr("Microphone"); active: PrivacyService.microphoneActive }
-                            PrivacyState { icon: "󰄀"; label: I18n.tr("Camera"); active: PrivacyService.cameraActive }
-                            PrivacyState { icon: "󰍎"; label: I18n.tr("Location"); active: PrivacyService.locationActive }
+                            PrivacyState { state: "microphone"; label: I18n.tr("Microphone"); active: PrivacyService.microphoneActive }
+                            PrivacyState { state: "camera"; label: I18n.tr("Camera"); active: PrivacyService.cameraActive }
+                            PrivacyState { state: "location"; label: I18n.tr("Location"); active: PrivacyService.locationActive }
                         }
                         LiveToggle {
                             label: I18n.tr("Mute microphone")
@@ -3393,12 +3405,12 @@ PanelWindow {
                         spacing: 7
 
                         SettingSection { text: I18n.tr("About this system") }
-                        SystemInfoRow { icon: "󰌢"; label: I18n.tr("Device name"); value: SystemControlService.hostName }
-                        SystemInfoRow { icon: "󰣇"; label: I18n.tr("Operating system"); value: SystemControlService.osName }
-                        SystemInfoRow { icon: "󰻠"; label: I18n.tr("Kernel"); value: SystemControlService.kernel }
-                        SystemInfoRow { icon: "󰍛"; label: "CPU"; value: SystemControlService.cpu }
-                        SystemInfoRow { icon: "󰘚"; label: I18n.tr("Memory"); value: SystemControlService.memory }
-                        SystemInfoRow { icon: "󰢮"; label: "GPU"; value: SystemControlService.gpu }
+                        SystemInfoRow { state: "device"; label: I18n.tr("Device name"); value: SystemControlService.hostName }
+                        SystemInfoRow { state: "os"; label: I18n.tr("Operating system"); value: SystemControlService.osName }
+                        SystemInfoRow { state: "kernel"; label: I18n.tr("Kernel"); value: SystemControlService.kernel }
+                        SystemInfoRow { state: "cpu"; label: "CPU"; value: SystemControlService.cpu }
+                        SystemInfoRow { state: "memory"; label: I18n.tr("Memory"); value: SystemControlService.memory }
+                        SystemInfoRow { state: "gpu"; label: "GPU"; value: SystemControlService.gpu }
                         RowLayout {
                             Layout.fillWidth: true; Layout.topMargin: 8
                             Item { Layout.fillWidth: true }
@@ -3427,8 +3439,12 @@ PanelWindow {
                                 Layout.fillWidth: true
                                 spacing: 10
                                 readonly property bool ok: DependencyService.available(modelData)
-                                Text { text: ok ? "󰄬" : "󰅖"; color: ok ? "#7bd88f" : ThemeManager.error
-                                       font.family: ThemeManager.fontFor(text); font.pixelSize: 14 }
+                                ShellIcon {
+                                    role: "settings.dependency"
+                                    state: ok ? "ok" : "missing"
+                                    color: ok ? "#7bd88f" : ThemeManager.error
+                                    iconSize: 14
+                                }
                                 ColumnLayout {
                                     Layout.fillWidth: true; spacing: 0
                                     Text { text: modelData + "  ·  " + DependencyService.desc(modelData)
@@ -3629,7 +3645,12 @@ PanelWindow {
         RowLayout {
             anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
             spacing: 8
-            Text { text: audioNode.selected ? "󰄬" : "󰓃"; color: audioNode.selected ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 14 }
+            ShellIcon {
+                role: "audio.device-selection"
+                state: audioNode.selected ? "selected" : "unselected"
+                color: audioNode.selected ? ThemeManager.primary : ThemeManager.onSurfaceVariant
+                iconSize: 14
+            }
             Text {
                 Layout.fillWidth: true
                 text: audioNode.node?.description || audioNode.node?.name || I18n.tr("Unknown")
@@ -3644,7 +3665,7 @@ PanelWindow {
     }
     component PrivacyState: Rectangle {
         id: privacyState
-        property string icon: ""
+        property string state: ""
         property string label: ""
         property bool active: false
         Layout.fillWidth: true; implicitHeight: 68; radius: ThemeManager.chipRadius + 2
@@ -3654,7 +3675,13 @@ PanelWindow {
         border.width: 1; border.color: active ? ThemeManager.primary : ThemeManager.outlineVariant
         ColumnLayout {
             anchors.centerIn: parent; spacing: 2
-            Text { Layout.alignment: Qt.AlignHCenter; text: privacyState.icon; color: privacyState.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 19 }
+            ShellIcon {
+                Layout.alignment: Qt.AlignHCenter
+                role: "settings.privacy-sensor"
+                state: privacyState.state
+                color: privacyState.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
+                iconSize: 19
+            }
             Text { Layout.alignment: Qt.AlignHCenter; text: privacyState.label; color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: 10 }
             Text { Layout.alignment: Qt.AlignHCenter; text: I18n.tr(privacyState.active ? "In use" : "Not in use"); color: privacyState.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 9 }
         }
@@ -3685,10 +3712,13 @@ PanelWindow {
                 verticalAlignment: Text.AlignVCenter
                 elide: Text.ElideRight
             }
-            indicator: Text {
-                x: appCombo.width - width - 10; anchors.verticalCenter: parent.verticalCenter
-                text: "󰅀"; color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFor(text); font.pixelSize: 13
+            indicator: ShellIcon {
+                x: appCombo.width - width - 10
+                anchors.verticalCenter: parent.verticalCenter
+                role: "ui.disclosure"
+                state: "closed"
+                color: ThemeManager.onSurfaceVariant
+                iconSize: 13
             }
             background: Rectangle {
                 radius: ThemeManager.chipRadius
@@ -3703,7 +3733,7 @@ PanelWindow {
     }
     component SystemInfoRow: Rectangle {
         id: infoRow
-        property string icon: ""
+        property string state: ""
         property string label: ""
         property string value: ""
         Layout.fillWidth: true; implicitHeight: 48; radius: ThemeManager.chipRadius
@@ -3712,7 +3742,12 @@ PanelWindow {
         RowLayout {
             anchors { fill: parent; leftMargin: 12; rightMargin: 12 }
             spacing: 10
-            Text { text: infoRow.icon; color: ThemeManager.primary; font.family: ThemeManager.fontFor(text); font.pixelSize: 17 }
+            ShellIcon {
+                role: "settings.system-info"
+                state: infoRow.state
+                color: ThemeManager.primary
+                iconSize: 17
+            }
             Text { text: infoRow.label; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
             Item { Layout.fillWidth: true }
             Text {
@@ -4006,17 +4041,19 @@ PanelWindow {
     // Small round overlay button on a wallpaper tile (favorite / rotation).
     component WpTileBtn: Rectangle {
         id: wtb
-        property string icon: ""
+        property string iconRole: ""
+        property string iconState: ""
         property bool   active: false
         signal clicked()
         implicitWidth: 24; implicitHeight: 24; radius: 12
         color: active ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.9)
                       : Qt.rgba(0, 0, 0, 0.45)
-        Text {
+        ShellIcon {
             anchors.centerIn: parent
-            text: wtb.icon
+            role: wtb.iconRole
+            state: wtb.iconState
             color: wtb.active ? ThemeManager.onPrimary : "white"
-            font.family: ThemeManager.fontFor(text); font.pixelSize: 13
+            iconSize: 13
         }
         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: wtb.clicked() }
     }

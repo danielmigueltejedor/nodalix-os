@@ -7,6 +7,7 @@ import Quickshell.Widgets
 import "./components"
 import "./theme"
 import "./services"
+import "widgets/bar" as BarWidgets
 
 // Custom session lock. State 1: wallpaper + clock/date (left) + weather (bottom-right).
 // State 2 (click / key): background blurs and a password prompt appears.
@@ -120,12 +121,12 @@ WlSessionLock {
             opacity: surf.showPrompt ? 0.0 : 1.0
             Behavior on opacity { NumberAnimation { duration: 260 } }
 
-            Text {
+            BarWidgets.ShellIcon {
                 anchors.verticalCenter: parent.verticalCenter
-                text: WeatherService.icon
+                role: "weather.condition"
+                state: WeatherService.condition
                 color: "white"
-                font.family: ThemeManager.fontFor(text)
-                font.pixelSize: 56
+                iconSize: 56
             }
             Column {
                 anchors.verticalCenter: parent.verticalCenter
@@ -167,13 +168,12 @@ WlSessionLock {
                     cache: false
                     visible: status === Image.Ready
                 }
-                Text {
+                BarWidgets.ShellIcon {
                     anchors.centerIn: parent
                     visible: _face.status !== Image.Ready
-                    text: "󰀄"
+                    role: "user.avatar"
                     color: "white"
-                    font.family: ThemeManager.fontFor(text)
-                    font.pixelSize: 64
+                    iconSize: 64
                 }
             }
 

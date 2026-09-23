@@ -165,8 +165,8 @@ def load_config() -> dict:
     # stable value and could therefore never discover the next beta. Keep an
     # installed prerelease on the beta train until the user deliberately
     # chooses a channel with `nodalix-updater channel`.
-    if not bool(config.get("channel_explicit", False)) and is_prerelease_version(current_version()):
-        config["channel"] = "beta"
+    if not bool(config.get("channel_explicit", False)):
+        config["channel"] = "beta" if is_prerelease_version(current_version()) else "stable"
     if not str(config.get("manifest_asset") or "").strip():
         config["manifest_asset"] = DEFAULT_CONFIG["manifest_asset"]
     return config

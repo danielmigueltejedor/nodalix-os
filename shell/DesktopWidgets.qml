@@ -6,6 +6,7 @@ import Quickshell.Wayland
 import Quickshell.Widgets
 import "./theme"
 import "./services"
+import "./widgets/bar" as BarWidgets
 
 PanelWindow {
     id: root
@@ -83,12 +84,23 @@ PanelWindow {
             spacing: 8
             RowLayout {
                 Layout.fillWidth: true
-                Text { text: "󰜬"; color: ThemeManager.primary; font.family: ThemeManager.fontFor(text); font.pixelSize: 18 }
+                BarWidgets.ShellIcon {
+                    role: "desktop.widget"
+                    state: "editor"
+                    color: ThemeManager.primary
+                    iconSize: 18
+                }
                 Text { Layout.fillWidth: true; text: I18n.tr("Desktop widgets"); color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.weight: Font.Bold; font.pixelSize: 14 }
                 Text { text: I18n.tr("Drag widgets to arrange them"); color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 10 }
                 Rectangle {
                     width: 30; height: 30; radius: 15; color: _closeHover.hovered ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.16) : "transparent"
-                    Text { anchors.centerIn: parent; text: "󰅖"; color: ThemeManager.primary; font.family: ThemeManager.fontFor(text); font.pixelSize: 17 }
+                    BarWidgets.ShellIcon {
+                        anchors.centerIn: parent
+                        role: "desktop.edit"
+                        state: "close"
+                        color: ThemeManager.primary
+                        iconSize: 17
+                    }
                     HoverHandler { id: _closeHover }
                     TapHandler { onTapped: DesktopWidgetService.closeEdit() }
                 }
@@ -110,7 +122,7 @@ PanelWindow {
 
     DesktopCard {
         widgetKey: "clock"; defaultX: 72; defaultY: 122; cardWidth: 300; cardHeight: 150
-        icon: "󰥔"; title: I18n.tr("Clock"); accent: ThemeManager.primary
+        title: I18n.tr("Clock"); accent: ThemeManager.primary
         ColumnLayout {
             anchors { fill: parent; leftMargin: 22; rightMargin: 22; topMargin: 18; bottomMargin: 16 }
             spacing: 0
@@ -135,7 +147,7 @@ PanelWindow {
     DesktopCard {
         id: calendarCard
         widgetKey: "calendar"; defaultX: 72; defaultY: 294; cardWidth: 300; cardHeight: 278
-        icon: "󰃭"; title: I18n.tr("Calendar"); accent: ThemeManager.tertiary
+        title: I18n.tr("Calendar"); accent: ThemeManager.tertiary
         readonly property var _first: new Date(root.now.getFullYear(), root.now.getMonth(), 1)
         readonly property int _offset: (_first.getDay() + 6) % 7
         ColumnLayout {
@@ -188,23 +200,23 @@ PanelWindow {
     }
     DesktopCard {
         widgetKey: "system"; defaultX: 398; defaultY: 122; cardWidth: 350; cardHeight: 178
-        icon: "󰍛"; title: I18n.tr("System performance"); accent: ThemeManager.secondary
+        title: I18n.tr("System performance"); accent: ThemeManager.secondary
         ColumnLayout {
             anchors { fill: parent; margins: 18; topMargin: 16 }
             spacing: 12
-            WidgetHeader { icon: "󰍛"; title: I18n.tr("System performance"); accent: ThemeManager.secondary }
+            WidgetHeader { iconRole: "desktop.widget"; iconState: "system"; title: I18n.tr("System performance"); accent: ThemeManager.secondary }
             RowLayout {
                 Layout.fillWidth: true; Layout.fillHeight: true; spacing: 8
-                MetricTile { Layout.fillWidth: true; icon: "󰍛"; label: "CPU"; value: SystemMetricsService.cpu; display: Math.round(SystemMetricsService.cpu) + "%"; accent: ThemeManager.primary }
-                MetricTile { Layout.fillWidth: true; icon: "󰘚"; label: "RAM"; value: SystemMetricsService.ram; display: Math.round(SystemMetricsService.ram) + "%"; accent: ThemeManager.secondary }
-                MetricTile { Layout.fillWidth: true; icon: "󰔏"; label: I18n.tr("Temperature"); value: SystemMetricsService.temp >= 0 ? SystemMetricsService.temp : 0; display: SystemMetricsService.temp >= 0 ? Math.round(SystemMetricsService.temp) + "°" : "—"; accent: ThemeManager.tertiary }
+                MetricTile { Layout.fillWidth: true; iconRole: "desktop.metric"; iconState: "cpu"; label: "CPU"; value: SystemMetricsService.cpu; display: Math.round(SystemMetricsService.cpu) + "%"; accent: ThemeManager.primary }
+                MetricTile { Layout.fillWidth: true; iconRole: "desktop.metric"; iconState: "memory"; label: "RAM"; value: SystemMetricsService.ram; display: Math.round(SystemMetricsService.ram) + "%"; accent: ThemeManager.secondary }
+                MetricTile { Layout.fillWidth: true; iconRole: "desktop.metric"; iconState: "temperature"; label: I18n.tr("Temperature"); value: SystemMetricsService.temp >= 0 ? SystemMetricsService.temp : 0; display: SystemMetricsService.temp >= 0 ? Math.round(SystemMetricsService.temp) + "°" : "—"; accent: ThemeManager.tertiary }
             }
         }
     }
     DesktopCard {
         id: mediaCard
         widgetKey: "media"; defaultX: 398; defaultY: 316; cardWidth: 420; cardHeight: 178
-        icon: "󰝚"; title: I18n.tr("Media player"); accent: ThemeManager.primary
+        title: I18n.tr("Media player"); accent: ThemeManager.primary
         RowLayout {
             anchors { fill: parent; margins: 15 }
             spacing: 16
@@ -219,7 +231,13 @@ PanelWindow {
                         GradientStop { position: 1; color: Qt.rgba(ThemeManager.surfaceContainerHigh.r, ThemeManager.surfaceContainerHigh.g, ThemeManager.surfaceContainerHigh.b, 0.96) }
                     }
                 }
-                Text { anchors.centerIn: parent; visible: MprisService.artUrl === ""; text: "󰝚"; color: ThemeManager.primary; font.family: ThemeManager.fontFor(text); font.pixelSize: 42 }
+                BarWidgets.ShellIcon {
+                    anchors.centerIn: parent
+                    visible: MprisService.artUrl === ""
+                    role: "media.placeholder"
+                    color: ThemeManager.primary
+                    iconSize: 42
+                }
                 Rectangle { anchors.fill: parent; radius: 28; color: "transparent"; border.width: 1; border.color: Qt.rgba(ThemeManager.onSurface.r, ThemeManager.onSurface.g, ThemeManager.onSurface.b, 0.13) }
             }
             ColumnLayout {
@@ -246,11 +264,16 @@ PanelWindow {
                 }
                 RowLayout {
                     Layout.fillWidth: true; spacing: 8
-                    MediaButton { icon: "󰒮"; onClicked: MprisService.previous() }
-                    MediaButton { icon: MprisService.playing ? "󰏤" : "󰐊"; primary: true; onClicked: MprisService.playPause() }
-                    MediaButton { icon: "󰒭"; onClicked: MprisService.next() }
+                    MediaButton { iconRole: "media.previous"; onClicked: MprisService.previous() }
+                    MediaButton { iconRole: "media.playback"; iconState: MprisService.playing ? "pause" : "play"; primary: true; onClicked: MprisService.playPause() }
+                    MediaButton { iconRole: "media.next"; onClicked: MprisService.next() }
                     Item { Layout.fillWidth: true }
-                    Text { text: "󰎈"; color: ThemeManager.onSurfaceVariant; opacity: 0.65; font.family: ThemeManager.fontFor(text); font.pixelSize: 15 }
+                    BarWidgets.ShellIcon {
+                        role: "media.placeholder"
+                        color: ThemeManager.onSurfaceVariant
+                        opacity: 0.65
+                        iconSize: 15
+                    }
                 }
             }
         }
@@ -260,11 +283,16 @@ PanelWindow {
         id: weatherCard
         widgetKey: "weather"; defaultVisible: false
         defaultX: 826; defaultY: 122; cardWidth: 360; cardHeight: 190
-        icon: "󰖐"; title: I18n.tr("Weather"); accent: ThemeManager.tertiary
+        title: I18n.tr("Weather"); accent: ThemeManager.tertiary
         ColumnLayout {
             anchors { fill: parent; margins: 18; topMargin: 16 }
             spacing: 10
-            WidgetHeader { icon: WeatherService.icon; title: WeatherService.location !== "" ? WeatherService.location : I18n.tr("Weather"); accent: weatherCard.accent }
+            WidgetHeader {
+                iconRole: "weather.condition"
+                iconState: WeatherService.condition
+                title: WeatherService.location !== "" ? WeatherService.location : I18n.tr("Weather")
+                accent: weatherCard.accent
+            }
             RowLayout {
                 Layout.fillWidth: true; Layout.fillHeight: true; spacing: 14
                 ColumnLayout {
@@ -282,7 +310,13 @@ PanelWindow {
                             required property var modelData
                             Layout.fillWidth: true; spacing: 3
                             Text { Layout.alignment: Qt.AlignHCenter; text: modelData.day; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 10; font.weight: Font.DemiBold }
-                            Text { Layout.alignment: Qt.AlignHCenter; text: modelData.icon; color: weatherCard.accent; font.family: ThemeManager.fontFor(text); font.pixelSize: 23 }
+                            BarWidgets.ShellIcon {
+                                Layout.alignment: Qt.AlignHCenter
+                                role: "weather.condition"
+                                state: modelData.condition
+                                color: weatherCard.accent
+                                iconSize: 23
+                            }
                             Text { Layout.alignment: Qt.AlignHCenter; text: WeatherService.conv(modelData.max) + "°  " + WeatherService.conv(modelData.min) + "°"; color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: 10 }
                         }
                     }
@@ -295,17 +329,24 @@ PanelWindow {
         id: agendaCard
         widgetKey: "agenda"; defaultVisible: false
         defaultX: 826; defaultY: 336; cardWidth: 380; cardHeight: 222
-        icon: "󰃭"; title: I18n.tr("Today's agenda"); accent: ThemeManager.primary
+        title: I18n.tr("Today's agenda"); accent: ThemeManager.primary
         ColumnLayout {
             anchors { fill: parent; margins: 18; topMargin: 16 }
             spacing: 8
             WidgetHeader {
-                icon: "󰃭"; title: I18n.tr("Today's agenda"); accent: agendaCard.accent
+                iconRole: "desktop.widget"; iconState: "agenda"; title: I18n.tr("Today's agenda"); accent: agendaCard.accent
                 trailing: root._todayEvents.length > 0 ? root._todayEvents.length + " " + I18n.tr(root._todayEvents.length === 1 ? "event" : "events") : ""
             }
             Item { Layout.fillWidth: true; Layout.fillHeight: true; visible: root._todayEvents.length === 0
                 Column { anchors.centerIn: parent; spacing: 6
-                    Text { anchors.horizontalCenter: parent.horizontalCenter; text: "󰃶"; color: agendaCard.accent; opacity: 0.65; font.family: ThemeManager.fontFor(text); font.pixelSize: 28 }
+                    BarWidgets.ShellIcon {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        role: "desktop.widget"
+                        state: "calendar-empty"
+                        color: agendaCard.accent
+                        opacity: 0.65
+                        iconSize: 28
+                    }
                     Text { anchors.horizontalCenter: parent.horizontalCenter; text: I18n.tr("No events today"); color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 12 }
                 }
             }
@@ -327,7 +368,12 @@ PanelWindow {
                 visible: CalendarService.reminders.length > 0
                 color: Qt.rgba(agendaCard.accent.r, agendaCard.accent.g, agendaCard.accent.b, 0.11)
                 RowLayout { anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
-                    Text { text: "󰂚"; color: agendaCard.accent; font.family: ThemeManager.fontFor(text); font.pixelSize: 13 }
+                    BarWidgets.ShellIcon {
+                        role: "calendar.detail"
+                        state: "reminder"
+                        color: agendaCard.accent
+                        iconSize: 13
+                    }
                     Text { Layout.fillWidth: true; text: CalendarService.reminders.length + " " + I18n.tr(CalendarService.reminders.length === 1 ? "reminder" : "reminders"); color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: 10 }
                 }
             }
@@ -338,12 +384,12 @@ PanelWindow {
         id: storageCard
         widgetKey: "storage"; defaultVisible: false
         defaultX: 1232; defaultY: 122; cardWidth: 320; cardHeight: 170
-        icon: "󰋊"; title: I18n.tr("Storage"); accent: ThemeManager.secondary
+        title: I18n.tr("Storage"); accent: ThemeManager.secondary
         readonly property real fraction: root.diskTotal > 0 ? Math.max(0, Math.min(1, root.diskUsed / root.diskTotal)) : 0
         ColumnLayout {
             anchors { fill: parent; margins: 18; topMargin: 16 }
             spacing: 12
-            WidgetHeader { icon: "󰋊"; title: I18n.tr("Storage"); accent: storageCard.accent; trailing: Math.round(storageCard.fraction * 100) + "%" }
+            WidgetHeader { iconRole: "desktop.widget"; iconState: "storage"; title: I18n.tr("Storage"); accent: storageCard.accent; trailing: Math.round(storageCard.fraction * 100) + "%" }
             Rectangle {
                 Layout.fillWidth: true; implicitHeight: 10; radius: 5
                 color: Qt.rgba(ThemeManager.onSurface.r, ThemeManager.onSurface.g, ThemeManager.onSurface.b, 0.09)
@@ -368,22 +414,24 @@ PanelWindow {
         id: privacyCard
         widgetKey: "privacy"; defaultVisible: false
         defaultX: 1232; defaultY: 316; cardWidth: 340; cardHeight: 150
-        icon: "󰒃"; title: I18n.tr("Privacy"); accent: PrivacyService.active ? ThemeManager.tertiary : ThemeManager.primary
+        title: I18n.tr("Privacy"); accent: PrivacyService.active ? ThemeManager.tertiary : ThemeManager.primary
         ColumnLayout {
             anchors { fill: parent; margins: 18; topMargin: 16 }
             spacing: 13
-            WidgetHeader { icon: "󰒃"; title: I18n.tr("Privacy"); accent: privacyCard.accent; trailing: PrivacyService.active ? I18n.tr("In use") : I18n.tr("Protected") }
+            WidgetHeader { iconRole: "desktop.widget"; iconState: "privacy"; title: I18n.tr("Privacy"); accent: privacyCard.accent; trailing: PrivacyService.active ? I18n.tr("In use") : I18n.tr("Protected") }
             RowLayout {
                 Layout.fillWidth: true; spacing: 7
-                PrivacyPill { Layout.fillWidth: true; icon: "󰍬"; label: I18n.tr("Microphone"); active: PrivacyService.microphoneActive }
-                PrivacyPill { Layout.fillWidth: true; icon: "󰄀"; label: I18n.tr("Camera"); active: PrivacyService.cameraActive }
-                PrivacyPill { Layout.fillWidth: true; icon: "󰍎"; label: I18n.tr("Location"); active: PrivacyService.locationActive }
+                PrivacyPill { Layout.fillWidth: true; iconRole: "settings.privacy-sensor"; iconState: "microphone"; label: I18n.tr("Microphone"); active: PrivacyService.microphoneActive }
+                PrivacyPill { Layout.fillWidth: true; iconRole: "settings.privacy-sensor"; iconState: "camera"; label: I18n.tr("Camera"); active: PrivacyService.cameraActive }
+                PrivacyPill { Layout.fillWidth: true; iconRole: "settings.privacy-sensor"; iconState: "location"; label: I18n.tr("Location"); active: PrivacyService.locationActive }
             }
         }
     }
 
     component WidgetHeader: RowLayout {
-        required property string icon
+        id: widgetHeader
+        property string iconRole: ""
+        property string iconState: ""
         required property string title
         property color accent: ThemeManager.primary
         property string trailing: ""
@@ -391,7 +439,13 @@ PanelWindow {
         Rectangle {
             Layout.preferredWidth: 28; Layout.preferredHeight: 28; radius: 10
             color: Qt.rgba(parent.accent.r, parent.accent.g, parent.accent.b, 0.14)
-            Text { anchors.centerIn: parent; text: parent.parent.icon; color: parent.parent.accent; font.family: ThemeManager.fontFor(text); font.pixelSize: 15 }
+            BarWidgets.ShellIcon {
+                anchors.centerIn: parent
+                role: widgetHeader.iconRole
+                state: widgetHeader.iconState
+                color: widgetHeader.accent
+                iconSize: 15
+            }
         }
         Text { Layout.fillWidth: true; text: parent.title; color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: 13; font.weight: Font.Bold; elide: Text.ElideRight }
         Rectangle {
@@ -404,7 +458,9 @@ PanelWindow {
 
     component MetricTile: Rectangle {
         id: metricTile
-        required property string icon
+        property string iconRole: ""
+        property string iconState: ""
+        property string iconName: ""
         required property string label
         required property real value
         required property string display
@@ -416,7 +472,13 @@ PanelWindow {
             anchors { fill: parent; margins: 10 }
             spacing: 2
             RowLayout { Layout.fillWidth: true
-                Text { text: metricTile.icon; color: metricTile.accent; font.family: ThemeManager.fontFor(text); font.pixelSize: 14 }
+                BarWidgets.ShellIcon {
+                    role: metricTile.iconRole
+                    state: metricTile.iconState
+                    iconName: metricTile.iconName
+                    color: metricTile.accent
+                    iconSize: 14
+                }
                 Item { Layout.fillWidth: true }
                 Text { text: metricTile.display; color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: 14; font.weight: Font.Bold }
             }
@@ -436,7 +498,9 @@ PanelWindow {
 
     component MediaButton: Rectangle {
         id: mediaButton
-        required property string icon
+        property string iconRole: ""
+        property string iconState: ""
+        property string iconName: ""
         property bool primary: false
         signal clicked()
         implicitWidth: primary ? 38 : 32; implicitHeight: primary ? 38 : 32
@@ -444,14 +508,23 @@ PanelWindow {
         color: primary ? ThemeManager.primary : (_mediaHover.hovered ? Qt.rgba(ThemeManager.onSurface.r, ThemeManager.onSurface.g, ThemeManager.onSurface.b, 0.10) : "transparent")
         scale: _mediaTap.pressed ? 0.90 : 1
         Behavior on scale { NumberAnimation { duration: 90 } }
-        Text { anchors.centerIn: parent; text: mediaButton.icon; color: mediaButton.primary ? ThemeManager.onPrimary : ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: mediaButton.primary ? 19 : 16 }
+        BarWidgets.ShellIcon {
+            anchors.centerIn: parent
+            role: mediaButton.iconRole
+            state: mediaButton.iconState
+            iconName: mediaButton.iconName
+            color: mediaButton.primary ? ThemeManager.onPrimary : ThemeManager.onSurface
+            iconSize: mediaButton.primary ? 19 : 16
+        }
         HoverHandler { id: _mediaHover }
         TapHandler { id: _mediaTap; onTapped: mediaButton.clicked() }
     }
 
     component PrivacyPill: Rectangle {
         id: privacyPill
-        required property string icon
+        property string iconRole: ""
+        property string iconState: ""
+        property string iconName: ""
         required property string label
         required property bool active
         implicitHeight: 60; radius: 16
@@ -461,7 +534,14 @@ PanelWindow {
         border.width: 1
         border.color: active ? Qt.rgba(ThemeManager.tertiary.r, ThemeManager.tertiary.g, ThemeManager.tertiary.b, 0.35) : "transparent"
         Column { anchors.centerIn: parent; spacing: 3
-            Text { anchors.horizontalCenter: parent.horizontalCenter; text: privacyPill.icon; color: privacyPill.active ? ThemeManager.tertiary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 17 }
+            BarWidgets.ShellIcon {
+                anchors.horizontalCenter: parent.horizontalCenter
+                role: privacyPill.iconRole
+                state: privacyPill.iconState
+                iconName: privacyPill.iconName
+                color: privacyPill.active ? ThemeManager.tertiary : ThemeManager.onSurfaceVariant
+                iconSize: 17
+            }
             Text { anchors.horizontalCenter: parent.horizontalCenter; text: privacyPill.label; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 8; elide: Text.ElideRight }
         }
     }
@@ -469,7 +549,6 @@ PanelWindow {
     component DesktopCard: Rectangle {
         id: card
         property string widgetKey
-        property string icon: "󰜬"
         property string title: widgetKey
         property color accent: ThemeManager.primary
         property bool defaultVisible: true
@@ -508,14 +587,29 @@ PanelWindow {
                 SettingsService.set(root._prefix + card.widgetKey + ".y", Math.round(card.y))
             }
         }
-        Text {
+        Item {
             visible: DesktopWidgetService.editMode
             anchors { right: parent.right; top: parent.top; margins: 7 }
-            width: 28; height: 28
-            text: "󰆾"; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter
-            color: ThemeManager.error; font.family: ThemeManager.fontFor(text); font.pixelSize: 14
-            Rectangle { anchors.fill: parent; z: -1; radius: 14; color: Qt.rgba(ThemeManager.error.r, ThemeManager.error.g, ThemeManager.error.b, 0.13) }
-            TapHandler { onTapped: SettingsService.set(root._prefix + card.widgetKey + ".visible", false) }
+            width: 28
+            height: 28
+
+            Rectangle {
+                anchors.fill: parent
+                radius: 14
+                color: Qt.rgba(ThemeManager.error.r, ThemeManager.error.g, ThemeManager.error.b, 0.13)
+            }
+
+            BarWidgets.ShellIcon {
+                anchors.centerIn: parent
+                role: "desktop.edit"
+                state: "remove"
+                color: ThemeManager.error
+                iconSize: 14
+            }
+
+            TapHandler {
+                onTapped: SettingsService.set(root._prefix + card.widgetKey + ".visible", false)
+            }
         }
         Rectangle {
             visible: DesktopWidgetService.editMode
@@ -523,7 +617,13 @@ PanelWindow {
             implicitWidth: _editLabel.implicitWidth + 20; implicitHeight: 27; radius: 14
             color: Qt.rgba(card.accent.r, card.accent.g, card.accent.b, 0.16)
             Row { anchors.centerIn: parent; spacing: 6
-                Text { text: "󰆾"; rotation: 45; color: card.accent; font.family: ThemeManager.fontFor(text); font.pixelSize: 11 }
+                BarWidgets.ShellIcon {
+                    role: "desktop.edit"
+                    state: "drag"
+                    rotation: 45
+                    color: card.accent
+                    iconSize: 11
+                }
                 Text { id: _editLabel; text: card.title; color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: 9; font.weight: Font.DemiBold }
             }
         }

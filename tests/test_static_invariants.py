@@ -38,22 +38,14 @@ class StaticInvariantTests(unittest.TestCase):
         self.assertNotIn("modelData.id >= 0 : true", workspaces)
         self.assertNotIn("modelData.monitor === root.hyprMonitor", workspaces)
 
-    def test_colloid_bold_bar_assets_are_self_contained_and_tinted(self) -> None:
-        icons = SHELL / "assets/icons/colloid-bold"
-        component = (SHELL / "widgets/bar/ColloidIcon.qml").read_text(encoding="utf-8")
-        self.assertTrue((icons / "LICENSE-GPL-3.0").is_file())
-        self.assertIn('Paths.configDir + "/assets/icons/colloid-bold/"', component)
-        self.assertIn("ColorOverlay", component)
-        self.assertNotIn("Quickshell.iconPath", component)
-        for group, name in (
-            ("actions", "application-menu-symbolic"),
-            ("status", "audio-volume-high-symbolic"),
-            ("status", "audio-input-microphone-muted-symbolic"),
-            ("status", "nm-signal-100-symbolic"),
-            ("status", "notification-new-symbolic"),
-            ("status", "system-shutdown-symbolic"),
-        ):
-            self.assertTrue((icons / group / f"{name}.svg").is_file(), name)
+    def test_colloid_icon_is_shell_icon_compatibility_wrapper(self) -> None:
+        component = (SHELL / "widgets" / "bar" / "ColloidIcon.qml").read_text(encoding="utf-8")
+        self.assertIn("ShellIcon {", component)
+        self.assertNotIn("assets/icons/colloid-bold/", component)
+        self.assertNotIn("ColorOverlay", component)
+
+        shell_icon = SHELL / "widgets" / "bar" / "ShellIcon.qml"
+        self.assertTrue(shell_icon.is_file())
 
     def test_bar_separators_are_removed_without_touching_panel_dividers(self) -> None:
         for name in ("BarLeft", "BarCenter", "BarRight"):

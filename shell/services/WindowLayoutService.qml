@@ -15,9 +15,9 @@ QtObject {
     property string statusText: ""
 
     readonly property var modes: [
-        { id: "desktop", icon: "󰍹", name: I18n.tr("Windows"), description: I18n.tr("Free windows with a dock and visible controls") },
-        { id: "tiling", icon: "󰕰", name: I18n.tr("Mosaic"), description: I18n.tr("Automatic Hyprland tiling") },
-        { id: "scrolling", icon: "󰁔", name: I18n.tr("Flow"), description: I18n.tr("Super + Left / Right moves between columns") }
+        { id: "desktop", name: I18n.tr("Windows"), description: I18n.tr("Free windows with a dock and visible controls") },
+        { id: "tiling", name: I18n.tr("Mosaic"), description: I18n.tr("Automatic Hyprland tiling") },
+        { id: "scrolling", name: I18n.tr("Flow"), description: I18n.tr("Super + Left / Right moves between columns") }
     ]
 
     function setMode(next) {

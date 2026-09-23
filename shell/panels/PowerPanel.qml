@@ -47,9 +47,9 @@ Item {
         }
         spacing: 2
 
-        PowerAction { icon: "󰌾"; label: I18n.tr("Lock");       onTriggered: LockService.lock() }
-        PowerAction { icon: "󰒲"; label: I18n.tr("Suspend");    onTriggered: root._suspendProc.running   = true }
-        PowerAction { icon: "󰤄"; label: I18n.tr("Hibernate");  onTriggered: root._hibernateProc.running = true }
+        PowerAction { iconState: "lock"; label: I18n.tr("Lock");       onTriggered: LockService.lock() }
+        PowerAction { iconState: "suspend"; label: I18n.tr("Suspend");    onTriggered: root._suspendProc.running   = true }
+        PowerAction { iconState: "hibernate"; label: I18n.tr("Hibernate");  onTriggered: root._hibernateProc.running = true }
 
         Rectangle {
             Layout.fillWidth: true; height: 1
@@ -57,9 +57,9 @@ Item {
             Layout.topMargin: 2; Layout.bottomMargin: 2
         }
 
-        PowerAction { icon: "󰍃"; label: I18n.tr("Log out");   danger: true; onTriggered: root._confirm = "logout" }
-        PowerAction { icon: "󰑙"; label: I18n.tr("Reboot");    danger: true; onTriggered: root._confirm = "reboot" }
-        PowerAction { icon: "󰐥"; label: I18n.tr("Shut down"); danger: true; onTriggered: root._confirm = "shutdown" }
+        PowerAction { iconState: "logout"; label: I18n.tr("Log out");   danger: true; onTriggered: root._confirm = "logout" }
+        PowerAction { iconState: "reboot"; label: I18n.tr("Reboot");    danger: true; onTriggered: root._confirm = "reboot" }
+        PowerAction { iconState: "shutdown"; label: I18n.tr("Shut down"); danger: true; onTriggered: root._confirm = "shutdown" }
     }
 
     // ── Confirmation view ─────────────────────────────────────────────────────
@@ -72,11 +72,12 @@ Item {
         }
         spacing: 8
 
-        ColloidIcon {
+        ShellIcon {
             Layout.alignment: Qt.AlignHCenter
-            text: root._confirm === "reboot" ? "󰑙" : (root._confirm === "shutdown" ? "󰐥" : "󰍃")
+            role: "power.action"
+            state: root._confirm
             color: ThemeManager.error
-            font.pixelSize: 28
+            iconSize: 28
         }
         Text {
             Layout.alignment: Qt.AlignHCenter
@@ -111,7 +112,7 @@ Item {
     component PowerAction: Item {
         id: pa
 
-        property string icon:   ""
+        property string iconState: ""
         property string label:  ""
         property bool   danger: false
 
@@ -133,10 +134,11 @@ Item {
             anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
             spacing: 10
 
-            ColloidIcon {
-                text:             pa.icon
-                color:            _hov.hovered ? pa._accent : ThemeManager.onSurfaceVariant
-                font.pixelSize:   16
+            ShellIcon {
+                role: "power.action"
+                state: pa.iconState
+                color: _hov.hovered ? pa._accent : ThemeManager.onSurfaceVariant
+                iconSize: 16
                 Layout.alignment: Qt.AlignVCenter
             }
             Text {

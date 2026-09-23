@@ -57,7 +57,7 @@ Item {
     readonly property bool isEthernet: _hasEthernet || _nmEthernet
     readonly property bool isWifi:     !isEthernet && connectedWifi !== null
 
-    ColloidIcon {
+    ShellIcon {
         id: _icon
         anchors.centerIn: parent
         iconName: {
@@ -71,7 +71,6 @@ Item {
             if (s >= 0.2) return "nm-signal-25-symbolic"
             return "nm-signal-0-symbolic"
         }
-        fallbackGlyph: "󰈀"
         color: (isWifi || isEthernet) ? ThemeManager.onSurface : ThemeManager.onSurfaceVariant
         opacity: (isWifi || isEthernet) ? 1.0 : 0.5
     }

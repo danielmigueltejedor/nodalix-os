@@ -43,3 +43,48 @@ button.power-action.power-off:hover { background: rgba(230,162,152,0.16); border
 button:focus-visible { outline: 2px solid #c7dfcf; outline-offset: 3px; }
 button:disabled { opacity: 0.4; }
 button.login-submit label, button.login-submit image { color: #1c3426; }
+
+/* Upstream ReGreet, used on a clean ISO installation. */
+frame.background {
+  border: none;
+  border-radius: 28px;
+  padding: 18px 24px;
+  background: linear-gradient(145deg, rgba(29,39,39,0.96), rgba(14,21,22,0.96));
+  box-shadow: 0 24px 72px rgba(0,0,0,0.28);
+}
+frame.background > label {
+  font-size: 16px;
+  font-weight: 400;
+  color: rgba(255,255,255,0.8);
+}
+frame.background grid > label { font-weight: 400; color: #c3cec8; }
+frame.background grid > label:first-child { font-size: 25px; font-weight: 500; color: #f6f7f2; margin-bottom: 24px; }
+frame.background button, frame.background entry, frame.background passwordentry {
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.055);
+  box-shadow: none;
+  min-height: 36px;
+  padding: 5px 14px;
+  color: #eef3ef;
+}
+frame.background button:hover { background: rgba(199,223,207,0.13); }
+frame.background passwordentry:focus-within, frame.background entry:focus-within {
+  border-color: #b8d5c3;
+  box-shadow: 0 0 0 3px rgba(184,213,195,0.12);
+}
+frame.background button.suggested-action { background: #c7dfcf; border-color: transparent; }
+frame.background button.suggested-action label { color: #1c3426; }
+frame.background button.suggested-action:hover { background: #deece3; }
+button.destructive-action {
+  border: none;
+  border-radius: 24px;
+  min-height: 38px;
+  padding: 4px 24px;
+  background: rgba(16,24,25,0.88);
+  box-shadow: none;
+  font-size: 13px;
+  font-weight: 400;
+}
+button.destructive-action:hover { background: rgba(60,78,70,0.94); }
+button.destructive-action label { color: #e7eee9; }

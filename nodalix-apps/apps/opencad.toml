@@ -1,0 +1,14 @@
+id = "opencad"
+name = "OpenCAD Studio"
+
+root = "~/.local/opt/nodalix/apps/opencad"
+updater = "/usr/share/nodalix-apps/bin/nodalix-opencad-update"
+executable = "OpenCADStudio"
+
+upstream = "https://github.com/HakanSeven12/OpenCADStudio.git"
+update_strategy = "latest-stable-tag"
+overlay_branch = "nodalix"
+
+channel = "stable"
+build = "native-overlay"
+integration = "nodalix"

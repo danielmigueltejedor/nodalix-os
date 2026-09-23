@@ -31,15 +31,15 @@ Item {
         }
 
         ProfileAction {
-            icon:    "󰾆"; label: I18n.tr("Power Saver")
+            iconState: "saver"; label: I18n.tr("Power Saver")
             profile: PowerProfile.PowerSaver
         }
         ProfileAction {
-            icon:    "󰾅"; label: I18n.tr("Balanced")
+            iconState: "balanced"; label: I18n.tr("Balanced")
             profile: PowerProfile.Balanced
         }
         ProfileAction {
-            icon:    "󰓅"; label: I18n.tr("Performance")
+            iconState: "performance"; label: I18n.tr("Performance")
             profile: PowerProfile.Performance
             // Hidden when firmware/daemon offers no performance profile
             visible: PowerProfiles.hasPerformanceProfile
@@ -50,7 +50,7 @@ Item {
     component ProfileAction: Item {
         id: pa
 
-        property string icon:    ""
+        property string iconState: ""
         property string label:   ""
         property int    profile: -1
 
@@ -76,10 +76,11 @@ Item {
             anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
             spacing: 10
 
-            ColloidIcon {
-                text:             pa.icon
-                color:            pa.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                font.pixelSize:   16
+            ShellIcon {
+                role: "power.profile"
+                state: pa.iconState
+                color: pa.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
+                iconSize: 16
                 Layout.alignment: Qt.AlignVCenter
                 Behavior on color { ColorAnimation { duration: 100 } }
             }
@@ -96,11 +97,12 @@ Item {
             }
 
             // Active check mark
-            ColloidIcon {
-                visible:          pa.active
-                text:             "󰄬"
-                color:            ThemeManager.primary
-                font.pixelSize:   13
+            ShellIcon {
+                visible: pa.active
+                role: "power.profile"
+                state: "active"
+                color: ThemeManager.primary
+                iconSize: 13
                 Layout.alignment: Qt.AlignVCenter
             }
         }

@@ -1,0 +1,44 @@
+pkgname=nodalix-apps
+pkgver=0.2.1
+pkgrel=1
+pkgdesc="Nodalix official applications manager"
+arch=("any")
+url="https://github.com/danielmigueltejedor/nodalix-os"
+license=("GPL-3.0-or-later")
+
+depends=(
+  "python"
+  "bash"
+  "git"
+  "curl"
+  "coreutils"
+  "tar"
+  "zstd"
+)
+
+source=("nodalix-apps-$pkgver.tar.zst")
+sha256sums=("SKIP")
+
+package() {
+  install -d "$pkgdir/usr/share/nodalix-apps/bin"
+  install -d "$pkgdir/usr/share/nodalix-apps/apps"
+
+  cp -a --no-preserve=ownership     "$srcdir/nodalix-apps/bin/."     "$pkgdir/usr/share/nodalix-apps/bin/"
+
+  cp -a --no-preserve=ownership     "$srcdir/nodalix-apps/apps/."     "$pkgdir/usr/share/nodalix-apps/apps/"
+
+  if [[ -d "$srcdir/nodalix-apps/assets" ]]; then
+    install -d "$pkgdir/usr/share/nodalix-apps/assets"
+    cp -a --no-preserve=ownership       "$srcdir/nodalix-apps/assets/."       "$pkgdir/usr/share/nodalix-apps/assets/"
+  fi
+
+  install -Dm644     "$srcdir/nodalix-apps/LOCAL_PATCHES.md"     "$pkgdir/usr/share/nodalix-apps/LOCAL_PATCHES.md"
+
+  install -d "$pkgdir/usr/bin"
+
+  ln -s ../share/nodalix-apps/bin/nodalix-apps     "$pkgdir/usr/bin/nodalix-apps"
+
+  ln -s ../share/nodalix-apps/bin/nodalix-apps-icons     "$pkgdir/usr/bin/nodalix-apps-icons"
+
+  ln -s ../share/nodalix-apps/bin/nodalix-app-update     "$pkgdir/usr/bin/nodalix-app-update"
+}

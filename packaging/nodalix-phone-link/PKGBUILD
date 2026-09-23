@@ -1,5 +1,5 @@
 pkgname=nodalix-phone-link
-pkgver=0.2.0
+pkgver=0.2.1
 pkgrel=1
 pkgdesc="Nodalix Phone Link integration for iOS"
 arch=('any')

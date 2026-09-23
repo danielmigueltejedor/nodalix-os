@@ -45,3 +45,4 @@ singleton ShortcutGuideService 1.0 ShortcutGuideService.qml
 singleton DockService 1.0 DockService.qml
 
 singleton RecoveryService 1.0 RecoveryService.qml
+singleton IconTheme             1.0 IconTheme.qml

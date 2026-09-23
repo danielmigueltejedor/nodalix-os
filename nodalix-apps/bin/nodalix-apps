@@ -1,0 +1,303 @@
+#!/usr/bin/env python3
+
+import argparse
+import os
+import subprocess
+import sys
+import tomllib
+from pathlib import Path
+
+BASE = Path("/usr/share/nodalix-apps")
+APPS_DIR = BASE / "apps"
+
+
+def load_apps():
+    apps = {}
+
+    for manifest in sorted(APPS_DIR.glob("*.toml")):
+        with manifest.open("rb") as f:
+            data = tomllib.load(f)
+
+        app_id = data["id"]
+        data["_manifest"] = manifest
+        data["_root"] = Path(data["root"]).expanduser()
+
+        apps[app_id] = data
+
+    return apps
+
+
+def get_app(apps, app_id):
+    if app_id not in apps:
+        print(f"Aplicación desconocida: {app_id}", file=sys.stderr)
+        print()
+        print("Disponibles:")
+        for key in apps:
+            print(f"  {key}")
+        sys.exit(1)
+
+    return apps[app_id]
+
+
+def current_info(app):
+    root = app["_root"]
+    current = root / "current"
+
+    if not current.is_symlink():
+        return None
+
+    try:
+        target = current.resolve(strict=True)
+    except FileNotFoundError:
+        return {
+            "target": None,
+            "version": "broken",
+            "cpu": "unknown",
+        }
+
+    version_file = target / "version"
+    cpu_file = target / "cpu"
+
+    version = (
+        version_file.read_text().strip()
+        if version_file.exists()
+        else target.name
+    )
+
+    cpu = (
+        cpu_file.read_text().strip()
+        if cpu_file.exists()
+        else "unknown"
+    )
+
+    return {
+        "target": target,
+        "version": version,
+        "cpu": cpu,
+    }
+
+
+def cmd_list(apps):
+    for app_id, app in apps.items():
+        info = current_info(app)
+
+        if info:
+            print(f"{app_id:<12} {app['name']:<24} {info['version']}")
+        else:
+            print(f"{app_id:<12} {app['name']:<24} no instalado")
+
+
+def cmd_status(apps, app_id=None):
+    selected = (
+        {app_id: get_app(apps, app_id)}
+        if app_id
+        else apps
+    )
+
+    for key, app in selected.items():
+        info = current_info(app)
+
+        print(f"{app['name']}")
+
+        if not info:
+            print("  Estado:   no instalado")
+        else:
+            print("  Estado:   instalado")
+            print(f"  Versión:  {info['version']}")
+            print(f"  CPU:      {info['cpu']}")
+            print(f"  Build:    {app.get('build', 'unknown')}")
+
+            if info["target"]:
+                print(f"  Ruta:     {info['target']}")
+
+        print()
+
+
+def run_updater(app):
+    updater = Path(app["updater"]).expanduser()
+
+    if not updater.exists():
+        print(f"No existe el updater: {updater}", file=sys.stderr)
+        return False
+
+    print()
+    print(f"==> Actualizando {app['name']}")
+    print()
+
+    result = subprocess.run([str(updater)])
+
+    return result.returncode == 0
+
+
+def cmd_update(apps, app_id=None, update_all=False):
+    if update_all:
+        failed = []
+
+        for key, app in apps.items():
+            if not run_updater(app):
+                failed.append(key)
+
+        if failed:
+            print()
+            print("Fallaron:")
+            for key in failed:
+                print(f"  {key}")
+            sys.exit(1)
+
+        return
+
+    app = get_app(apps, app_id)
+
+    if not run_updater(app):
+        sys.exit(1)
+
+
+def get_versions(app):
+    versions_dir = app["_root"] / "versions"
+
+    if not versions_dir.exists():
+        return []
+
+    versions = [
+        item
+        for item in versions_dir.iterdir()
+        if item.is_dir()
+    ]
+
+    return sorted(
+        versions,
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+
+
+def cmd_versions(apps, app_id):
+    app = get_app(apps, app_id)
+    info = current_info(app)
+
+    current_target = info["target"] if info else None
+    versions = get_versions(app)
+
+    if not versions:
+        print("No hay versiones instaladas.")
+        return
+
+    for version in versions:
+        marker = "*" if current_target == version.resolve() else " "
+        version_file = version / "version"
+
+        display_version = (
+            version_file.read_text().strip()
+            if version_file.exists()
+            else version.name
+        )
+
+        print(f"{marker} {display_version}")
+        print(f"    {version}")
+
+
+def set_current(app, target):
+    root = app["_root"]
+    current = root / "current"
+
+    executable = target / app["executable"]
+
+    if not executable.exists():
+        print(
+            f"La versión seleccionada no contiene {app['executable']}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    tmp = root / ".current-new"
+
+    if tmp.exists() or tmp.is_symlink():
+        tmp.unlink()
+
+    tmp.symlink_to(target)
+    os.replace(tmp, current)
+
+
+def cmd_rollback(apps, app_id):
+    app = get_app(apps, app_id)
+    info = current_info(app)
+
+    if not info or not info["target"]:
+        print("No hay una versión activa.")
+        sys.exit(1)
+
+    versions = get_versions(app)
+
+    candidates = [
+        version
+        for version in versions
+        if version.resolve() != info["target"]
+    ]
+
+    if not candidates:
+        print("No hay ninguna versión anterior disponible.")
+        sys.exit(1)
+
+    previous = candidates[0]
+
+    print(f"Actual:   {info['target'].name}")
+    print(f"Anterior: {previous.name}")
+
+    set_current(app, previous)
+
+    print()
+    print(f"Rollback completado → {previous}")
+
+
+def main():
+    apps = load_apps()
+
+    parser = argparse.ArgumentParser(
+        prog="nodalix-apps",
+        description="Nodalix Official Apps Manager",
+    )
+
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    sub.add_parser("list")
+
+    status = sub.add_parser("status")
+    status.add_argument("app", nargs="?")
+
+    update = sub.add_parser("update")
+    update.add_argument("app", nargs="?")
+    update.add_argument("--all", action="store_true")
+
+    versions = sub.add_parser("versions")
+    versions.add_argument("app")
+
+    rollback = sub.add_parser("rollback")
+    rollback.add_argument("app")
+
+    args = parser.parse_args()
+
+    if args.command == "list":
+        cmd_list(apps)
+
+    elif args.command == "status":
+        cmd_status(apps, args.app)
+
+    elif args.command == "update":
+        if not args.all and not args.app:
+            parser.error("usa una app o --all")
+
+        cmd_update(
+            apps,
+            app_id=args.app,
+            update_all=args.all,
+        )
+
+    elif args.command == "versions":
+        cmd_versions(apps, args.app)
+
+    elif args.command == "rollback":
+        cmd_rollback(apps, args.app)
+
+
+if __name__ == "__main__":
+    main()

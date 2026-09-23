@@ -183,12 +183,13 @@ Item {
                 delegate: MenuRow {
                     required property var modelData
                     text: "" + modelData.name
-                    icon: {
-                        const s = modelData.signalStrength   // 0..1
-                        if (s >= 0.8)  return "󰤨"
-                        if (s >= 0.55) return "󰤥"
-                        if (s >= 0.3)  return "󰤢"
-                        return "󰤟"
+                    iconRole: "network.wifi.signal"
+                    iconState: {
+                        const s = modelData.signalStrength
+                        if (s >= 0.8)  return "excellent"
+                        if (s >= 0.55) return "good"
+                        if (s >= 0.3)  return "ok"
+                        return "weak"
                     }
                     active:   modelData.connected
                     trailing: I18n.tr(modelData.connected ? "Connected" : (modelData.known ? "Saved" : ""))
@@ -231,7 +232,8 @@ Item {
             MenuRow {
                 visible: root.tailscaleDetected
                 text: "Tailscale"
-                icon: "󰖂"
+                iconRole: "network.vpn.connection"
+                iconState: root.tailscaleActive ? "active" : "inactive"
                 active: root.tailscaleActive
                 trailing: root.tailscaleBusy
                     ? I18n.tr("Working…")
@@ -245,7 +247,8 @@ Item {
                 delegate: MenuRow {
                     required property var modelData
                     text:     modelData.name
-                    icon:     "󰖂"
+                    iconRole: "network.vpn.connection"
+                    iconState: modelData.active ? "active" : "inactive"
                     active:   modelData.active
                     trailing: I18n.tr(modelData.active ? "On" : "Off")
                     onClicked: root._nm(["nmcli", "connection", modelData.active ? "down" : "up", "id", modelData.name])
@@ -286,7 +289,8 @@ Item {
     component MenuRow: Rectangle {
         id: mr
         property string text:     ""
-        property string icon:     ""
+        property string iconRole:  ""
+        property string iconState: ""
         property string trailing: ""
         property bool   active:   false
         signal clicked()
@@ -301,10 +305,11 @@ Item {
         RowLayout {
             anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
             spacing: 8
-            ColloidIcon {
-                text: mr.icon
+            ShellIcon {
+                role: mr.iconRole
+                state: mr.iconState
+                iconSize: 15
                 color: mr.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                font.pixelSize: 14
             }
             Text {
                 text: mr.text
