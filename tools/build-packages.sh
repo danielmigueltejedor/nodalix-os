@@ -45,6 +45,7 @@ PY
 echo "Building Nodalix $version (pkgver=$pkgver)"
 
 tar --zstd -C "$root" -cf "$srcdir/nodalix-updater-$pkgver.tar.zst" updater
+tar --zstd -C "$root" -cf "$srcdir/nodalix-apps-$pkgver.tar.zst" nodalix-apps
 tar --zstd -C "$root" -cf "$srcdir/nodalix-shell-$pkgver.tar.zst" \
   --exclude shell/blobs-plugin/build \
   --exclude shell/Caelestia \
@@ -56,17 +57,22 @@ tar --zstd -C "$root" -cf "$srcdir/nodalix-phone-link-$pkgver.tar.zst" \
   phone-link
 
 updater_dir="$workdir/nodalix-updater"
+apps_dir="$workdir/nodalix-apps"
 shell_dir="$workdir/nodalix-shell"
 release_dir="$workdir/nodalix-release"
 phone_link_dir="$workdir/nodalix-phone-link"
 fluent_dir="$workdir/nodalix-fluent-emoji"
 wallpaper_dir="$workdir/nodalix-wallpapers"
 colloid_dir="$workdir/nodalix-colloid-icons"
-mkdir -p "$updater_dir" "$shell_dir" "$release_dir" "$phone_link_dir" "$fluent_dir" "$wallpaper_dir" "$colloid_dir"
+mkdir -p "$updater_dir" "$apps_dir" "$shell_dir" "$release_dir" "$phone_link_dir" "$fluent_dir" "$wallpaper_dir" "$colloid_dir"
 
 cp "$root/packaging/nodalix-updater/PKGBUILD" "$updater_dir/PKGBUILD"
 cp "$srcdir/nodalix-updater-$pkgver.tar.zst" "$updater_dir/"
 inject_sha256 "$updater_dir/PKGBUILD" "$updater_dir/nodalix-updater-$pkgver.tar.zst"
+
+cp "$root/packaging/nodalix-apps/PKGBUILD" "$apps_dir/PKGBUILD"
+cp "$srcdir/nodalix-apps-$pkgver.tar.zst" "$apps_dir/"
+inject_sha256 "$apps_dir/PKGBUILD" "$apps_dir/nodalix-apps-$pkgver.tar.zst"
 
 cp "$root/packaging/nodalix-shell/PKGBUILD" \
    "$root/packaging/nodalix-shell/nodalix-shell" \
@@ -123,6 +129,7 @@ makepkg_one() {
 if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
   makepkg_one "$engine_dir"
   makepkg_one "$updater_dir"
+  makepkg_one "$apps_dir"
   makepkg_one "$shell_dir"
   makepkg_one "$phone_link_dir"
   makepkg_one "$fluent_dir"
