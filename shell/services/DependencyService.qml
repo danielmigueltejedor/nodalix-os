@@ -11,14 +11,13 @@ QtObject {
     // name → { bin | qml, pkg (install hint), desc }
     //   bin: probed with `command -v`   qml: probed for the QML module's qmldir
     readonly property var deps: ({
+        "skwd-helm": { bin: "skwd-helm", pkg: "nodalix-wallpaper-engine", desc: "Unified wallpapers" },
         "cava":               { bin: "cava",                pkg: "cava",                 desc: "Audio visualizer" },
         "matugen":            { bin: "matugen",             pkg: "matugen (AUR)",        desc: "Wallpaper-based theming" },
         "magick":             { bin: "magick",              pkg: "imagemagick",          desc: "Auto light/dark from wallpaper" },
         "secret-tool":        { bin: "secret-tool",         pkg: "libsecret",            desc: "Keyring (tokens, CalDAV)" },
         "brightnessctl":      { bin: "brightnessctl",       pkg: "brightnessctl",        desc: "Brightness control" },
         "qt6-websockets":     { qml: "QtWebSockets",        pkg: "qt6-websockets",       desc: "YouTube Music companion (realtime)" },
-        "hyprpaper":          { bin: "hyprpaper",           pkg: "hyprpaper",            desc: "Wallpaper switcher + theme" },
-        "mpvpaper":           { bin: "mpvpaper",            pkg: "mpvpaper (AUR)",       desc: "Animated video wallpapers" },
         "khal":               { bin: "khal",                pkg: "khal",                 desc: "Calendar events" },
         "vdirsyncer":         { bin: "vdirsyncer",          pkg: "vdirsyncer",           desc: "Calendar sync (CalDAV)" },
         "nmcli":              { bin: "nmcli",               pkg: "networkmanager",       desc: "VPN connections (network panel)" },

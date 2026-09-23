@@ -20,16 +20,14 @@ Item {
         anchors.fill: parent
         spacing: 4
 
-        Text {
-            text: {
-                if (root.muted || root.volPct === 0) return "󰝟"
-                if (root.volPct < 33)                return "󰕿"
-                if (root.volPct < 66)                return "󰖀"
-                return "󰕾"
-            }
+        ShellIcon {
+            role: "audio.volume"
+            state: root.muted || root.volPct === 0
+                ? "muted"
+                : (root.volPct < 33
+                    ? "low"
+                    : (root.volPct < 66 ? "medium" : "high"))
             color:          root.muted ? ThemeManager.onSurfaceVariant : ThemeManager.onSurface
-            font.family:    ThemeManager.fontFamily
-            font.pixelSize: 15
             opacity:        root.muted ? 0.5 : 1.0
             Layout.alignment: Qt.AlignVCenter
 
@@ -40,7 +38,7 @@ Item {
         Text {
             text:           root.muted ? "—" : root.volPct + "%"
             color:          ThemeManager.onSurface
-            font.family:    ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: ThemeManager.fontSizeSm
             font.weight:    Font.Medium
             Layout.alignment: Qt.AlignVCenter

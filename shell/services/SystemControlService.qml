@@ -37,6 +37,34 @@ QtObject {
 
     signal defaultsChanged()
 
+    function normalizedGpuName(value) {
+        let name = (value || "").trim()
+        if (name === "") return "—"
+
+        // PCI names contain vendor aliases, internal codenames, every model
+        // sharing the device ID and a revision. Keep the useful product family
+        // so the About page remains scannable on compact layouts.
+        name = name.replace(/\s+\(rev [^)]+\)$/i, "")
+        const product = name.match(/\[((?:Radeon|GeForce|Arc)\s+[^\]]+)\]/i)
+        if (product) name = product[1]
+
+        let vendor = ""
+        if (/Advanced Micro Devices|\[AMD\/ATI\]|\bAMD\b/i.test(value)) vendor = "AMD"
+        else if (/NVIDIA/i.test(value)) vendor = "NVIDIA"
+        else if (/Intel/i.test(value)) vendor = "Intel"
+
+        name = name
+            .replace(/^Advanced Micro Devices, Inc\.\s*(?:\[AMD\/ATI\])?\s*/i, "")
+            .replace(/^NVIDIA Corporation\s*/i, "")
+            .replace(/^Intel Corporation\s*/i, "")
+            .trim()
+
+        if (name.includes("/")) name = name.split("/", 1)[0].trim() + " Series"
+        if (vendor !== "" && !name.toLowerCase().startsWith(vendor.toLowerCase() + " "))
+            name = vendor + " " + name
+        return name || "—"
+    }
+
     function refresh() {
         if (_probe.running) return
         loading = true
@@ -120,7 +148,7 @@ QtObject {
                 root.kernel = data.kernel || "—"
                 root.cpu = data.cpu || "—"
                 root.memory = data.memory || "—"
-                root.gpu = data.gpu || "—"
+                root.gpu = root.normalizedGpuName(data.gpu)
                 root.defaultBrowser = data.browser || ""
                 root.defaultFileManager = data.files || ""
                 root.defaultMail = data.mail || ""

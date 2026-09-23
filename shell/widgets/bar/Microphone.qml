@@ -18,11 +18,10 @@ Item {
         anchors.fill: parent
         spacing: 4
 
-        Text {
-            text:           root.muted ? "󰍭" : "󰍬"
+        ColloidIcon {
+            role: "audio.microphone"
+            state: root.muted ? "muted" : "active"
             color:          root.muted ? ThemeManager.error : ThemeManager.onSurface
-            font.family:    ThemeManager.fontFamily
-            font.pixelSize: 15
             Layout.alignment: Qt.AlignVCenter
 
             Behavior on color { ColorAnimation { duration: 100 } }

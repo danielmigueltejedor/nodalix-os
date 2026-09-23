@@ -1,17 +1,24 @@
 pkgname=nodalix-shell
-pkgver=0.2.0beta.7
-pkgrel=1
+pkgver=0.2.1
+pkgrel=2
 pkgdesc="Nodalix desktop shell"
 arch=("x86_64")
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-depends=("quickshell" "qt6-declarative" "python")
-makedepends=("cmake" "ninja" "qt6-shadertools")
+depends=("nodalix-wallpaper-engine" "quickshell" "qt6-declarative" "qt6-5compat" "fontconfig" "python" "zenity" "xdg-user-dirs")
+makedepends=("hyprland" "pkgconf" "cmake" "ninja" "qt6-shadertools")
 options=("!debug")
+install=nodalix-shell.install
 source=("nodalix-shell-$pkgver.tar.zst" "nodalix-shell" "nodalix-shell.service" "nodalix-app-accent.service" "nodalix-app-accent.path" "VERSION")
 sha256sums=("SKIP" "SKIP" "SKIP" "SKIP" "SKIP" "SKIP")
 
 build() {
+    g++ -std=c++23 -shared -fPIC -O2 $(pkg-config --cflags hyprland) \
+        "$srcdir/shell/window-controls/main.cpp" -o "$srcdir/libnodalix-window-controls.so"
+    sed -n 's/^#define GIT_COMMIT_HASH[[:space:]]*"\([^"]*\)".*/\1/p' \
+        /usr/include/hyprland/src/version.h > "$srcdir/window-controls-commit"
+    test -s "$srcdir/window-controls-commit"
+
     cmake -S "$srcdir/shell/blobs-plugin" -B "$srcdir/build" -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX=/usr \
@@ -20,13 +27,33 @@ build() {
 }
 
 package() {
+    install -Dm755 "$srcdir/libnodalix-window-controls.so" "$pkgdir/usr/lib/nodalix/window-controls/libnodalix-window-controls.so"
+    install -Dm644 "$srcdir/window-controls-commit" "$pkgdir/usr/share/nodalix/window-controls/hyprland-commit"
+
     install -d "$pkgdir/etc/xdg/quickshell/nodalix"
     cp -a --no-preserve=ownership "$srcdir/shell/." "$pkgdir/etc/xdg/quickshell/nodalix/"
     rm -rf "$pkgdir/etc/xdg/quickshell/nodalix/blobs-plugin"
     DESTDIR="$pkgdir" cmake --install "$srcdir/build"
+    for helper in user-layout app-icons overview; do
+        install -Dm755 "$srcdir/shell/scripts/nodalix-${helper}.py" "$pkgdir/usr/bin/nodalix-${helper}"
+    done
+    install -d "$pkgdir/usr/lib/systemd/user/default.target.wants"
+    for unit in "$srcdir/shell/systemd/"*; do
+        install -m644 "$unit" "$pkgdir/usr/lib/systemd/user/"
+        case "$unit" in
+            *.timer|*.path|*nodalix-localsend.service) ln -s "../$(basename "$unit")" "$pkgdir/usr/lib/systemd/user/default.target.wants/$(basename "$unit")" ;;
+        esac
+    done
     install -Dm755 "$srcdir/nodalix-shell" "$pkgdir/usr/bin/nodalix-shell"
     install -Dm755 "$srcdir/shell/scripts/nodalix-sync-app-accent.py" "$pkgdir/usr/bin/nodalix-sync-app-accent"
     install -Dm755 "$srcdir/shell/scripts/nodalix-layout-mode.py" "$pkgdir/usr/bin/nodalix-layout-mode"
+    install -Dm755 "$srcdir/shell/scripts/nodalix-localsend.py" "$pkgdir/usr/lib/nodalix/nodalix-localsend.py"
+    install -Dm644 "$srcdir/shell/assets/fonts/NodalixPhosphorCompat.ttf" "$pkgdir/usr/share/fonts/nodalix/NodalixPhosphorCompat.ttf"
+    install -Dm644 "$srcdir/shell/assets/fonts/LICENSE-phosphor" "$pkgdir/usr/share/licenses/nodalix-shell/LICENSE-phosphor"
+    install -Dm644 "$srcdir/shell/assets/fonts/geist-v1.7.2/OFL.txt" "$pkgdir/usr/share/licenses/nodalix-shell/OFL-geist.txt"
+    for geist_face in Regular Medium SemiBold Bold Italic; do
+        install -Dm644 "$srcdir/shell/assets/fonts/geist-v1.7.2/Geist-${geist_face}.ttf" "$pkgdir/usr/share/fonts/nodalix/Geist-${geist_face}.ttf"
+    done
     install -Dm644 "$srcdir/VERSION" "$pkgdir/etc/xdg/quickshell/nodalix/VERSION"
     install -Dm644 "$srcdir/nodalix-shell.service" "$pkgdir/usr/lib/systemd/user/nodalix-shell.service"
     install -Dm644 "$srcdir/nodalix-app-accent.service" "$pkgdir/usr/lib/systemd/user/nodalix-app-accent.service"

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo="${NODALIX_REPOSITORY:-danielmigueltejedor/nodalix-os}"
-channel="${NODALIX_CHANNEL:-beta}"
+channel="${NODALIX_CHANNEL:-stable}"
 
 say() { printf '\033[1;36m::\033[0m %s\n' "$*"; }
 die() { printf '\033[1;31mError:\033[0m %s\n' "$*" >&2; exit 1; }
@@ -85,14 +85,14 @@ done < "$work/assets.tsv"
 say "Instalando dependencias oficiales…"
 "${as_root[@]}" pacman -S --needed --noconfirm \
     quickshell qt6-declarative python python-dbus python-gobject python-typer \
-    bluez bluez-utils bluez-obex gtk4 libadwaita polkit minisign gcc gawk
+    bluez bluez-utils bluez-obex gtk4 libadwaita zenity polkit minisign gcc gawk
 
 say "Instalando Nodalix $release_tag…"
 "${as_root[@]}" pacman -U --needed --noconfirm "${packages[@]}"
 "${as_root[@]}" systemctl enable --now nodalix-update-check.timer
 systemctl --user daemon-reload || true
-systemctl --user enable nodalix-shell.service nodalix-app-accent.path nodalix-phone-link.service || true
-systemctl --user start nodalix-app-accent.path nodalix-phone-link.service || true
+systemctl --user enable nodalix-shell.service nodalix-app-accent.path nodalix-phone-link.service nodalix-localsend.service || true
+systemctl --user start nodalix-app-accent.path nodalix-phone-link.service nodalix-localsend.service || true
 if [[ -n ${WAYLAND_DISPLAY:-} ]]; then
     systemctl --user restart nodalix-shell.service || true
 fi

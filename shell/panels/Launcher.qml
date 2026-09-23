@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Widgets
 import "../theme"
 import "../services"
+import "../widgets/bar"
 import "../widgets/launcher"
 
 // Windows 11-style start menu — CONTENT ONLY (no window).
@@ -12,27 +13,122 @@ import "../widgets/launcher"
 // positions/animates it, and owns keyboard focus + the input mask. This item
 // holds the search field, pinned/recommended/results grids, keyboard nav and
 // the context menu. Phases 9a–9f.
-Item {
+FocusScope {
     id: root
 
     // Driven by MainWindow's loader: true while open on this screen.
     property bool active: false
+    // Paint typed text immediately. The committed query is debounced so the
+    // synchronous fuzzy search + result delegate/icon creation never blocks
+    // the TextField on every key press, especially on the first cold open.
+    property string _inputText: ""
+    property string _searchQuery: ""
+    property bool _searchQueued: false
+
+    // Warm the application catalog after DesktopEntries is actually populated.
+    // Component.onCompleted can run too early (catalog still empty), so retry
+    // asynchronously and resolve metadata/icons in small chunks to avoid a
+    // first-search stall without blocking the shell startup.
+    property int _warmIndex: 0
+    property bool _warmDone: false
+
+    Timer {
+        id: _launcherWarmup
+        interval: 50
+        repeat: true
+        running: !root._warmDone
+
+        onTriggered: {
+            const catalog = AppService.apps
+            if (!catalog || catalog.length === 0)
+                return
+
+            const end = Math.min(root._warmIndex + 6, catalog.length)
+            for (let i = root._warmIndex; i < end; ++i) {
+                const entry = catalog[i]
+                // Touch the same metadata used by fuzzy search and resolve the
+                // themed icon while the launcher is still hidden.
+                const ignoredName = entry?.name ?? ""
+                const ignoredGeneric = entry?.genericName ?? ""
+                const ignoredKeywords = (entry?.keywords ?? []).join(" ")
+                AppService.iconFor(entry)
+            }
+
+            root._warmIndex = end
+            if (root._warmIndex >= catalog.length) {
+                root._warmDone = true
+                _launcherWarmup.stop()
+            }
+        }
+    }
+
+
+    function _flushSearch() {
+        _searchQueued = false
+
+        if (_searchQuery !== _inputText)
+            _searchQuery = _inputText
+
+        if (LauncherService.query !== _inputText)
+            LauncherService.query = _inputText
+
+        _resetSel()
+    }
+
+    function _queueSearch() {
+        if (_searchQueued)
+            return
+
+        _searchQueued = true
+        // Run after the current input event. Multiple keystrokes that arrive
+        // before the next event-loop turn collapse into one search using the
+        // newest text, while the TextField remains free to repaint immediately.
+        Qt.callLater(() => root._flushSearch())
+    }
+
+    function _clearSearch() {
+        _searchQueued = false
+        _inputText = ""
+        _searchQuery = ""
+        if (LauncherService.query !== "")
+            LauncherService.query = ""
+        _resetSel()
+    }
+    // Docked menus use the full bar width; standalone menus retain six columns.
+    property bool fillAvailableColumns: false
+    // Search header, spacing, actual grids, and outer padding. The host caps
+    // this natural height and the Flickable handles large result collections.
+    implicitHeight: 44 + 18 + _content.implicitHeight + 44 + ThemeManager.borderWidth
+
+    function requestSearchFocus() {
+        if (!active)
+            return
+        _search.forceActiveFocus()
+    }
 
     onActiveChanged: {
         if (active) {
             _pinnedPage = 0
-            LauncherService.query = ""
-            Qt.callLater(() => _search.forceActiveFocus())
+            root._clearSearch()
+            // Best-effort for normal opens. MainWindow requests focus again
+            // when the compositor focus grab has actually become active.
+            Qt.callLater(() => root.requestSearchFocus())
+        } else {
         }
     }
-    Component.onCompleted: if (active) _search.forceActiveFocus()
+
+    Component.onCompleted: {
+
+        if (active)
+            Qt.callLater(() => root.requestSearchFocus())
+    }
 
     // ── Data ──────────────────────────────────────────────────────────────────
     readonly property var _pinnedKeys: PinnedService.pinned
     readonly property var _pinned:
         _pinnedKeys.map(k => AppService.byKey(k)).filter(a => a)
     readonly property var _recommended:
-        AppUsageService.recommended(_pinnedKeys, 6)
+        AppUsageService.recommended(_pinnedKeys, root.fillAvailableColumns ? root._cols : 6)
             .map(k => AppService.byKey(k)).filter(a => a)
 
     // Pinned pagination (tabs on overflow): cols × 3 rows per page.
@@ -50,27 +146,27 @@ Item {
     }
 
     // ── Search ────────────────────────────────────────────────────────────────
-    readonly property string _q: LauncherService.query.trim()
-    readonly property bool   _searching: _q.length > 0
+    readonly property string _q: root._searchQuery.trim()
+    readonly property bool   _searching: root._inputText.trim().length > 0
     readonly property var _settingEntries: [
-        { _nodalixKind: "settings", _nodalixGlyph: "󰀄", page: "user", name: I18n.tr("Settings") + " · " + I18n.tr("User"), keywords: "ajustes settings usuario perfil avatar imagen user profile" },
-        { _nodalixKind: "settings", _nodalixGlyph: "󰒃", page: "security", name: I18n.tr("Settings") + " · " + I18n.tr("Security"), keywords: "ajustes settings seguridad bloqueo inactividad contraseña security lock idle" },
-        { _nodalixKind: "settings", _nodalixGlyph: "󰚰", page: "updates", name: I18n.tr("Settings") + " · " + I18n.tr("Updates"), keywords: "ajustes settings actualizaciones sistema aplicaciones firmware kernel updates apps" },
-        { _nodalixKind: "settings", _nodalixGlyph: "󱁤", page: "tools", name: I18n.tr("Settings") + " · " + I18n.tr("Tools"), keywords: "ajustes settings herramientas acciones tools" },
-        { _nodalixKind: "settings", _nodalixGlyph: "󰋊", page: "storage", name: I18n.tr("Settings") + " · " + I18n.tr("Storage"), keywords: "ajustes settings almacenamiento disco aplicaciones desinstalar storage disk apps uninstall" },
-        { _nodalixKind: "settings", _nodalixGlyph: "󰉼", page: "appearance", name: I18n.tr("Settings") + " · " + I18n.tr("General appearance"), keywords: "ajustes settings apariencia tema colores idioma fuente tipografía letra layout appearance theme color language font" },
-        { _nodalixKind: "settings", _nodalixGlyph: "󰍜", page: "bar", name: I18n.tr("Settings") + " · " + I18n.tr("Bar"), keywords: "ajustes settings barra reloj espacios indicadores bar clock workspaces" },
-        { _nodalixKind: "settings", _nodalixGlyph: "󰝚", page: "media", name: I18n.tr("Settings") + " · " + I18n.tr("Media"), keywords: "ajustes settings multimedia reproductor visualizador audio media player cava" },
-        { _nodalixKind: "settings", _nodalixGlyph: "󰜬", page: "widgets", name: I18n.tr("Settings") + " · " + I18n.tr("Desktop widgets"), keywords: "ajustes settings widgets escritorio reloj calendario media" },
-        { _nodalixKind: "settings", _nodalixGlyph: "󰸉", page: "wallpaper", name: I18n.tr("Settings") + " · " + I18n.tr("Wallpaper"), keywords: "ajustes settings fondo fondos animado wallpaper background live" },
-        { _nodalixKind: "settings", _nodalixGlyph: "󰇚", page: "localsend", name: I18n.tr("Settings") + " · LocalSend", keywords: "ajustes settings localsend compartir airdrop enviar recibir favoritos" },
-        { _nodalixKind: "settings", _nodalixGlyph: "󰂚", page: "notifications", name: I18n.tr("Settings") + " · " + I18n.tr("Notifications"), keywords: "ajustes settings notificaciones avisos silencio molestar notifications dnd" },
-        { _nodalixKind: "settings", _nodalixGlyph: "󰌌", page: "keybindings", name: I18n.tr("Settings") + " · " + I18n.tr("Keybindings"), keywords: "ajustes settings atajos teclado binds teclas keybindings shortcuts" },
-        { _nodalixKind: "settings", _nodalixGlyph: "󰖐", page: "weather", name: I18n.tr("Settings") + " · " + I18n.tr("Weather"), keywords: "ajustes settings tiempo clima ubicación grados weather location" },
-        { _nodalixKind: "settings", _nodalixGlyph: "󰍡", page: "tray", name: I18n.tr("Settings") + " · " + I18n.tr("Tray"), keywords: "ajustes settings bandeja iconos aplicaciones tray indicators" },
-        { _nodalixKind: "settings", _nodalixGlyph: "󰍹", page: "hyprland", name: I18n.tr("Settings") + " · " + I18n.tr("Display settings"), keywords: "ajustes settings pantalla pantallas hdr monitor monitores hyprland entrada ratón teclado animaciones display input" },
-        { _nodalixKind: "settings", _nodalixGlyph: "󰏖", page: "dependencies", name: I18n.tr("Settings") + " · " + I18n.tr("Dependencies"), keywords: "ajustes settings dependencias paquetes funciones dependencies packages" },
-        { _nodalixKind: "settings", _nodalixGlyph: "󰒓", page: "advanced", name: I18n.tr("Settings") + " · " + I18n.tr("Advanced"), keywords: "ajustes settings avanzado configuración restablecer json advanced reset config" }
+        { _nodalixKind: "settings", _nodalixIconName: "system-users-symbolic", page: "user", name: I18n.tr("Settings") + " · " + I18n.tr("User"), keywords: "ajustes settings usuario perfil avatar imagen user profile" },
+        { _nodalixKind: "settings", _nodalixIconName: "system-lock-screen-symbolic", page: "security", name: I18n.tr("Settings") + " · " + I18n.tr("Security"), keywords: "ajustes settings seguridad bloqueo inactividad contraseña security lock idle" },
+        { _nodalixKind: "settings", _nodalixIconName: "software-update-available-symbolic", page: "updates", name: I18n.tr("Settings") + " · " + I18n.tr("Updates"), keywords: "ajustes settings actualizaciones sistema aplicaciones firmware kernel updates apps" },
+        { _nodalixKind: "settings", _nodalixIconName: "applications-utilities-symbolic", page: "tools", name: I18n.tr("Settings") + " · " + I18n.tr("Tools"), keywords: "ajustes settings herramientas acciones tools" },
+        { _nodalixKind: "settings", _nodalixIconName: "drive-harddisk-symbolic", page: "storage", name: I18n.tr("Settings") + " · " + I18n.tr("Storage"), keywords: "ajustes settings almacenamiento disco aplicaciones desinstalar storage disk apps uninstall" },
+        { _nodalixKind: "settings", _nodalixIconName: "preferences-desktop-appearance-symbolic", page: "appearance", name: I18n.tr("Settings") + " · " + I18n.tr("General appearance"), keywords: "ajustes settings apariencia tema colores idioma fuente tipografía letra layout appearance theme color language font" },
+        { _nodalixKind: "settings", _nodalixIconName: "view-grid-symbolic", page: "bar", name: I18n.tr("Settings") + " · " + I18n.tr("Bar"), keywords: "ajustes settings barra reloj espacios indicadores bar clock workspaces" },
+        { _nodalixKind: "settings", _nodalixIconName: "audio-speakers-symbolic", page: "media", name: I18n.tr("Settings") + " · " + I18n.tr("Media"), keywords: "ajustes settings multimedia reproductor visualizador audio media player cava" },
+        { _nodalixKind: "settings", _nodalixIconName: "view-grid-symbolic", page: "widgets", name: I18n.tr("Settings") + " · " + I18n.tr("Desktop widgets"), keywords: "ajustes settings widgets escritorio reloj calendario media" },
+        { _nodalixKind: "settings", _nodalixIconName: "preferences-desktop-wallpaper-symbolic", page: "wallpaper", name: I18n.tr("Settings") + " · " + I18n.tr("Wallpaper"), keywords: "ajustes settings fondo fondos animado wallpaper background live" },
+        { _nodalixKind: "settings", _nodalixIconName: "send-to-symbolic", page: "localsend", name: I18n.tr("Settings") + " · LocalSend", keywords: "ajustes settings localsend compartir airdrop enviar recibir favoritos" },
+        { _nodalixKind: "settings", _nodalixIconName: "preferences-system-notifications-symbolic", page: "notifications", name: I18n.tr("Settings") + " · " + I18n.tr("Notifications"), keywords: "ajustes settings notificaciones avisos silencio molestar notifications dnd" },
+        { _nodalixKind: "settings", _nodalixIconName: "preferences-desktop-keyboard-shortcuts-symbolic", page: "keybindings", name: I18n.tr("Settings") + " · " + I18n.tr("Keybindings"), keywords: "ajustes settings atajos teclado binds teclas keybindings shortcuts" },
+        { _nodalixKind: "settings", _nodalixIconName: "weather-clear-symbolic", page: "weather", name: I18n.tr("Settings") + " · " + I18n.tr("Weather"), keywords: "ajustes settings tiempo clima ubicación grados weather location" },
+        { _nodalixKind: "settings", _nodalixIconName: "open-menu-symbolic", page: "tray", name: I18n.tr("Settings") + " · " + I18n.tr("Tray"), keywords: "ajustes settings bandeja iconos aplicaciones tray indicators" },
+        { _nodalixKind: "settings", _nodalixIconName: "preferences-desktop-display-symbolic", page: "hyprland", name: I18n.tr("Settings") + " · " + I18n.tr("Display settings"), keywords: "ajustes settings pantalla pantallas hdr monitor monitores hyprland entrada ratón teclado animaciones display input" },
+        { _nodalixKind: "settings", _nodalixIconName: "applications-system-symbolic", page: "dependencies", name: I18n.tr("Settings") + " · " + I18n.tr("Dependencies"), keywords: "ajustes settings dependencias paquetes funciones dependencies packages" },
+        { _nodalixKind: "settings", _nodalixIconName: "preferences-system-symbolic", page: "advanced", name: I18n.tr("Settings") + " · " + I18n.tr("Advanced"), keywords: "ajustes settings avanzado configuración restablecer json advanced reset config" }
     ]
     function _settingsFor(query) {
         const words = query.toLowerCase().split(/\s+/).filter(w => w !== "")
@@ -91,7 +187,7 @@ Item {
     function _webEntry(query) {
         return {
             _nodalixKind: "web",
-            _nodalixGlyph: "󰍉",
+            _nodalixIconName: "edit-find-symbolic",
             query: query,
             name: _looksLikeAddress(query)
                 ? I18n.tr("Open web address") + " · " + query
@@ -130,7 +226,9 @@ Item {
     //   _sec: "none" | "results" | "pinned" | "reco"   _idx: index within section
     property string _sec: "none"
     property int    _idx: -1
-    readonly property int _cols: 6
+    readonly property int _cols: Math.max(1, fillAvailableColumns
+        ? Math.floor((width - 38) / 94)
+        : Math.min(6, Math.floor((width - 38) / 98)))
 
     function _resetSel() { _sec = _searching ? "results" : "none"; _idx = -1 }
 
@@ -292,35 +390,46 @@ Item {
                 anchors.rightMargin: 12
                 spacing: 10
 
-                Text {
-                    text: ""
-                    font.family: ThemeManager.fontFamily
-                    font.pixelSize: 16
+                ColloidIcon {
+                    iconName: "edit-find-symbolic"
+                    group: "actions"
+                    iconSize: 18
                     color: ThemeManager.onSurfaceVariant
                 }
                 TextField {
                     id: _search
+                    focus: root.active
                     Layout.fillWidth: true
                     background: null
                     color: ThemeManager.onSurface
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 15
                     placeholderText: I18n.tr("Search apps, settings or the web…")
                     placeholderTextColor: ThemeManager.onSurfaceVariant
                     verticalAlignment: TextInput.AlignVCenter
-                    text: LauncherService.query
+                    text: root._inputText
                     onTextChanged: {
-                        if (text !== LauncherService.query) LauncherService.query = text
-                        root._resetSel()
+                        if (text === root._inputText)
+                            return
+
+                        root._inputText = text
+                        root._queueSearch()
+                        root._sec = "none"
+                        root._idx = -1
                     }
-                    onAccepted: { if (root._menuOpen) root._menuRun(); else root._activateSel() }
+                    onAccepted: {
+                        // Enter must always act on the exact visible text.
+                        root._flushSearch()
+                        if (root._menuOpen) root._menuRun()
+                        else root._activateSel()
+                    }
                     Keys.onDownPressed:  (e) => { if (root._menuOpen) root._menuDown(); else root._navDown(); e.accepted = true }
                     Keys.onUpPressed:    (e) => { if (root._menuOpen) root._menuUp();   else root._navUp();   e.accepted = true }
                     Keys.onLeftPressed:  (e) => { if (!root._menuOpen) root._navLeft();  e.accepted = true }
                     Keys.onRightPressed: (e) => { if (!root._menuOpen) root._navRight(); e.accepted = true }
                     Keys.onEscapePressed: {
                         if (root._menuOpen) root._closeMenu()
-                        else if (root._searching) LauncherService.query = ""
+                        else if (root._inputText.length > 0 || root._searching) root._clearSearch()
                         else LauncherService.hide()
                     }
                 }
@@ -335,13 +444,14 @@ Item {
             contentHeight: _content.implicitHeight
             clip: true
             boundsBehavior: Flickable.StopAtBounds
+            interactive: !root._searching
 
             ColumnLayout {
                 id: _content
                 width: parent.width
                 spacing: 14
 
-                AppGrid {
+                SearchResultsGrid {
                     visible: root._searching
                     Layout.fillWidth: true
                     title: I18n.tr("Results")
@@ -358,6 +468,7 @@ Item {
                     title: I18n.tr("Pinned")
                     apps: root._pinnedPageApps
                     columns: root._cols
+                    tileW: Math.max(32, (root.width - 44 - 6 * (root._cols - 1)) / root._cols)
                     selectedIndex: root._sec === "pinned" ? root._idx : -1
                     draggable: true
                     onActivated: app => root._launch(app)
@@ -406,6 +517,7 @@ Item {
                     title: I18n.tr("Recommended")
                     apps: root._recommended
                     columns: root._cols
+                    tileW: Math.max(32, (root.width - 44 - 6 * (root._cols - 1)) / root._cols)
                     selectedIndex: root._sec === "reco" ? root._idx : -1
                     onActivated: app => root._launch(app)
                     onContextRequested: (app, mx, my) => root._openMenuFor("reco", app, mx, my)
@@ -419,7 +531,7 @@ Item {
                         anchors.centerIn: parent
                         text: I18n.tr("Recommended apps appear here as you use them")
                         color: ThemeManager.onSurfaceVariant
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: ThemeManager.fontSizeSm
                     }
                 }
@@ -486,7 +598,7 @@ Item {
                         anchors.leftMargin: 14
                         text: modelData.label
                         color: modelData.danger ? ThemeManager.error : ThemeManager.onSurface
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: ThemeManager.fontSizeMd
                     }
                     HoverHandler { id: _mh; onHoveredChanged: if (hovered) root._menuSel = index }

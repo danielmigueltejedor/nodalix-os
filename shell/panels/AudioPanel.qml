@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import "../theme"
 import "../services"
+import "../widgets/bar"
 
 Item {
     id: root
@@ -31,8 +32,8 @@ Item {
 
         Repeater {
             model: [
-                { icon: "󰓃", tip: "Volume"  },
-                { icon: "󰒓", tip: "Devices" }
+                { role: "audio.volume", state: "high", tip: "Volume"  },
+                { role: "audio.devices", state: "", tip: "Devices" }
             ]
             delegate: Item {
                 required property var  modelData
@@ -52,12 +53,12 @@ Item {
                     Behavior on color { ColorAnimation { duration: 150 } }
                 }
 
-                Text {
+                ShellIcon {
                     anchors.centerIn: parent
-                    text:           modelData.icon
-                    font.family:    ThemeManager.fontFamily
-                    font.pixelSize: 15
-                    color:          parent.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
+                    role: modelData.role
+                    state: modelData.state
+                    iconSize: 16
+                    color: parent.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
                     Behavior on color { ColorAnimation { duration: 150 } }
                 }
 
@@ -109,12 +110,13 @@ Item {
 
                     VolumeSlider {
                         Layout.fillWidth: true; Layout.fillHeight: true
-                        icon: {
+                        iconRole: "audio.volume"
+                        iconState: {
                             const v = AudioService.sinkVolPct
-                            if (AudioService.sinkMuted || v === 0) return "󰝟"
-                            if (v < 33) return "󰕿"
-                            if (v < 66) return "󰖀"
-                            return "󰕾"
+                            if (AudioService.sinkMuted || v === 0) return "muted"
+                            if (v < 33) return "low"
+                            if (v < 66) return "medium"
+                            return "high"
                         }
                         muted:     AudioService.sinkMuted
                         volume:    AudioService.sinkVolume
@@ -130,7 +132,8 @@ Item {
 
                     VolumeSlider {
                         Layout.fillWidth: true; Layout.fillHeight: true
-                        icon:      AudioService.sourceMuted ? "󰍭" : "󰍬"
+                        iconRole: "audio.microphone"
+                        iconState: AudioService.sourceMuted ? "muted" : "active"
                         muted:     AudioService.sourceMuted
                         volume:    AudioService.sourceVolume
                         maxVolume: 1.0
@@ -192,7 +195,7 @@ Item {
         Text {
             text:           ds.label
             color:          ThemeManager.onSurfaceVariant
-            font.family:    ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: ThemeManager.fontSizeSm
             font.weight:    Font.Medium
         }
@@ -238,7 +241,7 @@ Item {
                             Layout.fillWidth: true
                             text:           _devRow.modelData.description || _devRow.modelData.name || "Unknown"
                             color:          _devRow.isDefault ? ThemeManager.primary : ThemeManager.onSurface
-                            font.family:    ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: ThemeManager.fontSizeSm
                             elide:          Text.ElideRight
                             Behavior on color { ColorAnimation { duration: 120 } }
@@ -253,7 +256,8 @@ Item {
     component VolumeSlider: Item {
         id: vs
 
-        property string icon:      ""
+        property string iconRole:  ""
+        property string iconState: ""
         property bool   muted:     false
         property real   volume:    0
         property real   maxVolume: 1.0
@@ -265,9 +269,9 @@ Item {
         readonly property real frac:   Math.min(volume / maxVolume, 1.0)
 
         readonly property color _active:   muted ? ThemeManager.error   : ThemeManager.primary
-        readonly property color _inactive: ThemeManager.surfaceContainerHigh
+        readonly property color _inactive: ThemeManager.outlineVariant
 
-        readonly property int _trackW: 6
+        readonly property int _trackW: 18
         readonly property int _thumbR: 10
         readonly property int _trackH: 130
 
@@ -283,7 +287,7 @@ Item {
                 Layout.alignment:  Qt.AlignHCenter
                 text:             vs.muted ? "M" : vs.volPct + "%"
                 color:            vs.muted ? ThemeManager.error : ThemeManager.onSurface
-                font.family:      ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize:   ThemeManager.fontSizeSm
                 font.weight:      Font.Medium
                 Behavior on color { ColorAnimation { duration: 120 } }
@@ -295,7 +299,7 @@ Item {
                 implicitWidth:  vs._thumbR * 4
                 implicitHeight: vs._trackH + vs._thumbR * 2
 
-                readonly property real thumbCY: vs._thumbR + (1.0 - vs.frac) * (vs._trackH - vs._thumbR * 2)
+                readonly property real thumbCY: vs._thumbR + (1.0 - vs.frac) * vs._trackH
 
                 Rectangle {
                     id: _track
@@ -304,10 +308,14 @@ Item {
                     radius: vs._trackW / 2
                     color:  vs._inactive
                     clip:   true
+                    antialiasing: true
                     Rectangle {
                         anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
-                        height: vs.frac * vs._trackH
-                        color:  vs._active
+                        anchors.margins: 2
+                        height: Math.max(0, (vs._trackH - 4) * vs.frac)
+                        radius: 7
+                        antialiasing: true
+                        color:  Qt.rgba(vs._active.r, vs._active.g, vs._active.b, 0.42)
                         Behavior on color  { ColorAnimation  { duration: 120 } }
                         Behavior on height { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
                     }
@@ -318,23 +326,8 @@ Item {
                     y:      _body.thumbCY - vs._thumbR
                     width:  vs._thumbR * 2; height: vs._thumbR * 2
                     radius: vs._thumbR
-                    color:  vs._active
+                    color:  ThemeManager.onSurface
                     Behavior on y     { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
-                    Behavior on color { ColorAnimation  { duration: 120 } }
-
-                    Rectangle {
-                        anchors { fill: parent; margins: -vs._thumbR * 0.8 }
-                        radius: vs._thumbR * 1.8
-                        color:  Qt.rgba(vs._active.r, vs._active.g, vs._active.b,
-                                        _hoverMa.containsMouse ? 0.12 : 0)
-                        Behavior on color { ColorAnimation { duration: 100 } }
-                    }
-                    MouseArea {
-                        id: _hoverMa
-                        anchors { fill: parent; margins: -vs._thumbR * 0.8 }
-                        hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                        acceptedButtons: Qt.NoButton
-                    }
                 }
 
                 MouseArea {
@@ -349,14 +342,19 @@ Item {
                 }
             }
 
-            Text {
-                Layout.alignment:  Qt.AlignHCenter
-                text:             vs.icon; font.family: ThemeManager.fontFamily; font.pixelSize: 16
-                color:            vs.muted ? ThemeManager.error : ThemeManager.primary
+            ShellIcon {
+                Layout.alignment: Qt.AlignHCenter
+                role: vs.iconRole
+                state: vs.iconState
+                iconSize: 18
+                color: vs.muted ? ThemeManager.error : ThemeManager.primary
                 Behavior on color { ColorAnimation { duration: 120 } }
+
                 MouseArea {
-                    anchors.fill: parent; anchors.margins: -6
-                    cursorShape:  Qt.PointingHandCursor; onClicked: vs.toggleMute()
+                    anchors.fill: parent
+                    anchors.margins: -6
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: vs.toggleMute()
                 }
             }
         }

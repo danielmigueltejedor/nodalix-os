@@ -6,6 +6,7 @@ import Quickshell.Wayland
 import Quickshell.Hyprland
 import "../theme"
 import "../services"
+import "../widgets/bar" as BarWidgets
 
 // Workspace overview: one cell per workspace on the bar's monitor, each a
 // scaled mini-screen showing live thumbnails of its windows (app icon
@@ -103,7 +104,7 @@ Item {
             id: _title
             text: I18n.tr("Espaces de travail")
             color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: ThemeManager.fontSizeSm
             Layout.alignment: Qt.AlignHCenter
         }
@@ -237,7 +238,7 @@ Item {
                             anchors.centerIn: parent
                             text: root._localNum(cell.modelData.id)
                             color: cell.focused ? ThemeManager.onPrimary : ThemeManager.onSurface
-                            font.family: ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: 11; font.weight: Font.Bold
                         }
                     }
@@ -280,18 +281,17 @@ Item {
                 Column {
                     anchors.centerIn: parent
                     spacing: 2
-                    Text {
+                    BarWidgets.ShellIcon {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        text: "󰐕"
+                        iconName: "list-add-symbolic"
                         color: ThemeManager.primary
-                        font.family: ThemeManager.fontFamily
-                        font.pixelSize: 28
+                        iconSize: 28
                     }
                     Text {
                         anchors.horizontalCenter: parent.horizontalCenter
                         text: I18n.tr("Espace ") + root._localNum(root._nextWs)
                         color: ThemeManager.onSurfaceVariant
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: ThemeManager.fontSizeSm
                     }
                 }
@@ -314,7 +314,7 @@ Item {
             visible: root._otherMons.length > 0
             text: I18n.tr("Écrans")
             color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: ThemeManager.fontSizeSm
             Layout.alignment: Qt.AlignHCenter
             Layout.topMargin: ThemeManager.spacing
@@ -448,7 +448,7 @@ Item {
                 anchors.centerIn: parent
                 text: (sc.mon?.name ?? "?")
                 color: ThemeManager.onSurface
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: 10; font.weight: Font.Bold
             }
         }

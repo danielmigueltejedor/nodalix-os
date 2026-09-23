@@ -33,7 +33,7 @@ QtObject {
     property bool shellRestartRequired: false
     property bool rebootRequired: false
     property string errorMessage: ""
-    property string channel: "beta"
+    property string channel: "stable"
     property string repository: ""
     property string releaseUrl: ""
 

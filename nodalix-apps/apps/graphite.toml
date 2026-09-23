@@ -1,0 +1,15 @@
+id = "graphite"
+name = "Graphite"
+
+root = "~/.local/opt/nodalix/apps/graphite"
+updater = "/usr/share/nodalix-apps/bin/nodalix-graphite-update"
+executable = "graphite"
+
+upstream = "https://github.com/GraphiteEditor/Graphite.git"
+update_strategy = "upstream-head"
+upstream_branch = "master"
+overlay_branch = "nodalix"
+
+channel = "rolling"
+build = "native-overlay"
+integration = "nodalix"

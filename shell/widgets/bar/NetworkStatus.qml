@@ -57,24 +57,22 @@ Item {
     readonly property bool isEthernet: _hasEthernet || _nmEthernet
     readonly property bool isWifi:     !isEthernet && connectedWifi !== null
 
-    Text {
+    ShellIcon {
         id: _icon
         anchors.centerIn: parent
-        text: {
-            if (isEthernet) return "󰈀"
-            if (!isWifi) return "󰤭"
+        iconName: {
+            if (isEthernet) return "network-wired-symbolic"
+            if (!isWifi) return "network-wireless-offline-symbolic"
             // signalStrength is a 0..1 fraction.
             const s = root.connectedWifi ? root.connectedWifi.signalStrength : 0
-            if (s >= 0.8) return "󰤨"
-            if (s >= 0.6) return "󰤥"
-            if (s >= 0.4) return "󰤢"
-            if (s >= 0.2) return "󰤟"
-            return "󰤯"
+            if (s >= 0.8) return "nm-signal-100-symbolic"
+            if (s >= 0.6) return "nm-signal-75-symbolic"
+            if (s >= 0.4) return "nm-signal-50-symbolic"
+            if (s >= 0.2) return "nm-signal-25-symbolic"
+            return "nm-signal-0-symbolic"
         }
         color: (isWifi || isEthernet) ? ThemeManager.onSurface : ThemeManager.onSurfaceVariant
         opacity: (isWifi || isEthernet) ? 1.0 : 0.5
-        font.family: ThemeManager.fontFamily
-        font.pixelSize: 15
     }
 
     HoverHandler {

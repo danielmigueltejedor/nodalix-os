@@ -147,7 +147,7 @@ QtObject {
             }
             root.notifList = [...root.notifList, notif]
             root.notifCount++
-            if (!root.doNotDisturb) {
+            if (!root.doNotDisturb && !(notif.hints && notif.hints["x-nodalix-silent"])) {
                 if (root._isIncomingCall(notif)) root._ringSound.play()
                 else {
                     if (root._isLiveCall(notif)) root._ringSound.stop()

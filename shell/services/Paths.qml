@@ -1,6 +1,7 @@
 pragma Singleton
 import QtQuick
 import Quickshell
+import Quickshell.Io
 
 // Resolves filesystem paths for the shell. This file lives in services/, so
 // ".." is the config root. Two roots:
@@ -9,14 +10,23 @@ import Quickshell
 //               ($XDG_STATE_HOME/nodalix, default ~/.local/state/nodalix):
 //               settings, themes, pins, usage, generated binds.
 QtObject {
+    id: root
+    property var userFolders: ({})
+    property FileView _folders: FileView {
+        path: root.stateDir + "/folders/paths.json"
+        watchChanges: true
+        blockLoading: true
+        onFileChanged: reload()
+        onLoaded: { try { root.userFolders = JSON.parse(text()) } catch (e) {} }
+    }
+
     readonly property string homeDir:
         String(Quickshell.env("HOME") || configDir.replace(/\/\.config\/quickshell$/, "")).replace(/\/+$/, "")
 
-    // User-facing media follows this installation's Spanish XDG directory
-    // layout. Application internals continue to use XDG state/config paths.
-    readonly property string downloadsDir: homeDir + "/Descargas"
-    readonly property string picturesDir: homeDir + "/Imágenes"
-    readonly property string videosDir: homeDir + "/Vídeos"
+    // User-facing media follows the XDG layout reconciled by Nodalix.
+    readonly property string downloadsDir: userFolders.DOWNLOAD || homeDir + (I18n.language === "es" ? "/Descargas" : "/Downloads")
+    readonly property string picturesDir: userFolders.PICTURES || homeDir + (I18n.language === "es" ? "/Imágenes" : "/Pictures")
+    readonly property string videosDir: userFolders.VIDEOS || homeDir + (I18n.language === "es" ? "/Vídeos" : "/Videos")
     readonly property string nodalixPicturesDir: picturesDir + "/Nodalix"
     readonly property string wallpaperDir: nodalixPicturesDir + "/Fondos"
     readonly property string wallpaperImageDir: wallpaperDir + "/Estáticos"

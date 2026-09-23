@@ -1,0 +1,9 @@
+[Unit]
+Description=Nodalix automatic system recovery point
+ConditionPathExists=/var/lib/nodalix-recovery/automatic
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/nodalix-recovery scheduled
+Nice=19
+IOSchedulingClass=idle

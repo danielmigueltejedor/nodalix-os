@@ -1,0 +1,16 @@
+configure_localsend_firewall() {
+    command -v ufw >/dev/null 2>&1 || return 0
+
+    for subnet in 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16; do
+        ufw allow from "$subnet" to any port 53317 proto tcp comment "Nodalix LocalSend" >/dev/null 2>&1 || true
+        ufw allow from "$subnet" to any port 53317 proto udp comment "Nodalix LocalSend" >/dev/null 2>&1 || true
+    done
+}
+
+post_install() {
+    configure_localsend_firewall
+}
+
+post_upgrade() {
+    configure_localsend_firewall
+}

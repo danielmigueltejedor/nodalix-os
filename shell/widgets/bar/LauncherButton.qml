@@ -14,12 +14,11 @@ Rectangle {
 
     Behavior on color { ColorAnimation { duration: 100 } }
 
-    Text {
+    ShellIcon {
         anchors.centerIn: parent
-        text: "󰀻"   // nf-md-apps
+        iconName: "application-menu-symbolic"
+        group: "actions"
         color: hovered ? ThemeManager.onPrimaryContainer : ThemeManager.onSurfaceVariant
-        font.family: ThemeManager.fontFamily
-        font.pixelSize: 15
 
         Behavior on color { ColorAnimation { duration: 100 } }
     }

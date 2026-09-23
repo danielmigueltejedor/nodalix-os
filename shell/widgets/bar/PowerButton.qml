@@ -10,14 +10,13 @@ Item {
 
     property var barScreen: null
 
-    Text {
+    ShellIcon {
         anchors.centerIn: parent
-        text:           "󰐥"
+        role: "power.action"
+        state: "shutdown"
         color:          _hoverMa.containsMouse
                         ? ThemeManager.error
                         : ThemeManager.onSurfaceVariant
-        font.family:    ThemeManager.fontFamily
-        font.pixelSize: 15
         Behavior on color { ColorAnimation { duration: 100 } }
     }
 

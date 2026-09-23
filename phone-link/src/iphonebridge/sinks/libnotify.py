@@ -234,7 +234,9 @@ class LibnotifySink:
                 title,
                 body,
                 dbus.Array([], signature="s"),
-                dbus.Dictionary({"urgency": dbus.Byte(1)}, signature="sv"),
+                dbus.Dictionary({"urgency": dbus.Byte(1),
+                                 "suppress-sound": dbus.Boolean(event.is_silent or event.is_preexisting),
+                                 "x-nodalix-silent": dbus.Boolean(event.is_silent or event.is_preexisting)}, signature="sv"),
                 dbus.Int32(0),
             )
         except dbus.exceptions.DBusException as e:

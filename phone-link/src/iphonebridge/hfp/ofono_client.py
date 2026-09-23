@@ -112,24 +112,25 @@ class HfpManager:
 
     # ---- lifecycle ------------------------------------------------------
 
-    def start(self) -> None:
-        mgr = dbus.Interface(system_bus.get_object(OFONO, "/"), _MGR_IFACE)
+    def start(self) -> bool:
+        if self._mgr_matches:
+            return True
         try:
+            # Proxy creation can itself activate a missing oFono service.
+            mgr = dbus.Interface(system_bus.get_object(OFONO, "/"), _MGR_IFACE)
             modems = mgr.GetModems()
-        except dbus.exceptions.DBusException as e:
-            log.warning(
-                "oFono not available (%s) — HFP calls disabled. "
-                "Run `iphonebridge hfp-enable`, then restart the daemon.",
-                e.get_dbus_name(),
-            )
-            return
-        self._mgr_matches.append(
-            mgr.connect_to_signal("ModemAdded", self._on_modem_added))
-        self._mgr_matches.append(
-            mgr.connect_to_signal("ModemRemoved", self._on_modem_removed))
-        for path, props in modems:
-            self._on_modem_added(path, props)
+            self._mgr_matches.append(
+                mgr.connect_to_signal("ModemAdded", self._on_modem_added))
+            self._mgr_matches.append(
+                mgr.connect_to_signal("ModemRemoved", self._on_modem_removed))
+            for path, props in modems:
+                self._on_modem_added(path, props)
+        except (dbus.exceptions.DBusException, OSError) as error:
+            self.stop()
+            log.warning("HFP unavailable; notifications, messages and contacts remain active: %s", error)
+            return False
         log.info("HFP manager started (oFono); modem=%s", self._modem_path)
+        return True
 
     def stop(self) -> None:
         log.info("HFP manager stopping")

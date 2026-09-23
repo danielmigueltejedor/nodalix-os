@@ -1,0 +1,7 @@
+[Unit]
+Description=Follow system locale changes
+[Path]
+PathChanged=/etc/locale.conf
+Unit=nodalix-user-layout.service
+[Install]
+WantedBy=default.target

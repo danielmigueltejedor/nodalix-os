@@ -37,15 +37,28 @@ RowLayout {
         model: Hyprland.workspaces
 
         delegate: Item {
+            id: workspaceItem
             required property var modelData  // HyprlandWorkspace
+
+            // Quickshell assigns monitor after creating the delegate; a var
+            // modelData.monitor binding does not reliably re-evaluate then.
+            property string monitorName: ""
+            Component.onCompleted: monitorName = modelData.monitor ? modelData.monitor.name : ""
+            Connections {
+                target: modelData
+                function onMonitorChanged() {
+                    workspaceItem.monitorName = modelData.monitor ? modelData.monitor.name : ""
+                }
+            }
 
             readonly property bool isActive:  modelData.active
             readonly property bool isFocused: modelData.focused
             readonly property bool isUrgent:  modelData.urgent
 
-            // Workspaces on this monitor; special (id < 0) hidden unless opted in.
-            visible: root.hyprMonitor && modelData.monitor === root.hyprMonitor
-                     && (root._hideSpecial ? modelData.id >= 0 : true)
+            // Quickshell can report id=-1 briefly for ordinary workspaces while
+            // their IPC data settles. Special workspaces are identified by name.
+            visible: root.barScreen && monitorName === root.barScreen.name
+                     && (!root._hideSpecial || !String(modelData.name ?? "").startsWith("special:"))
             implicitWidth:  visible ? (root._numbers ? numText.implicitWidth + 8 : dot.implicitWidth) : 0
             implicitHeight: dot.implicitHeight
             Layout.alignment: Qt.AlignVCenter
@@ -75,10 +88,11 @@ RowLayout {
                 id: numText
                 visible: root._numbers
                 anchors.centerIn: parent
-                text: modelData.id >= 0 ? (modelData.id - root._base) : "S"
+                text: modelData.id >= 0 ? (modelData.id - root._base)
+                      : (String(modelData.name ?? "").startsWith("special:") ? "S" : modelData.name)
                 color: parent._accent
                 opacity: isActive ? 1.0 : 0.6
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: ThemeManager.fontSizeSm
                 font.bold: isActive
             }

@@ -4,6 +4,7 @@ import Quickshell.Io
 import Quickshell.Networking
 import "../theme"
 import "../services"
+import "../widgets/bar"
 
 // Bar hover popout for Wi-Fi + VPN. Wi-Fi is driven natively by
 // Quickshell.Networking (reactive — no nmcli). NetworkManager VPNs are queried
@@ -165,7 +166,7 @@ Item {
                 visible: !root.wifiEnabled
                 text: I18n.tr("Wi-Fi off")
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 opacity: 0.6
                 Layout.topMargin: 4
             }
@@ -173,7 +174,7 @@ Item {
                 visible: root.wifiEnabled && root.wifiNetworks.length === 0
                 text: I18n.tr("Scanning…")
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 opacity: 0.6
                 Layout.topMargin: 4
             }
@@ -182,12 +183,13 @@ Item {
                 delegate: MenuRow {
                     required property var modelData
                     text: "" + modelData.name
-                    icon: {
-                        const s = modelData.signalStrength   // 0..1
-                        if (s >= 0.8)  return "󰤨"
-                        if (s >= 0.55) return "󰤥"
-                        if (s >= 0.3)  return "󰤢"
-                        return "󰤟"
+                    iconRole: "network.wifi.signal"
+                    iconState: {
+                        const s = modelData.signalStrength
+                        if (s >= 0.8)  return "excellent"
+                        if (s >= 0.55) return "good"
+                        if (s >= 0.3)  return "ok"
+                        return "weak"
                     }
                     active:   modelData.connected
                     trailing: I18n.tr(modelData.connected ? "Connected" : (modelData.known ? "Saved" : ""))
@@ -215,7 +217,7 @@ Item {
                 visible: root._vpnAvailable || root._tailscaleAvailable
                 text: I18n.tr("VPN")
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
             }
             Text {
@@ -223,14 +225,15 @@ Item {
                     && root.vpnList.length === 0 && !root.tailscaleDetected
                 text: I18n.tr("No VPN connections")
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 opacity: 0.6
                 Layout.topMargin: 4
             }
             MenuRow {
                 visible: root.tailscaleDetected
                 text: "Tailscale"
-                icon: "󰖂"
+                iconRole: "network.vpn.connection"
+                iconState: root.tailscaleActive ? "active" : "inactive"
                 active: root.tailscaleActive
                 trailing: root.tailscaleBusy
                     ? I18n.tr("Working…")
@@ -244,7 +247,8 @@ Item {
                 delegate: MenuRow {
                     required property var modelData
                     text:     modelData.name
-                    icon:     "󰖂"
+                    iconRole: "network.vpn.connection"
+                    iconState: modelData.active ? "active" : "inactive"
                     active:   modelData.active
                     trailing: I18n.tr(modelData.active ? "On" : "Off")
                     onClicked: root._nm(["nmcli", "connection", modelData.active ? "down" : "up", "id", modelData.name])
@@ -264,7 +268,7 @@ Item {
         Text {
             text: mh.title
             color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
             Layout.fillWidth: true
         }
@@ -285,7 +289,8 @@ Item {
     component MenuRow: Rectangle {
         id: mr
         property string text:     ""
-        property string icon:     ""
+        property string iconRole:  ""
+        property string iconState: ""
         property string trailing: ""
         property bool   active:   false
         signal clicked()
@@ -300,15 +305,16 @@ Item {
         RowLayout {
             anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
             spacing: 8
-            Text {
-                text: mr.icon
+            ShellIcon {
+                role: mr.iconRole
+                state: mr.iconState
+                iconSize: 15
                 color: mr.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily; font.pixelSize: 14
             }
             Text {
                 text: mr.text
                 color: mr.active ? ThemeManager.primary : ThemeManager.onSurface
-                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 elide: Text.ElideRight
                 Layout.fillWidth: true
             }
@@ -316,7 +322,7 @@ Item {
                 visible: mr.trailing !== ""
                 text: mr.trailing
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                font.family: ThemeManager.fontFor(text); font.pixelSize: 10
             }
         }
         MouseArea {

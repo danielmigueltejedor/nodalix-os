@@ -8,6 +8,8 @@ import Quickshell.Bluetooth
 import Quickshell.Hyprland
 import "../theme"
 import "../services"
+import "../widgets/bar" as Bar
+import "../widgets/bar"
 
 Item {
     id: root
@@ -368,13 +370,13 @@ Item {
         spacing: 8
 
         Item { Layout.fillWidth: true }
-        DashTab { icon: "󰕮"; active: root.tab === "home";  onClicked: root.tab = "home" }
-        DashTab { icon: "󰎈"; active: root.tab === "media"; onClicked: root.tab = "media" }
+        DashTab { state: "home"; active: root.tab === "home"; onClicked: root.tab = "home" }
+        DashTab { state: "media"; active: root.tab === "media"; onClicked: root.tab = "media" }
         Item { Layout.fillWidth: true }
     }
 
     component DashTab: Rectangle {
-        property string icon: ""
+        property string state: ""
         property bool active: false
         signal clicked()
         implicitWidth: 56
@@ -384,12 +386,12 @@ Item {
             ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, _tabMa.containsMouse ? 0.28 : 0.18)
             : (_tabMa.containsMouse ? Qt.rgba(ThemeManager.onSurface.r, ThemeManager.onSurface.g, ThemeManager.onSurface.b, 0.08) : "transparent")
         Behavior on color { ColorAnimation { duration: 100 } }
-        Text {
+        ShellIcon {
             anchors.centerIn: parent
-            text: parent.icon
+            role: "dashboard.tab"
+            state: parent.state
             color: parent.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily
-            font.pixelSize: 22
+            iconSize: 22
         }
         MouseArea { id: _tabMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
     }
@@ -432,19 +434,19 @@ Item {
                         Text {
                             text: root.now.toLocaleTimeString(root._fr, "HH:mm")
                             color: ThemeManager.onSurface
-                            font.family: ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: 26; font.weight: Font.Bold
                         }
                         Text {
                             text: root.now.toLocaleDateString(root._fr, "ddd")
                             color: ThemeManager.primary
-                            font.family: ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
                         }
                         Text {
                             text: root.now.toLocaleDateString(root._fr, "d MMM")
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: ThemeManager.fontSizeSm
                         }
                     }
@@ -506,7 +508,7 @@ Item {
             visible: !MprisService.hasPlayer
             text: I18n.tr("No media playing")
             color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: ThemeManager.fontSizeMd
             opacity: 0.6
         }
@@ -566,13 +568,12 @@ Item {
                         cache: true
                         visible: status === Image.Ready
                     }
-                    Text {
+                    ShellIcon {
                         anchors.centerIn: parent
                         visible: _bigArt.status !== Image.Ready
-                        text: "󰝚"
+                        role: "media.placeholder"
                         color: ThemeManager.onSurfaceVariant
-                        font.family: ThemeManager.fontFamily
-                        font.pixelSize: 56
+                        iconSize: 56
                     }
                 }
             }
@@ -606,7 +607,7 @@ Item {
                     text: MprisService.album
                     visible: MprisService.album !== ""
                     color: ThemeManager.onSurfaceVariant
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 10
                     opacity: 0.7
                     elide: Text.ElideRight
@@ -624,7 +625,7 @@ Item {
                     Text {
                         text: MprisService.fmt(MprisService.position)
                         color: ThemeManager.onSurfaceVariant
-                        font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                        font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                     }
                     Rectangle {
                         id: _scrub
@@ -646,7 +647,7 @@ Item {
                     Text {
                         text: MprisService.fmt(MprisService.length)
                         color: ThemeManager.onSurfaceVariant
-                        font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                        font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                     }
                 }
 
@@ -655,12 +656,13 @@ Item {
                     Layout.alignment: Qt.AlignHCenter
                     Layout.topMargin: 18
                     spacing: 4
-                    MediaBtn { icon: "󰒝"; enabled: MprisService.canShuffle; active: MprisService.shuffle; onClicked: MprisService.toggleShuffle() }
-                    MediaBtn { icon: "󰒮"; enabled: MprisService.canPrev; onClicked: MprisService.previous() }
-                    MediaBtn { icon: MprisService.playing ? "󰏤" : "󰐊"; big: true; onClicked: MprisService.playPause() }
-                    MediaBtn { icon: "󰒭"; enabled: MprisService.canNext; onClicked: MprisService.next() }
+                    MediaBtn { role: "media.shuffle"; enabled: MprisService.canShuffle; active: MprisService.shuffle; onClicked: MprisService.toggleShuffle() }
+                    MediaBtn { role: "media.previous"; enabled: MprisService.canPrev; onClicked: MprisService.previous() }
+                    MediaBtn { role: "media.playback"; state: MprisService.playing ? "pause" : "play"; big: true; onClicked: MprisService.playPause() }
+                    MediaBtn { role: "media.next"; enabled: MprisService.canNext; onClicked: MprisService.next() }
                     MediaBtn {
-                        icon: MprisService.loopState === 2 ? "󰑘" : "󰑖"   // 2 = Track
+                        role: "media.repeat"
+                        state: MprisService.loopState === 2 ? "one" : (MprisService.loopState === 0 ? "off" : "all")
                         enabled: MprisService.canLoop
                         active: MprisService.loopState !== 0
                         onClicked: MprisService.cycleLoop()
@@ -673,8 +675,8 @@ Item {
                     Layout.topMargin: 18
                     spacing: 6
                     PlayerDropdown { visible: MprisService.players.length > 0; Layout.alignment: Qt.AlignVCenter }
-                    MediaBtn { icon: "󰍹"; visible: root._playerWs !== ""; small: true; onClicked: root._openPlayerWs() }
-                    MediaBtn { icon: "󰏋"; visible: MprisService.canRaise && root._playerWs === ""; small: true; onClicked: { MprisService.raise(); PopoutService.close() } }
+                    MediaBtn { role: "media.window"; visible: root._playerWs !== ""; small: true; onClicked: root._openPlayerWs() }
+                    MediaBtn { role: "media.raise"; visible: MprisService.canRaise && root._playerWs === ""; small: true; onClicked: { MprisService.raise(); PopoutService.close() } }
                 }
 
                 Item { Layout.fillHeight: true }
@@ -742,12 +744,17 @@ Item {
                     RowLayout {
                         anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
                         spacing: 8
-                        Text { text: MprisService.icon(modelData); color: parent.parent.sel ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 17 }
+                        ShellIcon {
+                            role: "media.player"
+                            state: MprisService.playerKind(modelData)
+                            color: parent.parent.sel ? ThemeManager.primary : ThemeManager.onSurfaceVariant
+                            iconSize: 17
+                        }
                         Text {
                             Layout.fillWidth: true
                             text: MprisService.label(modelData)
                             color: parent.parent.sel ? ThemeManager.primary : ThemeManager.onSurface
-                            font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                             elide: Text.ElideRight
                         }
                     }
@@ -783,13 +790,13 @@ Item {
             Text {
                 id: _m1
                 text: mq.text; color: mq.color
-                font.family: ThemeManager.fontFamily; font.pixelSize: mq.pixelSize
+                font.family: ThemeManager.fontFor(text); font.pixelSize: mq.pixelSize
                 font.weight: mq.bold ? Font.Bold : Font.Normal
             }
             Text {
                 visible: mq.over
                 text: mq.text; color: mq.color
-                font.family: ThemeManager.fontFamily; font.pixelSize: mq.pixelSize
+                font.family: ThemeManager.fontFor(text); font.pixelSize: mq.pixelSize
                 font.weight: mq.bold ? Font.Bold : Font.Normal
             }
         }
@@ -805,7 +812,8 @@ Item {
 
     component MediaBtn: Rectangle {
         id: mbt
-        property string icon: ""
+        property string role: ""
+        property string state: ""
         property bool   big:   false
         property bool   small: false
         property bool   active: false
@@ -818,12 +826,12 @@ Item {
             : (active ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.18)
                       : (_mbtMa.containsMouse ? Qt.rgba(ThemeManager.onSurface.r, ThemeManager.onSurface.g, ThemeManager.onSurface.b, 0.10) : "transparent"))
         opacity: mbt.enabled ? 1 : 0.35
-        Text {
+        ShellIcon {
             anchors.centerIn: parent
-            text: mbt.icon
+            role: mbt.role
+            state: mbt.state
             color: mbt.big ? ThemeManager.onPrimary : (mbt.active ? ThemeManager.primary : ThemeManager.onSurface)
-            font.family: ThemeManager.fontFamily
-            font.pixelSize: mbt.big ? 22 : (mbt.small ? 20 : 24)
+            iconSize: mbt.big ? 22 : (mbt.small ? 20 : 24)
         }
         MouseArea { id: _mbtMa; anchors.fill: parent; enabled: mbt.enabled; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: mbt.clicked() }
     }
@@ -840,14 +848,24 @@ Item {
         RowLayout {
             anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
             spacing: 8
-            Text { text: MprisService.icon(MprisService.active); color: ThemeManager.primary; font.family: ThemeManager.fontFamily; font.pixelSize: 17 }
+            ShellIcon {
+                role: "media.player"
+                state: MprisService.playerKind(MprisService.active)
+                color: ThemeManager.primary
+                iconSize: 17
+            }
             Text {
                 Layout.fillWidth: true
                 text: MprisService.label(MprisService.active)
-                color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 elide: Text.ElideRight
             }
-            Text { text: root._playerMenu ? "󰅃" : "󰅀"; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 13 }
+            ShellIcon {
+                role: "ui.disclosure"
+                state: root._playerMenu ? "open" : "closed"
+                color: ThemeManager.onSurfaceVariant
+                iconSize: 14
+            }
         }
         MouseArea {
             id: _ddMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
@@ -891,24 +909,35 @@ Item {
             anchors.centerIn: parent
             spacing: 4
 
-            QsIcon { icon: "󰕾"; key: "volume" }
-            QsIcon { icon: "󰃠"; key: "brightness" }
-            QsIcon { icon: "󰖩"; key: "wifi" }
-            QsIcon { imageSource: "../assets/icons/localsend-official-mask.png"; key: "localsend" }
-            QsIcon { icon: WindowLayoutService.mode === "scrolling" ? "󰁔" : (WindowLayoutService.mode === "tabs" ? "󰓩" : "󰕰"); key: "layout" }
-            QsIcon { icon: ScreenRecorderService.recording ? "󰑊" : "󰻃"; key: "capture"; highlighted: ScreenRecorderService.recording }
-            QsIcon { icon: "󰖂"; key: "vpn" }
-            QsIcon { icon: "󰂯"; key: "bluetooth" }
             QsIcon {
-                icon: NotificationService.doNotDisturb ? "󰂛" : "󰂚"; key: "dnd"
-                // DND toggles directly (no flyout)
+                role: "audio.volume"
+                state: AudioService.sinkMuted || AudioService.sinkVolPct === 0
+                    ? "muted"
+                    : (AudioService.sinkVolPct < 33 ? "low"
+                    : (AudioService.sinkVolPct < 66 ? "medium" : "high"))
+                key: "volume"
+            }
+            QsIcon { role: "display.brightness"; iconVisualSize: 18; key: "brightness" }
+            QsIcon { role: "network.wifi.signal"; state: "excellent"; key: "wifi" }
+            QsIcon { imageSource: "../assets/icons/localsend-official-mask.png"; key: "localsend" }
+            QsIcon {
+                role: "layout.mode"
+                state: WindowLayoutService.mode
+                key: "layout"
+            }
+            QsIcon { role: "capture.screen"; state: ScreenRecorderService.recording ? "recording" : "idle"; key: "capture"; highlighted: ScreenRecorderService.recording }
+            QsIcon { role: "network.vpn.connection"; state: "inactive"; key: "vpn" }
+            QsIcon { role: "bluetooth.device"; state: "connected"; key: "bluetooth" }
+            QsIcon {
+                role: NotificationService.doNotDisturb ? "notifications.dnd" : "notifications"
+                key: "dnd"
                 toggle: true
                 onActivated: NotificationService.doNotDisturb = !NotificationService.doNotDisturb
                 highlighted: NotificationService.doNotDisturb
             }
-            QsIcon { icon: "󰔎"; key: "theme" }
+            QsIcon { role: "theme.mode"; key: "theme" }
             QsIcon {
-                icon: "󰒓"; key: "settings"
+                role: "settings"; key: "settings"
                 toggle: true
                 onActivated: { SettingsUi.show(); PopoutService.close() }
             }
@@ -1009,7 +1038,7 @@ Item {
                     Layout.fillWidth: true
                     text: I18n.tr("LocalSend is off")
                     color: ThemeManager.onSurfaceVariant
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: ThemeManager.fontSizeSm
                     opacity: 0.7
                 }
@@ -1032,7 +1061,7 @@ Item {
                                 Layout.fillWidth: true
                                 text: I18n.tr("Incoming transfer") + " · " + modelData.alias
                                 color: ThemeManager.onSurface
-                                font.family: ThemeManager.fontFamily
+                                font.family: ThemeManager.fontFor(text)
                                 font.pixelSize: ThemeManager.fontSizeSm
                                 font.weight: Font.Medium
                                 elide: Text.ElideRight
@@ -1041,7 +1070,7 @@ Item {
                                 Layout.fillWidth: true
                                 text: Object.keys(modelData.files || {}).length + " " + I18n.tr("files") + " · " + root._formatBytes(modelData.total)
                                 color: ThemeManager.onSurfaceVariant
-                                font.family: ThemeManager.fontFamily
+                                font.family: ThemeManager.fontFor(text)
                                 font.pixelSize: 10
                             }
                             RowLayout {
@@ -1059,7 +1088,7 @@ Item {
                     Layout.fillWidth: true
                     text: I18n.tr("No nearby devices")
                     color: ThemeManager.onSurfaceVariant
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: ThemeManager.fontSizeSm
                     opacity: 0.65
                 }
@@ -1073,7 +1102,8 @@ Item {
                         MenuRow {
                             Layout.fillWidth: true
                             text: modelData.alias
-                            icon: modelData.deviceType === "mobile" ? "󰄜" : "󰍹"
+                            iconRole: "device.peer"
+                            iconState: modelData.deviceType === "mobile" ? "mobile" : "computer"
                             trailing: I18n.tr("Send files")
                             onClicked: {
                                 root.localSendTarget = modelData.fingerprint
@@ -1083,7 +1113,13 @@ Item {
                         Rectangle {
                             implicitWidth: 32; implicitHeight: 32; radius: ThemeManager.chipRadius
                             color: _favMa.containsMouse ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.15) : "transparent"
-                            Text { anchors.centerIn: parent; text: modelData.favorite ? "󰋑" : "󰋕"; color: modelData.favorite ? ThemeManager.primary : ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily; font.pixelSize: 16 }
+                            ShellIcon {
+                                anchors.centerIn: parent
+                                role: "favorite"
+                                state: modelData.favorite ? "yes" : "no"
+                                color: modelData.favorite ? ThemeManager.primary : ThemeManager.onSurfaceVariant
+                                iconSize: 17
+                            }
                             MouseArea { id: _favMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: LocalSendService.setFavorite(modelData.fingerprint, !modelData.favorite, modelData.alias) }
                         }
                     }
@@ -1094,7 +1130,7 @@ Item {
                     Layout.fillWidth: true
                     text: LocalSendService.transfer.message
                     color: LocalSendService.transfer.state === "error" ? ThemeManager.error : ThemeManager.primary
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 10
                     wrapMode: Text.Wrap
                 }
@@ -1115,7 +1151,7 @@ Item {
                     Layout.fillWidth: true
                     text: I18n.tr("Received files are saved to your LocalSend downloads folder")
                     color: ThemeManager.onSurfaceVariant
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 9
                     opacity: 0.55
                     wrapMode: Text.Wrap
@@ -1145,7 +1181,7 @@ Item {
                     text: I18n.tr("Choose how windows are organised. The selection is saved for future sessions.")
                     wrapMode: Text.WordWrap
                     color: ThemeManager.onSurfaceVariant
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 10
                 }
                 Repeater {
@@ -1170,12 +1206,12 @@ Item {
                                 color: selected
                                     ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.20)
                                     : ThemeManager.surfaceContainerHigh
-                                Text {
+                                ShellIcon {
                                     anchors.centerIn: parent
-                                    text: modelData.icon
+                                    role: "layout.mode"
+                                    state: modelData.id
                                     color: selected ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                                    font.family: ThemeManager.fontFamily
-                                    font.pixelSize: 17
+                                    iconSize: 19
                                 }
                             }
                             ColumnLayout {
@@ -1183,7 +1219,7 @@ Item {
                                 Text {
                                     text: modelData.name
                                     color: selected ? ThemeManager.primary : ThemeManager.onSurface
-                                    font.family: ThemeManager.fontFamily
+                                    font.family: ThemeManager.fontFor(text)
                                     font.pixelSize: ThemeManager.fontSizeMd
                                     font.bold: selected
                                 }
@@ -1191,15 +1227,17 @@ Item {
                                     Layout.fillWidth: true
                                     text: modelData.description
                                     color: ThemeManager.onSurfaceVariant
-                                    font.family: ThemeManager.fontFamily
+                                    font.family: ThemeManager.fontFor(text)
                                     font.pixelSize: 9
                                     elide: Text.ElideRight
                                 }
                             }
-                            Text {
+                            ShellIcon {
                                 visible: selected
-                                text: "󰄬"; color: ThemeManager.primary
-                                font.family: ThemeManager.fontFamily; font.pixelSize: 15
+                                role: "selection"
+                                state: "selected"
+                                color: ThemeManager.primary
+                                iconSize: 15
                             }
                         }
                         HoverHandler { id: _layoutHover; cursorShape: Qt.PointingHandCursor }
@@ -1214,7 +1252,7 @@ Item {
                     Layout.fillWidth: true
                     text: WindowLayoutService.statusText
                     color: ThemeManager.primary
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 10
                 }
             }
@@ -1232,8 +1270,8 @@ Item {
                 anchors { left: parent.left; right: parent.right; top: parent.top }
                 spacing: 7
                 MenuHeader { title: I18n.tr("Screen capture"); on: ScreenRecorderService.recording }
-                MenuRow { text: I18n.tr("Capture full screen"); icon: "󰹑"; trailing: "Ctrl Shift 3"; onClicked: ScreenRecorderService.screenshotFull() }
-                MenuRow { text: I18n.tr("Capture a region"); icon: "󰩭"; trailing: "Ctrl Shift 4"; onClicked: ScreenRecorderService.screenshotRegion() }
+                MenuRow { text: I18n.tr("Capture full screen"); iconRole: "capture.action"; iconState: "full"; trailing: "Ctrl Shift 3"; onClicked: ScreenRecorderService.screenshotFull() }
+                MenuRow { text: I18n.tr("Capture a region"); iconRole: "capture.action"; iconState: "region"; trailing: "Ctrl Shift 4"; onClicked: ScreenRecorderService.screenshotRegion() }
                 Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: ThemeManager.outlineVariant; opacity: 0.35 }
 
                 Rectangle {
@@ -1259,11 +1297,12 @@ Item {
                             color: ScreenRecorderService.recording
                                 ? Qt.rgba(ThemeManager.error.r, ThemeManager.error.g, ThemeManager.error.b, 0.20)
                                 : Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.16)
-                            Text {
+                            ShellIcon {
                                 anchors.centerIn: parent
-                                text: ScreenRecorderService.recording ? "󰑋" : "󰑊"
+                                role: "capture.screen"
+                                state: ScreenRecorderService.recording ? "recording" : "idle"
                                 color: ScreenRecorderService.recording ? ThemeManager.error : ThemeManager.primary
-                                font.family: ThemeManager.fontFamily; font.pixelSize: 17
+                                iconSize: 17
                             }
                         }
 
@@ -1276,14 +1315,14 @@ Item {
                                         : (ScreenRecorderService.paused ? I18n.tr("Recording paused") : I18n.tr("Recording")))
                                     : (ScreenRecorderService.starting ? I18n.tr("Preparing recording…") : I18n.tr("Start recording"))
                                 color: ScreenRecorderService.recording ? ThemeManager.error : ThemeManager.onSurface
-                                font.family: ThemeManager.fontFamily
+                                font.family: ThemeManager.fontFor(text)
                                 font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
                             }
                             Text {
                                 visible: ScreenRecorderService.recording
                                 text: ScreenRecorderService.elapsedText
                                 color: ThemeManager.onSurfaceVariant
-                                font.family: ThemeManager.fontFamily; font.pixelSize: 11
+                                font.family: ThemeManager.fontFor(text); font.pixelSize: 11
                             }
                         }
 
@@ -1339,7 +1378,7 @@ Item {
                     text: ScreenRecorderService.message
                     visible: text !== ""
                     color: ScreenRecorderService.error ? ThemeManager.error : ThemeManager.onSurfaceVariant
-                    font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                    font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                     wrapMode: Text.Wrap
                 }
             }
@@ -1371,19 +1410,19 @@ Item {
             anchors { left: parent.left; right: parent.right; top: parent.top; margins: 16 }
             spacing: 8
 
-            Text {
+            ShellIcon {
                 Layout.alignment: Qt.AlignHCenter
-                text: root._confirmAction === "reboot" ? "󰑙" : (root._confirmAction === "shutdown" ? "󰐥" : "󰍃")
+                role: "session.action"
+                state: root._confirmAction
                 color: ThemeManager.error
-                font.family: ThemeManager.fontFamily
-                font.pixelSize: 32
+                iconSize: 32
             }
             Text {
                 Layout.alignment: Qt.AlignHCenter
                 text: I18n.tr(root._confirmAction === "reboot" ? "Reboot now?"
                     : (root._confirmAction === "shutdown" ? "Shut down now?" : "Log out now?"))
                 color: ThemeManager.onSurface
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: ThemeManager.fontSizeMd; font.weight: Font.Medium
             }
             RowLayout {
@@ -1412,7 +1451,7 @@ Item {
             anchors.centerIn: parent
             text: cb.label
             color: cb.danger ? ThemeManager.onError : ThemeManager.onSurface
-            font.family: ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
         }
         HoverHandler { id: _cbHov; cursorShape: Qt.PointingHandCursor }
@@ -1482,12 +1521,12 @@ Item {
                             ? new Date(root.calSelectedDate).toLocaleDateString(root._fr, "dddd, d MMMM")
                             : ""
                         color: ThemeManager.onSurface
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: ThemeManager.fontSizeMd; font.weight: Font.Bold
                         elide: Text.ElideRight
                     }
-                    CalIconBtn { visible: CalendarService.canCreate; icon: root.calCreating ? "󰅖" : "󰐕"; onClicked: root.calCreating = !root.calCreating }
-                    CalIconBtn { icon: "󰅖"; onClicked: root.calSelectedDate = "" }
+                    CalIconBtn { visible: CalendarService.canCreate; state: root.calCreating ? "close" : "add"; onClicked: root.calCreating = !root.calCreating }
+                    CalIconBtn { state: "close"; onClicked: root.calSelectedDate = "" }
                 }
 
                 // ── Create form ───────────────────────────────────────────────
@@ -1517,7 +1556,7 @@ Item {
                             anchors.centerIn: parent
                             text: I18n.tr(CalendarService.busy ? "Saving…" : "Add event")
                             color: ThemeManager.onPrimary
-                            font.family: ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
                         }
                         MouseArea {
@@ -1542,7 +1581,7 @@ Item {
                     visible: !root.calCreating && _calPanel._events.length === 0 && _calPanel._reminders.length === 0
                     text: I18n.tr("No events")
                     color: ThemeManager.onSurfaceVariant
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: ThemeManager.fontSizeSm
                     opacity: 0.6
                 }
@@ -1580,14 +1619,14 @@ Item {
                                     Text {
                                         text: _evRow.modelData.stime !== "" ? _evRow.modelData.stime : I18n.tr("All day")
                                         color: ThemeManager.primary
-                                        font.family: ThemeManager.fontFamily
+                                        font.family: ThemeManager.fontFor(text)
                                         font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
                                     }
                                     Text {
                                         Layout.fillWidth: true
                                         text: _evRow.modelData.title
                                         color: ThemeManager.onSurface
-                                        font.family: ThemeManager.fontFamily
+                                        font.family: ThemeManager.fontFor(text)
                                         font.pixelSize: ThemeManager.fontSizeSm
                                         elide: Text.ElideRight
                                     }
@@ -1600,21 +1639,40 @@ Item {
                             }
 
                             // Details (expanded)
-                            Text {
+                            RowLayout {
                                 visible: _evRow.expanded && _evRow.modelData.stime !== ""
-                                text: "󱎫  " + _evRow.modelData.stime + " – " + _evRow.modelData.etime
-                                color: ThemeManager.onSurfaceVariant
-                                font.family: ThemeManager.fontFamily; font.pixelSize: 11
                                 Layout.leftMargin: 11
+                                spacing: 6
+                                ShellIcon {
+                                    role: "calendar.detail"
+                                    state: "time"
+                                    color: ThemeManager.onSurfaceVariant
+                                    iconSize: 13
+                                }
+                                Text {
+                                    text: _evRow.modelData.stime + " – " + _evRow.modelData.etime
+                                    color: ThemeManager.onSurfaceVariant
+                                    font.family: ThemeManager.fontFor(text); font.pixelSize: 11
+                                }
                             }
-                            Text {
+                            RowLayout {
                                 visible: _evRow.expanded && _evRow.modelData.location !== ""
-                                text: "󰍎  " + _evRow.modelData.location
-                                color: ThemeManager.onSurfaceVariant
-                                font.family: ThemeManager.fontFamily; font.pixelSize: 11
-                                wrapMode: Text.WordWrap
                                 Layout.fillWidth: true
                                 Layout.leftMargin: 11
+                                spacing: 6
+                                ShellIcon {
+                                    role: "calendar.detail"
+                                    state: "location"
+                                    color: ThemeManager.onSurfaceVariant
+                                    iconSize: 13
+                                }
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: _evRow.modelData.location
+                                    color: ThemeManager.onSurfaceVariant
+                                    font.family: ThemeManager.fontFor(text); font.pixelSize: 11
+                                    wrapMode: Text.WordWrap
+                                }
                             }
                             // Description with clickable links
                             Text {
@@ -1624,7 +1682,7 @@ Item {
                                 textFormat: Text.StyledText
                                 linkColor: ThemeManager.primary
                                 color: ThemeManager.onSurfaceVariant
-                                font.family: ThemeManager.fontFamily; font.pixelSize: 11
+                                font.family: ThemeManager.fontFor(text); font.pixelSize: 11
                                 wrapMode: Text.WordWrap
                                 Layout.fillWidth: true
                                 Layout.leftMargin: 11
@@ -1651,7 +1709,7 @@ Item {
                     visible: !root.calCreating && _calPanel._reminders.length > 0
                     text: I18n.tr("Reminders")
                     color: ThemeManager.onSurfaceVariant
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: ThemeManager.fontSizeSm
                     font.weight: Font.Medium
                     Layout.topMargin: 4
@@ -1668,17 +1726,17 @@ Item {
                         RowLayout {
                             anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
                             spacing: 8
-                            Text {
-                                text: "󰄱"
+                            ShellIcon {
+                                role: "calendar.detail"
+                                state: "reminder"
                                 color: ThemeManager.primary
-                                font.family: ThemeManager.fontFamily
-                                font.pixelSize: 15
+                                iconSize: 15
                             }
                             Text {
                                 Layout.fillWidth: true
                                 text: modelData.title
                                 color: ThemeManager.onSurface
-                                font.family: ThemeManager.fontFamily
+                                font.family: ThemeManager.fontFor(text)
                                 font.pixelSize: ThemeManager.fontSizeSm
                                 elide: Text.ElideRight
                             }
@@ -1690,16 +1748,17 @@ Item {
     }
 
     component CalIconBtn: Rectangle {
-        property string icon: ""
+        property string state: ""
         signal clicked()
         implicitWidth: 26; implicitHeight: 26; radius: 6
         color: _cibMa.containsMouse ? Qt.rgba(ThemeManager.onSurface.r, ThemeManager.onSurface.g, ThemeManager.onSurface.b, 0.08) : "transparent"
         Behavior on color { ColorAnimation { duration: 80 } }
-        Text {
+        ShellIcon {
             anchors.centerIn: parent
-            text: parent.icon
+            role: "calendar.action"
+            state: parent.state
             color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily; font.pixelSize: 15
+            iconSize: 16
         }
         MouseArea { id: _cibMa; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: parent.clicked() }
     }
@@ -1718,7 +1777,7 @@ Item {
             anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
             verticalAlignment: TextInput.AlignVCenter
             color: ThemeManager.onSurface
-            font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
             clip: true
             Text {
                 anchors.verticalCenter: parent.verticalCenter
@@ -1750,7 +1809,7 @@ Item {
                     spacing: 5
                     VertSlider {
                         Layout.alignment: Qt.AlignHCenter
-                        icon: "󰍹"
+                        iconRole: "display.monitor"
                         value: _monitorBrightness.localValue / 100
                         label: Math.round(_monitorBrightness.localValue) + "%"
                         onMoved: (f) => {
@@ -1762,7 +1821,7 @@ Item {
                         Layout.fillWidth: true
                         text: modelData.name
                         color: ThemeManager.onSurfaceVariant
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: 9
                         horizontalAlignment: Text.AlignHCenter
                         elide: Text.ElideRight
@@ -1775,7 +1834,7 @@ Item {
                 Layout.preferredWidth: 90
                 VertSlider {
                     Layout.alignment: Qt.AlignHCenter
-                    icon: "󰃠"
+                    iconRole: "display.brightness"
                     value: BrightnessService.value / 100
                     label: BrightnessService.value + "%"
                     onMoved: (f) => BrightnessService.set(f * 100)
@@ -1786,7 +1845,7 @@ Item {
                 Layout.alignment: Qt.AlignHCenter
                 text: I18n.tr("No controllable displays found")
                 color: ThemeManager.error
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: 10
                 wrapMode: Text.Wrap
                 horizontalAlignment: Text.AlignHCenter
@@ -1802,7 +1861,7 @@ Item {
             Text {
                 text: I18n.tr("Theme")
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
             }
             Repeater {
@@ -1824,7 +1883,7 @@ Item {
                         anchors { left: parent.left; leftMargin: 12; verticalCenter: parent.verticalCenter }
                         text: modelData.name
                         color: parent.active ? ThemeManager.primary : ThemeManager.onSurface
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: ThemeManager.fontSizeSm
                     }
                     MouseArea {
@@ -1858,7 +1917,7 @@ Item {
                 visible: !(Bluetooth.defaultAdapter?.enabled ?? false)
                 text: I18n.tr("Adapter off")
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 opacity: 0.6
                 Layout.topMargin: 4
             }
@@ -1869,7 +1928,8 @@ Item {
                     required property var modelData
                     text:     (modelData.deviceName && modelData.deviceName !== "")
                               ? modelData.deviceName : modelData.address
-                    icon:     modelData.connected ? "󰂱" : "󰂯"
+                    iconRole: "bluetooth.device"
+                    iconState: modelData.connected ? "connected" : "disconnected"
                     active:   modelData.connected
                     trailing: I18n.tr(modelData.connected ? "Disconnect" : (modelData.paired ? "Connect" : "Pair"))
                     onClicked: modelData.connected ? modelData.disconnect() : modelData.connect()
@@ -1905,7 +1965,7 @@ Item {
                 visible: !root.wifiEnabled
                 text: I18n.tr("Wi-Fi off")
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 opacity: 0.6
                 Layout.topMargin: 4
             }
@@ -1915,12 +1975,13 @@ Item {
                 delegate: MenuRow {
                     required property var modelData
                     text:     modelData.ssid
-                    icon: {
+                    iconRole: "network.wifi.signal"
+                    iconState: {
                         const s = modelData.signal
-                        if (s >= 80) return "󰤨"
-                        if (s >= 55) return "󰤥"
-                        if (s >= 30) return "󰤢"
-                        return "󰤟"
+                        if (s >= 80) return "excellent"
+                        if (s >= 55) return "good"
+                        if (s >= 30) return "ok"
+                        return "weak"
                     }
                     active:   modelData.active
                     trailing: modelData.active ? I18n.tr("Disconnect") : I18n.tr("Connect")
@@ -1962,7 +2023,7 @@ Item {
                         Layout.fillWidth: true
                         text: I18n.tr("Connect to %1").arg(root.wifiSelectedSsid)
                         color: ThemeManager.onSurface
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: ThemeManager.fontSizeSm
                         font.weight: Font.Medium
                         elide: Text.ElideRight
@@ -1978,7 +2039,7 @@ Item {
                             anchors { fill: parent; leftMargin: 10; rightMargin: 34 }
                             verticalAlignment: TextInput.AlignVCenter
                             color: ThemeManager.onSurface
-                            font.family: ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: ThemeManager.fontSizeSm
                             echoMode: _wifiReveal.checked ? TextInput.Normal : TextInput.Password
                             clip: true
@@ -1994,13 +2055,14 @@ Item {
                                 font: _wifiPassword.font
                             }
                         }
-                        Text {
+                        ShellIcon {
                             id: _wifiReveal
                             property bool checked: false
                             anchors { right: parent.right; rightMargin: 10; verticalCenter: parent.verticalCenter }
-                            text: checked ? "󰈉" : "󰈈"
+                            role: "action.reveal"
+                            state: checked ? "revealed" : "hidden"
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: 14
+                            iconSize: 15
                             MouseArea { anchors.fill: parent; anchors.margins: -7; cursorShape: Qt.PointingHandCursor; onClicked: _wifiReveal.checked = !_wifiReveal.checked }
                         }
                     }
@@ -2009,7 +2071,7 @@ Item {
                         Layout.fillWidth: true
                         text: root.wifiConnectError
                         color: ThemeManager.error
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: 10
                         wrapMode: Text.Wrap
                     }
@@ -2053,7 +2115,7 @@ Item {
             Text {
                 text: I18n.tr("VPN")
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
             }
 
@@ -2061,7 +2123,7 @@ Item {
                 visible: root.vpnList.length === 0 && !root.tailscaleDetected
                 text: I18n.tr("No VPN connections")
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 opacity: 0.6
                 Layout.topMargin: 4
             }
@@ -2069,7 +2131,8 @@ Item {
             MenuRow {
                 visible: root.tailscaleDetected
                 text: "Tailscale"
-                icon: "󰖂"
+                iconRole: "network.vpn.connection"
+                iconState: root.tailscaleActive ? "active" : "inactive"
                 active: root.tailscaleActive
                 trailing: root.tailscaleBusy
                     ? I18n.tr("Working…")
@@ -2084,7 +2147,8 @@ Item {
                 delegate: MenuRow {
                     required property var modelData
                     text:     modelData.name
-                    icon:     "󰖂"
+                    iconRole: "network.vpn.connection"
+                    iconState: modelData.active ? "active" : "inactive"
                     active:   modelData.active
                     trailing: I18n.tr(modelData.active ? "On" : "Off")
                     onClicked: root._nm(
@@ -2115,7 +2179,7 @@ Item {
         Text {
             text: mh.title
             color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
             Layout.fillWidth: true
         }
@@ -2136,9 +2200,10 @@ Item {
 
     component MenuRow: Rectangle {
         id: mr
-        property string text:     ""
-        property string icon:     ""
-        property string trailing: ""
+        property string text:      ""
+        property string iconRole:  ""
+        property string iconState: ""
+        property string trailing:  ""
         property bool   active:   false
         signal clicked()
 
@@ -2153,15 +2218,16 @@ Item {
         RowLayout {
             anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
             spacing: 8
-            Text {
-                text: mr.icon
+            ShellIcon {
+                role: mr.iconRole
+                state: mr.iconState
                 color: mr.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily; font.pixelSize: 14
+                iconSize: 16
             }
             Text {
                 text: mr.text
                 color: mr.active ? ThemeManager.primary : ThemeManager.onSurface
-                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 elide: Text.ElideRight
                 Layout.fillWidth: true
             }
@@ -2169,7 +2235,7 @@ Item {
                 visible: mr.trailing !== ""
                 text: mr.trailing
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                font.family: ThemeManager.fontFor(text); font.pixelSize: 10
             }
         }
         MouseArea {
@@ -2192,15 +2258,15 @@ Item {
         RowLayout {
             anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
             spacing: 6
-            Text {
-                text: "󰏌"
+            ShellIcon {
+                role: "navigation.next"
                 color: ThemeManager.primary
-                font.family: ThemeManager.fontFamily; font.pixelSize: 13
+                iconSize: 13
             }
             Text {
                 text: mf.text
                 color: ThemeManager.onSurface
-                font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm
+                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                 Layout.fillWidth: true
             }
         }
@@ -2232,7 +2298,9 @@ Item {
     // ── QuickSettings rail icon ──────────────────────────────────────────────
     component QsIcon: Item {
         id: qi
-        property string icon: ""
+        property string role: ""
+        property string state: ""
+        property int iconVisualSize: 18
         property url imageSource: ""
         property string key:  ""
         property bool   toggle: false       // true = act directly, no flyout
@@ -2252,19 +2320,20 @@ Item {
                 : (_ma.containsMouse ? Qt.rgba(ThemeManager.onSurface.r, ThemeManager.onSurface.g, ThemeManager.onSurface.b, 0.08) : "transparent")
             Behavior on color { ColorAnimation { duration: 100 } }
         }
-        Text {
+        ShellIcon {
             visible: qi.imageSource.toString() === ""
             anchors.centerIn: parent
-            text: qi.icon
+            role: qi.role
+            state: qi.state
             color: qi.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily
-            font.pixelSize: 17
+            iconSize: qi.iconVisualSize
+            iconPadding: qi.iconVisualSize > 18 ? 0 : 1
         }
         Image {
             id: _qsImage
             visible: qi.imageSource.toString() !== ""
             anchors.centerIn: parent
-            width: 22; height: 22
+            width: 18; height: 18
             source: qi.imageSource
             fillMode: Image.PreserveAspectFit
             smooth: true
@@ -2313,13 +2382,12 @@ Item {
                     cache: false
                     visible: status === Image.Ready
                 }
-                Text {
+                ShellIcon {
                     anchors.centerIn: parent
                     visible: _face.status !== Image.Ready
-                    text: "󰀄"
+                    role: "user.avatar"
                     color: ThemeManager.onSurfaceVariant
-                    font.family: ThemeManager.fontFamily
-                    font.pixelSize: 26
+                    iconSize: 26
                 }
             }
 
@@ -2330,7 +2398,7 @@ Item {
                 Text {
                     text: root.userName !== "" ? root.userName : I18n.tr("user")
                     color: ThemeManager.onSurface
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: ThemeManager.fontSizeLg; font.weight: Font.Bold
                     elide: Text.ElideRight
                     Layout.fillWidth: true
@@ -2346,7 +2414,7 @@ Item {
                         visible: !pc._hover
                         text: root.uptimeSeconds > 0 ? I18n.tr("up ") + root._formatUptime(root.uptimeSeconds) : ""
                         color: ThemeManager.onSurfaceVariant
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: ThemeManager.fontSizeSm
                         elide: Text.ElideRight
                     }
@@ -2355,11 +2423,11 @@ Item {
                         anchors { left: parent.left; right: parent.right; verticalCenter: parent.verticalCenter }
                         visible: pc._hover
                         spacing: 4
-                        MiniSession { Layout.fillWidth: true; icon: "󰌾"; onClicked: LockService.lock() }
-                        MiniSession { Layout.fillWidth: true; icon: "󰒲"; onClicked: root._suspendProc.running = true }
-                        MiniSession { Layout.fillWidth: true; icon: "󰍃"; danger: true; onClicked: root._confirmAction = "logout" }
-                        MiniSession { Layout.fillWidth: true; icon: "󰑙"; danger: true; onClicked: root._confirmAction = "reboot" }
-                        MiniSession { Layout.fillWidth: true; icon: "󰐥"; danger: true; onClicked: root._confirmAction = "shutdown" }
+                        MiniSession { Layout.fillWidth: true; state: "lock"; onClicked: LockService.lock() }
+                        MiniSession { Layout.fillWidth: true; state: "suspend"; onClicked: root._suspendProc.running = true }
+                        MiniSession { Layout.fillWidth: true; state: "logout"; danger: true; onClicked: root._confirmAction = "logout" }
+                        MiniSession { Layout.fillWidth: true; state: "reboot"; danger: true; onClicked: root._confirmAction = "reboot" }
+                        MiniSession { Layout.fillWidth: true; state: "shutdown"; danger: true; onClicked: root._confirmAction = "shutdown" }
                     }
                 }
             }
@@ -2370,7 +2438,7 @@ Item {
 
     component MiniSession: Rectangle {
         id: ms
-        property string icon: ""
+        property string state: ""
         property bool danger: false
         signal clicked()
         implicitWidth: 26; implicitHeight: 26; radius: 6
@@ -2378,12 +2446,12 @@ Item {
         color: _msHov.hovered
             ? Qt.rgba(_accent.r, _accent.g, _accent.b, 0.16)
             : ThemeManager.surfaceContainerHigh
-        Text {
+        ShellIcon {
             anchors.centerIn: parent
-            text: ms.icon
+            role: "session.action"
+            state: ms.state
             color: _msHov.hovered ? ms._accent : ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily
-            font.pixelSize: 13
+            iconSize: 15
         }
         HoverHandler { id: _msHov; cursorShape: Qt.PointingHandCursor }
         TapHandler { onTapped: ms.clicked() }
@@ -2408,7 +2476,7 @@ Item {
                 verticalAlignment: Text.AlignVCenter
                 text: I18n.tr("No media")
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: ThemeManager.fontSizeSm
                 opacity: 0.6
             }
@@ -2455,13 +2523,12 @@ Item {
                         source: MprisService.artUrl
                         visible: status === Image.Ready
                     }
-                    Text {
+                    ShellIcon {
                         anchors.centerIn: parent
                         visible: _art.status !== Image.Ready
-                        text: "󰝚"
+                        role: "media.placeholder"
                         color: ThemeManager.onSurfaceVariant
-                        font.family: ThemeManager.fontFamily
-                        font.pixelSize: 30
+                        iconSize: 30
                     }
                 }
             }
@@ -2472,7 +2539,7 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
                 text: MprisService.title
                 color: ThemeManager.onSurface
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
                 elide: Text.ElideRight
             }
@@ -2482,7 +2549,7 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
                 text: MprisService.artist
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: 10
                 elide: Text.ElideRight
             }
@@ -2491,9 +2558,9 @@ Item {
                 visible: MprisService.hasPlayer
                 Layout.alignment: Qt.AlignHCenter
                 spacing: 8
-                MprisBtn { icon: "󰒮"; enabled: MprisService.canPrev; onClicked: MprisService.previous() }
-                MprisBtn { icon: MprisService.playing ? "󰏤" : "󰐊"; big: true; onClicked: MprisService.playPause() }
-                MprisBtn { icon: "󰒭"; enabled: MprisService.canNext; onClicked: MprisService.next() }
+                MprisBtn { role: "media.previous"; enabled: MprisService.canPrev; onClicked: MprisService.previous() }
+                MprisBtn { role: "media.playback"; state: MprisService.playing ? "pause" : "play"; big: true; onClicked: MprisService.playPause() }
+                MprisBtn { role: "media.next"; enabled: MprisService.canNext; onClicked: MprisService.next() }
             }
 
             Item { Layout.fillHeight: true }
@@ -2502,7 +2569,8 @@ Item {
 
     component MprisBtn: Rectangle {
         id: mb
-        property string icon: ""
+        property string role: ""
+        property string state: ""
         property bool big: false
         signal clicked()
         width: big ? 40 : 32; height: big ? 40 : 32
@@ -2512,12 +2580,12 @@ Item {
             : (_mbMa.containsMouse ? Qt.rgba(ThemeManager.onSurface.r, ThemeManager.onSurface.g, ThemeManager.onSurface.b, 0.10) : "transparent")
         opacity: mb.enabled ? 1 : 0.35
         Behavior on color { ColorAnimation { duration: 100 } }
-        Text {
+        ShellIcon {
             anchors.centerIn: parent
-            text: mb.icon
+            role: mb.role
+            state: mb.state
             color: mb.big ? ThemeManager.onPrimary : ThemeManager.onSurface
-            font.family: ThemeManager.fontFamily
-            font.pixelSize: mb.big ? 18 : 15
+            iconSize: mb.big ? 18 : 16
         }
         MouseArea {
             id: _mbMa; anchors.fill: parent
@@ -2543,9 +2611,11 @@ Item {
 
             Text {
                 visible: !WeatherService.ok
-                text: I18n.tr("Weather unavailable")
+                text: WeatherService.loading
+                    ? (I18n.language === "es" ? "Cargando el tiempo…" : "Loading weather…")
+                    : I18n.tr("Weather unavailable")
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: ThemeManager.fontSizeSm
                 opacity: 0.6
             }
@@ -2554,11 +2624,11 @@ Item {
                 visible: WeatherService.ok
                 Layout.fillWidth: true
                 spacing: 8
-                Text {
-                    text: WeatherService.icon
+                ShellIcon {
+                    role: "weather.condition"
+                    state: WeatherService.condition
                     color: ThemeManager.primary
-                    font.family: ThemeManager.fontFamily
-                    font.pixelSize: 32
+                    iconSize: 32
                 }
                 ColumnLayout {
                     spacing: 0
@@ -2566,13 +2636,13 @@ Item {
                     Text {
                         text: WeatherService.temp + WeatherService.unit
                         color: ThemeManager.onSurface
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: 22; font.weight: Font.Bold
                     }
                     Text {
                         text: WeatherService.desc
                         color: ThemeManager.onSurfaceVariant
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: ThemeManager.fontSizeSm
                         elide: Text.ElideRight
                         Layout.fillWidth: true
@@ -2584,7 +2654,7 @@ Item {
                 visible: WeatherService.ok
                 text: WeatherService.location + "  ·  " + I18n.tr("feels") + " " + WeatherService.feels + "°  ·  " + WeatherService.humidity + "%"
                 color: ThemeManager.onSurfaceVariant
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: 10
                 elide: Text.ElideRight
                 Layout.fillWidth: true
@@ -2605,19 +2675,20 @@ Item {
                             Layout.alignment: Qt.AlignHCenter
                             text: modelData.day
                             color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFamily; font.pixelSize: 10
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                         }
-                        Text {
+                        ShellIcon {
                             Layout.alignment: Qt.AlignHCenter
-                            text: modelData.icon
+                            role: "weather.condition"
+                            state: modelData.condition
                             color: ThemeManager.primary
-                            font.family: ThemeManager.fontFamily; font.pixelSize: 14
+                            iconSize: 14
                         }
                         Text {
                             Layout.alignment: Qt.AlignHCenter
                             text: WeatherService.conv(modelData.max) + "°/" + WeatherService.conv(modelData.min) + "°"
                             color: ThemeManager.onSurface
-                            font.family: ThemeManager.fontFamily; font.pixelSize: 9
+                            font.family: ThemeManager.fontFor(text); font.pixelSize: 9
                         }
                     }
                 }
@@ -2681,7 +2752,7 @@ Item {
             anchors.centerIn: _cv
             text: ring.value
             color: ThemeManager.onSurface
-            font.family: ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: 10; font.weight: Font.Medium
         }
         Text {
@@ -2689,7 +2760,7 @@ Item {
             anchors.top: _cv.bottom; anchors.topMargin: 2
             text: ring.label
             color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily; font.pixelSize: 9
+            font.family: ThemeManager.fontFor(text); font.pixelSize: 9
         }
     }
 
@@ -2709,12 +2780,12 @@ Item {
             Text {
                 text: cal.view.toLocaleDateString(root._fr, "MMMM yyyy")
                 color: ThemeManager.onSurface
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: ThemeManager.fontSizeMd; font.weight: Font.Medium
                 Layout.fillWidth: true
             }
-            CalNav { icon: "󰅁"; onClicked: cal.view = new Date(cal.view.getFullYear(), cal.view.getMonth() - 1, 1) }
-            CalNav { icon: "󰅂"; onClicked: cal.view = new Date(cal.view.getFullYear(), cal.view.getMonth() + 1, 1) }
+            CalNav { state: "previous"; onClicked: cal.view = new Date(cal.view.getFullYear(), cal.view.getMonth() - 1, 1) }
+            CalNav { state: "next"; onClicked: cal.view = new Date(cal.view.getFullYear(), cal.view.getMonth() + 1, 1) }
         }
 
         GridLayout {
@@ -2730,7 +2801,7 @@ Item {
                     horizontalAlignment: Text.AlignHCenter
                     text: modelData
                     color: ThemeManager.onSurfaceVariant
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 10; font.weight: Font.Medium
                     opacity: 0.7
                 }
@@ -2777,7 +2848,7 @@ Item {
                             ? ThemeManager.onPrimary
                             : (_cell._inMonth ? ThemeManager.onSurface : ThemeManager.onSurfaceVariant)
                         opacity: _cell._inMonth ? 1.0 : 0.35
-                        font.family: ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: ThemeManager.fontSizeSm
                     }
                     // Event dot
@@ -2801,7 +2872,7 @@ Item {
     }
 
     component CalNav: Item {
-        property string icon: ""
+        property string state: ""
         signal clicked()
         implicitWidth: 22; implicitHeight: 22
         Rectangle {
@@ -2809,11 +2880,12 @@ Item {
             color: _ma.containsMouse ? Qt.rgba(ThemeManager.onSurface.r, ThemeManager.onSurface.g, ThemeManager.onSurface.b, 0.08) : "transparent"
             Behavior on color { ColorAnimation { duration: 80 } }
         }
-        Text {
+        ShellIcon {
             anchors.centerIn: parent
-            text: parent.icon
+            role: "calendar.nav"
+            state: parent.state
             color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily; font.pixelSize: 14
+            iconSize: 15
         }
         MouseArea {
             id: _ma; anchors.fill: parent
@@ -2825,12 +2897,13 @@ Item {
     // ── Vertical M3 slider (brightness flyout) ───────────────────────────────
     component VertSlider: ColumnLayout {
         id: vs
-        property string icon:  ""
+        property string iconRole: ""
+        property string iconState: ""
         property string label: ""
         property real   value: 0          // 0..1
         signal moved(real frac)
 
-        readonly property int _trackW: 6
+        readonly property int _trackW: 18
         readonly property int _thumbR: 10
         readonly property int _trackH: 150
 
@@ -2840,7 +2913,7 @@ Item {
             Layout.alignment: Qt.AlignHCenter
             text: vs.label
             color: ThemeManager.onSurface
-            font.family: ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
         }
 
@@ -2851,18 +2924,22 @@ Item {
             implicitHeight: vs._trackH + vs._thumbR * 2
 
             readonly property real frac:    Math.max(0, Math.min(1, vs.value))
-            readonly property real thumbCY: vs._thumbR + (1.0 - frac) * (vs._trackH - vs._thumbR * 2)
+            readonly property real thumbCY: vs._thumbR + (1.0 - frac) * vs._trackH
 
             Rectangle {
                 anchors.horizontalCenter: parent.horizontalCenter
                 y: vs._thumbR; width: vs._trackW; height: vs._trackH
                 radius: vs._trackW / 2
-                color: ThemeManager.surfaceContainerHigh
+                color: ThemeManager.outlineVariant
                 clip: true
+                antialiasing: true
                 Rectangle {
                     anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
-                    height: _body.frac * vs._trackH
-                    color: ThemeManager.primary
+                    anchors.margins: 2
+                    height: Math.max(0, (vs._trackH - 4) * _body.frac)
+                    radius: 7
+                    antialiasing: true
+                    color: Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.42)
                     Behavior on height { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
                 }
             }
@@ -2872,7 +2949,7 @@ Item {
                 y: _body.thumbCY - vs._thumbR
                 width: vs._thumbR * 2; height: vs._thumbR * 2
                 radius: vs._thumbR
-                color: ThemeManager.primary
+                color: ThemeManager.onSurface
                 Behavior on y { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
             }
 
@@ -2891,12 +2968,12 @@ Item {
             }
         }
 
-        Text {
+        ShellIcon {
             Layout.alignment: Qt.AlignHCenter
-            text: vs.icon
+            role: vs.iconRole
+            state: vs.iconState
             color: ThemeManager.primary
-            font.family: ThemeManager.fontFamily
-            font.pixelSize: 16
+            iconSize: 18
         }
     }
 
@@ -2908,29 +2985,38 @@ Item {
         signal moved(real frac)
         implicitHeight: 28
 
-        Text {
+        ColloidIcon {
             id: _ic
             anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
             text: sl.icon
             color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily; font.pixelSize: 16
+            iconSize: 18
         }
         Rectangle {
             id: _track
             anchors { left: _ic.right; leftMargin: 10; right: parent.right; verticalCenter: parent.verticalCenter }
-            height: 6; radius: 3
-            color: ThemeManager.surfaceContainerHigh
+            height: 18; radius: 9
+            color: ThemeManager.outlineVariant
+            antialiasing: true
             Rectangle {
                 anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                width: Math.max(6, parent.width * Math.max(0, Math.min(1, sl.value)))
-                radius: 3
-                color: ThemeManager.primary
+                anchors.margins: 2
+                width: Math.max(0, (parent.width - 4) * Math.max(0, Math.min(1, sl.value)))
+                radius: 7
+                antialiasing: true
+                color: Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.42)
                 Behavior on width { NumberAnimation { duration: 60 } }
+            }
+            Rectangle {
+                width: 20; height: 20; radius: 10; y: -1
+                x: Math.max(0, Math.min(_track.width - width, _track.width * Math.max(0, Math.min(1, sl.value)) - width / 2))
+                color: ThemeManager.onSurface
+                Behavior on x { NumberAnimation { duration: 60 } }
             }
             MouseArea {
                 anchors.fill: parent; anchors.margins: -8
                 cursorShape: Qt.PointingHandCursor
-                function apply(x) { sl.moved(Math.max(0, Math.min(1, (x + 8) / _track.width))) }
+                function apply(x) { sl.moved(Math.max(0, Math.min(1, (x - 8) / _track.width))) }
                 onPressed:         (e) => apply(e.x)
                 onPositionChanged: (e) => { if (pressed) apply(e.x) }
             }

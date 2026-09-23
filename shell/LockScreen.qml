@@ -4,8 +4,10 @@ import QtMultimedia
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Widgets
+import "./components"
 import "./theme"
 import "./services"
+import "widgets/bar" as BarWidgets
 
 // Custom session lock. State 1: wallpaper + clock/date (left) + weather (bottom-right).
 // State 2 (click / key): background blurs and a password prompt appears.
@@ -78,14 +80,14 @@ WlSessionLock {
         Rectangle {
             anchors.fill: parent
             color:   "black"
-            opacity: surf.showPrompt ? 0.45 : 0.0
+            opacity: surf.showPrompt ? 0.48 : 0.16
             Behavior on opacity { NumberAnimation { duration: 280 } }
         }
 
         // ── Idle: clock + date (left, vertically centered) ────────────────────
         Column {
             anchors {
-                left: parent.left; leftMargin: 80
+                left: parent.left; leftMargin: Math.max(48, surf.width * 0.065)
                 verticalCenter: parent.verticalCenter
             }
             spacing: 0
@@ -95,15 +97,15 @@ WlSessionLock {
             Text {
                 text: surf.now.toLocaleTimeString(surf._fr, "HH:mm")
                 color: "white"
-                font.family: ThemeManager.fontFamily
-                font.pixelSize: 120
-                font.weight: Font.Bold
+                font.family: ThemeManager.fontFor(text)
+                font.pixelSize: Math.min(112, surf.width / 12)
+                font.weight: Font.Medium
             }
             Text {
                 text: surf.now.toLocaleDateString(surf._fr, "dddd, d MMMM yyyy")
                 color: "white"
                 opacity: 0.85
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: 26
             }
         }
@@ -119,12 +121,12 @@ WlSessionLock {
             opacity: surf.showPrompt ? 0.0 : 1.0
             Behavior on opacity { NumberAnimation { duration: 260 } }
 
-            Text {
+            BarWidgets.ShellIcon {
                 anchors.verticalCenter: parent.verticalCenter
-                text: WeatherService.icon
+                role: "weather.condition"
+                state: WeatherService.condition
                 color: "white"
-                font.family: ThemeManager.fontFamily
-                font.pixelSize: 56
+                iconSize: 56
             }
             Column {
                 anchors.verticalCenter: parent.verticalCenter
@@ -132,13 +134,13 @@ WlSessionLock {
                 Text {
                     text: WeatherService.temp + WeatherService.unit
                     color: "white"
-                    font.family: ThemeManager.fontFamily
-                    font.pixelSize: 40; font.weight: Font.Bold
+                    font.family: ThemeManager.fontFor(text)
+                    font.pixelSize: 40; font.weight: Font.Medium
                 }
                 Text {
                     text: WeatherService.desc + "  ·  " + WeatherService.location
                     color: "white"; opacity: 0.85
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 18
                 }
             }
@@ -166,13 +168,12 @@ WlSessionLock {
                     cache: false
                     visible: status === Image.Ready
                 }
-                Text {
+                BarWidgets.ShellIcon {
                     anchors.centerIn: parent
                     visible: _face.status !== Image.Ready
-                    text: "󰀄"
+                    role: "user.avatar"
                     color: "white"
-                    font.family: ThemeManager.fontFamily
-                    font.pixelSize: 64
+                    iconSize: 64
                 }
             }
 
@@ -182,7 +183,7 @@ WlSessionLock {
                 text: LockService.userName
                 visible: LockService.userName !== ""
                 color: "white"
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: 20; font.weight: Font.Medium
             }
 
@@ -190,7 +191,7 @@ WlSessionLock {
                 anchors.horizontalCenter: parent.horizontalCenter
                 text: surf.now.toLocaleTimeString(surf._fr, "HH:mm")
                 color: "white"
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: 34; font.weight: Font.Medium
             }
 
@@ -208,7 +209,7 @@ WlSessionLock {
                     anchors { fill: parent; leftMargin: 18; rightMargin: 18 }
                     verticalAlignment: TextInput.AlignVCenter
                     color: "white"
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 18
                     echoMode: TextInput.Password
                     passwordCharacter: "●"
@@ -231,7 +232,7 @@ WlSessionLock {
                     visible: LockService.busy
                     text: I18n.tr("Checking…")
                     color: Qt.rgba(1, 1, 1, 0.7)
-                    font.family: ThemeManager.fontFamily
+                    font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 16
                 }
             }
@@ -241,8 +242,24 @@ WlSessionLock {
                 text: LockService.error
                 visible: LockService.error !== ""
                 color: ThemeManager.error
-                font.family: ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: 14
+            }
+        }
+
+        // Power actions remain inside the secure lock surface; they never
+        // dismiss authentication or start a separate unlocked window.
+        SessionPowerControls {
+            id: lockPower
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: 36
+            width: Math.min(480, parent.width - 48)
+            z: 10
+            onVisibleChanged: if (!visible) { pending = ""; error = "" }
+            Connections {
+                target: LockService
+                function onLockedChanged() { if (!LockService.locked) { lockPower.pending = ""; lockPower.error = "" } }
             }
         }
 

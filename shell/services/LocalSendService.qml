@@ -17,6 +17,7 @@ QtObject {
     property string lastError: ""
     property var _notifiedPending: ({})
     property string _lastTransferState: "idle"
+    property string _lastReceivedEventId: ""
 
     function _request(method, path, payload, callback) {
         const request = new XMLHttpRequest()
@@ -68,9 +69,44 @@ QtObject {
         }
         _notifiedPending = seen
         const state = transfer && transfer.state ? transfer.state : "idle"
-        if (state === "done" && _lastTransferState !== "done")
-            NotificationService.notifyLocal("LocalSend", I18n.tr("Transfer completed"), transfer.message || "",
-                "localsend", ["xdg-open", root.receivedDir])
+
+        // Incoming transfers can complete between two polling cycles. Using
+        // state alone (done -> done) loses the notification, so every received
+        // transfer carries a unique eventId from the daemon.
+        const receivedEventId = transfer && transfer.direction === "receive"
+            ? (transfer.eventId || "")
+            : ""
+
+        if (state === "done" &&
+            transfer.direction === "receive" &&
+            receivedEventId !== "" &&
+            receivedEventId !== _lastReceivedEventId) {
+
+            _lastReceivedEventId = receivedEventId
+
+            NotificationService.notifyLocal(
+                "LocalSend",
+                I18n.tr("Transfer completed"),
+                transfer.message || "",
+                "localsend",
+                ["xdg-open", root.receivedDir]
+            )
+        }
+
+        // Preserve the old behaviour for outgoing transfers.
+        if (state === "done" &&
+            transfer.direction !== "receive" &&
+            _lastTransferState !== "done") {
+
+            NotificationService.notifyLocal(
+                "LocalSend",
+                I18n.tr("Transfer completed"),
+                transfer.message || "",
+                "localsend",
+                ["xdg-open", root.receivedDir]
+            )
+        }
+
         _lastTransferState = state
     }
 

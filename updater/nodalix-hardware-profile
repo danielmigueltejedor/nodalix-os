@@ -14,6 +14,13 @@ from pathlib import Path
 
 VENDOR_REPO = Path("/usr/lib/nodalix-updater/cachyos-repo")
 PROFILE_FILE = Path("/etc/nodalix/hardware-profile.json")
+POLISHED_BOOT_OPTIONS = {
+    "loglevel": "2",
+    "systemd.show_status": "false",
+    "rd.systemd.show_status": "false",
+    "rd.udev.log_level": "2",
+    "udev.log_level": "2",
+}
 
 
 def run_text(command: list[str]) -> str:
@@ -103,17 +110,57 @@ def detect() -> dict[str, object]:
     }
 
 
+def polished_boot_options(options: str) -> str:
+    """Keep boot diagnostics in the journal without painting harmless warnings."""
+    managed = set(POLISHED_BOOT_OPTIONS)
+    tokens = [
+        token for token in options.split()
+        if token.split("=", 1)[0] not in managed and token != "quiet"
+    ]
+    tokens.append("quiet")
+    tokens.extend(f"{key}={value}" for key, value in POLISHED_BOOT_OPTIONS.items())
+    return " ".join(tokens)
+
+
+def polish_boot_entry(content: str) -> str:
+    return re.sub(
+        r"^options\s+(.*)$",
+        lambda match: f"options {polished_boot_options(match.group(1))}",
+        content,
+        flags=re.MULTILINE,
+    )
+
+
 def write_systemd_boot_entry(kernel: str) -> str:
     entries = Path("/boot/loader/entries")
     source = entries / "nodalix.conf"
-    if not source.exists() or kernel != "linux-cachyos":
+    if kernel not in {"linux-cachyos", "linux-cachyos-deckify"}:
+        return "not-managed"
+    if not source.exists():
+        # Archinstall names entries with a timestamp. Match their kernel,
+        # keeping root/encryption options and microcode lines intact.
+        source = next((entry for entry in sorted(entries.glob("*.conf"))
+                       if re.search(r"^linux\s+/vmlinuz-linux$", entry.read_text(), re.MULTILINE)
+                       and re.search(r"^initrd\s+/initramfs-linux\.img$", entry.read_text(), re.MULTILINE)), source)
+    if not source.exists():
         return "not-managed"
     original = source.read_text(encoding="utf-8")
     target = entries / "nodalix-cachyos.conf"
     content = re.sub(r"^title\s+.*$", "title Nodalix · CachyOS (optimizado)", original, flags=re.MULTILINE)
-    content = re.sub(r"^linux\s+\S+", "linux /vmlinuz-linux-cachyos", content, flags=re.MULTILINE)
-    content = re.sub(r"^initrd\s+/initramfs-linux\.img$", "initrd /initramfs-linux-cachyos.img", content, flags=re.MULTILINE)
+    content = re.sub(r"^linux\s+\S+", f"linux /vmlinuz-{kernel}", content, flags=re.MULTILINE)
+    content = re.sub(r"^initrd\s+/initramfs-linux\.img$", f"initrd /initramfs-{kernel}.img", content, flags=re.MULTILINE)
+    content = polish_boot_entry(content)
     target.write_text(content, encoding="utf-8")
+
+    kernel_cmdline = Path("/etc/kernel/cmdline")
+    if kernel_cmdline.exists():
+        cmdline_backup = kernel_cmdline.with_suffix(".nodalix-backup")
+        if not cmdline_backup.exists():
+            shutil.copy2(kernel_cmdline, cmdline_backup)
+        kernel_cmdline.write_text(
+            polished_boot_options(kernel_cmdline.read_text(encoding="utf-8")) + "\n",
+            encoding="utf-8",
+        )
 
     loader = Path("/boot/loader/loader.conf")
     if loader.exists():
@@ -126,6 +173,14 @@ def write_systemd_boot_entry(kernel: str) -> str:
         else:
             current = "default nodalix-cachyos.conf\n" + current
         loader.write_text(current, encoding="utf-8")
+
+    # systemd-boot's persistent LoaderEntryDefault EFI variable takes
+    # precedence over loader.conf. Set both so systems that previously booted
+    # an Arch UKI do not keep selecting it after the CachyOS entry is added.
+    subprocess.run(
+        ["bootctl", "set-default", target.name],
+        check=True,
+    )
     return str(target)
 
 
@@ -145,10 +200,23 @@ def apply_profile(profile: dict[str, object]) -> None:
         subprocess.run([str(VENDOR_REPO / "cachyos-repo.sh"), "--install"], cwd=VENDOR_REPO, check=True)
 
     subprocess.run(
-        ["pacman", "-Syu", "--needed", "--noconfirm", str(profile["kernel"]), str(profile["headers"])],
+        ["pacman", "-Syu", "--needed", "--noconfirm", "linux", "linux-headers", str(profile["kernel"]), str(profile["headers"])],
         check=True,
     )
+    # Re-resolve every repository-managed package after introducing the
+    # architecture repository. CachyOS' pacman records the source repository
+    # and uses this pass to replace eligible Arch builds with their znver4/v4
+    # counterparts; packages without an optimized build remain on Arch.
+    native_packages = [name for name in run_text(["pacman", "-Qqn"]).splitlines() if name]
+    if native_packages:
+        subprocess.run(
+            ["pacman", "-S", "--needed", "--noconfirm", "-"],
+            input="\n".join(native_packages) + "\n",
+            text=True,
+            check=True,
+        )
     profile["boot_entry"] = write_systemd_boot_entry(str(profile["kernel"]))
+    profile["native_packages_resynced"] = len(native_packages)
     profile["applied_at"] = datetime.now(timezone.utc).isoformat()
     profile["backup"] = str(backup_dir)
     PROFILE_FILE.parent.mkdir(parents=True, exist_ok=True)

@@ -1,0 +1,14 @@
+id = "patchy"
+name = "Patchy"
+
+root = "~/.local/opt/nodalix/apps/patchy"
+updater = "/usr/share/nodalix-apps/bin/nodalix-patchy-update"
+executable = "bin/patchy"
+
+upstream = "https://github.com/SethRobinson/Patchy.git"
+update_strategy = "latest-stable-tag-or-main"
+overlay_branch = "nodalix"
+
+channel = "upstream"
+build = "native-overlay"
+integration = "nodalix"

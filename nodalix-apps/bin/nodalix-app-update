@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP="${1:-}"
+MODE="${2:-}"
+
+if [[ ! "$APP" =~ ^[a-z0-9][a-z0-9_-]*$ ]]; then
+    echo "Uso: nodalix-app-update <app> [--wait]"
+    exit 2
+fi
+
+SELF="$(readlink -f "$0")"
+MANAGER="$HOME/.local/bin/nodalix-apps"
+STATE="$HOME/.local/state/nodalix-apps"
+LOGDIR="$STATE/updates"
+
+mkdir -p "$LOGDIR"
+
+notify() {
+    if command -v notify-send >/dev/null 2>&1; then
+        notify-send "$1" "$2" >/dev/null 2>&1 || true
+    fi
+}
+
+# Desde una GUI queremos que la actualización sobreviva al proceso que la lanzó.
+if [ "$MODE" != "--wait" ] && [ "${NODALIX_UPDATE_WORKER:-0}" != "1" ]; then
+    if command -v systemd-run >/dev/null 2>&1; then
+        UNIT="nodalix-update-${APP}-$(date +%s%N)"
+
+        systemd-run \
+            --user \
+            --quiet \
+            --collect \
+            --unit="$UNIT" \
+            --setenv=NODALIX_UPDATE_WORKER=1 \
+            "$SELF" "$APP" --wait
+
+        exit 0
+    fi
+
+    nohup env NODALIX_UPDATE_WORKER=1 \
+        "$SELF" "$APP" --wait \
+        >/dev/null 2>&1 &
+
+    exit 0
+fi
+
+LOCK="$STATE/update-${APP}.lock"
+LOG="$LOGDIR/${APP}.log"
+
+exec 9>"$LOCK"
+
+if ! flock -n 9; then
+    notify "Nodalix Apps" "$APP ya se está actualizando."
+    exit 0
+fi
+
+{
+    echo
+    echo "===== $(date --iso-8601=seconds) ====="
+    echo "Aplicación: $APP"
+} >> "$LOG"
+
+notify "Nodalix Apps" "Actualizando $APP…"
+
+if "$MANAGER" update "$APP" >> "$LOG" 2>&1; then
+    notify "Nodalix Apps" "$APP se ha actualizado correctamente. Reinicia la aplicación para usar la nueva versión."
+    exit 0
+else
+    STATUS=$?
+    notify "Nodalix Apps" "La actualización de $APP ha fallado. La versión instalada se mantiene."
+    exit "$STATUS"
+fi

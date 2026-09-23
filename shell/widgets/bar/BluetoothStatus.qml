@@ -33,16 +33,17 @@ Item {
         anchors.fill: parent
         spacing: 4
 
-        Text {
-            text: enabled ? (root.connectedDevice ? "󰂱" : "󰂯") : "󰂲"
+        ShellIcon {
+            role: "bluetooth.device"
+            state: !enabled
+                ? "disabled"
+                : (root.connectedDevice ? "connected" : "disconnected")
             color: root.connectedDevice
                 ? ThemeManager.primary
                 : enabled
                     ? ThemeManager.onSurface
                     : ThemeManager.onSurfaceVariant
             opacity: enabled ? 1.0 : 0.5
-            font.family: ThemeManager.fontFamily
-            font.pixelSize: 15
             Layout.alignment: Qt.AlignVCenter
 
             Behavior on color { ColorAnimation { duration: 120 } }

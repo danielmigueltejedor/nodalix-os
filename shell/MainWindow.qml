@@ -10,6 +10,7 @@ import "./bar"
 import "./panels"
 import "./theme"
 import "./services"
+import "widgets/bar" as BarWidgets
 
 PanelWindow {
     id: root
@@ -143,7 +144,9 @@ PanelWindow {
     readonly property int  _toolsRailW:  48      // expanded rail width
     readonly property int  _toolsHoverW: 14      // collapsed hover/input zone
     readonly property int  _toolsH:      186     // rail height (4 buttons)
-    readonly property int  _toolsWpW:    210     // wallpaper picker width
+    readonly property int  _toolsWpW:    Math.min(650, root.width - 100)     // wallpaper picker width
+    readonly property real _toolsWpH: Math.min(660, root.height - ThemeManager.barHeight - 100)
+    readonly property real _toolsWpY: Math.max(ThemeManager.barHeight + 12, (root.height - _toolsWpH) / 2)
     readonly property real _toolsRight:  root.width - ThemeManager.borderWidth
     readonly property real _toolsY:      Math.round((root.height - _toolsH) / 2)
 
@@ -160,7 +163,7 @@ PanelWindow {
 
     // ── App launcher (Win11 start menu) — blob merges into the bottom border ──
     readonly property bool _launcherActive:
-        LauncherService.open && LauncherService.screenName === root.modelData?.name
+        LauncherService.open && LauncherService.screenName === root.modelData?.name && WindowLayoutService.mode === "tiling"
     readonly property real _launcherW: Math.min(660, root.width - 80)
     readonly property real _launcherTargetH: Math.min(640, root.height - ThemeManager.barTotalHeight - 60)
     property real _launcherH: _launcherActive ? _launcherTargetH : 0
@@ -170,6 +173,15 @@ PanelWindow {
     }
     readonly property real _launcherX: Math.round((root.width - _launcherW) / 2)
     readonly property real _launcherY: root.height - _launcherH   // flush with bottom edge
+
+    // Launcher modal guard: hover popouts must not compete with search focus.
+    Connections {
+        target: LauncherService
+        function onOpenChanged() {
+            if (root._launcherActive) PopoutService.close()
+        }
+    }
+
 
     // Every large surface used to keep the declaration order as its stacking
     // order.  That meant a launcher declared near the end of this file could
@@ -223,9 +235,27 @@ PanelWindow {
     // only while a hover-popout text field is actually being edited, so plain
     // hover never grabs. Network/bluetooth text entry is its own PopupWindow.
     readonly property bool _layerWantsKbd: ToolsService.open
-        || root._launcherActive || PopoutService.textActive
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
-    HyprlandFocusGrab { windows: [root]; active: root._layerWantsKbd }
+        || PopoutService.textActive
+    WlrLayershell.keyboardFocus: root._launcherActive
+        ? WlrKeyboardFocus.Exclusive
+        : WlrKeyboardFocus.None
+    HyprlandFocusGrab {
+        id: _layerFocusGrab
+        windows: [root]
+        active: root._layerWantsKbd
+
+        // The first launcher open can race component creation against the
+        // compositor focus grab. Request TextField focus when the grab is
+        // actually active, not merely when the launcher state flips open.
+        onActiveChanged: {
+            if (active && root._launcherActive) {
+                Qt.callLater(() => {
+                    if (_launcherLoader.item)
+                        _launcherLoader.item.requestSearchFocus()
+                })
+            }
+        }
+    }
 
     // Animated current width + height (notch nub ↔ rail), kept vertically centred
     property real _toolsW: _toolsShow ? _toolsRailW : _toolsNotchW
@@ -290,9 +320,9 @@ PanelWindow {
         // Wallpaper picker
         Region {
             x:      root._toolsWpOpen ? root._toolsRight - root._toolsRailW - 8 - root._toolsWpW : root.width
-            y:      ThemeManager.barHeight + 8
+            y:      root._toolsWpY
             width:  root._toolsWpOpen ? root._toolsWpW : 0
-            height: root._toolsWpOpen ? root.height - ThemeManager.barHeight - 24 : 0
+            height: root._toolsWpOpen ? root._toolsWpH : 0
         }
         // Full-screen dismiss region while toolbar is keyboard-open
         Region {
@@ -423,6 +453,7 @@ PanelWindow {
 
     // ── Bar ───────────────────────────────────────────────────────────────────
     Bar {
+        enabled: !root._launcherActive
         anchors { top: parent.top; left: parent.left; right: parent.right }
         anchors.topMargin: root._islands ? ThemeManager.barFloatTop : 0
         height:    ThemeManager.barHeight
@@ -445,23 +476,32 @@ PanelWindow {
         ColumnLayout {
             anchors.fill: parent; anchors.margins: 18
             spacing: 8
-            Text {
+            RowLayout {
                 Layout.fillWidth: true
-                text: "󰇚  " + I18n.tr("Incoming transfer")
-                color: ThemeManager.primary; font.family: ThemeManager.fontFamily
-                font.pixelSize: ThemeManager.fontSizeLg; font.weight: Font.Bold
+                spacing: 8
+                BarWidgets.ShellIcon {
+                    iconName: "send-to-symbolic"
+                    color: ThemeManager.primary
+                    iconSize: ThemeManager.fontSizeLg
+                }
+                Text {
+                    Layout.fillWidth: true
+                    text: I18n.tr("Incoming transfer")
+                    color: ThemeManager.primary; font.family: ThemeManager.fontFor(text)
+                    font.pixelSize: ThemeManager.fontSizeLg; font.weight: Font.Bold
+                }
             }
             Text {
                 Layout.fillWidth: true
                 text: root._incoming ? root._incoming.alias : ""
-                color: ThemeManager.onSurface; font.family: ThemeManager.fontFamily
+                color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text)
                 font.pixelSize: ThemeManager.fontSizeMd; elide: Text.ElideRight
             }
             Text {
                 Layout.fillWidth: true
                 readonly property int count: root._incoming ? Object.keys(root._incoming.files || {}).length : 0
                 text: count + " " + I18n.tr("files")
-                color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFamily
+                color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text)
                 font.pixelSize: ThemeManager.fontSizeSm
             }
             RowLayout {
@@ -476,7 +516,7 @@ PanelWindow {
                         Layout.fillWidth: true; implicitHeight: 34
                         radius: ThemeManager.chipRadius
                         color: modelData.accept ? ThemeManager.primary : ThemeManager.surfaceContainer
-                        Text { anchors.centerIn: parent; text: modelData.label; color: modelData.accept ? ThemeManager.onPrimary : ThemeManager.onSurface; font.family: ThemeManager.fontFamily; font.pixelSize: ThemeManager.fontSizeSm }
+                        Text { anchors.centerIn: parent; text: modelData.label; color: modelData.accept ? ThemeManager.onPrimary : ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
                         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: modelData.accept ? LocalSendService.accept(root._incoming.id) : LocalSendService.decline(root._incoming.id) }
                     }
                 }
@@ -771,10 +811,10 @@ PanelWindow {
                 switch (e.key) {
                     case Qt.Key_Up:                          ToolsService.up();       e.accepted = true; break
                     case Qt.Key_Down:                        ToolsService.down();     e.accepted = true; break
-                    case Qt.Key_Left:
+                    case Qt.Key_Left: if (ToolsService.wpOpen) ToolsService.moveSelection(-1); else ToolsService.activate(); e.accepted = true; break
                     case Qt.Key_Return:
                     case Qt.Key_Enter:                       ToolsService.activate(); e.accepted = true; break
-                    case Qt.Key_Right:
+                    case Qt.Key_Right: if (ToolsService.wpOpen) ToolsService.moveSelection(1); else ToolsService.back(); e.accepted = true; break
                     case Qt.Key_Escape:                      ToolsService.back();     e.accepted = true; break
                 }
             }
@@ -795,7 +835,7 @@ PanelWindow {
                 delegate: ToolBtn {
                     required property var modelData
                     required property int index
-                    icon:   modelData.icon || "󰘔"
+                    iconName: ToolsService.toolIconName(modelData.icon)
                     kbdSel: ToolsService.open && ToolsService.selected === index
                     onClicked: { ToolsService._launch(modelData.command); ToolsService.close(); root._toolsHovered = false }
                 }
@@ -803,7 +843,7 @@ PanelWindow {
             // Built-in wallpaper / background picker
             ToolBtn {
                 visible: ToolsService.wpEnabled
-                icon: "󰸉"; active: root._toolsWpOpen
+                iconRole: "wallpaper.picker"; active: root._toolsWpOpen
                 kbdSel: ToolsService.open && ToolsService.selected === ToolsService.wpIndex
                 onClicked: { if (ToolsService.wpOpen) ToolsService.wpOpen = false; else { ToolsService.wpOpen = true; WallpaperService.refresh() } }
             }
@@ -818,86 +858,16 @@ PanelWindow {
         layer.effect: Elevation { level: 3 }
         width:   root._toolsWpW
         x:       root._toolsRight - root._toolsRailW - 8 - root._toolsWpW
-        y:       ThemeManager.barHeight + 8
-        height:  root.height - ThemeManager.barHeight - 24
+        y:       root._toolsWpY
+        height:  root._toolsWpH
         radius:  ThemeManager.panelRadius
         color:   ThemeManager.surfaceContainerHigh
-        border.width: 1
-        border.color: Qt.rgba(ThemeManager.onSurface.r, ThemeManager.onSurface.g, ThemeManager.onSurface.b, 0.08)
         opacity: root._toolsWpOpen ? 1 : 0
         Behavior on opacity { NumberAnimation { duration: 150 } }
 
         HoverHandler { id: _toolsPickHover; onHoveredChanged: root._toolsEval() }
 
-        Text {
-            id: _wpTitle
-            anchors { left: parent.left; top: parent.top; margins: 12 }
-            text: I18n.tr((WallpaperService.favorites?.length ?? 0) > 0 ? "Favorites" : "Wallpaper collection")
-            color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily
-            font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
-        }
-
-        Flickable {
-            anchors { left: parent.left; right: parent.right; top: _wpTitle.bottom; bottom: parent.bottom; margins: 12; topMargin: 8 }
-            clip: true
-            contentWidth: width
-            contentHeight: _wpCol.height
-            boundsBehavior: Flickable.StopAtBounds
-
-            Column {
-                id: _wpCol
-                width: parent.width
-                spacing: 8
-                Repeater {
-                    model: WallpaperService.railEntries
-                    delegate: ClippingRectangle {
-                        id: _wpTile
-                        required property var modelData
-                        required property int index
-                        readonly property bool _kbdSel: ToolsService.wpOpen && ToolsService.wpSelected === index
-                        width:  parent.width
-                        height: 90
-                        radius: ThemeManager.chipRadius
-                        color:  ThemeManager.surfaceContainer
-                        Image {
-                            anchors.fill: parent
-                            source: "file://" + (modelData.animated ? WallpaperService.thumbnailFor(modelData.path) : modelData.path)
-                            fillMode: Image.PreserveAspectCrop
-                            asynchronous: true
-                            cache: false
-                            sourceSize.width: 360
-                        }
-                        Rectangle {
-                            anchors.fill: parent; radius: _wpTile.radius; color: "transparent"
-                            border.width: (WallpaperService.current === modelData.path || _wpTile._kbdSel) ? 2 : 0
-                            border.color: ThemeManager.primary
-                        }
-                        Rectangle {
-                            visible: modelData.animated
-                            anchors { right: parent.right; bottom: parent.bottom; margins: 7 }
-                            width: 26; height: 22; radius: 8
-                            color: Qt.rgba(0, 0, 0, 0.58)
-                            Text { anchors.centerIn: parent; text: "󰕧"; color: "white"; font.family: ThemeManager.fontFamily; font.pixelSize: 14 }
-                        }
-                        HoverHandler {
-                            id: _wpItemHov
-                            // Hovering previews the wallpaper, reusing the keyboard
-                            // selection + debounced-preview machinery. Leaving the
-                            // picker without clicking reverts (onWpOpenChanged).
-                            onHoveredChanged: if (hovered) ToolsService.wpSelected = index
-                        }
-                        Rectangle {
-                            anchors.fill: parent; radius: _wpTile.radius
-                            color: Qt.rgba(0, 0, 0, (_wpItemHov.hovered || _wpTile._kbdSel) ? 0.18 : 0)
-                        }
-                        TapHandler {
-                            onTapped: { ToolsService.commitWallpaper(modelData); root._toolsHovered = false }
-                        }
-                    }
-                }
-            }
-        }
+        WallpaperGallery { anchors.fill: parent; anchors.margins: 22 }
     }
 
     // ── App launcher content + click-outside dismiss ──────────────────────────
@@ -925,16 +895,31 @@ PanelWindow {
         }
 
         Loader {
+            // Preload once at shell startup so first open is already warm.
+            id: _launcherLoader
             anchors.fill: parent
-            active:          root._launcherActive || parent.opacity > 0
+            active: true
             sourceComponent: Launcher { active: root._launcherActive }
+
+            // Covers the opposite ordering: the focus grab may already be
+            // active by the time the Launcher component finishes loading.
+            onLoaded: {
+                if (root._launcherActive && _layerFocusGrab.active) {
+                    Qt.callLater(() => {
+                        if (item)
+                            item.requestSearchFocus()
+                    })
+                }
+            }
         }
     }
 
     // ── Tool button ────────────────────────────────────────────────────────────
     component ToolBtn: Rectangle {
         id: tb
-        property string icon:   ""
+        property string iconRole: ""
+        property string iconState: ""
+        property string iconName: ""
         property bool   active: false
         property bool   kbdSel: false     // keyboard selection highlight
         signal clicked()
@@ -946,12 +931,13 @@ PanelWindow {
                : "transparent")
         border.width: tb.kbdSel ? 1 : 0
         border.color: ThemeManager.primary
-        Text {
+        BarWidgets.ShellIcon {
             anchors.centerIn: parent
-            text: tb.icon
+            role: tb.iconRole
+            state: tb.iconState
+            iconName: tb.iconName
             color: (tb.active || tb.kbdSel) ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFamily
-            font.pixelSize: 24
+            iconSize: 24
         }
         HoverHandler { id: _tbHov; cursorShape: Qt.PointingHandCursor }
         TapHandler { onTapped: tb.clicked() }

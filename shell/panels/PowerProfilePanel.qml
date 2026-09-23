@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell.Services.UPower
 import "../theme"
 import "../services"
+import "../widgets/bar"
 
 Item {
     id: root
@@ -23,22 +24,22 @@ Item {
         Text {
             text: I18n.tr("Power profile")
             color:          ThemeManager.onSurfaceVariant
-            font.family:    ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize: ThemeManager.fontSizeSm
             font.weight:    Font.Medium
             Layout.bottomMargin: 4
         }
 
         ProfileAction {
-            icon:    "󰾆"; label: I18n.tr("Power Saver")
+            iconState: "saver"; label: I18n.tr("Power Saver")
             profile: PowerProfile.PowerSaver
         }
         ProfileAction {
-            icon:    "󰾅"; label: I18n.tr("Balanced")
+            iconState: "balanced"; label: I18n.tr("Balanced")
             profile: PowerProfile.Balanced
         }
         ProfileAction {
-            icon:    "󰓅"; label: I18n.tr("Performance")
+            iconState: "performance"; label: I18n.tr("Performance")
             profile: PowerProfile.Performance
             // Hidden when firmware/daemon offers no performance profile
             visible: PowerProfiles.hasPerformanceProfile
@@ -49,7 +50,7 @@ Item {
     component ProfileAction: Item {
         id: pa
 
-        property string icon:    ""
+        property string iconState: ""
         property string label:   ""
         property int    profile: -1
 
@@ -75,11 +76,11 @@ Item {
             anchors { fill: parent; leftMargin: 8; rightMargin: 8 }
             spacing: 10
 
-            Text {
-                text:             pa.icon
-                color:            pa.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                font.family:      ThemeManager.fontFamily
-                font.pixelSize:   16
+            ShellIcon {
+                role: "power.profile"
+                state: pa.iconState
+                color: pa.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
+                iconSize: 16
                 Layout.alignment: Qt.AlignVCenter
                 Behavior on color { ColorAnimation { duration: 100 } }
             }
@@ -87,7 +88,7 @@ Item {
             Text {
                 text:             pa.label
                 color:            pa.active ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                font.family:      ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize:   ThemeManager.fontSizeSm
                 font.weight:      Font.Medium
                 Layout.fillWidth: true
@@ -96,12 +97,12 @@ Item {
             }
 
             // Active check mark
-            Text {
-                visible:          pa.active
-                text:             "󰄬"
-                color:            ThemeManager.primary
-                font.family:      ThemeManager.fontFamily
-                font.pixelSize:   13
+            ShellIcon {
+                visible: pa.active
+                role: "power.profile"
+                state: "active"
+                color: ThemeManager.primary
+                iconSize: 13
                 Layout.alignment: Qt.AlignVCenter
             }
         }

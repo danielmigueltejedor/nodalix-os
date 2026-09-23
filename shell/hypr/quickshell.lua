@@ -83,3 +83,6 @@ end
 -- hl.window_rule({ name = "ws-spotify",  match = { class = "(spotify|Spotify)" },        workspace = "special:spotify silent" })
 -- hl.window_rule({ name = "ws-discord",  match = { class = "(vesktop|discord)" },        workspace = "special:discord silent" })
 -- hl.window_rule({ name = "ws-music",    match = { class = "(YouTube Music Desktop App)" }, workspace = "special:music silent" })
+
+-- Load the packaged overview once at compositor startup, never during reload.
+hl.on("hyprland.start", function() hl.exec_cmd("nodalix-overview --startup") end)

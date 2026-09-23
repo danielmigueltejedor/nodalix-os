@@ -22,20 +22,18 @@ RowLayout {
 
     visible: available
 
-    Text {
-        text: {
-            if      (pct < 0)    return "󰂑"
-            if      (charging)   return pct >= 90 ? "󰂅" : pct >= 60 ? "󰂈" : pct >= 30 ? "󰂆" : "󰢜"
-            else if (pct >= 90)  return "󰁹"
-            else if (pct >= 70)  return "󰂀"
-            else if (pct >= 50)  return "󰁿"
-            else if (pct >= 30)  return "󰁽"
-            else if (pct >= 15)  return "󰁺"
-            else                 return "󰂃"
+    ShellIcon {
+        iconName: {
+            if      (pct < 0)    return "battery-missing-symbolic"
+            if      (charging)   return pct >= 90 ? "battery-full-charging-symbolic" : pct >= 50 ? "battery-good-charging-symbolic" : "battery-low-charging-symbolic"
+            else if (pct >= 90)  return "battery-full-symbolic"
+            else if (pct >= 70)  return "battery-good-symbolic"
+            else if (pct >= 50)  return "battery-good-symbolic"
+            else if (pct >= 30)  return "battery-good-symbolic"
+            else if (pct >= 15)  return "battery-low-symbolic"
+            else                 return "battery-caution-symbolic"
         }
         color: critical ? ThemeManager.error : ThemeManager.onSurface
-        font.family: ThemeManager.fontFamily
-        font.pixelSize: 15
         Layout.alignment: Qt.AlignVCenter
 
         Behavior on color { ColorAnimation { duration: 200 } }
@@ -45,7 +43,7 @@ RowLayout {
         text: pct >= 0 ? pct + "%" : ""
         visible: pct >= 0
         color: critical ? ThemeManager.error : ThemeManager.onSurface
-        font.family: ThemeManager.fontFamily
+        font.family: ThemeManager.fontFor(text)
         font.pixelSize: ThemeManager.fontSizeSm
         font.weight: Font.Medium
         Layout.alignment: Qt.AlignVCenter

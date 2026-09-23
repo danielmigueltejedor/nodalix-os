@@ -6,6 +6,7 @@ import Quickshell
 import Quickshell.Widgets
 import "../theme"
 import "../services"
+import "../widgets/bar"
 
 // Pure content component — no window, no background.
 // MainWindow owns the BlobRect background, position, and open/close animation.
@@ -50,7 +51,7 @@ Item {
                 id: _clearText
                 text: I18n.tr("Clear all")
                 color:            ThemeManager.onSurfaceVariant
-                font.family:      ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize:   ThemeManager.fontSizeSm
                 anchors.centerIn: parent
             }
@@ -94,7 +95,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             text: I18n.tr("No notifications")
             color:               ThemeManager.onSurfaceVariant
-            font.family:         ThemeManager.fontFamily
+            font.family: ThemeManager.fontFor(text)
             font.pixelSize:      ThemeManager.fontSizeSm
             opacity:             0.5
         }
@@ -220,7 +221,7 @@ Item {
                                     visible: _appIcon._callIcon
                                     text: "☎"
                                     color: ThemeManager.primary
-                                    font.family: ThemeManager.fontFamily
+                                    font.family: ThemeManager.fontFor(text)
                                     font.pixelSize: 18
                                     font.weight: Font.Bold
                                 }
@@ -239,7 +240,7 @@ Item {
                                             anchors.centerIn: parent
                                             text: "i"
                                             color: ThemeManager.primary
-                                            font.family: ThemeManager.fontFamily
+                                            font.family: ThemeManager.fontFor(text)
                                             font.pixelSize: 11
                                             font.weight: Font.Bold
                                         }
@@ -254,7 +255,7 @@ Item {
                                 }
                                 text:           _notifDelegate.notif?.appName ?? ""
                                 color:          ThemeManager.onSurfaceVariant
-                                font.family:    ThemeManager.fontFamily
+                                font.family: ThemeManager.fontFor(text)
                                 font.pixelSize: ThemeManager.fontSizeSm
                                 elide:          Text.ElideRight
                             }
@@ -273,12 +274,12 @@ Item {
                                         : "transparent"
                                     Behavior on color { ColorAnimation { duration: 80 } }
                                 }
-                                Text {
+                                ColloidIcon {
                                     anchors.centerIn: parent
-                                    text:           "✕"
+                                    iconName:       "window-close-symbolic"
+                                    group:          "actions"
                                     color:          ThemeManager.onSurfaceVariant
-                                    font.family:    ThemeManager.fontFamily
-                                    font.pixelSize: 10
+                                    iconSize:       14
                                 }
                                 MouseArea {
                                     id: _dismissMa
@@ -300,7 +301,7 @@ Item {
                             width:          parent.width
                             text:           _s
                             color:          ThemeManager.onSurface
-                            font.family:    ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: ThemeManager.fontSizeSm
                             font.weight:    Font.Medium
                             wrapMode:       Text.WordWrap
@@ -312,7 +313,7 @@ Item {
                             width:          parent.width
                             text:           _b
                             color:          ThemeManager.onSurfaceVariant
-                            font.family:    ThemeManager.fontFamily
+                            font.family: ThemeManager.fontFor(text)
                             font.pixelSize: ThemeManager.fontSizeSm
                             wrapMode:       Text.WordWrap
                             // Toast: cap 3 lines + elide. Full center: show all.
@@ -353,7 +354,7 @@ Item {
                                         anchors.centerIn: parent
                                         text: I18n.tr("" + (_actionButton.action?.text ?? _actionButton.actionId))
                                         color: _actionButton.destructive ? ThemeManager.error : ThemeManager.primary
-                                        font.family: ThemeManager.fontFamily
+                                        font.family: ThemeManager.fontFor(text)
                                         font.pixelSize: ThemeManager.fontSizeSm
                                         font.weight: Font.DemiBold
                                         elide: Text.ElideRight

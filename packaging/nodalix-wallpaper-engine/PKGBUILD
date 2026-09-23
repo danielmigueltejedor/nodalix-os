@@ -1,0 +1,22 @@
+pkgname=nodalix-wallpaper-engine
+pkgver=1.0.0beta.17
+pkgrel=1
+pkgdesc="Unified Skwd image and video wallpaper engine for Nodalix"
+arch=("x86_64")
+url="https://github.com/liixini/skwd-wall"
+license=("GPL-3.0-or-later")
+depends=("alsa-lib" "dav1d" "gcc-libs" "libdrm" "libglvnd" "libpulse" "libva" "libxkbcommon" "libyuv" "shaderc" "vulkan-icd-loader" "wayland" "zlib")
+provides=("skwd-deck=1.0.0_beta.17" "skwd-paper=1.0.0_beta.17")
+conflicts=("skwd-deck" "skwd-paper")
+options=("!strip" "!debug")
+_base="https://github.com/liixini/skwd-wall/releases/download/v1.0.0-beta.17"
+source=("$_base/skwd-deck-1.0.0_beta.17-1-x86_64.pkg.tar.zst" "$_base/skwd-paper-1.0.0_beta.17-1-x86_64.pkg.tar.zst")
+noextract=("${source[@]##*/}")
+sha256sums=("59a9b18f6a9b8e11cf77fdfc7430ca360f17a1431c73656755ff40bb6f5aa040" "37217561f5dafdfa185fd1656b8dcfd63eaaf9bc2ea7632c8222b02703004c43")
+package() {
+  for archive in "$srcdir/"*.pkg.tar.zst; do
+    bsdtar --no-same-owner -xf "$archive" -C "$pkgdir" usr
+  done
+  # Nodalix owns startup and configuration; never enable a second daemon.
+  rm -f "$pkgdir/usr/lib/systemd/user/skwd-deck.service" "$pkgdir/usr/lib/systemd/user/skwd-walld.service"
+}

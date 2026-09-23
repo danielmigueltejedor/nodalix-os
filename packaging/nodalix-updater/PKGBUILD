@@ -1,11 +1,11 @@
 pkgname=nodalix-updater
-pkgver=0.2.0beta.7
+pkgver=0.2.1
 pkgrel=1
 pkgdesc="Nodalix GitHub Releases update service"
 arch=('any')
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=('GPL-3.0-or-later')
-depends=('python' 'pacman' 'polkit' 'minisign')
+depends=('python' 'pacman' 'polkit' 'minisign' 'timeshift' 'rsync' 'btrfs-progs')
 backup=('etc/nodalix/updater.json')
 source=("nodalix-updater-$pkgver.tar.zst")
 sha256sums=('SKIP')
@@ -14,6 +14,11 @@ package() {
   install -Dm755 "$srcdir/updater/nodalix-updater" "$pkgdir/usr/bin/nodalix-updater"
   install -Dm755 "$srcdir/updater/nodalix-system-update" "$pkgdir/usr/bin/nodalix-system-update"
   install -Dm755 "$srcdir/updater/nodalix-hardware-profile" "$pkgdir/usr/bin/nodalix-hardware-profile"
+  install -Dm755 "$srcdir/updater/nodalix-recovery" "$pkgdir/usr/bin/nodalix-recovery"
+  install -Dm644 "$srcdir/updater/com.nodalix.recovery.policy" "$pkgdir/usr/share/polkit-1/actions/com.nodalix.recovery.policy"
+  for unit in nodalix-recovery.service nodalix-recovery.timer; do
+    install -Dm644 "$srcdir/updater/$unit" "$pkgdir/usr/lib/systemd/system/$unit"
+  done
   install -d "$pkgdir/usr/lib/nodalix-updater/migrations"
   install -m644 "$srcdir/updater/migrations/"*.py "$pkgdir/usr/lib/nodalix-updater/migrations/"
   cp -a --no-preserve=ownership "$srcdir/updater/vendor/cachyos-repo" \
@@ -31,6 +36,7 @@ package() {
   install -Dm644 "$srcdir/updater/nodalix-update-apps.timer" "$pkgdir/usr/lib/systemd/user/nodalix-update-apps.timer"
   install -Dm644 "$srcdir/updater/com.nodalix.updater.policy" "$pkgdir/usr/share/polkit-1/actions/com.nodalix.updater.policy"
   install -d "$pkgdir/etc/systemd/system/timers.target.wants"
+  ln -s /usr/lib/systemd/system/nodalix-recovery.timer "$pkgdir/etc/systemd/system/timers.target.wants/nodalix-recovery.timer"
   ln -s /usr/lib/systemd/system/nodalix-update-check.timer \
     "$pkgdir/etc/systemd/system/timers.target.wants/nodalix-update-check.timer"
 }

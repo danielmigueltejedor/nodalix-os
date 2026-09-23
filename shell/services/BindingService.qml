@@ -13,6 +13,8 @@ QtObject {
 
     // The bindable shell actions. `cmd` is run via hl.dsp.exec_cmd(...).
     readonly property var actions: [
+        { key: "overview", label: I18n.tr("Window overview"), cmd: "nodalix-overview" },
+        { key: "shortcuts", label: I18n.tr("Shortcut guide"), cmd: "qs -c nodalix ipc call shortcuts toggle" },
         { key: "launcher",   label: I18n.tr("App launcher"),      cmd: "qs -c nodalix ipc call launcher toggle" },
         { key: "settings",   label: I18n.tr("Settings"),          cmd: "qs -c nodalix ipc call settings toggle" },
         { key: "lock",       label: I18n.tr("Lock screen"),       cmd: "qs -c nodalix ipc call lock lock" },
@@ -22,7 +24,7 @@ QtObject {
 
     readonly property string _file: Paths.state("binds.generated.lua")
 
-    function combo(k) { return SettingsService.get("binds." + k, k === "launcher" ? "SUPER + SPACE" : "") }
+    function combo(k) { return SettingsService.get("binds." + k, k === "launcher" ? "SUPER + SPACE" : (k === "overview" ? "SUPER + TAB" : (k === "shortcuts" ? "SUPER + F1" : ""))) }
     function setCombo(k, v) {
         SettingsService.set("binds." + k, (v || "").trim())
         apply()

@@ -1,0 +1,16 @@
+id = "hylki"
+name = "Hylki"
+
+root = "~/.local/opt/nodalix/apps/hylki"
+updater = "/usr/share/nodalix-apps/bin/nodalix-hylki-update"
+executable = "bin/hylki"
+
+upstream = "https://github.com/hyprlab/hylki.git"
+update_strategy = "latest-stable-tag"
+
+fork = "https://github.com/danielmigueltejedor/hylki.git"
+overlay_branch = "nodalix"
+
+channel = "stable"
+build = "native-overlay"
+integration = "nodalix"

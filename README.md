@@ -1,10 +1,11 @@
 # Nodalix OS
 
 Nodalix is an Arch Linux desktop built around Hyprland and QuickShell. The
-`0.2.0` line is currently distributed as public beta releases.
+`0.2.0` release provides stable desktop packages and an installable x86_64 ISO.
 
-## Install the current beta
+## Install Nodalix 0.2.0
 
+For a fresh installation, use the ISO and follow [the installation guide](docs/iso.md).
 On an up-to-date Arch installation, download and inspect the installer, then
 run it as your normal user:
 
@@ -14,8 +15,7 @@ less /tmp/nodalix-install.sh
 bash /tmp/nodalix-install.sh
 ```
 
-Set `NODALIX_CHANNEL=stable` before running it when the stable channel is
-published. The installer obtains the release manifest from GitHub, verifies
+The default channel is stable. Set `NODALIX_CHANNEL=beta` to opt into preview releases. The installer obtains the release manifest from GitHub, verifies
 every package checksum, installs the required Arch dependencies and performs a
 single package transaction.
 

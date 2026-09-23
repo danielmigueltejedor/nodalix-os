@@ -1,0 +1,7 @@
+[Unit]
+Description=Keep Nodalix app-icons consistent
+[Timer]
+OnStartupSec=15s
+OnUnitInactiveSec=60s
+[Install]
+WantedBy=default.target

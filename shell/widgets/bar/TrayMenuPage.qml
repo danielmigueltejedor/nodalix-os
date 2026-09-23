@@ -26,7 +26,7 @@ ColumnLayout {
             // Measure natural text width so the column can size to fit
             TextMetrics {
                 id: _metrics
-                font.family:    ThemeManager.fontFamily
+                font.family: ThemeManager.fontFor(text)
                 font.pixelSize: ThemeManager.fontSizeSm
                 text:           I18n.tr((_entry.modelData.text || "").replace(/&/g, ""))
             }
@@ -79,7 +79,7 @@ ColumnLayout {
                         color:          _entry.modelData.enabled
                                         ? ThemeManager.onSurface
                                         : ThemeManager.onSurfaceVariant
-                        font.family:    ThemeManager.fontFamily
+                        font.family: ThemeManager.fontFor(text)
                         font.pixelSize: ThemeManager.fontSizeSm
                         opacity:        _entry.modelData.enabled ? 1 : 0.5
                     }

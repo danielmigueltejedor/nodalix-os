@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ASSETS="/usr/share/nodalix-apps/assets/icons/colloid"
+
+for THEME in Colloid-Teal Colloid-Teal-Dark; do
+    DEST="$HOME/.local/share/icons/$THEME/apps/scalable"
+    mkdir -p "$DEST"
+
+    shopt -s nullglob
+    for ICON in "$ASSETS"/*.png "$ASSETS"/*.svg; do
+        cp -f "$ICON" "$DEST/"
+    done
+done
+
+if command -v nodalix-app-icons >/dev/null 2>&1; then
+    nodalix-app-icons >/dev/null
+fi

@@ -4,12 +4,13 @@
 from __future__ import annotations
 
 import os
+import json
 import subprocess
 import sys
 from pathlib import Path
 
 
-MODES = {"tiling", "scrolling", "tabs"}
+MODES = {"desktop", "tiling", "scrolling"}
 
 
 def state_dir() -> Path:
@@ -36,9 +37,13 @@ def lua_for(mode: str) -> str:
         },
     },
 })
-""" % ("true" if mode == "tabs" else "false", "true" if mode == "tabs" else "false")
+""" % ("false", "false")
 
-    if mode == "scrolling":
+    if mode == "desktop":
+        body = """hl.config({ general = { layout = "dwindle" } })
+hl.window_rule({ name = "nodalix-desktop", match = { modal = false }, float = true, center = true, tag = "nodalix-desktop" })
+"""
+    elif mode == "scrolling":
         body = """hl.config({
     general = { layout = "scrolling" },
     scrolling = {
@@ -60,27 +65,35 @@ hl.bind("SUPER + mouse_up", hl.dsp.focus({ workspace = "e-1" }))
 hl.bind("SUPER + period", hl.dsp.layout("move +col"))
 hl.bind("SUPER + comma", hl.dsp.layout("move -col"))
 """
-    elif mode == "tabs":
-        body = """hl.config({ general = { layout = "dwindle" } })
-
--- Hyprland groups are native i3-style tabbed containers. New windows join the
--- active unlocked group while this profile is selected.
-hl.bind("SUPER + TAB", hl.dsp.group.next())
-hl.bind("SUPER + SHIFT + TAB", hl.dsp.group.prev())
-hl.bind("SUPER + G", hl.dsp.group.toggle())
-"""
     else:
         body = """hl.config({ general = { layout = "dwindle" } })
 """
-    return header + common + body
+    navigation = """
+hl.bind("SUPER + LEFT", hl.dsp.focus({ direction = "l" }), { description = "Previous window / column" })
+hl.bind("SUPER + RIGHT", hl.dsp.focus({ direction = "r" }), { description = "Next window / column" })
+hl.bind("SUPER + SHIFT + LEFT", hl.dsp.window.move({ direction = "l" }))
+hl.bind("SUPER + SHIFT + RIGHT", hl.dsp.window.move({ direction = "r" }))
+"""
+    return header + common + body + navigation
+
+
+def dispatch(expression):
+    result = subprocess.run(["hyprctl", "dispatch", expression], capture_output=True, text=True, check=True)
+    output = (result.stdout or "") + (result.stderr or "")
+    if "error:" in output.lower() or "unknown request" in output.lower():
+        raise subprocess.SubprocessError(output.strip())
 
 
 def apply(mode: str) -> int:
+    if mode == "tabs":
+        mode = "desktop"  # Migrate the former traditional-window choice.
     if mode not in MODES:
         raise SystemExit(f"unsupported layout mode: {mode}")
     target_dir = state_dir()
     target_dir.mkdir(parents=True, exist_ok=True)
     target = target_dir / "layout.generated.lua"
+    mode_file = target_dir / "layout-mode"
+    previous = {p: p.read_bytes() if p.exists() else None for p in (target, mode_file)}
     temporary = target.with_suffix(".tmp")
     temporary.write_text(lua_for(mode), encoding="utf-8")
     temporary.replace(target)
@@ -90,19 +103,46 @@ def apply(mode: str) -> int:
         ["hyprctl", "reload"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         check=False,
     )
-    if mode == "tabs" and reload_result.returncode == 0:
-        # Start an unlocked group for the active window. If no regular window is
-        # focused Hyprland safely treats the dispatcher as a no-op.
-        subprocess.run(
-            ["hyprctl", "dispatch", "togglegroup"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False,
-        )
+    if reload_result.returncode != 0:
+        for path, content in previous.items():
+            if content is None:
+                path.unlink(missing_ok=True)
+            else:
+                path.write_bytes(content)
+        subprocess.run(["hyprctl", "reload"], capture_output=True, check=False)
+        return reload_result.returncode
+    if reload_result.returncode == 0:
+        try:
+            clients = json.loads(subprocess.check_output(["hyprctl", "clients", "-j"], text=True))
+            monitors = json.loads(subprocess.check_output(["hyprctl", "monitors", "-j"], text=True))
+            remembered = target_dir / "desktop-managed-windows.json"
+            managed = json.loads(remembered.read_text()) if remembered.exists() else []
+            for client in clients:
+                address = client.get("address", "")
+                if not address or client.get("fullscreen") or client.get("workspace", {}).get("id", 0) < 0:
+                    continue
+                if mode == "desktop" and not client.get("floating"):
+                    dispatch('hl.dsp.window.float({action="set",window=' + json.dumps('address:' + address) + '})')
+                    monitor = next((m for m in monitors if m.get("id") == client.get("monitor") and m.get("width")), None)
+                    if monitor and len(client.get("size", [])) == 2:
+                        scale = monitor.get("scale", 1) or 1
+                        width = min(client["size"][0], int(monitor["width"] / scale * 0.82))
+                        height = min(client["size"][1], int(monitor["height"] / scale * 0.78))
+                        dispatch('hl.dsp.window.resize({window=' + json.dumps('address:' + address) + ',x=' + str(width) + ',y=' + str(height) + ',relative=false})')
+                    dispatch('hl.dsp.window.center({window=' + json.dumps('address:' + address) + '})')
+                    if address not in managed:
+                        managed.append(address)
+                elif mode != "desktop" and (address in managed or "nodalix-desktop" in [tag.rstrip("*") for tag in client.get("tags", [])]):
+                    dispatch('hl.dsp.window.float({action="unset",window=' + json.dumps('address:' + address) + '})')
+            remembered.write_text(json.dumps(managed if mode == "desktop" else []))
+        except (OSError, ValueError, subprocess.SubprocessError):
+            return 1
     return reload_result.returncode
 
 
 def main() -> int:
     if len(sys.argv) != 2:
-        print("usage: nodalix-layout-mode tiling|scrolling|tabs", file=sys.stderr)
+        print("usage: nodalix-layout-mode desktop|tiling|scrolling", file=sys.stderr)
         return 2
     return apply(sys.argv[1])
 

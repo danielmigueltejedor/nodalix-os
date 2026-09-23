@@ -1,0 +1,5 @@
+[Unit]
+Description=Nodalix app-icons
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/nodalix-app-icons

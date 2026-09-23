@@ -1,0 +1,26 @@
+pkgname=nodalix-hymission
+pkgver=0.8.0
+pkgrel=1
+pkgdesc="Nodalix window overview powered by Hymission"
+arch=("x86_64")
+url="https://github.com/gfhdhytghd/hymission"
+license=("GPL-3.0-or-later")
+depends=("hyprland" "gtk4-layer-shell" "libadwaita" "lua")
+makedepends=("cmake" "git" "pkgconf")
+options=("!debug")
+source=("git+https://github.com/gfhdhytghd/hymission.git#commit=85e4f57dddc924dbfebde9febd2a33ae5f8dc4a0")
+sha256sums=("SKIP")
+build() {
+    cmake -S hymission -B build -DCMAKE_BUILD_TYPE=Release
+    cmake --build build -j2
+}
+check() {
+    ctest --test-dir build --output-on-failure
+}
+package() {
+    install -Dm755 build/libhymission.so "$pkgdir/usr/lib/nodalix/hymission/libhymission.so"
+    install -Dm755 build/hymission-search-input "$pkgdir/usr/lib/nodalix/hymission/hymission-search-input"
+    install -dm755 "$pkgdir/usr/share/nodalix/hymission"
+    sed -n 's/^#define GIT_COMMIT_HASH[[:space:]]*"\([^"]*\)"/\1/p' /usr/include/hyprland/src/version.h > "$pkgdir/usr/share/nodalix/hymission/hyprland-commit"
+    test -s "$pkgdir/usr/share/nodalix/hymission/hyprland-commit"
+}

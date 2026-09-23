@@ -9,7 +9,11 @@ on:
       release_tag:
         description: Existing GitHub release tag that should receive the built assets
         required: true
-        default: "0.2.0-beta.6"
+        default: "0.2.0"
+      publish:
+        description: Publish the release after building (disable for ISO candidate validation)
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -40,7 +44,7 @@ jobs:
             bash -lc '
               set -euo pipefail
               pacman -Syu --noconfirm
-              pacman -S --noconfirm base-devel cmake ninja qt6-base qt6-declarative qt6-shadertools python tar zstd git sudo
+              pacman -S --noconfirm base-devel cmake ninja qt6-base qt6-declarative qt6-shadertools python tar zstd git sudo gtk-update-icon-cache hyprland gtk4-layer-shell libadwaita lua
               useradd -m builder
               echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
               chown -R builder:builder /src
@@ -66,6 +70,7 @@ jobs:
           path: dist/packages/*
 
   publish:
+    if: github.event_name != 'workflow_dispatch' || inputs.publish
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -88,11 +93,21 @@ jobs:
           pathlib.Path("dist/.prerelease").write_text("1" if is_prerelease_tag(tag) else "0")
           print(tag, "prerelease" if is_prerelease_tag(tag) else "stable")
           PY
+          NOTES_FILE="docs/releases/${RELEASE_TAG}.md"
           if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release create "$RELEASE_TAG" \
-              --title "Nodalix OS $RELEASE_TAG" \
-              --notes "Paquetes oficiales de Nodalix OS $RELEASE_TAG. Incluye la shell, el actualizador, Enlace móvil, recursos visuales y la identidad del sistema." \
-              --repo "$GITHUB_REPOSITORY"
+            if [[ -f "$NOTES_FILE" ]]; then
+              gh release create "$RELEASE_TAG" --verify-tag \
+                --title "Nodalix OS $RELEASE_TAG" --notes-file "$NOTES_FILE" \
+                --repo "$GITHUB_REPOSITORY"
+            else
+              gh release create "$RELEASE_TAG" --verify-tag \
+                --title "Nodalix OS $RELEASE_TAG" \
+                --notes "Paquetes oficiales de Nodalix OS $RELEASE_TAG. Incluye la shell, el actualizador, Enlace móvil, recursos visuales y la identidad del sistema." \
+                --repo "$GITHUB_REPOSITORY"
+            fi
+          fi
+          if [[ -f "$NOTES_FILE" ]]; then
+            gh release edit "$RELEASE_TAG" --notes-file "$NOTES_FILE" --repo "$GITHUB_REPOSITORY"
           fi
           if [[ $(cat dist/.prerelease) == 1 ]]; then
             gh release edit "$RELEASE_TAG" --prerelease --repo "$GITHUB_REPOSITORY"

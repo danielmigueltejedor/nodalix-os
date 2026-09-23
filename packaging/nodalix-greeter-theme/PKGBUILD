@@ -1,0 +1,14 @@
+pkgname=nodalix-greeter-theme
+pkgver=0.2.1
+pkgrel=1
+pkgdesc="Nodalix visual theme for the ReGreet login screen"
+arch=("any")
+url="https://github.com/danielmigueltejedor/nodalix-os"
+license=("GPL-3.0-or-later")
+depends=("nodalix-shell")
+install=nodalix-greeter-theme.install
+source=("regreet.css")
+sha256sums=("SKIP")
+package() {
+    install -Dm644 regreet.css "$pkgdir/usr/share/nodalix/greeter/regreet.css"
+}

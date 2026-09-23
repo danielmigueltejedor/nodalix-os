@@ -1,0 +1,12 @@
+[background]
+path = "/usr/share/backgrounds/nodalix/static/nodalix-alpine-mirror.jpg"
+fit = "Cover"
+[GTK]
+application_prefer_dark_theme = true
+font_name = "Geist 13"
+icon_theme_name = "Colloid-Teal"
+[appearance]
+greeting_msg = "Nodalix"
+[commands]
+reboot = ["systemctl", "reboot"]
+poweroff = ["systemctl", "poweroff"]

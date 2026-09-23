@@ -61,7 +61,8 @@ release_dir="$workdir/nodalix-release"
 phone_link_dir="$workdir/nodalix-phone-link"
 fluent_dir="$workdir/nodalix-fluent-emoji"
 wallpaper_dir="$workdir/nodalix-wallpapers"
-mkdir -p "$updater_dir" "$shell_dir" "$release_dir" "$phone_link_dir" "$fluent_dir" "$wallpaper_dir"
+colloid_dir="$workdir/nodalix-colloid-icons"
+mkdir -p "$updater_dir" "$shell_dir" "$release_dir" "$phone_link_dir" "$fluent_dir" "$wallpaper_dir" "$colloid_dir"
 
 cp "$root/packaging/nodalix-updater/PKGBUILD" "$updater_dir/PKGBUILD"
 cp "$srcdir/nodalix-updater-$pkgver.tar.zst" "$updater_dir/"
@@ -94,10 +95,24 @@ cp "$root/packaging/nodalix-fluent-emoji/PKGBUILD" \
    "$root/packaging/nodalix-fluent-emoji/75-nodalix-fluent-emoji.conf" \
    "$fluent_dir/"
 
+cp "$root/packaging/nodalix-colloid-icons/PKGBUILD" "$colloid_dir/"
+hymission_dir="$workdir/nodalix-hymission"
+mkdir -p "$hymission_dir"
+cp "$root/packaging/nodalix-hymission/PKGBUILD" "$hymission_dir/"
+
 cp "$root/packaging/nodalix-wallpapers/PKGBUILD" \
    "$root/packaging/nodalix-wallpapers/SOURCES.md" \
    "$root/packaging/nodalix-wallpapers/"*.jpg \
    "$wallpaper_dir/"
+
+greeter_dir="$workdir/nodalix-greeter-theme"
+mkdir -p "$greeter_dir"
+cp "$root/packaging/nodalix-greeter-theme/"* "$greeter_dir/"
+inject_sha256 "$greeter_dir/PKGBUILD" "$greeter_dir/regreet.css"
+
+engine_dir="$workdir/nodalix-wallpaper-engine"
+mkdir -p "$engine_dir"
+cp "$root/packaging/nodalix-wallpaper-engine/PKGBUILD" "$engine_dir/"
 
 makepkg_one() {
   local dir=$1
@@ -105,13 +120,17 @@ makepkg_one() {
 }
 
 if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
+  makepkg_one "$engine_dir"
   makepkg_one "$updater_dir"
   makepkg_one "$shell_dir"
   makepkg_one "$phone_link_dir"
   makepkg_one "$fluent_dir"
+  makepkg_one "$colloid_dir"
+  makepkg_one "$hymission_dir"
+  makepkg_one "$greeter_dir"
   makepkg_one "$wallpaper_dir"
   makepkg_one "$release_dir"
-  find "$workdir" -name '*.pkg.tar.zst' ! -name '*-debug-*' -exec cp {} "$outdir/" \;
+  find "$workdir" -mindepth 2 -maxdepth 2 -type f -name '*.pkg.tar.zst' ! -name '*-debug-*' -exec cp {} "$outdir/" \;
 fi
 
 python3 "$root/tools/generate-manifest.py" \

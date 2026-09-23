@@ -16,14 +16,5 @@ RowLayout {
 
     LauncherButton { visible: root._showLauncher }
 
-    // Separator (only when both neighbours are visible)
-    Rectangle {
-        visible: root._showLauncher && root._showTitle
-        width: 1; height: 14
-        color: ThemeManager.outlineVariant
-        opacity: 0.4
-        Layout.alignment: Qt.AlignVCenter
-    }
-
     WindowTitle { visible: root._showTitle }
 }

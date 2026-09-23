@@ -57,6 +57,33 @@ ShellRoot {
         DesktopWidgets {}
     }
 
+    Variants {
+        model: uniqueScreens
+        DesktopDock {}
+    }
+    ShortcutGuide {}
+    IpcHandler {
+        target: "shortcuts"
+        function open(): void { ShortcutGuideService.open = true }
+        function close(): void { ShortcutGuideService.open = false }
+        function toggle(): void { ShortcutGuideService.open = !ShortcutGuideService.open }
+    }
+    IpcHandler {
+        target: "windows"
+        function setMode(mode: string): void { WindowLayoutService.setMode(mode) }
+        function request(action: string, address: string): void {
+            if (["minimize", "activate"].indexOf(action) < 0) return
+            const win = Hyprland.toplevels.values.find(w => DockService.address(w) === address)
+            if (win) DockService.run(action, win, "")
+        }
+    }
+    IpcHandler {
+        target: "overview"
+        function toggle(): void {
+            const screen = Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) || Quickshell.screens[0]
+            if (screen) PopoutService.togglePin("workspaces", screen.width / 2, screen)
+        }
+    }
     IpcHandler {
         target: "desktopwidgets"
         function toggle(): void { DesktopWidgetService.toggleEdit() }
@@ -149,6 +176,16 @@ ShellRoot {
         function close():  void { SettingsUi.hide() }
     }
 
+    IpcHandler {
+        target: "dashboard"
+        function open(): void {
+            if (root.uniqueScreens.length === 0) return
+            PopoutService.open("dashboard", 250, root.uniqueScreens[0])
+            PopoutService.pinned = true
+        }
+        function close(): void { PopoutService.close() }
+    }
+
     // Notification center control through its Quickshell IPC target.
     IpcHandler {
         target: "notifications"
@@ -172,6 +209,7 @@ ShellRoot {
         target: "tools"
         function toggle(): void { ToolsService.toggle() }
         function open():   void { ToolsService.openKbd() }
+        function wallpapers(): void { WallpaperService.refresh(); ToolsService.open = true; ToolsService.wpOpen = true }
         function close():  void { ToolsService.close() }
     }
 

@@ -16,12 +16,12 @@ Flow:
 from __future__ import annotations
 
 import logging
-import tempfile
 from collections.abc import Callable
 from pathlib import Path
 
 import dbus
 
+from iphonebridge import config
 from iphonebridge.bus import obex, session_bus
 from iphonebridge.events import SmsEvent, normalize_phone, parse_map_timestamp
 from iphonebridge.obex.bmessage import parse as parse_bmessage
@@ -92,7 +92,7 @@ class MapEventListener:
         # Kick off the bMessage download. We do this via the per-message
         # Message1.Get method, which returns a transfer object. We'll wait
         # for Status=complete via PropertyChanged on that transfer.
-        target = Path(tempfile.mkstemp(prefix="ibridge_msg_", suffix=".bmsg")[1])
+        target = config.transfer_file("ibridge_msg_", ".bmsg")
         try:
             msg_iface = obex(path_s, "org.bluez.obex.Message1")
             ret = msg_iface.Get(str(target), False)
