@@ -77,6 +77,14 @@
       "restart": "system"
     },
     {
+      "id": "cursor-theme",
+      "name": "Nodalix cursor theme",
+      "package": "nodalix-cursor-theme",
+      "version": "0.2.2",
+      "required": true,
+      "restart": "system"
+    },
+    {
       "id": "greeter-theme",
       "name": "Nodalix login screen",
       "package": "nodalix-greeter-theme",

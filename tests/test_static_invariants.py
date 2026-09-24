@@ -75,6 +75,43 @@ class StaticInvariantTests(unittest.TestCase):
         self.assertIn("[ -d /usr/share/icons/Colloid-Teal ]", wrapper)
         self.assertIn("gsettings set org.gnome.desktop.interface icon-theme Colloid-Teal", wrapper)
 
+    def test_greeter_hardening_and_cursor_theme_are_release_components(self) -> None:
+        definition = json.loads((ROOT / "release/components.json").read_text(encoding="utf-8"))
+        self.assertTrue(any(
+            component["package"] == "nodalix-cursor-theme" and component["required"]
+            for component in definition["components"]
+        ))
+
+        cursor_pkg = (ROOT / "packaging/nodalix-cursor-theme/PKGBUILD").read_text(encoding="utf-8")
+        self.assertIn("Bibata_Cursor/releases/download/v2.0.7/Bibata-Modern-Classic.tar.xz", cursor_pkg)
+        self.assertIn("Name=Nodalix", cursor_pkg)
+
+        greetd = (ROOT / "iso/overlay/etc/greetd/config.toml").read_text(encoding="utf-8")
+        packaged_greetd = (ROOT / "packaging/nodalix-greeter-theme/greetd-config.toml").read_text(encoding="utf-8")
+        self.assertEqual(greetd, packaged_greetd)
+        self.assertIn("/usr/lib/nodalix/nodalix-greeter-session", greetd)
+        self.assertNotIn("cage -s -- regreet", greetd)
+
+        greeter_hypr = (ROOT / "iso/overlay/etc/greetd/hyprland.lua").read_text(encoding="utf-8")
+        packaged_hypr = (ROOT / "packaging/nodalix-greeter-theme/hyprland.lua").read_text(encoding="utf-8")
+        self.assertEqual(greeter_hypr, packaged_hypr)
+        self.assertIn('hl.env("XCURSOR_THEME", "Nodalix")', greeter_hypr)
+        self.assertIn("enable_stdout_logs = true", greeter_hypr)
+        self.assertIn('output = ""', greeter_hypr)
+
+        regreet = (ROOT / "iso/overlay/etc/greetd/regreet.toml").read_text(encoding="utf-8")
+        packaged_regreet = (ROOT / "packaging/nodalix-greeter-theme/regreet.toml").read_text(encoding="utf-8")
+        self.assertEqual(regreet, packaged_regreet)
+        self.assertIn('cursor_theme_name = "Nodalix"', regreet)
+
+        wrapper = (ROOT / "packaging/nodalix-greeter-theme/nodalix-greeter-session").read_text(encoding="utf-8")
+        self.assertIn('compositor-$timestamp-$.log', wrapper)
+        self.assertIn("tail -n +11", wrapper)
+        self.assertIn("start-hyprland -- -c /etc/greetd/hyprland.lua", wrapper)
+
+        packages = (ROOT / "iso/installer/packages.txt").read_text(encoding="utf-8").split()
+        self.assertNotIn("cage", packages)
+
     def test_quickshell_does_not_hardcode_binding_service_actions(self) -> None:
         text = (SHELL / "hypr" / "quickshell.lua").read_text(encoding="utf-8")
         self.assertIn("binds.generated.lua", text)

@@ -1,14 +1,19 @@
 pkgname=nodalix-greeter-theme
 pkgver=0.2.2
 pkgrel=1
-pkgdesc="Nodalix visual theme for the ReGreet login screen"
+pkgdesc="Nodalix resilient ReGreet login session and visual theme"
 arch=("any")
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-depends=("nodalix-shell")
+depends=("nodalix-shell" "nodalix-cursor-theme" "greetd" "greetd-regreet" "hyprland")
 install=nodalix-greeter-theme.install
-source=("regreet.css")
-sha256sums=("SKIP")
+source=("regreet.css" "regreet.toml" "hyprland.lua" "greetd-config.toml" "nodalix-greeter-session")
+sha256sums=("SKIP" "SKIP" "SKIP" "SKIP" "SKIP")
+
 package() {
     install -Dm644 regreet.css "$pkgdir/usr/share/nodalix/greeter/regreet.css"
+    install -Dm644 regreet.toml "$pkgdir/usr/share/nodalix/greeter/regreet.toml"
+    install -Dm644 hyprland.lua "$pkgdir/usr/share/nodalix/greeter/hyprland.lua"
+    install -Dm644 greetd-config.toml "$pkgdir/usr/share/nodalix/greeter/greetd-config.toml"
+    install -Dm755 nodalix-greeter-session "$pkgdir/usr/lib/nodalix/nodalix-greeter-session"
 }

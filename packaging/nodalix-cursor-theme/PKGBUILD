@@ -1,0 +1,26 @@
+pkgname=nodalix-cursor-theme
+pkgver=0.2.2
+pkgrel=1
+pkgdesc="Nodalix system cursor theme based on Bibata Modern Classic"
+arch=("any")
+url="https://github.com/danielmigueltejedor/nodalix-os"
+license=("GPL-3.0-or-later")
+source=("Bibata-Modern-Classic.tar.xz::https://github.com/ful1e5/Bibata_Cursor/releases/download/v2.0.7/Bibata-Modern-Classic.tar.xz"
+        "nodalix-cursor.conf"
+        "UPSTREAM.md")
+sha256sums=("SKIP" "SKIP" "SKIP")
+
+package() {
+    local theme="$srcdir/Bibata-Modern-Classic"
+    test -d "$theme/cursors"
+
+    install -d "$pkgdir/usr/share/icons/Nodalix"
+    cp -a "$theme/." "$pkgdir/usr/share/icons/Nodalix/"
+    sed -i \
+        -e 's/^Name=.*/Name=Nodalix/' \
+        -e 's/^Comment=.*/Comment=Nodalix cursor theme based on Bibata Modern Classic v2.0.7/' \
+        "$pkgdir/usr/share/icons/Nodalix/index.theme"
+
+    install -Dm644 nodalix-cursor.conf "$pkgdir/etc/environment.d/90-nodalix-cursor.conf"
+    install -Dm644 UPSTREAM.md "$pkgdir/usr/share/doc/nodalix-cursor-theme/UPSTREAM.md"
+}

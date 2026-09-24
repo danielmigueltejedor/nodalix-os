@@ -34,6 +34,23 @@ if [ ! -e "$icon_marker" ] && [ -d /usr/share/icons/Colloid-Teal ] && command -v
     fi
 fi
 
+# Set the Nodalix cursor default once; preserve deliberate custom user themes.
+cursor_marker="$new_state/.nodalix-cursor-theme-v1"
+if [ ! -e "$cursor_marker" ] && [ -d /usr/share/icons/Nodalix/cursors ] && command -v gsettings >/dev/null 2>&1; then
+    current_cursor=$(gsettings get org.gnome.desktop.interface cursor-theme 2>/dev/null || true)
+    cursor_ready=1
+    case "$current_cursor" in
+        "'Adwaita'"|"'Bibata-Modern-Classic'"|"'Nodalix'"|"''")
+            gsettings set org.gnome.desktop.interface cursor-theme Nodalix >/dev/null 2>&1 || cursor_ready=0
+            gsettings set org.gnome.desktop.interface cursor-size 24 >/dev/null 2>&1 || cursor_ready=0
+            ;;
+    esac
+    if [ "$cursor_ready" -eq 1 ]; then
+        mkdir -p "$new_state"
+        : > "$cursor_marker"
+    fi
+fi
+
 # Reconcile once before QML reads paths; timers handle later installations.
 layout_state="${XDG_STATE_HOME:-$HOME/.local/state}/nodalix/layout-mode"
 if [ ! -f "$layout_state" ] && command -v nodalix-layout-mode >/dev/null 2>&1; then

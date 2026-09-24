@@ -65,7 +65,8 @@ phone_link_dir="$workdir/nodalix-phone-link"
 fluent_dir="$workdir/nodalix-fluent-emoji"
 wallpaper_dir="$workdir/nodalix-wallpapers"
 colloid_dir="$workdir/nodalix-colloid-icons"
-mkdir -p "$updater_dir" "$apps_dir" "$shell_dir" "$release_dir" "$phone_link_dir" "$fluent_dir" "$wallpaper_dir" "$colloid_dir"
+cursor_dir="$workdir/nodalix-cursor-theme"
+mkdir -p "$updater_dir" "$apps_dir" "$shell_dir" "$release_dir" "$phone_link_dir" "$fluent_dir" "$wallpaper_dir" "$colloid_dir" "$cursor_dir"
 
 cp "$root/packaging/nodalix-updater/PKGBUILD" "$updater_dir/PKGBUILD"
 cp "$srcdir/nodalix-updater-$pkgver.tar.zst" "$updater_dir/"
@@ -105,6 +106,7 @@ cp "$root/packaging/nodalix-fluent-emoji/PKGBUILD" \
    "$fluent_dir/"
 
 cp "$root/packaging/nodalix-colloid-icons/PKGBUILD" "$colloid_dir/"
+cp "$root/packaging/nodalix-cursor-theme/"* "$cursor_dir/"
 hymission_dir="$workdir/nodalix-hymission"
 mkdir -p "$hymission_dir"
 cp "$root/packaging/nodalix-hymission/PKGBUILD" "$hymission_dir/"
@@ -117,7 +119,12 @@ cp "$root/packaging/nodalix-wallpapers/PKGBUILD" \
 greeter_dir="$workdir/nodalix-greeter-theme"
 mkdir -p "$greeter_dir"
 cp "$root/packaging/nodalix-greeter-theme/"* "$greeter_dir/"
-inject_sha256 "$greeter_dir/PKGBUILD" "$greeter_dir/regreet.css"
+inject_sha256 "$greeter_dir/PKGBUILD" \
+  "$greeter_dir/regreet.css" \
+  "$greeter_dir/regreet.toml" \
+  "$greeter_dir/hyprland.lua" \
+  "$greeter_dir/greetd-config.toml" \
+  "$greeter_dir/nodalix-greeter-session"
 
 engine_dir="$workdir/nodalix-wallpaper-engine"
 mkdir -p "$engine_dir"
@@ -137,6 +144,7 @@ if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
   makepkg_one "$fluent_dir"
   makepkg_one "$colloid_dir"
   makepkg_one "$hymission_dir"
+  makepkg_one "$cursor_dir"
   makepkg_one "$greeter_dir"
   makepkg_one "$wallpaper_dir"
   makepkg_one "$release_dir"

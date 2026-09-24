@@ -1,0 +1,30 @@
+#!/bin/sh
+set -u
+
+# Persist compositor diagnostics across reboots so long-idle ANRs can be
+# diagnosed instead of being erased by the next greeter start.
+log_dir="${XDG_CACHE_HOME:-/var/lib/nodalix-greeter/cache}"
+mkdir -p "$log_dir"
+
+timestamp="$(date +%Y%m%d-%H%M%S)"
+log_file="$log_dir/compositor-$timestamp-$$.log"
+: > "$log_file"
+
+rm -f "$log_dir/compositor.log"
+ln -s "$(basename "$log_file")" "$log_dir/compositor.log"
+
+# Keep the newest 10 greeter compositor logs.
+find "$log_dir" -maxdepth 1 -type f -name 'compositor-*.log' -printf '%T@ %p\n' 2>/dev/null \
+    | sort -rn \
+    | tail -n +11 \
+    | cut -d' ' -f2- \
+    | xargs -r rm -f
+
+# Keep tty1 clean while the compositor owns the display.
+printf '\033[2J\033[H\033[?25l'
+
+/usr/bin/start-hyprland -- -c /etc/greetd/hyprland.lua >>"$log_file" 2>&1
+status=$?
+
+printf '\033[2J\033[H\033[?25l'
+exit "$status"

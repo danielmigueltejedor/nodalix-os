@@ -11,6 +11,7 @@ if not keyboard then
 end
 hl.monitor({ output = "", mode = "preferred", position = "auto", scale = "auto" })
 hl.env("XDG_CURRENT_DESKTOP", "Hyprland")
+hl.env("XCURSOR_THEME", "Nodalix")
 hl.env("XCURSOR_SIZE", "24")
 hl.config({
     general = { gaps_in = 6, gaps_out = 10, border_size = 2, layout = "dwindle" },

@@ -1,11 +1,66 @@
+backup_nodalix_file() {
+    path=$1
+    [ -e "$path" ] || return 0
+    cp -a "$path" "$path.before-nodalix-$(date +%s)"
+}
+
 post_install() {
-    # Preserve the configured authentication/session backend. Only replace
-    # the visual stylesheet on machines that already use Nodalix ReGreet.
-    if [ -f /etc/greetd/regreet.css ] && [ -x /usr/local/bin/regreet-nodalix ]; then
-        if ! cmp -s /etc/greetd/regreet.css /usr/share/nodalix/greeter/regreet.css; then
-            cp -a /etc/greetd/regreet.css "/etc/greetd/regreet.css.before-nodalix-$(date +%s)"
-            install -m644 /usr/share/nodalix/greeter/regreet.css /etc/greetd/regreet.css
-        fi
+    install -d -o greeter -g greeter -m 0750 \
+        /var/lib/nodalix-greeter \
+        /var/lib/nodalix-greeter/cache
+    install -d -m 0755 /var/cache/nodalix-greeter
+
+    if [ ! -e /var/cache/nodalix-greeter/wallpaper ] && \
+       [ -f /usr/share/backgrounds/nodalix/static/nodalix-alpine-mirror.jpg ]; then
+        install -m0644 /usr/share/backgrounds/nodalix/static/nodalix-alpine-mirror.jpg \
+            /var/cache/nodalix-greeter/wallpaper
+    fi
+
+    if [ ! -f /etc/greetd/regreet.css ] || \
+       ! cmp -s /etc/greetd/regreet.css /usr/share/nodalix/greeter/regreet.css; then
+        [ -f /etc/greetd/regreet.css ] && backup_nodalix_file /etc/greetd/regreet.css
+        install -Dm644 /usr/share/nodalix/greeter/regreet.css /etc/greetd/regreet.css
+    fi
+
+    if [ ! -f /etc/greetd/regreet.toml ]; then
+        install -Dm644 /usr/share/nodalix/greeter/regreet.toml /etc/greetd/regreet.toml
+    elif grep -q '^cursor_theme_name[[:space:]]*=' /etc/greetd/regreet.toml; then
+        sed -i 's/^cursor_theme_name[[:space:]]*=.*/cursor_theme_name = "Nodalix"/' \
+            /etc/greetd/regreet.toml
+    elif grep -q '^\[GTK\]$' /etc/greetd/regreet.toml; then
+        sed -i '/^\[GTK\]$/a cursor_theme_name = "Nodalix"' /etc/greetd/regreet.toml
+    else
+        printf '\n[GTK]\ncursor_theme_name = "Nodalix"\n' >> /etc/greetd/regreet.toml
+    fi
+
+    # Existing machine-specific monitor layouts are intentionally retained.
+    if [ ! -f /etc/greetd/hyprland.lua ]; then
+        install -Dm644 /usr/share/nodalix/greeter/hyprland.lua /etc/greetd/hyprland.lua
+    fi
+
+    # Migrate only Nodalix-owned legacy greeter commands; preserve other sections.
+    if [ ! -f /etc/greetd/config.toml ]; then
+        install -Dm644 /usr/share/nodalix/greeter/greetd-config.toml /etc/greetd/config.toml
+    elif grep -Eq 'cage -s -- regreet|/usr/local/libexec/nodalix-greeter-session|start-hyprland.*greetd/hyprland.lua' \
+        /etc/greetd/config.toml; then
+        backup_nodalix_file /etc/greetd/config.toml
+        tmp=$(mktemp)
+        awk '
+            BEGIN { in_default = 0; replaced = 0 }
+            /^\[default_session\]$/ { in_default = 1; print; next }
+            /^\[/ { in_default = 0 }
+            in_default && /^command[[:space:]]*=/ && !replaced {
+                print "command = \"env HOME=/var/lib/nodalix-greeter XDG_CACHE_HOME=/var/lib/nodalix-greeter/cache XDG_CONFIG_HOME=/var/lib/nodalix-greeter/config XDG_DATA_HOME=/var/lib/nodalix-greeter/data MESA_SHADER_CACHE_DIR=/var/lib/nodalix-greeter/cache/mesa_shader_cache GTK_USE_PORTAL=0 GDK_DEBUG=no-portals XCURSOR_THEME=Nodalix XCURSOR_SIZE=24 dbus-run-session /usr/lib/nodalix/nodalix-greeter-session\""
+                replaced = 1
+                next
+            }
+            { print }
+        ' /etc/greetd/config.toml > "$tmp"
+        install -m644 "$tmp" /etc/greetd/config.toml
+        rm -f "$tmp"
     fi
 }
-post_upgrade() { post_install; }
+
+post_upgrade() {
+    post_install
+}

@@ -5,7 +5,7 @@ pkgdesc="Nodalix release identity and core component set"
 arch=("any")
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-depends=("nodalix-apps" "nodalix-shell" "nodalix-updater" "nodalix-phone-link" "nodalix-fluent-emoji" "nodalix-wallpapers")
+depends=("nodalix-apps" "nodalix-shell" "nodalix-updater" "nodalix-phone-link" "nodalix-fluent-emoji" "nodalix-wallpapers" "nodalix-cursor-theme")
 source=("VERSION")
 sha256sums=("SKIP")
 

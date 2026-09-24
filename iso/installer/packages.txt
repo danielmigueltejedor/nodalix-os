@@ -44,7 +44,6 @@ gawk
 sudo
 greetd
 greetd-regreet
-cage
 mesa
 vulkan-radeon
 vulkan-intel
