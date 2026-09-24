@@ -83,7 +83,7 @@ class StaticInvariantTests(unittest.TestCase):
         ))
 
         cursor_pkg = (ROOT / "packaging/nodalix-cursor-theme/PKGBUILD").read_text(encoding="utf-8")
-        self.assertIn("Bibata_Cursor/releases/download/v2.0.7/Bibata-Modern-Classic.tar.xz", cursor_pkg)
+        self.assertIn("Bibata_Cursor/releases/download/v2.0.7/Bibata.tar.xz", cursor_pkg)\n        self.assertIn("172e33c4ae415278384dcecc7d1a9b7a024266bc944bc751fd86532be1cc6251", cursor_pkg)
         self.assertIn("Name=Nodalix", cursor_pkg)
 
         greetd = (ROOT / "iso/overlay/etc/greetd/config.toml").read_text(encoding="utf-8")
