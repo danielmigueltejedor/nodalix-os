@@ -1,5 +1,5 @@
 pkgname=nodalix-release
-pkgver=0.2.1
+pkgver=0.2.2
 pkgrel=1
 pkgdesc="Nodalix release identity and core component set"
 arch=("any")
