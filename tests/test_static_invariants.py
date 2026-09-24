@@ -106,7 +106,7 @@ class StaticInvariantTests(unittest.TestCase):
         self.assertIn('cursor_theme_name = "Nodalix"', regreet)
 
         wrapper = (ROOT / "packaging/nodalix-greeter-theme/nodalix-greeter-session").read_text(encoding="utf-8")
-        self.assertIn('compositor-$timestamp-$.log', wrapper)
+        self.assertIn('log_file="$log_dir/compositor-$timestamp-', wrapper)
         self.assertIn("tail -n +11", wrapper)
         self.assertIn("start-hyprland -- -c /etc/greetd/hyprland.lua", wrapper)
 
