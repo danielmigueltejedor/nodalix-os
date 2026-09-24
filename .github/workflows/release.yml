@@ -4,14 +4,17 @@ on:
   push:
     tags:
       - "[0-9]*"
+      - "v[0-9]*"
+
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Existing GitHub release tag that should receive the built assets
+        description: Existing GitHub tag that should receive the built assets
         required: true
-        default: "0.2.0"
+        default: "0.2.2"
+
       publish:
-        description: Publish the release after building (disable for ISO candidate validation)
+        description: Publish the release after building
         type: boolean
         default: true
 
@@ -21,19 +24,60 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.release_tag || github.ref_name }}
+          fetch-depth: 0
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Validate release version
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.release_tag || github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import pathlib
+          import sys
+
+          sys.path.insert(0, "tools")
+          from versioning import canonical_version
+
+          tag = canonical_version(os.environ["RELEASE_TAG"])
+          version = pathlib.Path("VERSION").read_text().strip()
+
+          if tag != version:
+              raise SystemExit(
+                  f"release tag {tag} does not match VERSION {version}"
+              )
+
+          print("validated release version", version)
+          PY
+
+      - name: Require curated release notes
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.release_tag || github.ref_name }}
+        run: |
+          python3 tools/release_notes.py validate \
+            --version "$RELEASE_TAG"
+
       - name: Run updater tests
         run: python -m unittest discover -s tests -v
 
   build:
     needs: test
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.release_tag || github.ref_name }}
+          fetch-depth: 0
+
       - name: Build Arch packages
         run: |
           docker run --rm \
@@ -43,27 +87,67 @@ jobs:
             archlinux:latest \
             bash -lc '
               set -euo pipefail
+
               pacman -Syu --noconfirm
-              pacman -S --noconfirm base-devel cmake ninja qt6-base qt6-declarative qt6-shadertools python tar zstd git sudo gtk-update-icon-cache hyprland gtk4-layer-shell libadwaita lua
+              pacman -S --noconfirm \
+                base-devel \
+                cmake \
+                ninja \
+                qt6-base \
+                qt6-declarative \
+                qt6-shadertools \
+                python \
+                tar \
+                zstd \
+                git \
+                sudo \
+                gtk-update-icon-cache \
+                hyprland \
+                gtk4-layer-shell \
+                libadwaita \
+                lua
+
               useradd -m builder
               echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+
               chown -R builder:builder /src
-              su builder -c "bash /src/tools/build-packages.sh /src/dist/packages"
+
+              su builder -c \
+                "bash /src/tools/build-packages.sh /src/dist/packages"
             '
+
       - name: Validate tag and manifest
         env:
           NODALIX_RELEASE_TAG: ${{ github.event.inputs.release_tag || github.ref_name }}
         run: |
           python3 - <<'PY'
-          import json, os, pathlib, sys
+          import json
+          import os
+          import pathlib
+          import sys
+
           sys.path.insert(0, "tools")
           from versioning import canonical_version
-          tag = canonical_version(os.environ["NODALIX_RELEASE_TAG"])
-          manifest = json.loads(pathlib.Path("dist/packages/nodalix-manifest.json").read_text())
+
+          tag = canonical_version(
+              os.environ["NODALIX_RELEASE_TAG"]
+          )
+
+          manifest = json.loads(
+              pathlib.Path(
+                  "dist/packages/nodalix-manifest.json"
+              ).read_text()
+          )
+
           if manifest["version"] != tag:
-              raise SystemExit(f"manifest {manifest['version']} does not match tag {tag}")
+              raise SystemExit(
+                  f"manifest {manifest['version']} "
+                  f"does not match tag {tag}"
+              )
+
           print("validated", tag)
           PY
+
       - uses: actions/upload-artifact@v4
         with:
           name: nodalix-packages
@@ -73,46 +157,93 @@ jobs:
     if: github.event_name != 'workflow_dispatch' || inputs.publish
     needs: build
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.release_tag || github.ref_name }}
+          fetch-depth: 0
+
       - uses: actions/download-artifact@v4
         with:
           name: nodalix-packages
           path: dist/packages
-      - name: Mark prerelease and upload assets
+
+      - name: Build release changelog
+        env:
+          RELEASE_TAG: ${{ github.event.inputs.release_tag || github.ref_name }}
+        run: |
+          python3 tools/release_notes.py build \
+            --tag "$RELEASE_TAG" \
+            --output dist/release-notes.md
+
+          echo
+          echo "------ Generated release notes ------"
+          cat dist/release-notes.md
+          echo "-------------------------------------"
+
+      - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ github.event.inputs.release_tag || github.ref_name }}
         run: |
           mkdir -p dist
+
           python3 - <<'PY'
-          import os, pathlib, sys
+          import os
+          import pathlib
+          import sys
+
           sys.path.insert(0, "tools")
           from versioning import is_prerelease_tag
+
           tag = os.environ["RELEASE_TAG"]
-          pathlib.Path("dist/.prerelease").write_text("1" if is_prerelease_tag(tag) else "0")
-          print(tag, "prerelease" if is_prerelease_tag(tag) else "stable")
+
+          pathlib.Path("dist/.prerelease").write_text(
+              "1" if is_prerelease_tag(tag) else "0"
+          )
+
+          print(
+              tag,
+              "prerelease"
+              if is_prerelease_tag(tag)
+              else "stable",
+          )
           PY
-          NOTES_FILE="docs/releases/${RELEASE_TAG}.md"
-          if ! gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            if [[ -f "$NOTES_FILE" ]]; then
-              gh release create "$RELEASE_TAG" --verify-tag \
-                --title "Nodalix OS $RELEASE_TAG" --notes-file "$NOTES_FILE" \
-                --repo "$GITHUB_REPOSITORY"
-            else
-              gh release create "$RELEASE_TAG" --verify-tag \
-                --title "Nodalix OS $RELEASE_TAG" \
-                --notes "Paquetes oficiales de Nodalix OS $RELEASE_TAG. Incluye la shell, el actualizador, Enlace móvil, recursos visuales y la identidad del sistema." \
-                --repo "$GITHUB_REPOSITORY"
-            fi
-          fi
-          if [[ -f "$NOTES_FILE" ]]; then
-            gh release edit "$RELEASE_TAG" --notes-file "$NOTES_FILE" --repo "$GITHUB_REPOSITORY"
-          fi
-          if [[ $(cat dist/.prerelease) == 1 ]]; then
-            gh release edit "$RELEASE_TAG" --prerelease --repo "$GITHUB_REPOSITORY"
+
+          NOTES_FILE="dist/release-notes.md"
+          VERSION="$(tr -d '[:space:]' < VERSION)"
+
+          if ! gh release view "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1
+          then
+            gh release create "$RELEASE_TAG" \
+              --verify-tag \
+              --title "Nodalix OS $VERSION" \
+              --notes-file "$NOTES_FILE" \
+              --repo "$GITHUB_REPOSITORY"
           else
-            gh release edit "$RELEASE_TAG" --prerelease=false --repo "$GITHUB_REPOSITORY"
+            gh release edit "$RELEASE_TAG" \
+              --title "Nodalix OS $VERSION" \
+              --notes-file "$NOTES_FILE" \
+              --repo "$GITHUB_REPOSITORY"
           fi
-          gh release upload "$RELEASE_TAG" dist/packages/* --clobber --repo "$GITHUB_REPOSITORY"
-          gh release view "$RELEASE_TAG" --json tagName,isPrerelease,assets --repo "$GITHUB_REPOSITORY"
+
+          if [[ "$(cat dist/.prerelease)" == "1" ]]; then
+            gh release edit "$RELEASE_TAG" \
+              --prerelease \
+              --repo "$GITHUB_REPOSITORY"
+          else
+            gh release edit "$RELEASE_TAG" \
+              --prerelease=false \
+              --repo "$GITHUB_REPOSITORY"
+          fi
+
+          gh release upload "$RELEASE_TAG" \
+            dist/packages/* \
+            --clobber \
+            --repo "$GITHUB_REPOSITORY"
+
+          gh release view "$RELEASE_TAG" \
+            --json tagName,name,isPrerelease,body,assets \
+            --repo "$GITHUB_REPOSITORY"

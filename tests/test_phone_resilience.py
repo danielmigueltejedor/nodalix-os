@@ -72,8 +72,12 @@ class PhoneResilience(unittest.TestCase):
         ancs, hfp, sessions, listener = Mock(), Mock(), Mock(), Mock()
         hfp.start.side_effect = BusError()
         contacts = Mock(); contacts.count.return_value = 1
+        bluez = Mock()
+        bluez.return_value.Get.return_value = 'le'
+        system_bus = Mock()
         mod = load('daemon.py', ['Daemon'], SessionManager=Mock(return_value=sessions), ContactsResolver=Mock(return_value=contacts),
                    config=SimpleNamespace(ensure_dirs=Mock(), ADAPTER='hci0', IPHONE_MAC='00:11', NOTIFICATIONS_ENABLED=True, CALLS_ENABLED=True, AUTO_RECONNECT=False, COPY_VERIFICATION_CODES=False),
+                   bluez=bluez, system_bus=system_bus,
                    bluez_setup=SimpleNamespace(prepare=Mock(side_effect=BusError())), GLib=glib, SESSION_RETRY_SEC=60, RECONNECT_TICK_SEC=15, CONTACTS_REFRESH_SEC=86400,
                    AncsClient=Mock(return_value=ancs), HfpManager=Mock(return_value=hfp), JsonlSink=Mock(), LibnotifySink=Mock(),
                    MapEventListener=Mock(return_value=listener), claim_bus_name=Mock(), MessagesService=Mock(), signal=SimpleNamespace(SIGINT=2, SIGTERM=15, signal=Mock()), SessionError=RuntimeError)
