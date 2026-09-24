@@ -1,14 +1,95 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -u -o pipefail
 
-# Advertising the phone/telephony service class helps iOS rediscover the PC
-# after boot. The command is retried because some adapters appear late.
+ANCS_UUID="7905f431-b5ce-4e99-a40f-4b1e122d00d0"
+
+log() {
+    printf "[nodalix-phone-link] %s\n" "$*"
+}
+
+# Wait until the Bluetooth controller is usable. Some adapters appear a
+# little after bluetoothd has started.
+adapter_ready=0
+
 for attempt in {1..15}; do
-    if /usr/bin/btmgmt info 2>/dev/null | /usr/bin/grep -q 'current settings:'; then
-        /usr/bin/btmgmt class 0x000400 0x000000 >/dev/null 2>&1 || true
-        exit 0
+    if /usr/bin/btmgmt info 2>/dev/null | /usr/bin/grep -q "current settings:"; then
+        adapter_ready=1
+        break
     fi
+
     /usr/bin/sleep 1
+done
+
+if (( ! adapter_ready )); then
+    log "Bluetooth controller did not become ready"
+    exit 0
+fi
+
+# Advertise the A/V Hands-Free service class expected by the phone-link
+# telephony integration.
+class_ready=0
+
+for attempt in {1..10}; do
+    if /usr/bin/btmgmt class 0x000400 0x000000 >/dev/null 2>&1; then
+        class_ready=1
+        break
+    fi
+
+    /usr/bin/sleep 0.5
+done
+
+if (( class_ready )); then
+    log "Bluetooth class prepared"
+else
+    log "could not set Bluetooth class after retries; continuing"
+fi
+
+# BlueZ 5.87 can restore the bond/IRK of a dual-mode iPhone without
+# programming ADDRESS_RESOLUTION into the controller. In that state LE
+# connections remain stuck in InProgress even though the device is bonded.
+#
+# Apply ADDRESS_RESOLUTION (flag 4) to paired ANCS-capable devices. We
+# identify iPhones by the ANCS service UUID rather than by device name or a
+# user-specific configuration file.
+mapfile -t paired_devices < <(
+    /usr/bin/bluetoothctl devices Paired 2>/dev/null |
+    /usr/bin/awk "{print \$2}"
+)
+
+for mac in "${paired_devices[@]}"; do
+    [[ -n "$mac" ]] || continue
+
+    info=$(
+        /usr/bin/bluetoothctl info "$mac" 2>/dev/null ||
+        true
+    )
+
+    if ! /usr/bin/grep -qi "$ANCS_UUID" <<< "$info"; then
+        continue
+    fi
+
+    address_type=$(
+        /usr/bin/sed -n             "s/^[[:space:]]*AddressType:[[:space:]]*//p"             <<< "$info" |
+        /usr/bin/head -n 1 |
+        /usr/bin/tr "[:upper:]" "[:lower:]"
+    )
+
+    case "$address_type" in
+        random)
+            btmgmt_type=2
+            ;;
+        *)
+            # Dual-mode iPhones normally expose a public identity address.
+            btmgmt_type=1
+            ;;
+    esac
+
+    if /usr/bin/btmgmt set-flags         -t "$btmgmt_type"         -f 4         "$mac" >/dev/null 2>&1
+    then
+        log "ADDRESS_RESOLUTION enabled for ANCS device $mac"
+    else
+        log "could not enable ADDRESS_RESOLUTION for $mac"
+    fi
 done
 
 exit 0

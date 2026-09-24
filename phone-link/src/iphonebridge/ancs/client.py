@@ -82,8 +82,9 @@ class AncsClient:
         self._app_name_cache: dict[str, str] = {}
         self._pending_app_lookups: dict[str, list[NotificationAttributes]] = {}
 
-        # Signal subscriptions we need to clean up on stop()
-        self._signal_matches: list = []
+        # Permanent ObjectManager subscriptions + per-GATT-session subscriptions.
+        self._manager_matches: list = []
+        self._char_matches: list = []
 
     # ---- lifecycle ------------------------------------------------------
 
@@ -93,10 +94,10 @@ class AncsClient:
             system_bus.get_object("org.bluez", "/"),
             "org.freedesktop.DBus.ObjectManager",
         )
-        self._signal_matches.append(
+        self._manager_matches.append(
             om.connect_to_signal("InterfacesAdded", self._on_iface_added)
         )
-        self._signal_matches.append(
+        self._manager_matches.append(
             om.connect_to_signal("InterfacesRemoved", self._on_iface_removed)
         )
         # Sweep current state — ANCS chars may already exist if we're
@@ -107,12 +108,13 @@ class AncsClient:
 
     def stop(self) -> None:
         log.info("ANCS client stopping")
-        for m in self._signal_matches:
+        for m in self._manager_matches:
             try:
                 m.remove()
             except Exception:
                 pass
-        self._signal_matches = []
+        self._manager_matches = []
+        self._reset_subscription()
         # StopNotify on the chars if we'd started
         for path in (self._ns_path, self._ds_path):
             if path:
@@ -124,6 +126,20 @@ class AncsClient:
                 except dbus.exceptions.DBusException:
                     pass
         self._ns_path = self._ds_path = self._cp_path = None
+        self._notify_started = False
+
+    @property
+    def active(self) -> bool:
+        return self._notify_started
+
+    def _reset_subscription(self) -> None:
+        """Drop per-GATT-session receivers so reconnects cannot duplicate events."""
+        for match in self._char_matches:
+            try:
+                match.remove()
+            except Exception:
+                pass
+        self._char_matches = []
         self._notify_started = False
 
     # ---- ObjectManager event handlers -----------------------------------
@@ -151,11 +167,14 @@ class AncsClient:
 
     def _on_iface_removed(self, path, ifaces):
         path_s = str(path)
+        lost_ancs = False
         for attr in ("_ns_path", "_ds_path", "_cp_path"):
             if getattr(self, attr) == path_s:
                 setattr(self, attr, None)
-                self._notify_started = False
+                lost_ancs = True
                 log.warning("ANCS char gone: %s", path_s)
+        if lost_ancs:
+            self._reset_subscription()
 
     def _try_subscribe(self) -> None:
         if self._notify_started:
@@ -178,7 +197,7 @@ class AncsClient:
             log.warning("ANCS StartNotify failed: %s", e.get_dbus_name())
             return
 
-        self._signal_matches.append(
+        self._char_matches.append(
             system_bus.add_signal_receiver(
                 self._on_ns_changed,
                 dbus_interface="org.freedesktop.DBus.Properties",
@@ -186,7 +205,7 @@ class AncsClient:
                 path=self._ns_path,
             )
         )
-        self._signal_matches.append(
+        self._char_matches.append(
             system_bus.add_signal_receiver(
                 self._on_ds_changed,
                 dbus_interface="org.freedesktop.DBus.Properties",

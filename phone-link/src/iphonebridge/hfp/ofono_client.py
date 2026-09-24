@@ -26,6 +26,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import dbus
+from gi.repository import GLib
 import dbus.exceptions
 
 from iphonebridge.bus import system_bus
@@ -102,6 +103,8 @@ class HfpManager:
 
         self._modem_path: str | None = None
         self._vcm_hooked = False
+        self._power_retry_id: int | None = None
+        self._power_retry_attempt = 0
 
         self._mgr_matches: list = []          # ModemAdded / ModemRemoved
         self._modem_sub = None                # modem PropertyChanged
@@ -115,21 +118,43 @@ class HfpManager:
     def start(self) -> bool:
         if self._mgr_matches:
             return True
+
         try:
-            # Proxy creation can itself activate a missing oFono service.
-            mgr = dbus.Interface(system_bus.get_object(OFONO, "/"), _MGR_IFACE)
+            mgr = dbus.Interface(
+                system_bus.get_object(OFONO, "/"),
+                _MGR_IFACE,
+            )
             modems = mgr.GetModems()
+
             self._mgr_matches.append(
-                mgr.connect_to_signal("ModemAdded", self._on_modem_added))
+                mgr.connect_to_signal(
+                    "ModemAdded",
+                    self._on_modem_added,
+                )
+            )
             self._mgr_matches.append(
-                mgr.connect_to_signal("ModemRemoved", self._on_modem_removed))
+                mgr.connect_to_signal(
+                    "ModemRemoved",
+                    self._on_modem_removed,
+                )
+            )
+
             for path, props in modems:
                 self._on_modem_added(path, props)
+
         except (dbus.exceptions.DBusException, OSError) as error:
             self.stop()
-            log.warning("HFP unavailable; notifications, messages and contacts remain active: %s", error)
+            log.warning(
+                "HFP unavailable; notifications, messages and contacts "
+                "remain active: %s",
+                error,
+            )
             return False
-        log.info("HFP manager started (oFono); modem=%s", self._modem_path)
+
+        log.info(
+            "HFP manager started (oFono); modem=%s",
+            self._modem_path,
+        )
         return True
 
     def stop(self) -> None:
@@ -140,6 +165,7 @@ class HfpManager:
         self._teardown_modem()
 
     def _teardown_modem(self) -> None:
+        self._cancel_power_retry()
         _safe_remove(self._modem_sub)
         self._modem_sub = None
         for m in self._vcm_matches:
@@ -180,32 +206,109 @@ class HfpManager:
         self._teardown_modem()
 
     def _on_modem_prop(self, name, _value) -> None:
-        if name not in ("Interfaces", "Powered") or self._modem_path is None:
+        if str(name) not in ("Interfaces", "Powered"):
             return
-        try:
-            modem = dbus.Interface(
-                system_bus.get_object(OFONO, self._modem_path), _MODEM_IFACE)
-            self._maybe_hook_vcm(dict(modem.GetProperties()))
-        except dbus.exceptions.DBusException:
-            pass
+        if self._modem_path is None:
+            return
 
-    def _ensure_powered(self, modem: dbus.Interface, props: dict) -> None:
-        if props.get("Powered"):
-            return
-        # An HFP modem normally auto-powers once oFono's service-level
-        # connection is up. If it didn't, the usual cause is a startup-order
-        # race (oFono lost the HFP-profile registration to PipeWire's native
-        # backend) — `iphonebridge hfp-enable` fixes the config + ordering.
+        modem = dbus.Interface(
+            system_bus.get_object(OFONO, self._modem_path),
+            _MODEM_IFACE,
+        )
         try:
-            modem.SetProperty("Powered", dbus.Boolean(True))
-            log.info("HFP modem powered on")
+            props = dict(modem.GetProperties())
         except dbus.exceptions.DBusException as e:
-            log.warning(
-                "could not power the HFP modem (%s) — call control may be "
-                "unavailable. Run `iphonebridge hfp-enable` and make sure "
-                "oFono is restarted after WirePlumber.",
+            log.debug(
+                "could not refresh HFP modem properties: %s",
                 e.get_dbus_message() or e.get_dbus_name(),
             )
+            return
+
+        if props.get("Powered"):
+            self._cancel_power_retry()
+            self._power_retry_attempt = 0
+        elif self._power_retry_id is None:
+            self._ensure_powered(modem, props)
+
+        self._maybe_hook_vcm(props)
+
+    def _cancel_power_retry(self) -> None:
+        if self._power_retry_id is not None:
+            try:
+                GLib.source_remove(self._power_retry_id)
+            except Exception:
+                pass
+            self._power_retry_id = None
+        self._power_retry_attempt = 0
+
+    def _schedule_power_retry(self) -> None:
+        if self._modem_path is None or self._power_retry_id is not None:
+            return
+
+        delays = (1, 2, 4, 8, 15, 30)
+        delay = delays[min(self._power_retry_attempt, len(delays) - 1)]
+        self._power_retry_attempt += 1
+
+        log.info("retrying HFP modem power in %ds", delay)
+        self._power_retry_id = GLib.timeout_add_seconds(
+            delay, self._power_retry_tick
+        )
+
+    def _power_retry_tick(self) -> bool:
+        self._power_retry_id = None
+
+        if self._modem_path is None:
+            return False
+
+        try:
+            modem = dbus.Interface(
+                system_bus.get_object(OFONO, self._modem_path),
+                _MODEM_IFACE,
+            )
+            props = dict(modem.GetProperties())
+        except dbus.exceptions.DBusException as e:
+            log.debug(
+                "HFP power retry could not read modem: %s",
+                e.get_dbus_message() or e.get_dbus_name(),
+            )
+            self._schedule_power_retry()
+            return False
+
+        if props.get("Powered"):
+            self._power_retry_attempt = 0
+            self._maybe_hook_vcm(props)
+            return False
+
+        self._ensure_powered(modem, props)
+        return False
+
+    def _ensure_powered(self, modem, props) -> None:
+        if props.get("Powered"):
+            self._cancel_power_retry()
+            return
+
+        try:
+            modem.SetProperty("Powered", dbus.Boolean(True))
+            log.info("HFP modem power requested")
+        except dbus.exceptions.DBusException as e:
+            log.warning(
+                "could not power the HFP modem (%s); retrying automatically",
+                e.get_dbus_message() or e.get_dbus_name(),
+            )
+            self._schedule_power_retry()
+            return
+
+        # Verify instead of assuming SetProperty completed synchronously.
+        try:
+            refreshed = dict(modem.GetProperties())
+        except dbus.exceptions.DBusException:
+            refreshed = {}
+
+        if refreshed.get("Powered"):
+            self._cancel_power_retry()
+            self._maybe_hook_vcm(refreshed)
+        else:
+            self._schedule_power_retry()
 
     def _maybe_hook_vcm(self, props: dict) -> None:
         if self._vcm_hooked or self._modem_path is None:

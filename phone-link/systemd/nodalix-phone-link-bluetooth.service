@@ -2,6 +2,7 @@
 Description=Prepare Bluetooth for Nodalix Phone Link
 After=bluetooth.service
 Requires=bluetooth.service
+PartOf=bluetooth.service
 
 [Service]
 Type=oneshot

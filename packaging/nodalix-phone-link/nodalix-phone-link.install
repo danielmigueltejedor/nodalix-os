@@ -1,0 +1,33 @@
+_prepare_nodalix_phone_link() {
+    systemctl daemon-reload >/dev/null 2>&1 || true
+
+    local experimental_result
+    experimental_result=$(
+        /usr/lib/nodalix-phone-link/enable-bluez-experimental 2>/dev/null ||
+        true
+    )
+
+    if ! systemctl is-active --quiet bluetooth.service; then
+        return 0
+    fi
+
+    if [[ "$experimental_result" == "enabled" ]]; then
+        echo "Nodalix Phone Link: enabling BlueZ experimental API"
+        systemctl restart bluetooth.service || true
+        sleep 1
+    fi
+
+    systemctl restart nodalix-phone-link-bluetooth.service || true
+}
+
+post_install() {
+    _prepare_nodalix_phone_link
+}
+
+post_upgrade() {
+    _prepare_nodalix_phone_link
+}
+
+post_remove() {
+    systemctl daemon-reload >/dev/null 2>&1 || true
+}

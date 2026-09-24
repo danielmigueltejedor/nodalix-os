@@ -52,7 +52,8 @@ tar --zstd -C "$root" -cf "$srcdir/nodalix-shell-$pkgver.tar.zst" \
   shell
 tar --zstd -C "$root" -cf "$srcdir/nodalix-phone-link-$pkgver.tar.zst" \
   --exclude phone-link/src/iphonebridge/.git \
-  --exclude phone-link/src/iphonebridge/__pycache__ \
+  --exclude='*/__pycache__' \
+  --exclude='*.pyc' \
   --exclude phone-link/tests \
   phone-link
 
@@ -95,6 +96,7 @@ cp "$root/packaging/nodalix-release/PKGBUILD" "$root/packaging/nodalix-release/V
 inject_sha256 "$release_dir/PKGBUILD" "$release_dir/VERSION"
 
 cp "$root/packaging/nodalix-phone-link/PKGBUILD" "$phone_link_dir/PKGBUILD"
+cp "$root/packaging/nodalix-phone-link/nodalix-phone-link.install" "$phone_link_dir/nodalix-phone-link.install"
 cp "$srcdir/nodalix-phone-link-$pkgver.tar.zst" "$phone_link_dir/"
 inject_sha256 "$phone_link_dir/PKGBUILD" "$phone_link_dir/nodalix-phone-link-$pkgver.tar.zst"
 

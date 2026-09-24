@@ -92,7 +92,14 @@ say "Instalando Nodalix $release_tag…"
 "${as_root[@]}" systemctl enable --now nodalix-update-check.timer
 systemctl --user daemon-reload || true
 systemctl --user enable nodalix-shell.service nodalix-app-accent.path nodalix-phone-link.service nodalix-localsend.service || true
-systemctl --user start nodalix-app-accent.path nodalix-phone-link.service nodalix-localsend.service || true
+
+if [[ -x /usr/lib/nodalix-phone-link/migrate-user ]]; then
+    /usr/lib/nodalix-phone-link/migrate-user || true
+elif [[ -f "$HOME/.config/iphonebridge/local.env" ]]; then
+    systemctl --user start nodalix-phone-link.service || true
+fi
+
+systemctl --user start nodalix-app-accent.path nodalix-localsend.service || true
 if [[ -n ${WAYLAND_DISPLAY:-} ]]; then
     systemctl --user restart nodalix-shell.service || true
 fi

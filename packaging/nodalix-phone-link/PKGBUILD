@@ -1,5 +1,5 @@
 pkgname=nodalix-phone-link
-pkgver=0.2.1
+pkgver=0.2.2
 pkgrel=1
 pkgdesc="Nodalix Phone Link integration for iOS"
 arch=('any')
@@ -9,6 +9,7 @@ depends=('python' 'python-dbus' 'python-gobject' 'python-typer' 'bluez' 'bluez-u
 optdepends=('ofono: hands-free call audio and controls' 'wl-clipboard: copy verification codes')
 source=("nodalix-phone-link-$pkgver.tar.zst")
 sha256sums=('SKIP')
+install=nodalix-phone-link.install
 
 package() {
   install -d "$pkgdir/usr/lib/nodalix-phone-link"
@@ -20,6 +21,10 @@ package() {
   install -Dm755 "$srcdir/phone-link/bin/nodalix-phone-link-settings" "$pkgdir/usr/bin/nodalix-phone-link-settings"
   install -Dm755 "$srcdir/phone-link/systemd/prepare-bluetooth" \
     "$pkgdir/usr/lib/nodalix-phone-link/prepare-bluetooth"
+  install -Dm755 "$srcdir/phone-link/systemd/enable-bluez-experimental" \
+    "$pkgdir/usr/lib/nodalix-phone-link/enable-bluez-experimental"
+  install -Dm755 "$srcdir/phone-link/systemd/migrate-user" \
+    "$pkgdir/usr/lib/nodalix-phone-link/migrate-user"
 
   install -Dm644 "$srcdir/phone-link/systemd/nodalix-phone-link.service" \
     "$pkgdir/usr/lib/systemd/user/nodalix-phone-link.service"

@@ -1,0 +1,44 @@
+#!/usr/bin/env python3
+from pathlib import Path
+import re
+
+path = Path("/etc/bluetooth/main.conf")
+
+if not path.exists():
+    raise SystemExit(0)
+
+text = path.read_text()
+original = text
+
+general = re.search(r"(?ms)^\[General\]\s*$.*?(?=^\[|\Z)", text)
+if general is None:
+    raise SystemExit("No [General] section in /etc/bluetooth/main.conf")
+
+block = general.group(0)
+
+if re.search(r"(?m)^\s*Experimental\s*=", block):
+    block = re.sub(
+        r"(?m)^\s*Experimental\s*=.*$",
+        "Experimental = true",
+        block,
+        count=1,
+    )
+elif re.search(r"(?m)^\s*#\s*Experimental\s*=", block):
+    block = re.sub(
+        r"(?m)^\s*#\s*Experimental\s*=.*$",
+        "Experimental = true",
+        block,
+        count=1,
+    )
+else:
+    lines = block.splitlines()
+    lines.insert(1, "Experimental = true")
+    block = "\n".join(lines) + ("\n" if general.group(0).endswith("\n") else "")
+
+text = text[:general.start()] + block + text[general.end():]
+
+if text != original:
+    path.write_text(text)
+    print("enabled")
+else:
+    print("already-enabled")

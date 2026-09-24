@@ -30,7 +30,7 @@ from gi.repository import GLib
 from iphonebridge import bluez_setup, config
 from iphonebridge.ancs.client import AncsClient
 from iphonebridge.ancs.events import AncsEvent
-from iphonebridge.bus import bluez, main_loop
+from iphonebridge.bus import bluez, main_loop, system_bus
 from iphonebridge.contacts import ContactsResolver, pull_phonebook
 from iphonebridge.dbus_service import MessagesService, claim_bus_name
 from iphonebridge.events import SmsEvent, sms_sent_event
@@ -74,6 +74,9 @@ class Daemon:
         self._reconnect_in_flight = False
         self._reconnect_backoff = RECONNECT_TICK_SEC
         self._reconnect_next = 0.0
+        self._ancs_recover_pending = False
+        self._le_prop_match = None
+        self._ancs_restart_id: int | None = None
         self._bus_name = None
         self._dbus_service: MessagesService | None = None
         self._post_sessions_done = False
@@ -107,9 +110,16 @@ class Daemon:
             try:
                 self.ancs.start()
             except (dbus.exceptions.DBusException, OSError):
-                log.exception("ANCS not ready yet; other phone services remain active")
+                log.exception(
+                    "ANCS not ready yet; other phone services remain active"
+                )
+
+            self._ensure_preferred_bearer()
+            self._watch_le_bearer(device_path)
         else:
-            log.info("ANCS application notifications disabled in Nodalix Settings")
+            log.info(
+                "ANCS application notifications disabled in Nodalix Settings"
+            )
 
         # HFP — take/place calls via oFono. Also independent of MAP/PBAP; if
         # oFono isn't set up it logs a hint and stays dormant.
@@ -306,43 +316,275 @@ class Daemon:
         self._refresh_contacts()
         return True
 
+    def _ensure_preferred_bearer(self) -> None:
+        device_path = (
+            f"/org/bluez/{config.ADAPTER}"
+            f"/dev_{config.IPHONE_MAC.replace(":", "_")}"
+        )
+
+        try:
+            props = bluez(
+                device_path,
+                "org.freedesktop.DBus.Properties",
+            )
+            current = str(
+                props.Get(
+                    "org.bluez.Device1",
+                    "PreferredBearer",
+                )
+            )
+
+            if current != "le":
+                props.Set(
+                    "org.bluez.Device1",
+                    "PreferredBearer",
+                    dbus.String("le"),
+                )
+                log.info(
+                    "iPhone PreferredBearer changed: %s -> le",
+                    current,
+                )
+        except dbus.exceptions.DBusException as error:
+            log.warning(
+                "could not set iPhone PreferredBearer=le: %s",
+                error.get_dbus_message() or str(error),
+            )
+
+    def _watch_le_bearer(self, device_path: str) -> None:
+        if self._le_prop_match is not None:
+            return
+
+        self._le_prop_match = system_bus.add_signal_receiver(
+            self._on_le_properties_changed,
+            dbus_interface="org.freedesktop.DBus.Properties",
+            signal_name="PropertiesChanged",
+            path=device_path,
+            arg0="org.bluez.Bearer.LE1",
+        )
+        log.info("watching iPhone LE bearer state")
+
+    def _on_le_properties_changed(
+        self,
+        iface,
+        changed,
+        _invalidated,
+    ) -> None:
+        if str(iface) != "org.bluez.Bearer.LE1":
+            return
+
+        if "Connected" not in changed:
+            return
+
+        connected = bool(changed["Connected"])
+
+        if not connected:
+            log.warning(
+                "iPhone LE bearer disconnected; suspending ANCS"
+            )
+            self._ancs_recover_pending = True
+
+            if self._ancs_restart_id is not None:
+                try:
+                    GLib.source_remove(self._ancs_restart_id)
+                except Exception:
+                    pass
+                self._ancs_restart_id = None
+
+            if self.ancs is not None:
+                try:
+                    self.ancs.stop()
+                except Exception:
+                    log.exception(
+                        "could not suspend ANCS after LE loss"
+                    )
+
+            if config.AUTO_RECONNECT:
+                self._reconnect_next = 0.0
+                GLib.idle_add(self._kick_phone_recovery)
+            else:
+                log.info(
+                    "automatic iPhone reconnect disabled; "
+                    "LE recovery will wait for the user"
+                )
+            return
+
+        log.info("iPhone LE bearer connected")
+
+        if self._ancs_recover_pending:
+            if self._ancs_restart_id is not None:
+                try:
+                    GLib.source_remove(self._ancs_restart_id)
+                except Exception:
+                    pass
+
+            self._ancs_restart_id = GLib.timeout_add(
+                750,
+                self._restart_ancs_after_le,
+            )
+
+    def _kick_phone_recovery(self) -> bool:
+        self._maintain_phone_connection()
+        return False
+
+    def _restart_ancs_after_le(self) -> bool:
+        self._ancs_restart_id = None
+
+        if (
+            not self._ancs_recover_pending
+            or self.ancs is None
+        ):
+            return False
+
+        try:
+            self.ancs.stop()
+            self.ancs.start()
+        except Exception:
+            log.exception(
+                "ANCS restart after LE recovery failed"
+            )
+            return False
+
+        if self.ancs.active:
+            self._ancs_recover_pending = False
+            log.info("ANCS client rebuilt after LE recovery")
+        else:
+            log.info(
+                "LE recovered but ANCS GATT is not ready yet; "
+                "watchdog will retry"
+            )
+
+        return False
+
     def _maintain_phone_connection(self) -> bool:
-        """Reconnect the configured iPhone without blocking the GLib loop."""
         now = time.monotonic()
-        if self._reconnect_in_flight or now < self._reconnect_next:
+
+        if (
+            self._reconnect_in_flight
+            or now < self._reconnect_next
+        ):
             return True
 
         device_path = (
             f"/org/bluez/{config.ADAPTER}"
-            f"/dev_{config.IPHONE_MAC.replace(':', '_')}"
+            f"/dev_{config.IPHONE_MAC.replace(":", "_")}"
         )
+
+        device_connected = False
+        le_connected = False
+        connect_le_only = False
+
         try:
-            props = bluez(device_path, "org.freedesktop.DBus.Properties")
-            if bool(props.Get("org.bluez.Device1", "Connected")):
+            props = bluez(
+                device_path,
+                "org.freedesktop.DBus.Properties",
+            )
+
+            device_connected = bool(
+                props.Get(
+                    "org.bluez.Device1",
+                    "Connected",
+                )
+            )
+
+            if (
+                config.NOTIFICATIONS_ENABLED
+                and self.ancs is not None
+            ):
+                try:
+                    le_connected = bool(
+                        props.Get(
+                            "org.bluez.Bearer.LE1",
+                            "Connected",
+                        )
+                    )
+                except dbus.exceptions.DBusException:
+                    le_connected = False
+
+                if le_connected and self.ancs.active:
+                    self._reconnect_backoff = RECONNECT_TICK_SEC
+                    self._reconnect_next = (
+                        now + RECONNECT_TICK_SEC
+                    )
+                    return True
+
+                if le_connected:
+                    log.info(
+                        "iPhone LE connected but ANCS inactive; "
+                        "refreshing ANCS client"
+                    )
+                    try:
+                        self.ancs.stop()
+                        self.ancs.start()
+                    except Exception:
+                        log.exception("ANCS refresh failed")
+
+                    self._reconnect_next = (
+                        now + RECONNECT_TICK_SEC
+                    )
+                    return True
+
+                if device_connected:
+                    log.info(
+                        "iPhone BR/EDR connected but LE bearer "
+                        "is down; restoring LE only"
+                    )
+                    self._ancs_recover_pending = True
+                    connect_le_only = True
+
+            elif device_connected:
                 self._reconnect_backoff = RECONNECT_TICK_SEC
-                self._reconnect_next = now + RECONNECT_TICK_SEC
+                self._reconnect_next = (
+                    now + RECONNECT_TICK_SEC
+                )
                 return True
+
         except dbus.exceptions.DBusException as error:
-            log.debug("iPhone connection state unavailable: %s", error)
+            log.debug(
+                "iPhone connection state unavailable: %s",
+                error,
+            )
 
         self._reconnect_in_flight = True
 
         def connect() -> None:
             error_text = ""
+
             try:
-                log.info("iPhone is nearby but disconnected; reconnecting")
-                bluez(device_path, "org.bluez.Device1").Connect(timeout=12)
+                if connect_le_only:
+                    log.info("connecting iPhone LE bearer")
+                    bluez(
+                        device_path,
+                        "org.bluez.Bearer.LE1",
+                    ).Connect(timeout=12)
+                else:
+                    log.info(
+                        "iPhone is nearby but disconnected; "
+                        "reconnecting"
+                    )
+                    bluez(
+                        device_path,
+                        "org.bluez.Device1",
+                    ).Connect(timeout=12)
+
             except dbus.exceptions.DBusException as error:
-                error_text = error.get_dbus_message() or str(error)
+                error_text = (
+                    error.get_dbus_message()
+                    or str(error)
+                )
             except Exception as error:
                 error_text = str(error)
-            GLib.idle_add(self._finish_reconnect, error_text)
+
+            GLib.idle_add(
+                self._finish_reconnect,
+                error_text,
+            )
 
         threading.Thread(
             target=connect,
             name="nodalix-phone-reconnect",
             daemon=True,
         ).start()
+
         return True
 
     def _finish_reconnect(self, error_text: str) -> bool:
@@ -370,6 +612,20 @@ class Daemon:
                 except Exception:
                     pass
                 setattr(self, tid_attr, None)
+        if self._ancs_restart_id is not None:
+            try:
+                GLib.source_remove(self._ancs_restart_id)
+            except Exception:
+                pass
+            self._ancs_restart_id = None
+
+        if self._le_prop_match is not None:
+            try:
+                self._le_prop_match.remove()
+            except Exception:
+                pass
+            self._le_prop_match = None
+
         if self.listener is not None:
             self.listener.stop()
         if self.ancs is not None:
