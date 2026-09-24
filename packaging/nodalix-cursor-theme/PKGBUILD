@@ -5,7 +5,12 @@ pkgdesc="Nodalix system cursor theme based on Bibata Modern Classic"
 arch=("any")
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-source=("Bibata.tar.xz::https://github.com/ful1e5/Bibata_Cursor/releases/download/v2.0.7/Bibata.tar.xz"\n        "nodalix-cursor.conf"\n        "UPSTREAM.md")\nsha256sums=("172e33c4ae415278384dcecc7d1a9b7a024266bc944bc751fd86532be1cc6251"\n            "29b10dc47ed0940e26e4ff982f9d76ad9bd75289e665d75a40fce2fab1c6658b"\n            "50fab64e879d37148eb524f0e4a72ad13023f0d3e64a7ebea0ba009ef0f1018c")
+source=("Bibata.tar.xz::https://github.com/ful1e5/Bibata_Cursor/releases/download/v2.0.7/Bibata.tar.xz"
+        "nodalix-cursor.conf"
+        "UPSTREAM.md")
+sha256sums=("172e33c4ae415278384dcecc7d1a9b7a024266bc944bc751fd86532be1cc6251"
+            "29b10dc47ed0940e26e4ff982f9d76ad9bd75289e665d75a40fce2fab1c6658b"
+            "50fab64e879d37148eb524f0e4a72ad13023f0d3e64a7ebea0ba009ef0f1018c")
 
 package() {
     local theme="$srcdir/Bibata-Modern-Classic"
