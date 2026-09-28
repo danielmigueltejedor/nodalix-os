@@ -1138,12 +1138,21 @@ Singleton {
         "bluetooth.device": {
             states: {
                 "connected": {
-                    candidates: ["bluetooth-active-symbolic"]
+                    candidates: [
+                        "bluetooth-active-symbolic"
+                    ]
                 },
                 "disconnected": {
                     candidates: [
                         "bluetooth-disconnected-symbolic",
                         "bluetooth-active-symbolic"
+                    ]
+                },
+                "disabled": {
+                    candidates: [
+                        "bluetooth-disabled-symbolic",
+                        "bluetooth-hardware-disabled-symbolic",
+                        "bluetooth-disconnected-symbolic"
                     ]
                 }
             }

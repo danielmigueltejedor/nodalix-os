@@ -13,20 +13,16 @@ Item {
     implicitHeight: _row.implicitHeight
 
     readonly property var adapter: Bluetooth.defaultAdapter
-    readonly property bool enabled: adapter?.enabled ?? false
+    // Bar indicator represents adapter power only.
+    // Treat Enabling as ON and Disabling as OFF so the glyph reacts
+    // immediately when the user toggles Bluetooth.
+    readonly property bool btEnabled:
+        adapter !== null
+        && (
+            adapter.state === BluetoothAdapterState.Enabled
+            || adapter.state === BluetoothAdapterState.Enabling
+        )
 
-    property var connectedDevice: null
-
-    Repeater {
-        model: Bluetooth.devices
-        delegate: Item {
-            required property var modelData
-            Component.onCompleted: {
-                if (modelData.connected && root.connectedDevice === null)
-                    root.connectedDevice = modelData
-            }
-        }
-    }
 
     RowLayout {
         id: _row
@@ -35,15 +31,15 @@ Item {
 
         ShellIcon {
             role: "bluetooth.device"
-            state: !enabled
-                ? "disabled"
-                : (root.connectedDevice ? "connected" : "disconnected")
-            color: root.connectedDevice
-                ? ThemeManager.primary
-                : enabled
-                    ? ThemeManager.onSurface
-                    : ThemeManager.onSurfaceVariant
-            opacity: enabled ? 1.0 : 0.5
+            // The top-bar indicator represents the Bluetooth adapter itself,
+            // not whether an individual device is currently connected.
+            state: root.btEnabled ? "connected" : "disabled"
+            // Follow the shell foreground palette just like the other
+            // status indicators. State is communicated by the glyph itself.
+            color: root.btEnabled
+                ? ThemeManager.onSurface
+                : ThemeManager.onSurfaceVariant
+            opacity: root.btEnabled ? 1.0 : 0.5
             Layout.alignment: Qt.AlignVCenter
 
             Behavior on color { ColorAnimation { duration: 120 } }
