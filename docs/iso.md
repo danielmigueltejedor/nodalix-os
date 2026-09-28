@@ -1,47 +1,43 @@
-# ISO de Nodalix 0.2.0
+# ISO de Nodalix OS
 
-Medio x86_64 creado con Archiso. Arranque BIOS y UEFI, sesión live Nodalix y
-asistente Archinstall con el perfil Nodalix preseleccionado. La instalación
-requiere Internet para obtener dependencias de Arch y los paquetes adecuados
-al equipo. El usuario selecciona disco, idioma, cifrado y cuenta y confirma el
-resumen antes de escribir en disco. No se selecciona ni borra un disco desde
-los scripts de Nodalix.
+Nodalix publica una ISO x86_64 para cada release estable.
 
-El sistema instalado recibe paquetes Nodalix comprobados contra el manifiesto
-SHA-256 incluido en la ISO, configuración de monitores automática, red, audio,
-Bluetooth y pantalla de acceso. Los usuarios, claves, cuentas y preferencias
-personales del equipo donde se compila no se copian.
+La ISO se genera con Archiso usando exactamente los mismos paquetes que publica
+el actualizador de Nodalix. El tag, `VERSION`, el manifiesto, los paquetes y la
+ISO deben pertenecer a la misma versión.
 
-El perfil conserva Linux de Arch y sus headers. En máquinas virtuales y CPU
-anteriores a x86-64-v3 mantiene esa base compatible. En equipos físicos v3/v4
-y Zen 4/5 intenta aplicar el perfil CachyOS, con kernel deckify para dispositivos
-reconocidos. Una optimización fallida queda registrada en
-`/var/log/nodalix-installer/hardware.json`; nunca se presenta como aplicada.
-La selección gráfica predeterminada usa Mesa, con propuesta de NVIDIA open en
-generaciones identificadas como Turing o posteriores. Puede revisarse en el
-asistente. La compatibilidad de cada GPU, Wi-Fi y firmware requiere pruebas en
-hardware real; la validación virtual no equivale a cobertura universal.
+La imagen ofrece arranque BIOS y UEFI, sesión live de Nodalix y el instalador
+basado en Archinstall.
 
-Secure Boot no viene firmado: debe desactivarse para arrancar esta ISO. El
-usuario puede configurar sus propias claves después de instalar. Las opciones
-de particionado, cifrado y recuperación proceden de Archinstall.
+La instalación requiere Internet para descargar las dependencias oficiales de
+Arch Linux. Los paquetes propios de Nodalix se incluyen dentro de la ISO y se
+verifican mediante SHA-256 antes de instalarse.
 
-## Construcción
+La versión del instalador no está escrita manualmente en el código. Se obtiene
+del archivo `VERSION` incluido durante la construcción de la imagen.
 
-En Arch con archiso, a partir de paquetes cuyo manifiesto sea de esta versión:
+## Publicación automática
 
-```
-sudo python3 tools/build-iso.py --assets /ruta/paquetes --work /ruta/nueva/construccion --output /ruta/iso
-```
+Al publicar un tag estable, el workflow de release ejecuta:
 
-Cada construcción usa un directorio nuevo. El constructor no formatea discos;
-solo crea el sistema de archivos de la imagen y su archivo ISO. Los repositorios
-de Arch mantienen la validación de firmas. El repositorio local de paquetes
-Nodalix se usa únicamente después de validar sus tamaños y SHA-256.
+1. Tests.
+2. Construcción de paquetes Nodalix.
+3. Generación de `nodalix-manifest.json`.
+4. Construcción de la ISO mediante Archiso.
+5. Verificación SHA-256 de la ISO.
+6. Incorporación de la ISO al manifiesto público.
+7. Regeneración de `SHA256SUMS`.
+8. Publicación de todos los assets en la misma GitHub Release.
 
-## Validación
+Las prereleases pueden publicar paquetes para el canal beta, pero no generan
+una ISO instalable estable.
 
-La imagen no debe publicarse hasta comprobar arranque de la ISO y una
-instalación en discos virtuales desechables. El informe de pruebas se añade
-junto a la imagen publicada. Nunca se usan discos físicos del equipo de
-construcción en estas pruebas.
+## Assets de una release estable
+
+Una release estable contiene los paquetes `.pkg.tar.zst`, además de:
+
+```text
+nodalix-manifest.json
+SHA256SUMS
+nodalix-X.Y.Z-x86_64.iso
+nodalix-X.Y.Z-x86_64.iso.sha256

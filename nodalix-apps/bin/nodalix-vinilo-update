@@ -147,9 +147,6 @@ done
 
 systemctl --user daemon-reload 2>/dev/null || true
 
-# Integracion global de Nodalix.
-nodalix_finish_update
-
 # Vinilo y Aguja tienen iconos propios: no permitimos que un override Colloid
 # antiguo vuelva a apuntar al SVG pre-1.0.
 for desktop in     "$DATA/applications/$APPID.desktop"     "$DATA/applications/$AGUJA.desktop"
@@ -172,7 +169,7 @@ done
 
 gtk-update-icon-cache -q -t -f "$DATA/icons/hicolor" 2>/dev/null || true
 update-desktop-database -q "$DATA/applications" 2>/dev/null || true
-systemctl --user restart nodalix-shell.service 2>/dev/null || true
+nodalix_finish_update
 
 echo
 echo "Vinilo $VERSION instalado mediante Nodalix Apps."

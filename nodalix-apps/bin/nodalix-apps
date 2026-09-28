@@ -113,7 +113,31 @@ def cmd_status(apps, app_id=None):
         print()
 
 
-def run_updater(app):
+def finish_batch():
+    subprocess.run(
+        ["nodalix-apps-icons"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    subprocess.run(
+        [
+            "update-desktop-database",
+            str(Path.home() / ".local/share/applications"),
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    subprocess.run(
+        ["systemctl", "--user", "restart", "nodalix-shell.service"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+
+
+def run_updater(app, defer_finish=False):
     updater = Path(app["updater"]).expanduser()
 
     if not updater.exists():
@@ -124,7 +148,12 @@ def run_updater(app):
     print(f"==> Actualizando {app['name']}")
     print()
 
-    result = subprocess.run([str(updater)])
+    env = os.environ.copy()
+
+    if defer_finish:
+        env["NODALIX_APPS_DEFER_FINISH"] = "1"
+
+    result = subprocess.run([str(updater)], env=env)
 
     return result.returncode == 0
 
@@ -132,10 +161,23 @@ def run_updater(app):
 def cmd_update(apps, app_id=None, update_all=False):
     if update_all:
         failed = []
+        changed = False
 
         for key, app in apps.items():
-            if not run_updater(app):
+            before_info = current_info(app)
+            before = before_info["target"] if before_info else None
+
+            if not run_updater(app, defer_finish=True):
                 failed.append(key)
+
+            after_info = current_info(app)
+            after = after_info["target"] if after_info else None
+
+            if before != after:
+                changed = True
+
+        if changed:
+            finish_batch()
 
         if failed:
             print()
@@ -148,8 +190,17 @@ def cmd_update(apps, app_id=None, update_all=False):
 
     app = get_app(apps, app_id)
 
-    if not run_updater(app):
+    before_info = current_info(app)
+    before = before_info["target"] if before_info else None
+
+    if not run_updater(app, defer_finish=True):
         sys.exit(1)
+
+    after_info = current_info(app)
+    after = after_info["target"] if after_info else None
+
+    if before != after:
+        finish_batch()
 
 
 def get_versions(app):

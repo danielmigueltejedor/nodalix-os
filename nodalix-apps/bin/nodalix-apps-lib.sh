@@ -146,6 +146,10 @@ nodalix_apply_git_overlay() {
 }
 
 nodalix_finish_update() {
+    if [ "${NODALIX_APPS_DEFER_FINISH:-0}" = "1" ]; then
+        return 0
+    fi
+
     if command -v nodalix-apps-icons >/dev/null 2>&1; then
         nodalix-apps-icons >/dev/null
     fi

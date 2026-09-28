@@ -1,22 +1,22 @@
-name: Release packages
+name: Release Nodalix OS
 
 on:
   push:
     tags:
       - "[0-9]*"
-      - "v[0-9]*"
 
   workflow_dispatch:
     inputs:
       release_tag:
-        description: Existing GitHub tag that should receive the built assets
+        description: Existing Nodalix release tag to rebuild
         required: true
-        default: "0.2.2"
+        type: string
 
       publish:
-        description: Publish the release after building
+        description: Publish/update the GitHub Release after validation
+        required: true
         type: boolean
-        default: true
+        default: false
 
 permissions:
   contents: write
@@ -25,19 +25,24 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
+    outputs:
+      release_tag: ${{ steps.metadata.outputs.release_tag }}
+      stable: ${{ steps.metadata.outputs.stable }}
+
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.release_tag || github.ref_name }}
+          ref: ${{ inputs.release_tag || github.ref_name }}
           fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Validate release version
+      - name: Validate release metadata
+        id: metadata
         env:
-          RELEASE_TAG: ${{ github.event.inputs.release_tag || github.ref_name }}
+          RAW_RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
           python3 - <<'PY'
           import os
@@ -45,43 +50,84 @@ jobs:
           import sys
 
           sys.path.insert(0, "tools")
-          from versioning import canonical_version
 
-          tag = canonical_version(os.environ["RELEASE_TAG"])
-          version = pathlib.Path("VERSION").read_text().strip()
+          from versioning import (
+              canonical_version,
+              is_prerelease_tag,
+          )
+
+          tag = canonical_version(
+              os.environ["RAW_RELEASE_TAG"]
+          )
+
+          version = canonical_version(
+              pathlib.Path("VERSION").read_text()
+          )
 
           if tag != version:
               raise SystemExit(
-                  f"release tag {tag} does not match VERSION {version}"
+                  f"tag {tag} does not match VERSION {version}"
               )
 
-          print("validated release version", version)
+          stable = not is_prerelease_tag(tag)
+
+          with open(
+              os.environ["GITHUB_OUTPUT"],
+              "a",
+              encoding="utf-8",
+          ) as output:
+              output.write(
+                  f"release_tag={tag}\n"
+              )
+              output.write(
+                  f"stable={'true' if stable else 'false'}\n"
+              )
+
+          print(
+              tag,
+              "stable" if stable else "prerelease",
+          )
           PY
 
       - name: Require curated release notes
         env:
-          RELEASE_TAG: ${{ github.event.inputs.release_tag || github.ref_name }}
+          RELEASE_TAG: ${{ steps.metadata.outputs.release_tag }}
         run: |
-          python3 tools/release_notes.py validate \
-            --version "$RELEASE_TAG"
+          python3 tools/release_notes.py validate --version "$RELEASE_TAG"
 
       - name: Run updater tests
-        run: python -m unittest discover -s tests -v
+        run: |
+          python -m unittest discover -s tests -v
+
+      - name: Compile release tooling
+        run: |
+          python -m py_compile \
+            tools/build-iso.py \
+            tools/finalize-release.py \
+            iso/installer/nodalix_profile.py \
+            iso/installer/nodalix-install
 
   build:
-    needs: test
+    needs:
+      - test
+
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.release_tag || github.ref_name }}
+          ref: ${{ needs.test.outputs.release_tag }}
           fetch-depth: 0
 
       - name: Build Arch packages
+        env:
+          RELEASE_TAG: ${{ needs.test.outputs.release_tag }}
         run: |
+          rm -rf dist/packages
+          mkdir -p dist
+
           docker run --rm \
-            -e NODALIX_RELEASE_TAG="${{ github.event.inputs.release_tag || github.ref_name }}" \
+            -e NODALIX_RELEASE_TAG="$RELEASE_TAG" \
             -v "$PWD":/src \
             -w /src \
             archlinux:latest \
@@ -89,6 +135,7 @@ jobs:
               set -euo pipefail
 
               pacman -Syu --noconfirm
+
               pacman -S --noconfirm \
                 base-devel \
                 cmake \
@@ -108,9 +155,16 @@ jobs:
                 lua
 
               useradd -m builder
-              echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
-              chown -R builder:builder /src
+              echo \
+                "builder ALL=(ALL) NOPASSWD: ALL" \
+                >> /etc/sudoers
+
+              mkdir -p /src/dist
+
+              chown -R \
+                builder:builder \
+                /src/dist
 
               su builder -c \
                 "bash /src/tools/build-packages.sh /src/dist/packages"
@@ -118,7 +172,7 @@ jobs:
 
       - name: Validate tag and manifest
         env:
-          NODALIX_RELEASE_TAG: ${{ github.event.inputs.release_tag || github.ref_name }}
+          NODALIX_RELEASE_TAG: ${{ needs.test.outputs.release_tag }}
         run: |
           python3 - <<'PY'
           import json
@@ -127,6 +181,7 @@ jobs:
           import sys
 
           sys.path.insert(0, "tools")
+
           from versioning import canonical_version
 
           tag = canonical_version(
@@ -152,16 +207,21 @@ jobs:
         with:
           name: nodalix-packages
           path: dist/packages/*
+          if-no-files-found: error
 
-  publish:
-    if: github.event_name != 'workflow_dispatch' || inputs.publish
-    needs: build
+  iso:
+    needs:
+      - test
+      - build
+
+    if: needs.test.outputs.stable == 'true'
+
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.release_tag || github.ref_name }}
+          ref: ${{ needs.test.outputs.release_tag }}
           fetch-depth: 0
 
       - uses: actions/download-artifact@v4
@@ -169,81 +229,187 @@ jobs:
           name: nodalix-packages
           path: dist/packages
 
+      - name: Build Nodalix ISO
+        run: |
+          rm -rf \
+            dist/iso-work \
+            dist/iso
+
+          mkdir -p dist/iso
+
+          docker run \
+            --rm \
+            --privileged \
+            -v "$PWD":/src \
+            -w /src \
+            archlinux:latest \
+            bash -lc '
+              set -euo pipefail
+
+              pacman -Syu --noconfirm
+
+              pacman -S --noconfirm \
+                archiso \
+                python
+
+              python3 \
+                /src/tools/build-iso.py \
+                --assets /src/dist/packages \
+                --work /src/dist/iso-work \
+                --output /src/dist/iso
+            '
+
+      - name: Validate ISO
+        env:
+          RELEASE_TAG: ${{ needs.test.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          ISO="dist/iso/nodalix-${RELEASE_TAG}-x86_64.iso"
+          CHECKSUM="${ISO}.sha256"
+
+          test -s "$ISO"
+          test -s "$CHECKSUM"
+
+          cd dist/iso
+
+          sha256sum -c \
+            "$(basename "$CHECKSUM")"
+
+          echo "ISO validated:"
+          ls -lh \
+            "$(basename "$ISO")" \
+            "$(basename "$CHECKSUM")"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nodalix-iso
+          path: |
+            dist/iso/*.iso
+            dist/iso/*.iso.sha256
+          if-no-files-found: error
+
+  publish:
+    needs:
+      - test
+      - build
+      - iso
+
+    if: >-
+      always() &&
+      needs.test.result == 'success' &&
+      needs.build.result == 'success' &&
+      (
+        needs.test.outputs.stable != 'true' ||
+        needs.iso.result == 'success'
+      ) &&
+      (
+        github.event_name != 'workflow_dispatch' ||
+        inputs.publish == true
+      )
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.test.outputs.release_tag }}
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: nodalix-packages
+          path: dist/release
+
+      - uses: actions/download-artifact@v4
+        if: needs.test.outputs.stable == 'true'
+        with:
+          name: nodalix-iso
+          path: dist/release
+
       - name: Build release changelog
         env:
-          RELEASE_TAG: ${{ github.event.inputs.release_tag || github.ref_name }}
+          RELEASE_TAG: ${{ needs.test.outputs.release_tag }}
         run: |
-          python3 tools/release_notes.py build \
-            --tag "$RELEASE_TAG" \
-            --output dist/release-notes.md
+          python3 tools/release_notes.py build --tag "$RELEASE_TAG" --output dist/release-notes.md
 
-          echo
-          echo "------ Generated release notes ------"
-          cat dist/release-notes.md
-          echo "-------------------------------------"
+      - name: Finalize manifest and checksums
+        run: |
+          python3 \
+            tools/finalize-release.py \
+            --assets-dir dist/release
 
-      - name: Publish release
+      - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ github.event.inputs.release_tag || github.ref_name }}
+          RELEASE_TAG: ${{ needs.test.outputs.release_tag }}
+          STABLE: ${{ needs.test.outputs.stable }}
         run: |
-          mkdir -p dist
-
-          python3 - <<'PY'
-          import os
-          import pathlib
-          import sys
-
-          sys.path.insert(0, "tools")
-          from versioning import is_prerelease_tag
-
-          tag = os.environ["RELEASE_TAG"]
-
-          pathlib.Path("dist/.prerelease").write_text(
-              "1" if is_prerelease_tag(tag) else "0"
-          )
-
-          print(
-              tag,
-              "prerelease"
-              if is_prerelease_tag(tag)
-              else "stable",
-          )
-          PY
+          set -euo pipefail
 
           NOTES_FILE="dist/release-notes.md"
-          VERSION="$(tr -d '[:space:]' < VERSION)"
 
-          if ! gh release view "$RELEASE_TAG" \
-            --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1
+          if ! gh release view \
+              "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              >/dev/null 2>&1
           then
-            gh release create "$RELEASE_TAG" \
-              --verify-tag \
-              --title "Nodalix OS $VERSION" \
-              --notes-file "$NOTES_FILE" \
-              --repo "$GITHUB_REPOSITORY"
-          else
-            gh release edit "$RELEASE_TAG" \
-              --title "Nodalix OS $VERSION" \
+            if [[ -f "$NOTES_FILE" ]]
+            then
+              gh release create \
+                "$RELEASE_TAG" \
+                --verify-tag \
+                --draft \
+                --title "Nodalix OS $RELEASE_TAG" \
+                --notes-file "$NOTES_FILE" \
+                --repo "$GITHUB_REPOSITORY"
+            else
+              gh release create \
+                "$RELEASE_TAG" \
+                --verify-tag \
+                --draft \
+                --title "Nodalix OS $RELEASE_TAG" \
+                --notes "Nodalix OS $RELEASE_TAG." \
+                --repo "$GITHUB_REPOSITORY"
+            fi
+          fi
+
+          if [[ -f "$NOTES_FILE" ]]
+          then
+            gh release edit \
+              "$RELEASE_TAG" \
               --notes-file "$NOTES_FILE" \
               --repo "$GITHUB_REPOSITORY"
           fi
 
-          if [[ "$(cat dist/.prerelease)" == "1" ]]; then
-            gh release edit "$RELEASE_TAG" \
-              --prerelease \
-              --repo "$GITHUB_REPOSITORY"
-          else
-            gh release edit "$RELEASE_TAG" \
+          if [[ "$STABLE" == "true" ]]
+          then
+            gh release edit \
+              "$RELEASE_TAG" \
               --prerelease=false \
               --repo "$GITHUB_REPOSITORY"
+          else
+            gh release edit \
+              "$RELEASE_TAG" \
+              --prerelease \
+              --repo "$GITHUB_REPOSITORY"
           fi
 
-          gh release upload "$RELEASE_TAG" \
-            dist/packages/* \
+          gh release upload \
+            "$RELEASE_TAG" \
+            dist/release/* \
             --clobber \
             --repo "$GITHUB_REPOSITORY"
 
-          gh release view "$RELEASE_TAG" \
-            --json tagName,name,isPrerelease,body,assets \
+          # A new release stays invisible to the updater until every
+          # asset has been uploaded successfully.
+          gh release edit \
+            "$RELEASE_TAG" \
+            --draft=false \
+            --repo "$GITHUB_REPOSITORY"
+
+          gh release view \
+            "$RELEASE_TAG" \
+            --json \
+            tagName,name,isDraft,isPrerelease,assets,url \
             --repo "$GITHUB_REPOSITORY"
