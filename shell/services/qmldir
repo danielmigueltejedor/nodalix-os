@@ -12,6 +12,8 @@ singleton WallpaperService   1.0 WallpaperService.qml
 singleton ToolsService       1.0 ToolsService.qml
 singleton CavaService        1.0 CavaService.qml
 singleton AppService         1.0 AppService.qml
+singleton AppSearchService   1.0 AppSearchService.qml
+singleton FileSearchService  1.0 FileSearchService.qml
 singleton AppUsageService    1.0 AppUsageService.qml
 singleton LauncherService    1.0 LauncherService.qml
 singleton PinnedService      1.0 PinnedService.qml

@@ -24,10 +24,51 @@ QtObject {
     }
 
     // Resolve a themed icon path for an entry (fallback: generic exec icon).
+    // Resolving freedesktop themed icons can be expensive on a cold lookup.
+    // Cache the resolved path for the lifetime of the shell. Launcher warm-up
+    // then actually makes later opens/searches cheap.
+    property var _iconPathCache: ({})
+
     function iconFor(entry) {
         const name = entry?.icon || "application-x-executable"
-        if (name.startsWith("/")) return "file://" + name
-        return Quickshell.iconPath(name, "application-x-executable")
+
+        const cached = _iconPathCache[name]
+        if (cached !== undefined)
+            return cached
+
+        const start = Date.now()
+        const path = name.startsWith("/")
+            ? "file://" + name
+            : Quickshell.iconPath(name, "application-x-executable")
+
+        _iconPathCache[name] = path
+        return path
+    }
+
+    function launcherIconCacheKey(name) {
+        return String(name || "application-x-executable")
+            .replace(/[^A-Za-z0-9._-]/g, "_")
+    }
+
+    function launcherCachedIcon(name) {
+        return "file://" + Quickshell.env("HOME")
+            + "/.cache/nodalix/launcher-icons/"
+            + launcherIconCacheKey(name)
+            + ".png"
+    }
+
+    function launcherCachedIconFor(entry) {
+        return launcherCachedIcon(entry?.icon || "application-x-executable")
+    }
+
+    function launcherCachedSymbolicIcon(name, darkTheme) {
+        const variant = darkTheme ? "symbolic-dark" : "symbolic-light"
+
+        return "file://" + Quickshell.env("HOME")
+            + "/.cache/nodalix/launcher-icons/"
+            + variant + "/"
+            + launcherIconCacheKey(name)
+            + ".png"
     }
 
     // Stable key for usage tracking / pin storage.
@@ -117,18 +158,25 @@ QtObject {
         return score - first                  // earlier first hit ranks higher
     }
 
+    readonly property var searchIndex: apps.map(e => ({
+        entry: e, name: (e.name || "").toLowerCase(),
+        generic: (e.genericName || "").toLowerCase(),
+        keywords: (e.keywords || []).join(" ").toLowerCase()
+    }))
+
     // Ranked list of DesktopEntry for a query (best first).
     function search(query) {
         const q = (query || "").trim().toLowerCase()
         if (!q) return []
         const scored = []
-        const a = apps
+        const a = searchIndex
         for (let i = 0; i < a.length; i++) {
-            const e = a[i]
-            let s = _score(q, e.name)
-            const g = _score(q, e.genericName || "")
+            const record = a[i]
+            const e = record.entry
+            let s = _score(q, record.name)
+            const g = _score(q, record.generic)
             if (g > s) s = g
-            const kw = (e.keywords || []).join(" ")
+            const kw = record.keywords
             const k = _score(q, kw)
             if (k - 5 > s) s = k - 5         // keyword hits worth slightly less
             if (s >= 0) scored.push({ e: e, s: s })

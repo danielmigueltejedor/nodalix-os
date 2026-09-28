@@ -1,10 +1,8 @@
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Controls
-import Quickshell.Widgets
 import "../../theme"
 import "../../services"
-import "../bar" as Bar
 
 // Virtualized launcher search grid.
 // Unlike AppGrid's Repeater, GridView only instantiates the visible result
@@ -53,7 +51,7 @@ ColumnLayout {
         boundsBehavior: Flickable.StopAtBounds
         interactive: contentHeight > height
         reuseItems: true
-        cacheBuffer: cellHeight
+        cacheBuffer: 0
         keyNavigationEnabled: false
         currentIndex: root.selectedIndex
 
@@ -72,25 +70,12 @@ ColumnLayout {
             width: _grid.cellWidth
             height: _grid.cellHeight
 
-            Component {
-                id: _appIconComponent
-                IconImage {
-                    implicitSize: 40
-                    source: AppService.iconFor(cell.modelData)
-                }
-            }
-
-            Component {
-                id: _systemIconComponent
-                Bar.ShellIcon {
-                    iconName: cell.modelData?._nodalixIconName ?? ""
-                    color: ThemeManager.primary
-                    iconSize: 30
-                }
-            }
-
             Rectangle {
                 id: tile
+                ToolTip.visible: fileHover.hovered && (cell.modelData?._nodalixKind ?? "") === "file"
+                ToolTip.text: cell.modelData?.path ?? ""
+                ToolTip.delay: 450
+                HoverHandler { id: fileHover }
                 width: Math.max(0, parent.width - 6)
                 height: root.tileH
                 radius: ThemeManager.chipRadius
@@ -124,13 +109,55 @@ ColumnLayout {
                     anchors.margins: 8
                     spacing: 6
 
-                    Loader {
+                    Item {
+                        id: iconHost
+
                         Layout.alignment: Qt.AlignHCenter
                         Layout.preferredWidth: 40
                         Layout.preferredHeight: 40
-                        sourceComponent: (cell.modelData?._nodalixIconName ?? "") !== ""
-                            ? _systemIconComponent
-                            : _appIconComponent
+
+                        readonly property bool symbolic:
+                            (cell.modelData?._nodalixIconName ?? "") !== ""
+
+                        // Real application icon: persistent raster cache.
+                        Image {
+                            anchors.fill: parent
+                            visible: !iconHost.symbolic
+
+                            source: iconHost.symbolic
+                                ? ""
+                                : AppService.launcherCachedIconFor(cell.modelData)
+
+                            sourceSize.width: 64
+                            sourceSize.height: 64
+                            fillMode: Image.PreserveAspectFit
+                            asynchronous: true
+                            cache: true
+                            smooth: true
+                        }
+
+                        // Symbolic shell icon: ALSO persistent raster cache.
+                        // No ShellIcon, SVG provider or runtime tinting.
+                        Image {
+                            anchors.centerIn: parent
+                            width: 30
+                            height: 30
+                            visible: iconHost.symbolic
+
+                            source: iconHost.symbolic
+                                ? AppService.launcherCachedSymbolicIcon(
+                                      cell.modelData?._nodalixIconName ?? "",
+                                      ThemeManager.isDark
+                                  )
+                                : ""
+
+                            sourceSize.width: 64
+                            sourceSize.height: 64
+                            fillMode: Image.PreserveAspectFit
+                            asynchronous: true
+                            cache: true
+                            smooth: true
+                        }
                     }
 
                     Text {

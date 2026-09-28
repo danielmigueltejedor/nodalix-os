@@ -63,4 +63,11 @@ fi
 if command -v nodalix-app-icons >/dev/null 2>&1; then
     nodalix-app-icons >/dev/null || true
 fi
+# Build/update the launcher raster cache before QML starts.
+# Search results only consume pre-rasterized PNGs, avoiding SVG/theme-icon
+# rasterization and symbolic tinting stalls on the shell render thread.
+if command -v nodalix-cache-launcher-icons >/dev/null 2>&1; then
+    nodalix-cache-launcher-icons >/dev/null 2>&1 || true
+fi
+
 exec qs --no-duplicate -c nodalix "$@"

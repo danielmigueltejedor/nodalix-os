@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Window
 import QtQuick.Layouts
 import QtQuick.Controls
 import Quickshell
@@ -24,6 +25,7 @@ FocusScope {
     property string _inputText: ""
     property string _searchQuery: ""
     property bool _searchQueued: false
+    property bool _activateWhenReady: false
 
     // Warm the application catalog after DesktopEntries is actually populated.
     // Component.onCompleted can run too early (catalog still empty), so retry
@@ -40,6 +42,7 @@ FocusScope {
 
         onTriggered: {
             const catalog = AppService.apps
+            const searchMetadata = AppService.searchIndex
             if (!catalog || catalog.length === 0)
                 return
 
@@ -64,32 +67,42 @@ FocusScope {
 
 
     function _flushSearch() {
+        _searchDebounce.stop()
         _searchQueued = false
 
-        if (_searchQuery !== _inputText)
+        const changed = _searchQuery !== _inputText
+        if (changed)
             _searchQuery = _inputText
 
         if (LauncherService.query !== _inputText)
             LauncherService.query = _inputText
 
-        _resetSel()
+        if (FileSearchService.query !== _inputText.trim())
+            FileSearchService.search(_inputText)
+        AppSearchService.search(_inputText)
+        if (changed) _resetSel()
+    }
+
+    Timer {
+        id: _searchDebounce
+        interval: 65
+        onTriggered: root._flushSearch()
     }
 
     function _queueSearch() {
-        if (_searchQueued)
-            return
-
+        _activateWhenReady = false
         _searchQueued = true
-        // Run after the current input event. Multiple keystrokes that arrive
-        // before the next event-loop turn collapse into one search using the
-        // newest text, while the TextField remains free to repaint immediately.
-        Qt.callLater(() => root._flushSearch())
+        _searchDebounce.restart()
     }
 
     function _clearSearch() {
+        _searchDebounce.stop()
         _searchQueued = false
+        _activateWhenReady = false
+        AppSearchService.search("")
         _inputText = ""
         _searchQuery = ""
+        FileSearchService.search("")
         if (LauncherService.query !== "")
             LauncherService.query = ""
         _resetSel()
@@ -112,15 +125,33 @@ FocusScope {
             root._clearSearch()
             // Best-effort for normal opens. MainWindow requests focus again
             // when the compositor focus grab has actually become active.
-            Qt.callLater(() => root.requestSearchFocus())
+            root.requestSearchFocus()
         } else {
         }
     }
 
     Component.onCompleted: {
-
+        FileSearchService.search("")
+        AppSearchService.search("")
         if (active)
             Qt.callLater(() => root.requestSearchFocus())
+    }
+
+    Connections {
+        target: AppSearchService
+        function onBusyChanged() {
+            if (!AppSearchService.busy && root._activateWhenReady && root.active) {
+                root._activateWhenReady = false
+                root._activateSel()
+            }
+        }
+    }
+
+    Connections {
+        target: root.Window.window
+        function onActiveChanged() {
+            if (root.Window.active && root.active) root.requestSearchFocus()
+        }
     }
 
     // ── Data ──────────────────────────────────────────────────────────────────
@@ -147,7 +178,7 @@ FocusScope {
 
     // ── Search ────────────────────────────────────────────────────────────────
     readonly property string _q: root._searchQuery.trim()
-    readonly property bool   _searching: root._inputText.trim().length > 0
+    readonly property bool   _searching: root._searchQuery.trim().length > 0
     readonly property var _settingEntries: [
         { _nodalixKind: "settings", _nodalixIconName: "system-users-symbolic", page: "user", name: I18n.tr("Settings") + " · " + I18n.tr("User"), keywords: "ajustes settings usuario perfil avatar imagen user profile" },
         { _nodalixKind: "settings", _nodalixIconName: "system-lock-screen-symbolic", page: "security", name: I18n.tr("Settings") + " · " + I18n.tr("Security"), keywords: "ajustes settings seguridad bloqueo inactividad contraseña security lock idle" },
@@ -199,10 +230,11 @@ FocusScope {
         if (!_searching) return []
         const web = _webEntry(_q)
         const settings = _settingsFor(_q)
-        const apps = AppService.search(_q).slice(0, Math.max(0, 39 - settings.length))
+        const files = FileSearchService.query === _q ? FileSearchService.results : []
+        const apps = (AppSearchService.query === _q.toLowerCase() ? AppSearchService.results : []).slice(0, Math.max(0, 39 - settings.length - files.length))
         return _looksLikeAddress(_q)
-            ? [web].concat(settings, apps).slice(0, 40)
-            : settings.concat(apps, [web]).slice(0, 40)
+            ? [web].concat(settings, apps, files).slice(0, 40)
+            : settings.concat(apps, files, [web]).slice(0, 40)
     }
 
     function _launch(app) {
@@ -211,6 +243,11 @@ FocusScope {
             LauncherService.hide()
             SettingsUi.category = app.page
             SettingsUi.show()
+            return
+        }
+        if (app._nodalixKind === "file") {
+            Qt.openUrlExternally(app.url)
+            LauncherService.hide()
             return
         }
         if (app._nodalixKind === "web") {
@@ -404,7 +441,7 @@ FocusScope {
                     color: ThemeManager.onSurface
                     font.family: ThemeManager.fontFor(text)
                     font.pixelSize: 15
-                    placeholderText: I18n.tr("Search apps, settings or the web…")
+                    placeholderText: I18n.language === "es" ? "Buscar aplicaciones, archivos, ajustes o en la web…" : "Search apps, files, settings or the web…"
                     placeholderTextColor: ThemeManager.onSurfaceVariant
                     verticalAlignment: TextInput.AlignVCenter
                     text: root._inputText
@@ -421,6 +458,7 @@ FocusScope {
                         // Enter must always act on the exact visible text.
                         root._flushSearch()
                         if (root._menuOpen) root._menuRun()
+                        else if (AppSearchService.busy) root._activateWhenReady = true
                         else root._activateSel()
                     }
                     Keys.onDownPressed:  (e) => { if (root._menuOpen) root._menuDown(); else root._navDown(); e.accepted = true }
@@ -552,6 +590,7 @@ FocusScope {
         opacity: 0.92
         z: 300
         IconImage {
+                    asynchronous: true
             anchors.centerIn: parent
             implicitSize: 40
             source: root._dragApp ? AppService.iconFor(root._dragApp) : ""
