@@ -179,7 +179,13 @@ def prepare(assets: Path, work: Path) -> tuple[Path, str]:
     desktop = [
         package
         for package in desktop
-        if package not in {"noto-fonts-cjk", "firefox", "gcc"}
+        if package not in {
+            "noto-fonts",
+            "noto-fonts-cjk",
+            "noto-fonts-emoji",
+            "firefox",
+            "gcc",
+        }
     ]
 
     base += [
