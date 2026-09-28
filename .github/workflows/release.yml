@@ -271,6 +271,16 @@ jobs:
           test -s "$ISO"
           test -s "$CHECKSUM"
 
+          ISO_SIZE="$(stat -c%s "$ISO")"
+          MAX_GITHUB_RELEASE_ASSET_BYTES=2147483647
+
+          echo "ISO size: $ISO_SIZE bytes"
+
+          if (( ISO_SIZE > MAX_GITHUB_RELEASE_ASSET_BYTES )); then
+            echo "::error::ISO exceeds GitHub Releases 2 GiB asset limit: $ISO_SIZE bytes"
+            exit 1
+          fi
+
           cd dist/iso
 
           sha256sum -c \

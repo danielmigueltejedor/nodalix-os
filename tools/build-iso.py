@@ -98,6 +98,28 @@ def prepare(assets: Path, work: Path) -> tuple[Path, str]:
         dirs_exist_ok=True,
     )
 
+    # The live desktop only needs its default wallpaper. The complete
+    # wallpaper package remains in the offline installer payload and is
+    # installed into the final system.
+    live_wallpaper = (
+        ROOT
+        / "packaging/nodalix-wallpapers"
+        / "nodalix-alpine-mirror.jpg"
+    )
+    live_wallpaper_target = (
+        root
+        / "usr/share/backgrounds/nodalix/static"
+        / "nodalix-alpine-mirror.jpg"
+    )
+    live_wallpaper_target.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+    shutil.copy2(
+        live_wallpaper,
+        live_wallpaper_target,
+    )
+
     # The installer and Archinstall profile use this instead of hardcoded
     # version numbers.
     shutil.copy2(
@@ -165,9 +187,17 @@ def prepare(assets: Path, work: Path) -> tuple[Path, str]:
         "timeshift",
     ]
 
-    package_names = [
-        entry["package"]
-        for entry in manifest["components"]
+    # Only install components required by the live desktop itself.
+    #
+    # Every release package is still stored under
+    # /usr/share/nodalix-installer/packages and is installed into the
+    # target system by the installer. Installing all of them into the
+    # live root as well duplicates large assets such as wallpapers and
+    # emoji fonts and can push the ISO over GitHub Releases 2 GiB limit.
+    live_nodalix_packages = [
+        "nodalix-shell",
+        "nodalix-greeter-theme",
+        "nodalix-hymission",
     ]
 
     (profile / "packages.x86_64").write_text(
@@ -176,7 +206,7 @@ def prepare(assets: Path, work: Path) -> tuple[Path, str]:
                 set(
                     base
                     + desktop
-                    + package_names
+                    + live_nodalix_packages
                 )
             )
         )
