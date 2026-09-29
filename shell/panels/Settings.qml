@@ -12,6 +12,7 @@ import Quickshell.Bluetooth
 import Quickshell.Services.UPower
 import "../theme"
 import "../services"
+import "../components"
 import "../widgets/bar" as Bar
 import "../widgets/bar"
 
@@ -1789,28 +1790,29 @@ PanelWindow {
                                 color: ThemeManager.onSurfaceVariant
                                 font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm; Layout.rightMargin: 8
                             }
-                            Rectangle {
-                                id: _wpIvTrack
-                                Layout.preferredWidth: 160; implicitHeight: 18; radius: 9
-                                color: ThemeManager.outlineVariant
-                                antialiasing: true
+                            NodalixSlider {
+                                id: _wpIvSlider
+                                Layout.preferredWidth: 160
+
                                 readonly property int _min: 1
                                 readonly property int _max: 120
-                                readonly property real _frac: Math.max(0, Math.min(1, (WallpaperService.rotationIntervalMin - _min) / (_max - _min)))
-                                Rectangle { anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                                            anchors.margins: 2
-                                            width: Math.max(0, (_wpIvTrack.width - 4) * _wpIvTrack._frac); radius: 7
-                                            antialiasing: true
-                                            color: Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.42) }
-                                Rectangle { width: 20; height: 20; radius: 10; color: ThemeManager.onSurface
-                                            y: -1; x: Math.max(0, Math.min(_wpIvTrack.width - width, _wpIvTrack.width * _wpIvTrack._frac - width / 2)) }
-                                MouseArea {
-                                    anchors.fill: parent; anchors.margins: -6
-                                    onPressed: (e) => _set(e.x); onPositionChanged: (e) => { if (pressed) _set(e.x) }
-                                    function _set(x) {
-                                        const f = Math.max(0, Math.min(1, (x - 6) / _wpIvTrack.width))
-                                        WallpaperService.setRotationInterval(_wpIvTrack._min + f * (_wpIvTrack._max - _wpIvTrack._min))
-                                    }
+
+                                value: Math.max(
+                                    0,
+                                    Math.min(
+                                        1,
+                                        (WallpaperService.rotationIntervalMin - _min)
+                                            / (_max - _min)
+                                    )
+                                )
+
+                                step: 1 / (_max - _min)
+                                accessibleName: I18n.tr("Interval")
+
+                                onMoved: fraction => {
+                                    WallpaperService.setRotationInterval(
+                                        _min + fraction * (_max - _min)
+                                    )
                                 }
                             }
                         }
@@ -3602,46 +3604,44 @@ PanelWindow {
     }
     component LiveSlider: SettingRowBase {
         id: liveSlider
+
         property real value: 0
         property real from: 0
         property real to: 100
         property real step: 1
         property string unit: ""
+
         signal adjusted(real value)
-        readonly property real shownValue: Math.max(from, Math.min(to, value))
+
+        readonly property real shownValue:
+            Math.max(from, Math.min(to, value))
+
         Text {
             text: Math.round(liveSlider.shownValue) + liveSlider.unit
             color: ThemeManager.onSurfaceVariant
-            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
+            font.family: ThemeManager.fontFor(text)
+            font.pixelSize: ThemeManager.fontSizeSm
             Layout.rightMargin: 8
         }
-        Rectangle {
-            id: liveTrack
-            Layout.preferredWidth: 160; implicitHeight: 18; radius: 9
-            color: ThemeManager.outlineVariant
-            antialiasing: true
-            readonly property real fraction: (liveSlider.shownValue - liveSlider.from) / Math.max(1, liveSlider.to - liveSlider.from)
-            Rectangle {
-                anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                anchors.margins: 2
-                width: Math.max(0, (liveTrack.width - 4) * liveTrack.fraction); radius: 7
-                antialiasing: true
-                color: Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.42)
-            }
-            Rectangle {
-                width: 20; height: 20; radius: 10; y: -1
-                x: Math.max(0, Math.min(liveTrack.width - width, liveTrack.width * liveTrack.fraction - width / 2))
-                color: ThemeManager.onSurface
-            }
-            MouseArea {
-                anchors.fill: parent; anchors.margins: -6
-                onPressed: mouse => setFromX(mouse.x)
-                onPositionChanged: mouse => { if (pressed) setFromX(mouse.x) }
-                function setFromX(x) {
-                    const f = Math.max(0, Math.min(1, (x - 6) / liveTrack.width))
-                    const raw = liveSlider.from + f * (liveSlider.to - liveSlider.from)
-                    liveSlider.adjusted(Math.round(raw / liveSlider.step) * liveSlider.step)
-                }
+
+        NodalixSlider {
+            Layout.preferredWidth: 160
+
+            value: (liveSlider.shownValue - liveSlider.from)
+                / Math.max(0.0001, liveSlider.to - liveSlider.from)
+
+            step: liveSlider.step
+                / Math.max(0.0001, liveSlider.to - liveSlider.from)
+
+            accessibleName: liveSlider.label
+
+            onMoved: fraction => {
+                const raw = liveSlider.from
+                    + fraction * (liveSlider.to - liveSlider.from)
+
+                liveSlider.adjusted(
+                    Math.round(raw / liveSlider.step) * liveSlider.step
+                )
             }
         }
     }
@@ -3791,41 +3791,58 @@ PanelWindow {
     }
     component SettingSlider: SettingRowBase {
         id: sl
+
         property string path: ""
         property real def: 0
         property real from: 0
         property real to: 100
         property string unit: ""
         property var applyFn: null
-        readonly property real val: SettingsService.get(path, def)
-        Text { text: Math.round(sl.val) + sl.unit; color: ThemeManager.onSurfaceVariant
-               font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm; Layout.rightMargin: 8 }
-        Rectangle {
-            id: track
-            Layout.preferredWidth: 160; implicitHeight: 18; radius: 9
-            color: ThemeManager.outlineVariant
-            antialiasing: true
-            readonly property real _frac: Math.max(0, Math.min(1, (sl.val - sl.from) / (sl.to - sl.from)))
-            Rectangle { anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                        anchors.margins: 2
-                        width: Math.max(0, (track.width - 4) * track._frac); radius: 7
-                        antialiasing: true
-                        color: Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.42) }
-            Rectangle { width: 20; height: 20; radius: 10; color: ThemeManager.onSurface
-                        y: -1; x: Math.max(0, Math.min(track.width - width, track.width * track._frac - width / 2)) }
-            MouseArea {
-                anchors.fill: parent; anchors.margins: -6
-                onPressed: (e) => _set(e.x); onPositionChanged: (e) => { if (pressed) _set(e.x) }
-                onReleased: if (sl.applyFn) sl.applyFn()
-                function _set(x) {
-                    const f = Math.max(0, Math.min(1, (x - 6) / track.width))
-                    SettingsService.set(sl.path, Math.round(sl.from + f * (sl.to - sl.from)))
-                }
+
+        readonly property real val:
+            SettingsService.get(path, def)
+
+        Text {
+            text: Math.round(sl.val) + sl.unit
+            color: ThemeManager.onSurfaceVariant
+            font.family: ThemeManager.fontFor(text)
+            font.pixelSize: ThemeManager.fontSizeSm
+            Layout.rightMargin: 8
+        }
+
+        NodalixSlider {
+            Layout.preferredWidth: 160
+
+            value: Math.max(
+                0,
+                Math.min(
+                    1,
+                    (sl.val - sl.from)
+                        / Math.max(0.0001, sl.to - sl.from)
+                )
+            )
+
+            step: 1 / Math.max(1, sl.to - sl.from)
+            accessibleName: sl.label
+
+            onMoved: fraction => {
+                SettingsService.set(
+                    sl.path,
+                    Math.round(
+                        sl.from + fraction * (sl.to - sl.from)
+                    )
+                )
+            }
+
+            onCommitted: {
+                if (sl.applyFn)
+                    sl.applyFn()
             }
         }
     }
     component HdrSlider: SettingRowBase {
         id: hs
+
         property string monitorName: ""
         property string keyName: ""
         property real def: 1.0
@@ -3834,40 +3851,50 @@ PanelWindow {
         property real step: 0.05
         property int decimals: 2
         property string unit: ""
-        readonly property real val: SettingsService.get("hypr.monitors." + monitorName + "." + keyName, def)
+
+        readonly property real val:
+            SettingsService.get(
+                "hypr.monitors." + monitorName + "." + keyName,
+                def
+            )
+
         Text {
             text: Number(hs.val).toFixed(hs.decimals) + hs.unit
-            color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text)
-            font.pixelSize: ThemeManager.fontSizeSm; Layout.rightMargin: 8
+            color: ThemeManager.onSurfaceVariant
+            font.family: ThemeManager.fontFor(text)
+            font.pixelSize: ThemeManager.fontSizeSm
+            Layout.rightMargin: 8
         }
-        Rectangle {
-            id: hdrTrack
-            Layout.preferredWidth: 160; implicitHeight: 18; radius: 9
-            color: ThemeManager.outlineVariant
-            antialiasing: true
-            readonly property real frac: Math.max(0, Math.min(1, (hs.val - hs.from) / (hs.to - hs.from)))
-            Rectangle {
-                anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                anchors.margins: 2
-                width: Math.max(0, (hdrTrack.width - 4) * hdrTrack.frac); radius: 7
-                antialiasing: true
-                color: Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.42)
-            }
-            Rectangle {
-                width: 20; height: 20; radius: 10; y: -1
-                x: Math.max(0, Math.min(hdrTrack.width - width, hdrTrack.width * hdrTrack.frac - width / 2))
-                color: ThemeManager.onSurface
-            }
-            MouseArea {
-                anchors.fill: parent; anchors.margins: -6
-                onPressed: (e) => setValue(e.x)
-                onPositionChanged: (e) => { if (pressed) setValue(e.x) }
-                function setValue(x) {
-                    const f = Math.max(0, Math.min(1, (x - 6) / hdrTrack.width))
-                    const raw = hs.from + f * (hs.to - hs.from)
-                    const value = Math.round(raw / hs.step) * hs.step
-                    HyprlandConfigService.stageMonitor(hs.monitorName, hs.keyName, Number(value.toFixed(hs.decimals)))
-                }
+
+        NodalixSlider {
+            Layout.preferredWidth: 160
+
+            value: Math.max(
+                0,
+                Math.min(
+                    1,
+                    (hs.val - hs.from)
+                        / Math.max(0.0001, hs.to - hs.from)
+                )
+            )
+
+            step: hs.step
+                / Math.max(0.0001, hs.to - hs.from)
+
+            accessibleName: hs.label
+
+            onMoved: fraction => {
+                const raw = hs.from
+                    + fraction * (hs.to - hs.from)
+
+                const value =
+                    Math.round(raw / hs.step) * hs.step
+
+                HyprlandConfigService.stageMonitor(
+                    hs.monitorName,
+                    hs.keyName,
+                    Number(value.toFixed(hs.decimals))
+                )
             }
         }
     }

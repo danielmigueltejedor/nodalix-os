@@ -259,5 +259,29 @@ class StaticInvariantTests(unittest.TestCase):
         self.assertIn("X-NODALIX-SOURCE-FILE:", text)
 
 
+    def test_shell_sliders_use_shared_thumbless_component(self) -> None:
+        slider = (SHELL.parent / "shell/components/NodalixSlider.qml").read_text(encoding="utf-8")
+        settings = (SHELL / "panels/Settings.qml").read_text(encoding="utf-8")
+        dashboard = (SHELL / "panels/Dashboard.qml").read_text(encoding="utf-8")
+        audio = (SHELL / "panels/AudioPanel.qml").read_text(encoding="utf-8")
+
+        self.assertIn("readonly property int trackHeight: 20", slider)
+        self.assertNotIn("thumb", slider.lower())
+
+        self.assertGreaterEqual(settings.count("NodalixSlider {"), 4)
+        self.assertIn("NodalixSlider {", dashboard)
+        self.assertIn("NodalixSlider {", audio)
+
+        self.assertNotIn("component VertSlider:", dashboard)
+        self.assertNotIn("component DashSlider:", dashboard)
+        self.assertNotIn("id: _wpIvTrack", settings)
+        self.assertNotIn("id: liveTrack", settings)
+        self.assertNotIn("id: hdrTrack", settings)
+
+        for source in (settings, dashboard, audio):
+            self.assertNotIn("_thumbR", source)
+            self.assertNotIn("thumbCY", source)
+
+
 if __name__ == "__main__":
     unittest.main()

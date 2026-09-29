@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Layouts
 import "../theme"
 import "../services"
+import "../components"
 import "../widgets/bar"
 
 Item {
@@ -10,7 +11,10 @@ Item {
     property int currentPage: 0
 
     // Fixed page height so caelestia-style y-offset slide works cleanly
-    readonly property int _pageH:   200
+    readonly property int _volumePageH: 120
+    readonly property int _devicesPageH: 200
+    readonly property int _pageH:
+        currentPage === 0 ? _volumePageH : _devicesPageH
     readonly property int _headerH: 28
 
     implicitWidth:  210
@@ -85,7 +89,7 @@ Item {
             id: _stack
             spacing: 0
             width: parent.width
-            y: -root.currentPage * root._pageH
+            y: root.currentPage === 0 ? 0 : -root._volumePageH
 
             Behavior on y {
                 NumberAnimation {
@@ -98,18 +102,20 @@ Item {
             // ── Page 0 : Volume sliders ───────────────────────────────────────
             Item {
                 implicitWidth:  _stack.width
-                implicitHeight: root._pageH
+                implicitHeight: root._volumePageH
 
-                RowLayout {
+                ColumnLayout {
                     anchors {
                         fill: parent
-                        leftMargin:  ThemeManager.spacingLg
+                        leftMargin: ThemeManager.spacingLg
                         rightMargin: ThemeManager.spacingLg
+                        topMargin: ThemeManager.spacing
+                        bottomMargin: ThemeManager.spacing
                     }
                     spacing: ThemeManager.spacingLg
 
                     VolumeSlider {
-                        Layout.fillWidth: true; Layout.fillHeight: true
+                        Layout.fillWidth: true
                         iconRole: "audio.volume"
                         iconState: {
                             const v = AudioService.sinkVolPct
@@ -118,35 +124,31 @@ Item {
                             if (v < 66) return "medium"
                             return "high"
                         }
-                        muted:     AudioService.sinkMuted
-                        volume:    AudioService.sinkVolume
+                        muted: AudioService.sinkMuted
+                        volume: AudioService.sinkVolume
                         maxVolume: 1.5
                         onToggleMute: AudioService.toggleSinkMute()
-                        onSetVolume:  (v) => AudioService.setSinkVolume(v)
-                    }
-
-                    Rectangle {
-                        width: 1; Layout.fillHeight: true
-                        color: ThemeManager.outlineVariant; opacity: 0.4
+                        onSetVolume: v => AudioService.setSinkVolume(v)
                     }
 
                     VolumeSlider {
-                        Layout.fillWidth: true; Layout.fillHeight: true
+                        Layout.fillWidth: true
                         iconRole: "audio.microphone"
                         iconState: AudioService.sourceMuted ? "muted" : "active"
-                        muted:     AudioService.sourceMuted
-                        volume:    AudioService.sourceVolume
+                        muted: AudioService.sourceMuted
+                        volume: AudioService.sourceVolume
                         maxVolume: 1.0
                         onToggleMute: AudioService.toggleSourceMute()
-                        onSetVolume:  (v) => AudioService.setSourceVolume(v)
+                        onSetVolume: v => AudioService.setSourceVolume(v)
                     }
+
                 }
             }
 
             // ── Page 1 : Devices ──────────────────────────────────────────────
             Item {
                 implicitWidth:  _stack.width
-                implicitHeight: root._pageH
+                implicitHeight: root._devicesPageH
 
                 ColumnLayout {
                     anchors {
@@ -252,111 +254,52 @@ Item {
         }
     }
 
-    // ── M3 vertical volume slider ─────────────────────────────────────────────
-    component VolumeSlider: Item {
+    // ── Shared horizontal audio slider ───────────────────────────────────────
+    component VolumeSlider: RowLayout {
         id: vs
 
-        property string iconRole:  ""
+        property string iconRole: ""
         property string iconState: ""
-        property bool   muted:     false
-        property real   volume:    0
-        property real   maxVolume: 1.0
+        property bool muted: false
+        property real volume: 0
+        property real maxVolume: 1.0
 
         signal toggleMute()
-        signal setVolume(real v)
+        signal setVolume(real value)
 
-        readonly property int  volPct: Math.round(volume * 100)
-        readonly property real frac:   Math.min(volume / maxVolume, 1.0)
+        readonly property int volPct: Math.round(volume * 100)
+        readonly property real fraction:
+            Math.max(0, Math.min(1, volume / Math.max(0.01, maxVolume)))
 
-        readonly property color _active:   muted ? ThemeManager.error   : ThemeManager.primary
-        readonly property color _inactive: ThemeManager.outlineVariant
+        spacing: 10
+        implicitHeight: 44
 
-        readonly property int _trackW: 18
-        readonly property int _thumbR: 10
-        readonly property int _trackH: 130
+        ShellIcon {
+            role: vs.iconRole
+            state: vs.iconState
+            iconSize: 19
+            color: vs.muted ? ThemeManager.error : ThemeManager.primary
 
-        implicitWidth:  _thumbR * 2
-        implicitHeight: _col.implicitHeight
-
-        ColumnLayout {
-            id: _col
-            anchors { left: parent.left; right: parent.right; top: parent.top }
-            spacing: ThemeManager.spacing
-
-            Text {
-                Layout.alignment:  Qt.AlignHCenter
-                text:             vs.muted ? "M" : vs.volPct + "%"
-                color:            vs.muted ? ThemeManager.error : ThemeManager.onSurface
-                font.family: ThemeManager.fontFor(text)
-                font.pixelSize:   ThemeManager.fontSizeSm
-                font.weight:      Font.Medium
-                Behavior on color { ColorAnimation { duration: 120 } }
-            }
-
-            Item {
-                id: _body
-                Layout.alignment:  Qt.AlignHCenter
-                implicitWidth:  vs._thumbR * 4
-                implicitHeight: vs._trackH + vs._thumbR * 2
-
-                readonly property real thumbCY: vs._thumbR + (1.0 - vs.frac) * vs._trackH
-
-                Rectangle {
-                    id: _track
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    y: vs._thumbR; width: vs._trackW; height: vs._trackH
-                    radius: vs._trackW / 2
-                    color:  vs._inactive
-                    clip:   true
-                    antialiasing: true
-                    Rectangle {
-                        anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
-                        anchors.margins: 2
-                        height: Math.max(0, (vs._trackH - 4) * vs.frac)
-                        radius: 7
-                        antialiasing: true
-                        color:  Qt.rgba(vs._active.r, vs._active.g, vs._active.b, 0.42)
-                        Behavior on color  { ColorAnimation  { duration: 120 } }
-                        Behavior on height { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
-                    }
-                }
-
-                Rectangle {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    y:      _body.thumbCY - vs._thumbR
-                    width:  vs._thumbR * 2; height: vs._thumbR * 2
-                    radius: vs._thumbR
-                    color:  ThemeManager.onSurface
-                    Behavior on y     { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
-                }
-
-                MouseArea {
-                    anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                    function applyY(y) {
-                        const cy   = Math.max(vs._thumbR, Math.min(vs._thumbR + vs._trackH, y))
-                        const frac = 1.0 - (cy - vs._thumbR) / vs._trackH
-                        vs.setVolume(Math.max(0, Math.min(vs.maxVolume, frac * vs.maxVolume)))
-                    }
-                    onPressed:         (ev) => applyY(ev.y)
-                    onPositionChanged: (ev) => { if (pressed) applyY(ev.y) }
-                }
-            }
-
-            ShellIcon {
-                Layout.alignment: Qt.AlignHCenter
-                role: vs.iconRole
-                state: vs.iconState
-                iconSize: 18
-                color: vs.muted ? ThemeManager.error : ThemeManager.primary
-                Behavior on color { ColorAnimation { duration: 120 } }
-
-                MouseArea {
-                    anchors.fill: parent
-                    anchors.margins: -6
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: vs.toggleMute()
-                }
+            MouseArea {
+                anchors.fill: parent
+                anchors.margins: -7
+                cursorShape: Qt.PointingHandCursor
+                onClicked: vs.toggleMute()
             }
         }
+
+        NodalixSlider {
+            Layout.fillWidth: true
+            value: vs.fraction
+            step: 0.01
+            accessibleName: vs.iconRole
+            accentColor: vs.muted ? ThemeManager.error : ThemeManager.primary
+
+            onMoved: fraction => {
+                vs.setVolume(fraction * vs.maxVolume)
+            }
+        }
+
     }
+
 }

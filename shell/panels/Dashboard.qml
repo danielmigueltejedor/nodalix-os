@@ -8,6 +8,7 @@ import Quickshell.Bluetooth
 import Quickshell.Hyprland
 import "../theme"
 import "../services"
+import "../components"
 import "../widgets/bar" as Bar
 import "../widgets/bar"
 
@@ -1956,62 +1957,93 @@ Item {
 
     Component {
         id: _brightCmp
-        RowLayout {
-            implicitWidth: BrightnessService.backend === "ddc"
-                ? Math.max(100, BrightnessService.monitorCount * 104) : 90
-            spacing: ThemeManager.spacing
+
+        ColumnLayout {
+            implicitWidth: 300
+            spacing: 8
 
             Repeater {
-                model: BrightnessService.backend === "ddc" ? BrightnessService.monitors : []
-                delegate: ColumnLayout {
+                model: BrightnessService.backend === "ddc"
+                    ? BrightnessService.monitors
+                    : []
+
+                delegate: RowLayout {
                     id: _monitorBrightness
                     required property var modelData
                     property real localValue: modelData.value
-                    Layout.preferredWidth: 96
-                    spacing: 5
-                    VertSlider {
-                        Layout.alignment: Qt.AlignHCenter
-                        iconRole: "display.monitor"
-                        value: _monitorBrightness.localValue / 100
-                        label: Math.round(_monitorBrightness.localValue) + "%"
-                        onMoved: (f) => {
-                            _monitorBrightness.localValue = f * 100
-                            BrightnessService.setMonitor(modelData.bus, f * 100)
+
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    ShellIcon {
+                        role: "display.monitor"
+                        iconSize: 18
+                        color: ThemeManager.onSurfaceVariant
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 3
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: _monitorBrightness.modelData.name
+                            color: ThemeManager.onSurfaceVariant
+                            font.family: ThemeManager.fontFor(text)
+                            font.pixelSize: 9
+                            elide: Text.ElideRight
+                        }
+
+                        NodalixSlider {
+                            Layout.fillWidth: true
+                            value: _monitorBrightness.localValue / 100
+                            step: 0.01
+                            accessibleName: _monitorBrightness.modelData.name
+
+                            onMoved: fraction => {
+                                _monitorBrightness.localValue = fraction * 100
+                                BrightnessService.setMonitor(
+                                    _monitorBrightness.modelData.bus,
+                                    fraction * 100
+                                )
+                            }
                         }
                     }
-                    Text {
-                        Layout.fillWidth: true
-                        text: modelData.name
-                        color: ThemeManager.onSurfaceVariant
-                        font.family: ThemeManager.fontFor(text)
-                        font.pixelSize: 9
-                        horizontalAlignment: Text.AlignHCenter
-                        elide: Text.ElideRight
-                    }
+
                 }
             }
 
-            ColumnLayout {
+            RowLayout {
                 visible: BrightnessService.backend !== "ddc"
-                Layout.preferredWidth: 90
-                VertSlider {
-                    Layout.alignment: Qt.AlignHCenter
-                    iconRole: "display.brightness"
-                    value: BrightnessService.value / 100
-                    label: BrightnessService.value + "%"
-                    onMoved: (f) => BrightnessService.set(f * 100)
+                Layout.fillWidth: true
+                spacing: 10
+
+                ShellIcon {
+                    role: "display.brightness"
+                    iconSize: 18
+                    color: ThemeManager.onSurfaceVariant
                 }
+
+                NodalixSlider {
+                    Layout.fillWidth: true
+                    value: BrightnessService.value / 100
+                    step: 0.01
+                    accessibleName: I18n.tr("Brightness")
+                    onMoved: fraction => BrightnessService.set(fraction * 100)
+                }
+
             }
+
             Text {
-                visible: !BrightnessService.available && !BrightnessService.detecting
-                Layout.alignment: Qt.AlignHCenter
+                visible: !BrightnessService.available
+                    && !BrightnessService.detecting
+                Layout.fillWidth: true
                 text: I18n.tr("No controllable displays found")
                 color: ThemeManager.error
                 font.family: ThemeManager.fontFor(text)
                 font.pixelSize: 10
                 wrapMode: Text.Wrap
                 horizontalAlignment: Text.AlignHCenter
-                Layout.preferredWidth: 90
             }
         }
     }
@@ -3057,131 +3089,4 @@ Item {
     }
 
     // ── Vertical M3 slider (brightness flyout) ───────────────────────────────
-    component VertSlider: ColumnLayout {
-        id: vs
-        property string iconRole: ""
-        property string iconState: ""
-        property string label: ""
-        property real   value: 0          // 0..1
-        signal moved(real frac)
-
-        readonly property int _trackW: 18
-        readonly property int _thumbR: 10
-        readonly property int _trackH: 150
-
-        spacing: ThemeManager.spacing
-
-        Text {
-            Layout.alignment: Qt.AlignHCenter
-            text: vs.label
-            color: ThemeManager.onSurface
-            font.family: ThemeManager.fontFor(text)
-            font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
-        }
-
-        Item {
-            id: _body
-            Layout.alignment: Qt.AlignHCenter
-            implicitWidth:  vs._thumbR * 4
-            implicitHeight: vs._trackH + vs._thumbR * 2
-
-            readonly property real frac:    Math.max(0, Math.min(1, vs.value))
-            readonly property real thumbCY: vs._thumbR + (1.0 - frac) * vs._trackH
-
-            Rectangle {
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: vs._thumbR; width: vs._trackW; height: vs._trackH
-                radius: vs._trackW / 2
-                color: ThemeManager.outlineVariant
-                clip: true
-                antialiasing: true
-                Rectangle {
-                    anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
-                    anchors.margins: 2
-                    height: Math.max(0, (vs._trackH - 4) * _body.frac)
-                    radius: 7
-                    antialiasing: true
-                    color: Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.42)
-                    Behavior on height { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
-                }
-            }
-
-            Rectangle {
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: _body.thumbCY - vs._thumbR
-                width: vs._thumbR * 2; height: vs._thumbR * 2
-                radius: vs._thumbR
-                color: ThemeManager.onSurface
-                Behavior on y { NumberAnimation { duration: 80; easing.type: Easing.OutQuad } }
-            }
-
-            MouseArea {
-                id: _vsMouse
-                anchors.fill: parent
-                preventStealing: true
-                cursorShape: Qt.PointingHandCursor
-                function applyY(y) {
-                    const cy   = Math.max(vs._thumbR, Math.min(vs._thumbR + vs._trackH, y))
-                    const frac = 1.0 - (cy - vs._thumbR) / vs._trackH
-                    vs.moved(Math.max(0, Math.min(1, frac)))
-                }
-                onPressed:         (ev) => applyY(ev.y)
-                onPositionChanged: (ev) => { if (_vsMouse.pressed) applyY(ev.y) }
-            }
-        }
-
-        ShellIcon {
-            Layout.alignment: Qt.AlignHCenter
-            role: vs.iconRole
-            state: vs.iconState
-            color: ThemeManager.primary
-            iconSize: 18
-        }
-    }
-
-    // ── Shared slider (horizontal) ───────────────────────────────────────────
-    component DashSlider: Item {
-        id: sl
-        property string icon:  ""
-        property real   value: 0
-        signal moved(real frac)
-        implicitHeight: 28
-
-        ColloidIcon {
-            id: _ic
-            anchors.left: parent.left; anchors.verticalCenter: parent.verticalCenter
-            text: sl.icon
-            color: ThemeManager.onSurfaceVariant
-            iconSize: 18
-        }
-        Rectangle {
-            id: _track
-            anchors { left: _ic.right; leftMargin: 10; right: parent.right; verticalCenter: parent.verticalCenter }
-            height: 18; radius: 9
-            color: ThemeManager.outlineVariant
-            antialiasing: true
-            Rectangle {
-                anchors { left: parent.left; top: parent.top; bottom: parent.bottom }
-                anchors.margins: 2
-                width: Math.max(0, (parent.width - 4) * Math.max(0, Math.min(1, sl.value)))
-                radius: 7
-                antialiasing: true
-                color: Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.42)
-                Behavior on width { NumberAnimation { duration: 60 } }
-            }
-            Rectangle {
-                width: 20; height: 20; radius: 10; y: -1
-                x: Math.max(0, Math.min(_track.width - width, _track.width * Math.max(0, Math.min(1, sl.value)) - width / 2))
-                color: ThemeManager.onSurface
-                Behavior on x { NumberAnimation { duration: 60 } }
-            }
-            MouseArea {
-                anchors.fill: parent; anchors.margins: -8
-                cursorShape: Qt.PointingHandCursor
-                function apply(x) { sl.moved(Math.max(0, Math.min(1, (x - 8) / _track.width))) }
-                onPressed:         (e) => apply(e.x)
-                onPositionChanged: (e) => { if (pressed) apply(e.x) }
-            }
-        }
-    }
 }
