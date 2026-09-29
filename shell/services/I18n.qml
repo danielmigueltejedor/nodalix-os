@@ -299,7 +299,7 @@ QtObject {
         "Nearby sharing": "Compartir con dispositivos cercanos", "Alerts and Do Not Disturb": "Avisos y modo No molestar",
         "Keyboard shortcuts": "Atajos de teclado", "Location and units": "Ubicación y unidades", "Application indicators": "Indicadores de aplicaciones",
         "Displays, input and animations": "Pantallas, entrada y animaciones", "Optional system features": "Funciones opcionales del sistema", "Configuration and reset": "Configuración y restablecimiento",
-        "used of": "usados de", "Calculating…": "Calculando…", "Applications": "Aplicaciones", "Documents": "Documentos", "Pictures": "Imágenes", "Videos": "Vídeos", "Music": "Música",
+        "used of": "usados de", "free": "libres", "Calculating…": "Calculando…", "Applications": "Aplicaciones", "Documents": "Documentos", "Pictures": "Imágenes", "Videos": "Vídeos", "Music": "Música",
         "System and other": "Sistema y otros", "Installed applications": "Aplicaciones instaladas", "Search applications…": "Buscar aplicaciones…", "Loading applications…": "Cargando aplicaciones…",
         "Uninstall": "Desinstalar", "Uninstalling…": "Desinstalando…", "Application uninstalled": "Aplicación desinstalada", "Uninstall failed": "No se pudo desinstalar",
         "This system component is protected": "Este componente del sistema está protegido",

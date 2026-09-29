@@ -80,6 +80,24 @@ QtObject {
     readonly property color glassRim:
         Qt.rgba(1, 1, 1, isDark ? 0.12 : 0.22)
 
+    // Settings-specific neutral outline: follows the surface instead of
+    // outlineVariant, which can become excessively bright in dark themes.
+    readonly property color settingsOutline:
+        Qt.rgba(surfaceVariant.r, surfaceVariant.g, surfaceVariant.b,
+                isDark ? 0.72 : 0.45)
+
+    // Storage categories deliberately use separated hues so dynamic themes
+    // cannot collapse several categories into nearly the same colour.
+    readonly property var storageColorsDark:
+        ["#8EA1FF", "#42C7D9", "#72C889", "#F2C14E", "#F08A5D", "#C58AE8"]
+    readonly property var storageColorsLight:
+        ["#4057D6", "#007C91", "#2E7D32", "#A15C00", "#D84315", "#7B1FA2"]
+
+    function storageColor(index) {
+        const colors = isDark ? storageColorsDark : storageColorsLight
+        return colors[index % colors.length]
+    }
+
     // ── Meta ─────────────────────────────────────────────────────────────────
     readonly property bool   isDark: _data.dark !== undefined ? _data.dark : true
     readonly property string name:   _data.name  !== undefined ? _data.name  : ""

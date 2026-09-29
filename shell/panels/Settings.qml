@@ -33,6 +33,7 @@ PanelWindow {
     exclusionMode: ExclusionMode.Ignore
     anchors        { top: true; bottom: true; left: true; right: true }
     WlrLayershell.layer:         WlrLayer.Overlay
+    WlrLayershell.namespace:     "nodalix-shell"
     // This transient overlay must request keyboard itself (unlike the always-on
     // shell layer, a focus grab alone won't pull keyboard to it). The grab is
     // kept only so window focus is restored automatically on close.
@@ -320,9 +321,8 @@ PanelWindow {
         height: Math.min(660, root.height - 120)
         anchors.centerIn: parent
         radius: ThemeManager.panelRadius + 4
-        color:  ThemeManager.surfaceContainer
-        border.width: 1
-        border.color: ThemeManager.outlineVariant
+        color:  ThemeManager.shellGlass
+        border.width: 0
         opacity: root.active ? 1 : 0
         scale:   root.active ? 1 : 0.96
         layer.enabled: true
@@ -341,7 +341,7 @@ PanelWindow {
             Rectangle {
                 Layout.fillHeight: true
                 Layout.preferredWidth: 188
-                color: ThemeManager.surfaceContainerLow
+                color: Qt.rgba(ThemeManager.surface.r, ThemeManager.surface.g, ThemeManager.surface.b, 0.86)
                 topLeftRadius: ThemeManager.panelRadius + 4
                 bottomLeftRadius: ThemeManager.panelRadius + 4
 
@@ -466,7 +466,7 @@ PanelWindow {
                                 required property var modelData
                                 Layout.fillWidth: true; implicitHeight: 72; radius: ThemeManager.chipRadius + 3
                                 color: _pageHover.hovered ? ThemeManager.surfaceContainerHigh : ThemeManager.surfaceContainerLow
-                                border.width: 1; border.color: ThemeManager.outlineVariant
+                                border.width: 0
                                 RowLayout {
                                     anchors { fill: parent; margins: 14 }
                                     spacing: 14
@@ -704,7 +704,7 @@ PanelWindow {
                             radius: ThemeManager.chipRadius + 2
                             color: ThemeManager.surfaceContainerLow
                             border.width: 1
-                            border.color: ThemeManager.outlineVariant
+                            border.color: ThemeManager.settingsOutline
 
                             RowLayout {
                                 anchors { fill: parent; margins: 12 }
@@ -809,12 +809,12 @@ PanelWindow {
                                     color: sel ? ThemeManager.secondaryContainer
                                                : (_th.hovered ? ThemeManager.surfaceContainerHigh : ThemeManager.surfaceContainerLow)
                                     border.width: sel ? 2 : 1
-                                    border.color: sel ? ThemeManager.primary : ThemeManager.outlineVariant
+                                    border.color: sel ? ThemeManager.primary : ThemeManager.settingsOutline
                                     Row {
                                         anchors.centerIn: parent
                                         spacing: 7
                                         Rectangle { width: 12; height: 12; radius: 6; anchors.verticalCenter: parent.verticalCenter
-                                                    color: modelData.dark ? "#222" : "#eee"; border.width: 1; border.color: ThemeManager.outlineVariant }
+                                                    color: modelData.dark ? "#222" : "#eee"; border.width: 1; border.color: ThemeManager.settingsOutline }
                                         Text { id: _tn; text: modelData.name
                                                color: sel ? ThemeManager.onSurface : ThemeManager.onSurfaceVariant
                                                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
@@ -846,7 +846,7 @@ PanelWindow {
                                 color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                 leftPadding: 10; rightPadding: 10
                                 background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh
-                                                        border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
+                                                        border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.settingsOutline }
                                 onAccepted: root._confirmTheme(text)
                                 Keys.onEscapePressed: root._themeAction = ""
                             }
@@ -995,7 +995,7 @@ PanelWindow {
                                     color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                     leftPadding: 8; rightPadding: 8
                                     background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh
-                                                            border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
+                                                            border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.settingsOutline }
                                     onEditingFinished: if (text !== SettingsService.get("binds." + modelData.key, "")) BindingService.setCombo(modelData.key, text)
                                 }
                                 SettingBtn {
@@ -1042,7 +1042,7 @@ PanelWindow {
                                 Layout.topMargin: 6
                                 radius: ThemeManager.panelRadius
                                 color: ThemeManager.surfaceContainerHigh
-                                border.width: 1; border.color: editing ? ThemeManager.primary : ThemeManager.outlineVariant
+                                border.width: 1; border.color: editing ? ThemeManager.primary : ThemeManager.settingsOutline
                                 implicitHeight: (editing ? _ceCol.implicitHeight : _ceRow.implicitHeight) + 24
 
                                 // ── Collapsed summary ──────────────────────────────
@@ -1054,7 +1054,7 @@ PanelWindow {
                                     Rectangle {
                                         implicitWidth: 30; implicitHeight: 30; radius: 6
                                         color: ThemeManager.surfaceContainer
-                                        border.width: 1; border.color: ThemeManager.outlineVariant
+                                        border.width: 1; border.color: ThemeManager.settingsOutline
                                         IconImage { anchors.centerIn: parent; implicitSize: 20; source: _ce._iconSrc() }
                                     }
                                     ColumnLayout {
@@ -1088,7 +1088,7 @@ PanelWindow {
                                         Rectangle {
                                             implicitWidth: 30; implicitHeight: 30; radius: 6
                                             color: ThemeManager.surfaceContainer
-                                            border.width: 1; border.color: ThemeManager.outlineVariant
+                                            border.width: 1; border.color: ThemeManager.settingsOutline
                                             IconImage { anchors.centerIn: parent; implicitSize: 20; source: _ce._iconSrc() }
                                         }
                                         ColumnLayout {
@@ -1102,7 +1102,7 @@ PanelWindow {
                                                 color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                                 leftPadding: 8; rightPadding: 8
                                                 background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainer
-                                                                        border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
+                                                                        border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.settingsOutline }
                                                 onEditingFinished: if (text !== (_ce.modelData.name ?? "")) root._trayCustomSet(_ce.index, "name", text)
                                             }
                                         }
@@ -1121,7 +1121,7 @@ PanelWindow {
                                             color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                             leftPadding: 8; rightPadding: 8
                                             background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainer
-                                                                    border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
+                                                                    border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.settingsOutline }
                                             onEditingFinished: if (text !== (_ce.modelData.icon ?? "")) root._trayCustomSet(_ce.index, "icon", text)
                                         }
                                     }
@@ -1145,7 +1145,7 @@ PanelWindow {
                                                     topRightRadius:    index === 1 ? ThemeManager.chipRadius : 0
                                                     bottomRightRadius: index === 1 ? ThemeManager.chipRadius : 0
                                                     color: sel ? ThemeManager.primary : ThemeManager.surfaceContainer
-                                                    border.width: 1; border.color: sel ? ThemeManager.primary : ThemeManager.outlineVariant
+                                                    border.width: 1; border.color: sel ? ThemeManager.primary : ThemeManager.settingsOutline
                                                     Text { id: _segT; anchors.centerIn: parent; text: modelData.t
                                                            color: parent.sel ? ThemeManager.onPrimary : ThemeManager.onSurfaceVariant
                                                            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
@@ -1161,7 +1161,7 @@ PanelWindow {
                                             color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                             leftPadding: 8; rightPadding: 8
                                             background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainer
-                                                                    border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
+                                                                    border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.settingsOutline }
                                             onEditingFinished: if (text !== (_ce.modelData.value ?? "")) root._trayCustomSet(_ce.index, "value", text)
                                         }
                                         Text {
@@ -1214,7 +1214,7 @@ PanelWindow {
                                     color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                     leftPadding: 8; rightPadding: 8
                                     background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh
-                                                            border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
+                                                            border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.settingsOutline }
                                     onEditingFinished: if (text !== root._trayWs(modelData)) root._traySetWs(modelData, text)
                                 }
                                 SettingBtn {
@@ -1260,7 +1260,7 @@ PanelWindow {
                                 Layout.topMargin: 6
                                 radius: ThemeManager.panelRadius
                                 color: ThemeManager.surfaceContainerHigh
-                                border.width: 1; border.color: editing ? ThemeManager.primary : ThemeManager.outlineVariant
+                                border.width: 1; border.color: editing ? ThemeManager.primary : ThemeManager.settingsOutline
                                 implicitHeight: (editing ? _tcCol.implicitHeight : _tcRow.implicitHeight) + 24
 
                                 // Collapsed summary
@@ -1315,7 +1315,7 @@ PanelWindow {
                                             color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                             leftPadding: 8; rightPadding: 8
                                             background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainer
-                                                                    border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
+                                                                    border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.settingsOutline }
                                             onEditingFinished: if (text !== (_tc.modelData.name ?? "")) root._toolCustomSet(_tc.index, "name", text)
                                         }
                                     }
@@ -1329,7 +1329,7 @@ PanelWindow {
                                             color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                             leftPadding: 8; rightPadding: 8
                                             background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainer
-                                                                    border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
+                                                                    border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.settingsOutline }
                                             onEditingFinished: if (text !== (_tc.modelData.command ?? "")) root._toolCustomSet(_tc.index, "command", text)
                                         }
                                     }
@@ -1348,7 +1348,7 @@ PanelWindow {
                                                     width: 34; height: 34; radius: 8
                                                     color: sel ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.22)
                                                                : ThemeManager.surfaceContainer
-                                                    border.width: 1; border.color: sel ? ThemeManager.primary : ThemeManager.outlineVariant
+                                                    border.width: 1; border.color: sel ? ThemeManager.primary : ThemeManager.settingsOutline
                                                     ShellIcon {
                                                         anchors.centerIn: parent
                                                         iconName: modelData
@@ -1394,7 +1394,7 @@ PanelWindow {
                             radius: ThemeManager.panelRadius
                             color: ThemeManager.surfaceContainerHigh
                             border.width: 1
-                            border.color: ThemeManager.outlineVariant
+                            border.color: ThemeManager.settingsOutline
 
                             Image {
                                 anchors.fill: parent
@@ -1635,7 +1635,7 @@ PanelWindow {
                                     color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                     leftPadding: 10; rightPadding: 10
                                     background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh
-                                                            border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
+                                                            border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.settingsOutline }
                                     onAccepted: WallhavenService.search(text, _whSort.cur)
                                 }
                                 SettingBtn { label: I18n.tr("Search"); onClicked: WallhavenService.search(_whSearch.text, _whSort.cur) }
@@ -1918,7 +1918,7 @@ PanelWindow {
                                 Layout.preferredHeight: 260
                                 radius: ThemeManager.chipRadius
                                 color: ThemeManager.surfaceContainerLow
-                                border.width: 1; border.color: ThemeManager.outlineVariant
+                                border.width: 1; border.color: ThemeManager.settingsOutline
                                 clip: true
 
                                 readonly property var _boxes: { void SettingsService.rev; return HyprlandConfigService.monitors.map(m => _dispTab.mgeo(m)) }
@@ -1958,7 +1958,7 @@ PanelWindow {
                                         color: _isSel ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.28)
                                                       : ThemeManager.surfaceContainerHigh
                                         border.width: _isSel ? 2 : 1
-                                        border.color: _isSel ? ThemeManager.primary : ThemeManager.outlineVariant
+                                        border.color: _isSel ? ThemeManager.primary : ThemeManager.settingsOutline
 
                                         Column {
                                             anchors.centerIn: parent
@@ -2033,7 +2033,7 @@ PanelWindow {
                                 implicitHeight: _detCol.implicitHeight + 24
                                 radius: ThemeManager.chipRadius
                                 color: ThemeManager.surfaceContainerLow
-                                border.width: 1; border.color: ThemeManager.outlineVariant
+                                border.width: 1; border.color: ThemeManager.settingsOutline
 
                                 readonly property var m: _dispTab.selMon()
                                 readonly property string _mn: m ? m.name : ""
@@ -2093,7 +2093,7 @@ PanelWindow {
                                                 implicitWidth: _detRes.implicitWidth + 26; implicitHeight: 28
                                                 radius: ThemeManager.chipRadius
                                                 color: ThemeManager.surfaceContainerHigh
-                                                border.width: 1; border.color: _dispTab._detModeOpen ? ThemeManager.primary : ThemeManager.outlineVariant
+                                                border.width: 1; border.color: _dispTab._detModeOpen ? ThemeManager.primary : ThemeManager.settingsOutline
                                                 Text {
                                                     id: _detRes; anchors.centerIn: parent
                                                     text: (_det.m ? _det._get("mode", _det.m.width + "x" + _det.m.height + "@" + Number(_det.m.refreshRate).toFixed(2)) : "") + "  ▾"
@@ -2114,7 +2114,7 @@ PanelWindow {
                                                     implicitWidth: _dmo.implicitWidth + 16; implicitHeight: 24
                                                     radius: ThemeManager.chipRadius
                                                     color: sel ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.18) : ThemeManager.surfaceContainerHigh
-                                                    border.width: 1; border.color: ThemeManager.outlineVariant
+                                                    border.width: 1; border.color: ThemeManager.settingsOutline
                                                     Text { id: _dmo; anchors.centerIn: parent; text: modelData
                                                            color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: 10 }
                                                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
@@ -2137,7 +2137,7 @@ PanelWindow {
                                             color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                             leftPadding: 8; rightPadding: 8
                                             background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh
-                                                                    border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
+                                                                    border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.settingsOutline }
                                             onEditingFinished: { const v = parseFloat(text); if (!isNaN(v)) HyprlandConfigService.stageMonitor(_det._mn, "scale", v) }
                                         }
 
@@ -2150,7 +2150,7 @@ PanelWindow {
                                                 color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                                 leftPadding: 8; rightPadding: 8
                                                 background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh
-                                                                        border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
+                                                                        border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.settingsOutline }
                                                 onEditingFinished: { const v = parseInt(text); if (!isNaN(v)) HyprlandConfigService.stageMonitor(_det._mn, "x", v) }
                                             }
                                             TextField {
@@ -2159,7 +2159,7 @@ PanelWindow {
                                                 color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                                 leftPadding: 8; rightPadding: 8
                                                 background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh
-                                                                        border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
+                                                                        border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.settingsOutline }
                                                 onEditingFinished: { const v = parseInt(text); if (!isNaN(v)) HyprlandConfigService.stageMonitor(_det._mn, "y", v) }
                                             }
                                         }
@@ -2175,7 +2175,7 @@ PanelWindow {
                                                     readonly property bool sel: _det.m ? (_det._get("transform", _det.m.transform) === index) : false
                                                     implicitWidth: _dtr.implicitWidth + 18; implicitHeight: 26
                                                     color: sel ? ThemeManager.primary : ThemeManager.surfaceContainerHigh
-                                                    border.width: 1; border.color: ThemeManager.outlineVariant
+                                                    border.width: 1; border.color: ThemeManager.settingsOutline
                                                     Text { id: _dtr; anchors.centerIn: parent; text: modelData
                                                            color: sel ? ThemeManager.onPrimary : ThemeManager.onSurfaceVariant
                                                            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
@@ -2195,7 +2195,7 @@ PanelWindow {
                                         radius: ThemeManager.chipRadius
                                         color: ThemeManager.surfaceContainerHigh
                                         border.width: 1
-                                        border.color: _det._hdrOn ? ThemeManager.primary : ThemeManager.outlineVariant
+                                        border.color: _det._hdrOn ? ThemeManager.primary : ThemeManager.settingsOutline
 
                                         ColumnLayout {
                                             id: _hdrCol
@@ -2244,7 +2244,7 @@ PanelWindow {
                                                         color: _det._hdrMode === modelData.key
                                                             ? ThemeManager.primary : ThemeManager.surfaceContainerLow
                                                         border.width: 1
-                                                        border.color: ThemeManager.outlineVariant
+                                                        border.color: ThemeManager.settingsOutline
                                                         Text {
                                                             id: _hdrModeText
                                                             anchors.centerIn: parent
@@ -2434,7 +2434,7 @@ PanelWindow {
                         SettingSection { text: I18n.tr("Storage") }
                         RowLayout {
                             Layout.fillWidth: true
-                            Text { Layout.fillWidth: true; text: StorageService.formatBytes(StorageService.usedBytes) + " " + I18n.tr("used of") + " " + StorageService.formatBytes(StorageService.totalBytes); color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeMd; font.bold: true }
+                            Text { Layout.fillWidth: true; text: StorageService.formatBytes(StorageService.usedBytes) + " " + I18n.tr("used of") + " " + StorageService.formatBytes(StorageService.totalBytes) + " · " + StorageService.formatBytes(Math.max(0, StorageService.totalBytes - StorageService.usedBytes)) + " " + I18n.tr("free"); color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeMd; font.bold: true }
                             SettingBtn { label: StorageService.loading ? I18n.tr("Calculating…") : I18n.tr("Refresh"); enabled: !StorageService.loading; onClicked: StorageService.refresh() }
                         }
                         Rectangle {
@@ -2447,9 +2447,16 @@ PanelWindow {
                                         required property var modelData
                                         required property int index
                                         height: parent.height
-                                        width: StorageService.usedBytes > 0 ? parent.width * modelData.bytes / StorageService.usedBytes : 0
-                                        color: [ThemeManager.primary, ThemeManager.tertiary, ThemeManager.secondary, "#79c7ff", "#ffb4ab", ThemeManager.outline][index % 6]
+                                        width: StorageService.totalBytes > 0 ? parent.width * modelData.bytes / StorageService.totalBytes : 0
+                                        color: ThemeManager.storageColor(index)
                                     }
+                                }
+                                Rectangle {
+                                    height: parent.height
+                                    width: StorageService.totalBytes > 0
+                                        ? parent.width * Math.max(0, StorageService.totalBytes - StorageService.usedBytes) / StorageService.totalBytes
+                                        : 0
+                                    color: ThemeManager.surfaceContainerHigh
                                 }
                             }
                         }
@@ -2460,11 +2467,11 @@ PanelWindow {
                                 required property int index
                                 Layout.fillWidth: true; implicitHeight: 58; radius: ThemeManager.chipRadius + 2
                                 color: _storageHover.hovered ? ThemeManager.surfaceContainerHigh : ThemeManager.surfaceContainerLow
-                                border.width: 1; border.color: ThemeManager.outlineVariant
+                                border.width: 1; border.color: ThemeManager.settingsOutline
                                 RowLayout {
                                     anchors { fill: parent; margins: 12 }
                                     spacing: 10
-                                    Rectangle { width: 10; height: 10; radius: 5; color: [ThemeManager.primary, ThemeManager.tertiary, ThemeManager.secondary, "#79c7ff", "#ffb4ab", ThemeManager.outline][index % 6] }
+                                    Rectangle { width: 10; height: 10; radius: 5; color: ThemeManager.storageColor(index) }
                                     Text { Layout.fillWidth: true; text: I18n.tr(modelData.key); color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeMd }
                                     Text { text: StorageService.formatBytes(modelData.bytes); color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
                                     ShellIcon { visible: modelData.key === "Applications"; role: "navigation.next"; color: ThemeManager.onSurfaceVariant; iconSize: 14 }
@@ -2485,7 +2492,7 @@ PanelWindow {
                             placeholderTextColor: ThemeManager.onSurfaceVariant
                             onTextChanged: root._storageSearch = text.toLowerCase()
                             color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text)
-                            background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh; border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
+                            background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh; border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.settingsOutline }
                         }
                         Text { visible: StorageService.appsLoading; text: I18n.tr("Loading applications…"); color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text) }
                         Text { visible: StorageService.statusText !== ""; text: StorageService.statusText; color: StorageService.passwordError ? ThemeManager.error : ThemeManager.primary; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
@@ -2494,7 +2501,7 @@ PanelWindow {
                             delegate: Rectangle {
                                 required property var modelData
                                 Layout.fillWidth: true; implicitHeight: 56; radius: ThemeManager.chipRadius + 2
-                                color: ThemeManager.surfaceContainerLow; border.width: 1; border.color: ThemeManager.outlineVariant
+                                color: ThemeManager.surfaceContainerLow; border.width: 1; border.color: ThemeManager.settingsOutline
                                 RowLayout {
                                     anchors { fill: parent; margins: 10 }
                                     spacing: 10
@@ -2504,7 +2511,7 @@ PanelWindow {
                                         radius: 10
                                         color: ThemeManager.surfaceContainerHigh
                                         border.width: 1
-                                        border.color: ThemeManager.outlineVariant
+                                        border.color: ThemeManager.settingsOutline
                                         IconImage {
                                             anchors.centerIn: parent
                                             implicitSize: 26
@@ -2538,7 +2545,7 @@ PanelWindow {
                                     placeholderTextColor: ThemeManager.onSurfaceVariant
                                     color: ThemeManager.onSurface
                                     font.family: ThemeManager.fontFor(text)
-                                    background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainer; border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
+                                    background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainer; border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.settingsOutline }
                                     onAccepted: { const p = text; text = ""; StorageService.submitPassword(p) }
                                 }
                                 RowLayout {
@@ -2570,7 +2577,7 @@ PanelWindow {
                             radius: ThemeManager.panelRadius
                             color: ThemeManager.surfaceContainerHigh
                             border.width: 1
-                            border.color: UpdateService.nodalixUpdateAvailable ? ThemeManager.primary : ThemeManager.outlineVariant
+                            border.color: UpdateService.nodalixUpdateAvailable ? ThemeManager.primary : ThemeManager.settingsOutline
                             RowLayout {
                                 id: _nodalixVersionRow
                                 anchors { fill: parent; margins: 12 }
@@ -2620,7 +2627,7 @@ PanelWindow {
                             radius: ThemeManager.panelRadius
                             color: ThemeManager.surfaceContainerHigh
                             border.width: 1
-                            border.color: ThemeManager.outlineVariant
+                            border.color: ThemeManager.settingsOutline
                             ColumnLayout {
                                 id: _channelColumn
                                 anchors { fill: parent; margins: 12 }
@@ -2659,7 +2666,7 @@ PanelWindow {
                                                 ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.20)
                                                 : ThemeManager.surfaceContainer
                                             border.width: 1
-                                            border.color: selected ? ThemeManager.primary : ThemeManager.outlineVariant
+                                            border.color: selected ? ThemeManager.primary : ThemeManager.settingsOutline
                                             Row {
                                                 anchors.centerIn: parent
                                                 spacing: 8
@@ -2745,7 +2752,7 @@ PanelWindow {
                                 implicitHeight: 58
                                 radius: ThemeManager.chipRadius + 2
                                 color: ThemeManager.surfaceContainerLow
-                                border.width: 1; border.color: ThemeManager.outlineVariant
+                                border.width: 1; border.color: ThemeManager.settingsOutline
                                 RowLayout {
                                     anchors { fill: parent; margins: 10 }
                                     spacing: 10
@@ -2833,7 +2840,7 @@ PanelWindow {
                                     radius: ThemeManager.chipRadius + 2
                                     color: ThemeManager.surfaceContainerLow
                                     border.width: 1
-                                    border.color: ThemeManager.outlineVariant
+                                    border.color: ThemeManager.settingsOutline
                                     RowLayout {
                                         anchors { fill: parent; margins: 10 }
                                         spacing: 10
@@ -2952,7 +2959,7 @@ PanelWindow {
                             radius: ThemeManager.panelRadius
                             color: ThemeManager.surfaceContainerHigh
                             border.width: 1
-                            border.color: PhoneLinkService.active ? ThemeManager.primary : ThemeManager.outlineVariant
+                            border.color: PhoneLinkService.active ? ThemeManager.primary : ThemeManager.settingsOutline
                             RowLayout {
                                 anchors { fill: parent; margins: 12 }
                                 spacing: 12
@@ -3000,7 +3007,7 @@ PanelWindow {
                                 placeholderTextColor: ThemeManager.onSurfaceVariant
                                 font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                 leftPadding: 10; rightPadding: 10
-                                background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh; border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
+                                background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh; border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.settingsOutline }
                                 onAccepted: PhoneLinkService.setName(text)
                             }
                             SettingBtn { label: I18n.tr("Save"); enabled: !PhoneLinkService.busy; onClicked: PhoneLinkService.setName(_phoneLinkName.text) }
@@ -3069,7 +3076,7 @@ PanelWindow {
                                 placeholderText: I18n.tr("Visible device name")
                                 placeholderTextColor: ThemeManager.onSurfaceVariant
                                 color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text)
-                                background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh; border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
+                                background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh; border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.settingsOutline }
                                 onAccepted: LocalSendService.setAlias(text)
                             }
                             SettingBtn { label: I18n.tr("Save"); onClicked: LocalSendService.setAlias(_localSendAlias.text) }
@@ -3248,7 +3255,7 @@ PanelWindow {
                                     Layout.fillWidth: true; implicitHeight: 54; radius: ThemeManager.chipRadius + 2
                                     readonly property bool selected: PowerProfiles.profile === modelData.value
                                     color: selected ? ThemeManager.secondaryContainer : ThemeManager.surfaceContainerLow
-                                    border.width: 1; border.color: selected ? ThemeManager.primary : ThemeManager.outlineVariant
+                                    border.width: 1; border.color: selected ? ThemeManager.primary : ThemeManager.settingsOutline
                                     ColumnLayout {
                                         anchors.centerIn: parent; spacing: 1
                                         ShellIcon {
@@ -3353,7 +3360,7 @@ PanelWindow {
                                 placeholderTextColor: ThemeManager.onSurfaceVariant
                                 font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
                                 leftPadding: 10; rightPadding: 10
-                                background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh; border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
+                                background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh; border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.settingsOutline }
                                 onAccepted: SystemControlService.setTimezone(text)
                             }
                             SettingBtn {
@@ -3462,7 +3469,7 @@ PanelWindow {
                             Layout.topMargin: 8
                             implicitWidth: _recheck.implicitWidth + 24; implicitHeight: 30
                             radius: ThemeManager.chipRadius; color: _rcH.hovered ? ThemeManager.surfaceContainerHigh : ThemeManager.surfaceContainerLow
-                            border.width: 1; border.color: ThemeManager.outlineVariant
+                            border.width: 1; border.color: ThemeManager.settingsOutline
                             Text { id: _recheck; anchors.centerIn: parent; text: I18n.tr("Re-check"); color: ThemeManager.onSurface
                                    font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
                             HoverHandler { id: _rcH }
@@ -3504,7 +3511,7 @@ PanelWindow {
             implicitHeight: _cdCol.implicitHeight + 40
             radius: ThemeManager.panelRadius + 4
             color: ThemeManager.surfaceContainer
-            border.width: 1; border.color: ThemeManager.outlineVariant
+            border.width: 1; border.color: ThemeManager.settingsOutline
             layer.enabled: true
             layer.effect: Elevation { level: 4 }
 
@@ -3645,7 +3652,7 @@ PanelWindow {
         signal clicked()
         Layout.fillWidth: true; implicitHeight: 38; radius: ThemeManager.chipRadius
         color: selected ? ThemeManager.secondaryContainer : (_audioHover.hovered ? ThemeManager.surfaceContainerHigh : ThemeManager.surfaceContainerLow)
-        border.width: 1; border.color: selected ? ThemeManager.primary : ThemeManager.outlineVariant
+        border.width: 1; border.color: selected ? ThemeManager.primary : ThemeManager.settingsOutline
         RowLayout {
             anchors { fill: parent; leftMargin: 10; rightMargin: 10 }
             spacing: 8
@@ -3676,7 +3683,7 @@ PanelWindow {
         color: active
             ? Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.14)
             : ThemeManager.surfaceContainerLow
-        border.width: 1; border.color: active ? ThemeManager.primary : ThemeManager.outlineVariant
+        border.width: 1; border.color: active ? ThemeManager.primary : ThemeManager.settingsOutline
         ColumnLayout {
             anchors.centerIn: parent; spacing: 2
             ShellIcon {
@@ -3727,7 +3734,7 @@ PanelWindow {
             background: Rectangle {
                 radius: ThemeManager.chipRadius
                 color: ThemeManager.surfaceContainerHigh
-                border.width: 1; border.color: appCombo.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant
+                border.width: 1; border.color: appCombo.activeFocus ? ThemeManager.primary : ThemeManager.settingsOutline
             }
             onActivated: index => {
                 const app = AppService.apps[index]
@@ -3742,7 +3749,7 @@ PanelWindow {
         property string value: ""
         Layout.fillWidth: true; implicitHeight: 48; radius: ThemeManager.chipRadius
         color: ThemeManager.surfaceContainerLow
-        border.width: 1; border.color: ThemeManager.outlineVariant
+        border.width: 1; border.color: ThemeManager.settingsOutline
         RowLayout {
             anchors { fill: parent; leftMargin: 12; rightMargin: 12 }
             spacing: 10
@@ -3884,7 +3891,7 @@ PanelWindow {
                     readonly property bool sel: seg.cur === seg.keys[index]
                     opacity: seg.enabled ? 1 : 0.55
                     color: sel ? ThemeManager.primary : ThemeManager.surfaceContainerHigh
-                    border.width: 1; border.color: ThemeManager.outlineVariant
+                    border.width: 1; border.color: ThemeManager.settingsOutline
                     Text { id: _st; anchors.centerIn: parent; text: modelData
                            color: sel ? ThemeManager.onPrimary : ThemeManager.onSurfaceVariant
                            font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
@@ -3901,7 +3908,7 @@ PanelWindow {
         Rectangle {
             width: 22; height: 22; radius: 5
             color: ThemeManager[clr.role] !== undefined ? ThemeManager[clr.role] : "transparent"
-            border.width: 1; border.color: ThemeManager.outlineVariant
+            border.width: 1; border.color: ThemeManager.settingsOutline
         }
         Text {
             Layout.fillWidth: true; text: clr.role
@@ -3913,7 +3920,7 @@ PanelWindow {
             color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm
             leftPadding: 8; rightPadding: 8
             background: Rectangle { radius: ThemeManager.chipRadius; color: ThemeManager.surfaceContainerHigh
-                                    border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant }
+                                    border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.settingsOutline }
             onEditingFinished: if (text !== ThemeManager.roleHex(clr.role)) ThemeManager.setRole(clr.role, text)
         }
     }
@@ -3936,7 +3943,7 @@ PanelWindow {
             background: Rectangle {
                 radius: ThemeManager.chipRadius
                 color: ThemeManager.surfaceContainerHigh
-                border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant
+                border.width: 1; border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.settingsOutline
             }
             onEditingFinished: { SettingsService.set(tx.path, text); if (tx.applyFn) tx.applyFn() }
         }
@@ -3986,7 +3993,7 @@ PanelWindow {
                     radius: ThemeManager.chipRadius
                     color: ThemeManager.surfaceContainer
                     border.width: 1
-                    border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.outlineVariant
+                    border.color: parent.activeFocus ? ThemeManager.primary : ThemeManager.settingsOutline
                 }
                 onAccepted: {
                     const value = text
@@ -4034,7 +4041,7 @@ PanelWindow {
         radius: ThemeManager.chipRadius
         opacity: enabled ? 1 : 0.4
         color: (enabled && _bH.hovered) ? ThemeManager.surfaceContainerHigh : ThemeManager.surfaceContainerLow
-        border.width: 1; border.color: danger ? ThemeManager.error : ThemeManager.outlineVariant
+        border.width: 1; border.color: danger ? ThemeManager.error : ThemeManager.settingsOutline
         Text { id: _bt; anchors.centerIn: parent; text: btn.label
                color: btn.danger ? ThemeManager.error : ThemeManager.onSurface
                font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeSm }
