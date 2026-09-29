@@ -231,5 +231,29 @@ class StaticInvariantTests(unittest.TestCase):
         self.assertIn("/var/lib/nodalix-updater", ROOT.joinpath("updater/nodalix-updater").read_text(encoding="utf-8"))
 
 
+    def test_calendar_bridge_is_packaged_and_runs_after_vdirsyncer(self) -> None:
+        pkgbuild = (ROOT / "packaging/nodalix-shell/PKGBUILD").read_text(encoding="utf-8")
+        service = (SHELL / "systemd/nodalix-icloud-sync.service").read_text(encoding="utf-8")
+        bridge = SHELL / "scripts/nodalix-calendar-bridge.py"
+        text = bridge.read_text(encoding="utf-8")
+
+        self.assertTrue(bridge.is_file())
+        self.assertIn("nodalix-calendar-bridge.py", pkgbuild)
+        self.assertIn("python-gobject", pkgbuild)
+        self.assertIn("evolution-data-server", pkgbuild)
+
+        self.assertIn("ExecStart=/usr/bin/vdirsyncer sync", service)
+        self.assertIn(
+            "ExecStartPost=/usr/bin/nodalix-calendar-bridge --sync",
+            service,
+        )
+
+        self.assertIn('EDS_UID = "nodalix-calendar"', text)
+        self.assertIn("EDataServer.Source.new_with_uid", text)
+        self.assertIn("get_objects_for_uid_sync", text)
+        self.assertIn("ECal.ObjModType.THIS", text)
+        self.assertIn("X-NODALIX-SOURCE-FILE:", text)
+
+
 if __name__ == "__main__":
     unittest.main()

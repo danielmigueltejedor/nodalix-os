@@ -50,6 +50,22 @@ QtObject {
     function eventsOn(dateStr) { return eventsByDate[dateStr] || [] }
     function hasEvents(dateStr) { const e = eventsByDate[dateStr]; return !!e && e.length > 0 }
 
+    function refresh() {
+        loadMonth(_lastView)
+    }
+
+    // Dependency detection is asynchronous. MonthCalendar can be created before
+    // khal/other calendar backends have been probed, leaving the initial view
+    // empty until the user changes month. Reload as soon as dependencies settle.
+    property Connections _dependencyWatcher: Connections {
+        target: DependencyService
+
+        function onRevChanged() {
+            if (root.available)
+                root.refresh()
+        }
+    }
+
     function createEvent(dateStr, startTime, endTime, summary, location) {
         if (busy || !summary || !canCreate) return
         busy = true

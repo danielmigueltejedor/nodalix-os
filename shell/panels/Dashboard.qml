@@ -88,7 +88,16 @@ Item {
     Connections {
         target: PopoutService
         function onCurrentNameChanged() {
-            if (PopoutService.currentName !== "dashboard") { root._confirmAction = ""; root.calSelectedDate = ""; root.qsKey = ""; root.tab = "home"; root._playerMenu = false }
+            if (PopoutService.currentName === "dashboard") {
+                root.now = new Date()
+                CalendarService.refresh()
+            } else {
+                root._confirmAction = ""
+                root.calSelectedDate = ""
+                root.qsKey = ""
+                root.tab = "home"
+                root._playerMenu = false
+            }
         }
     }
     function _runConfirm() {

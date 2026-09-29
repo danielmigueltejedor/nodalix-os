@@ -1,5 +1,5 @@
 [Unit]
-Description=Synchronize iCloud and ULE calendars for Nodalix
+Description=Synchronize Nodalix calendars and mirror them to GNOME Calendar
 After=network-online.target
 Wants=network-online.target
 ConditionPathExists=%h/.config/vdirsyncer/config
@@ -8,3 +8,4 @@ ConditionPathExists=/usr/bin/vdirsyncer
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/vdirsyncer sync
+ExecStartPost=/usr/bin/nodalix-calendar-bridge --sync
