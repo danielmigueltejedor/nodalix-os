@@ -20,6 +20,22 @@ class ReleaseUpgradePolicyTests(unittest.TestCase):
         self.assertIn("--noscriptlet", script)
         self.assertNotIn("--overwrite", script)
 
+    def test_ownership_queries_files_inside_fake_root(self) -> None:
+        script = (
+            ROOT
+            / "tools"
+            / "test-package-upgrade.sh"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            'pacman_root -Qoq "$ROOT/$rel"',
+            script,
+        )
+        self.assertNotIn(
+            'pacman_root -Qoq "$path"',
+            script,
+        )
+
     def test_release_requires_real_upgrade_job(self) -> None:
         workflow = (
             ROOT

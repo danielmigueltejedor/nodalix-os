@@ -166,7 +166,7 @@ for pkg in "${candidate[@]}"; do
         esac
 
         path="/$rel"
-        owner=$(pacman_root -Qoq "$path" 2>/dev/null || true)
+        owner=$(pacman_root -Qoq "$ROOT/$rel" 2>/dev/null || true)
 
         if [[ "$owner" != "$name" ]]; then
             echo "Ownership mismatch: $path expected $name, got ${owner:-UNOWNED}" >&2
