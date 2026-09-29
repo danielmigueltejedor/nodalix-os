@@ -12,3 +12,4 @@ ContextMenu       1.0 ContextMenu.qml
 ShortcutGuide 1.0 ShortcutGuide.qml
 
 WallpaperGallery 1.0 WallpaperGallery.qml
+RecoverySettings  1.0 RecoverySettings.qml

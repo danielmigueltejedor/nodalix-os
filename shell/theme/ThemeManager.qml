@@ -71,6 +71,15 @@ QtObject {
     readonly property color shadow:               _role("shadow",               "#000000")
     readonly property color scrim:                _role("scrim",                "#000000")
 
+    // Unified adaptive glass material for the whole shell.
+    // The Material surface comes from the active wallpaper/theme palette;
+    // alpha lets the wallpaper participate in the final appearance.
+    readonly property real shellOpacity: 0.76
+    readonly property color shellGlass:
+        Qt.rgba(surface.r, surface.g, surface.b, shellOpacity)
+    readonly property color glassRim:
+        Qt.rgba(1, 1, 1, isDark ? 0.12 : 0.22)
+
     // ── Meta ─────────────────────────────────────────────────────────────────
     readonly property bool   isDark: _data.dark !== undefined ? _data.dark : true
     readonly property string name:   _data.name  !== undefined ? _data.name  : ""

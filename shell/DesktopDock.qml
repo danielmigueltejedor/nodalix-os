@@ -12,11 +12,11 @@ PanelWindow {
     id: root
     required property var modelData
     screen: modelData
-    visible: WindowLayoutService.mode === "desktop" || WindowLayoutService.mode === "scrolling"
+    visible: WindowLayoutService.mode === "desktop"
     anchors.bottom: true
     margins.bottom: 0
     readonly property bool expanded: LauncherService.open && LauncherService.screenName === modelData.name
-    readonly property real dockWidth: Math.min(modelData.width - 40, Math.max(380, tasks.implicitWidth + (WindowLayoutService.mode === "scrolling" ? 360 : 260)))
+    readonly property real dockWidth: Math.min(modelData.width - 40, Math.max(380, tasks.implicitWidth + 260))
     readonly property real drawerWidth: dockWidth
     readonly property real maxDrawerHeight: Math.min(640, modelData.height - 150)
     readonly property real drawerHeight: Math.min(maxDrawerHeight, launcherContent.item ? launcherContent.item.implicitHeight : 420)
@@ -28,7 +28,7 @@ PanelWindow {
     implicitHeight: 64 + maxDrawerHeight
     exclusiveZone: 72
     color: "transparent"
-    WlrLayershell.namespace: "nodalix-dock"
+    WlrLayershell.namespace: "nodalix-shell"
     WlrLayershell.layer: WlrLayer.Top
     mask: Region {
         Region { item: dockBody }
@@ -42,13 +42,12 @@ PanelWindow {
         anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom }
         width: root.dockWidth
         height: 64 + root.drawerHeight * root.reveal
-        radius: 21 + 5 * root.reveal
-        color: ThemeManager.surface
-        Rectangle {
-            anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
-            height: parent.radius
-            color: ThemeManager.surface
-        }
+        topLeftRadius: 21 + 5 * root.reveal
+        topRightRadius: 21 + 5 * root.reveal
+        bottomLeftRadius: 0
+        bottomRightRadius: 0
+        opacity: ThemeManager.shellOpacity
+        color: ThemeManager.shellGlass
     }
     Item {
         id: drawer
@@ -74,9 +73,7 @@ PanelWindow {
             anchors { fill: parent; margins: 8 }
             spacing: 6
             DockButton { text: "☰"; Accessible.name: I18n.tr("App launcher"); highlighted: root.expanded; onClicked: LauncherService.toggle(root.modelData.name) }
-            DockButton { text: "▦"; Accessible.name: I18n.tr("Window overview"); onClicked: Quickshell.execDetached(["python3", Paths.configDir + "/scripts/nodalix-overview.py"]) }
-            DockButton { visible: WindowLayoutService.mode === "scrolling"; text: "←"; Accessible.name: I18n.tr("Previous column"); onClicked: Hyprland.dispatch('hl.dsp.focus({direction="l"})') }
-            DockButton { visible: WindowLayoutService.mode === "scrolling"; text: "→"; Accessible.name: I18n.tr("Next column"); onClicked: Hyprland.dispatch('hl.dsp.focus({direction="r"})') }
+            DockButton { text: "▦"; Accessible.name: I18n.tr("Window overview"); onClicked: Quickshell.execDetached(["nodalix-overview"]) }
             ScrollView {
                 Layout.fillWidth: true; Layout.fillHeight: true
                 clip: true

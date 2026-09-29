@@ -258,6 +258,7 @@ QtObject {
         "Could not change the update channel": "No se pudo cambiar el canal de actualizaciones",
         "Included components": "Componentes incluidos", "Included": "Incluido", "Will update": "Se actualizará",
         "Restart required": "Reinicio necesario", "View release notes": "Ver notas de la versión",
+        "Show more": "Mostrar más", "Show less": "Mostrar menos",
         "Install Nodalix update": "Instalar actualización de Nodalix",
         "Installing Nodalix update…": "Instalando la actualización de Nodalix…",
         "Nodalix Shell": "Shell de Nodalix", "Nodalix applications": "Aplicaciones de Nodalix", "Nodalix themes": "Temas de Nodalix",

@@ -24,6 +24,7 @@ PanelWindow {
     anchors        { top: true; bottom: true; left: true; right: true }
     exclusionMode: ExclusionMode.Ignore
     color:         "transparent"
+    WlrLayershell.namespace: "nodalix-shell"
 
     // ── Notification panel state ──────────────────────────────────────────────
     readonly property bool _notifOpen: NotificationService.centerOpen &&
@@ -370,15 +371,15 @@ PanelWindow {
     // ── Blob visual layer ─────────────────────────────────────────────────────
     Item {
         id: blobLayer
+        opacity: ThemeManager.shellOpacity
         anchors.fill: parent
 
         // Material elevation — the whole shell frame + popouts cast a shadow.
         layer.enabled: true
-        layer.effect: Elevation { level: 4 }
 
         BlobGroup {
             id: blobs
-            color:     ThemeManager.surface
+            color:     ThemeManager.shellGlass
             smoothing: 60
         }
 
@@ -467,7 +468,7 @@ PanelWindow {
         x: root._incomingX; y: root._incomingY
         width: root._incomingW; height: root._incomingH
         radius: ThemeManager.panelRadius
-        color: ThemeManager.surfaceContainerHigh
+        color: ThemeManager.shellGlass
         border.width: 1
         border.color: Qt.rgba(ThemeManager.primary.r, ThemeManager.primary.g, ThemeManager.primary.b, 0.55)
         layer.enabled: true
@@ -539,7 +540,7 @@ PanelWindow {
         Rectangle {
             anchors.fill: parent
             radius: ThemeManager.panelRadius
-            color: ThemeManager.surface
+            color: "transparent"
         }
 
         HoverHandler { onHoveredChanged: NotificationService.panelHovered = hovered }
@@ -569,7 +570,7 @@ PanelWindow {
         Rectangle {
             anchors.fill: parent
             radius: ThemeManager.panelRadius
-            color: ThemeManager.surface
+            color: "transparent"
         }
 
         HoverHandler { onHoveredChanged: PopoutService.panelHovered = hovered }

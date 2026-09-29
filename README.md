@@ -106,7 +106,7 @@ Nodalix includes a system updater instead of relying on manual release downloads
 
 Updates can be managed graphically from:
 
-**Settings → Applications → Nodalix OS updates**
+**Settings → System → Updates**
 
 The update interface handles:
 

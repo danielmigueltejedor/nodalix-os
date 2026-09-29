@@ -62,6 +62,21 @@ class ReleaseUpgradePolicyTests(unittest.TestCase):
         self.assertIn("nodalix-cursor-theme-*.pkg.tar.zst", workflow)
         self.assertIn("test-package-upgrade.sh", workflow)
 
+    def test_upgrade_script_executes_cursor_migration(self) -> None:
+        script = (
+            ROOT
+            / "tools"
+            / "test-package-upgrade.sh"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("migrate-cursor-theme", script)
+        self.assertIn('NODALIX_ROOT="$ROOT"', script)
+        self.assertIn("legacy-Nodalix-*", script)
+        self.assertIn(
+            "/usr/share/nodalix/cursor-theme/Nodalix",
+            script,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

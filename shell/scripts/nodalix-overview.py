@@ -23,7 +23,7 @@ def main():
                 return 0
             return subprocess.call(['hyprctl', 'plugin', 'load', str(PLUGIN)])
         if loaded:
-            result = subprocess.run(['hyprctl', 'dispatch', 'hl.plugin.hymission.toggle()'], capture_output=True)
+            result = subprocess.run(["hyprctl", "eval", "hl.plugin.hymission.toggle()"], capture_output=True)
             if result.returncode == 0:
                 return 0
     except (OSError, ValueError, subprocess.SubprocessError):

@@ -88,6 +88,40 @@ fi
 echo "=== Installing candidate ==="
 install_packages "${candidate[@]}"
 
+echo "=== Running packaged migrations ==="
+
+migrator="$ROOT/usr/lib/nodalix/migrate-cursor-theme"
+
+if [[ -x "$migrator" ]]; then
+    NODALIX_ROOT="$ROOT" "$migrator"
+fi
+
+cursor_payload="$ROOT/usr/share/nodalix/cursor-theme/Nodalix"
+cursor_link="$ROOT/usr/share/icons/Nodalix"
+
+if [[ -d "$cursor_payload/cursors" ]]; then
+    if [[ ! -L "$cursor_link" ]]; then
+        echo "Nodalix cursor compatibility link was not created" >&2
+        exit 1
+    fi
+
+    link_target=$(readlink "$cursor_link")
+
+    if [[ "$link_target" != "/usr/share/nodalix/cursor-theme/Nodalix" ]]; then
+        echo "Unexpected cursor link target: $link_target" >&2
+        exit 1
+    fi
+fi
+
+if [[ "$SCENARIO" == "legacy-cursor" ]]; then
+    migration_dir="$ROOT/var/lib/nodalix-updater/migrations/cursor-theme-layout-v1"
+
+    if ! compgen -G "$migration_dir/legacy-Nodalix-*" >/dev/null; then
+        echo "Legacy cursor backup was not created" >&2
+        exit 1
+    fi
+fi
+
 echo "=== Validating installed package versions ==="
 
 for pkg in "${candidate[@]}"; do
