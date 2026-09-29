@@ -29,6 +29,10 @@ PUBLIC_KEY_PATH = Path(os.environ.get("NODALIX_UPDATER_PUBLIC_KEY", "/usr/share/
 HISTORY_PATH = STATE_DIR / "history.jsonl"
 STATUS_PATH = STATE_DIR / "status.json"
 LOCK_PATH = STATE_DIR / "update.lock"
+PACMAN_LOCK_PATH = Path(os.environ.get(
+    "NODALIX_PACMAN_LOCK",
+    "/var/lib/pacman/db.lck",
+))
 DEFAULT_CONFIG = {
     "repository": "danielmigueltejedor/nodalix-os",
     "channel": "stable",
@@ -92,6 +96,45 @@ class MigrationFailedError(UpdaterError):
     status = "migration_failed"
     recoverable = False
 
+
+class PackageTransactionError(UpdaterError):
+    code = "package_transaction_failed"
+    status = "install_failed"
+    recoverable = False
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        returncode: int | None = None,
+        target_version: str | None = None,
+        log_path: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.returncode = returncode
+        self.target_version = target_version
+        self.log_path = log_path
+
+
+
+class PackagePreflightError(UpdaterError):
+    code = "package_conflict"
+    status = "preflight_failed"
+    recoverable = True
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        target_version: str | None = None,
+        conflicts: list[dict] | None = None,
+        log_path: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.target_version = target_version
+        self.conflicts = conflicts or []
+        self.conflict_count = len(self.conflicts)
+        self.log_path = log_path
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -692,6 +735,237 @@ def fail_closed(info: dict, action: str) -> None:
     raise error_type(str(message))
 
 
+
+def package_payload(package: str) -> tuple[str, list[str]]:
+    info = subprocess.run(
+        ["bsdtar", "-xOf", package, ".PKGINFO"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+
+    if info.returncode != 0:
+        raise PackagePreflightError(
+            f"No se pudo inspeccionar {Path(package).name}: {info.stderr.strip()}"
+        )
+
+    package_name = ""
+
+    for line in info.stdout.splitlines():
+        if line.startswith("pkgname = "):
+            package_name = line.split("=", 1)[1].strip()
+            break
+
+    if not package_name:
+        raise PackagePreflightError(
+            f"No se pudo determinar el nombre de {Path(package).name}"
+        )
+
+    listing = subprocess.run(
+        ["bsdtar", "-tf", package],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        check=False,
+    )
+
+    if listing.returncode != 0:
+        raise PackagePreflightError(
+            f"No se pudo listar {Path(package).name}: {listing.stderr.strip()}"
+        )
+
+    paths: list[str] = []
+
+    for raw in listing.stdout.splitlines():
+        raw = raw.strip()
+
+        if not raw or raw.endswith("/"):
+            continue
+
+        while raw.startswith("./"):
+            raw = raw[2:]
+
+        if raw in {
+            ".BUILDINFO",
+            ".INSTALL",
+            ".MTREE",
+            ".PKGINFO",
+        }:
+            continue
+
+        candidate = Path(raw)
+
+        if candidate.is_absolute() or ".." in candidate.parts:
+            raise PackagePreflightError(
+                f"Ruta insegura dentro de {Path(package).name}: {raw}"
+            )
+
+        paths.append(raw)
+
+    return package_name, paths
+
+
+def installed_path_owner(path: Path) -> str | None:
+    result = subprocess.run(
+        ["pacman", "-Qoq", str(path)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        check=False,
+    )
+
+    if result.returncode != 0:
+        return None
+
+    owner = result.stdout.strip().splitlines()
+
+    return owner[0] if owner else None
+
+
+def package_conflicts(
+    packages: list[str],
+    *,
+    root: Path = Path("/"),
+    payload_reader=None,
+    owner_lookup=None,
+) -> list[dict]:
+    read_payload = payload_reader or package_payload
+    lookup_owner = owner_lookup or installed_path_owner
+    conflicts: list[dict] = []
+
+    for package in packages:
+        package_name, paths = read_payload(package)
+
+        for relative in paths:
+            target = root / relative
+
+            if not target.exists() and not target.is_symlink():
+                continue
+
+            owner = lookup_owner(target)
+
+            if owner == package_name:
+                continue
+
+            conflicts.append(
+                {
+                    "package": package_name,
+                    "path": "/" + relative.lstrip("/"),
+                    "kind": "unowned" if owner is None else "other_owner",
+                    "owner": owner,
+                }
+            )
+
+    return conflicts
+
+
+def run_package_preflight(
+    packages: list[str],
+    *,
+    target_version: str,
+) -> list[dict]:
+    log_path = STATE_DIR / "last-preflight.json"
+    log_path.unlink(missing_ok=True)
+
+    conflicts = package_conflicts(packages)
+
+    if not conflicts:
+        return []
+
+    payload = {
+        "target_version": target_version,
+        "conflict_count": len(conflicts),
+        "conflicts": conflicts,
+    }
+
+    atomic_json(log_path, payload)
+
+    lines = []
+
+    for conflict in conflicts[:20]:
+        owner = conflict.get("owner")
+
+        if owner:
+            detail = f"pertenece a {owner}"
+        else:
+            detail = "existe sin pertenecer a ningún paquete"
+
+        lines.append(
+            f"{conflict[package]}: {conflict[path]} ({detail})"
+        )
+
+    if len(conflicts) > 20:
+        lines.append(
+            f"... y {len(conflicts) - 20} conflictos más"
+        )
+
+    raise PackagePreflightError(
+        "La actualización no puede comenzar porque hay "
+        "conflictos de archivos:\n"
+        + "\n".join(lines),
+        target_version=target_version,
+        conflicts=conflicts,
+        log_path=str(log_path),
+    )
+
+def pacman_log_path() -> Path:
+    return STATE_DIR / "last-pacman.log"
+
+
+def ensure_pacman_available() -> None:
+    if PACMAN_LOCK_PATH.exists():
+        raise BusyError(
+            "pacman está siendo utilizado por otro proceso; "
+            "espera a que termine antes de actualizar Nodalix"
+        )
+
+
+def run_pacman_transaction(
+    packages: list[str],
+    *,
+    target_version: str,
+) -> None:
+    ensure_pacman_available()
+
+    command = [
+        "pacman",
+        "-U",
+        "--noconfirm",
+        "--needed",
+        *packages,
+    ]
+
+    log_path = pacman_log_path()
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    result = subprocess.run(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
+    )
+
+    output = result.stdout if isinstance(result.stdout, str) else ""
+    atomic_text(log_path, output)
+
+    if result.returncode != 0:
+        tail = "\n".join(output.splitlines()[-40:]).strip()
+        message = f"pacman falló con código {result.returncode}"
+        if tail:
+            message += ":" + "\n" + tail
+
+        raise PackageTransactionError(
+            message,
+            returncode=result.returncode,
+            target_version=target_version,
+            log_path=str(log_path),
+        )
+
+    if output:
+        print(output, end="" if output.endswith("\n") else "\n")
+
 def do_update(config: dict, force: bool = False) -> dict:
     if os.geteuid() != 0:
         raise UpdaterError("Usa: sudo nodalix-updater update")
@@ -787,6 +1061,22 @@ def do_update(config: dict, force: bool = False) -> dict:
         except MigrationError as error:
             raise MigrationFailedError(str(error)) from error
         set_status(
+            "preflight",
+            status="preflight",
+            stage="preflight",
+            version=manifest["version"],
+            target_version=target_version,
+            current_version=previous,
+            components=[item["id"] for item in components],
+            last_error=None,
+        )
+
+        run_package_preflight(
+            packages,
+            target_version=target_version,
+        )
+
+        set_status(
             "installing",
             status="installing",
             stage="installing",
@@ -800,9 +1090,9 @@ def do_update(config: dict, force: bool = False) -> dict:
         # already-loaded Python process; do not re-exec mid-transaction.
         # Known 0.1.1 leftovers are removed by migrations; unknown conflicts
         # must still abort with the normal pacman error.
-        subprocess.run(
-            ["pacman", "-U", "--noconfirm", "--needed", *packages],
-            check=True,
+        run_pacman_transaction(
+            packages,
+            target_version=target_version,
         )
         reload_systemd_units(components)
         installed = current_version()
@@ -907,6 +1197,24 @@ def error_payload(error: UpdaterError, current: str | None = None) -> dict:
     }
     if current is not None:
         payload["current_version"] = current
+
+    target_version = getattr(error, "target_version", None)
+    if target_version is not None:
+        payload["target_version"] = target_version
+
+    returncode = getattr(error, "returncode", None)
+    if returncode is not None:
+        payload["returncode"] = returncode
+
+    log_path = getattr(error, "log_path", None)
+    if log_path is not None:
+        payload["log_path"] = log_path
+
+    conflicts = getattr(error, "conflicts", None)
+    if conflicts:
+        payload["conflicts"] = conflicts
+        payload["conflict_count"] = len(conflicts)
+
     return payload
 
 
@@ -974,7 +1282,11 @@ def main() -> int:
         return 0
     except UpdaterError as error:
         payload = error_payload(error, current)
-        payload["stage"] = error.status if error.status in {"migration_failed", "install_failed"} else "failed"
+        payload["stage"] = error.status if error.status in {
+            "migration_failed",
+            "preflight_failed",
+            "install_failed",
+        } else "failed"
         payload["last_error"] = str(error)
         payload["target_version"] = payload.get("target_version")
         with contextlib.suppress(OSError):

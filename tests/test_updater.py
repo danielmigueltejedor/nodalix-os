@@ -287,6 +287,7 @@ class UpdateTransactionTests(unittest.TestCase):
             UPDATER.HISTORY_PATH,
             UPDATER.STATUS_PATH,
             UPDATER.LOCK_PATH,
+            UPDATER.PACMAN_LOCK_PATH,
         )
         UPDATER.RELEASE_PATH = self.root / "nodalix-release"
         UPDATER.STATE_DIR = self.root / "state"
@@ -294,6 +295,7 @@ class UpdateTransactionTests(unittest.TestCase):
         UPDATER.HISTORY_PATH = UPDATER.STATE_DIR / "history.jsonl"
         UPDATER.STATUS_PATH = UPDATER.STATE_DIR / "status.json"
         UPDATER.LOCK_PATH = UPDATER.STATE_DIR / "update.lock"
+        UPDATER.PACMAN_LOCK_PATH = self.root / "pacman-db.lck"
         UPDATER.RELEASE_PATH.write_text('VERSION_ID="0.1.1"\n', encoding="utf-8")
         # Transaction tests exercise downloading, verification and pacman as
         # isolated units. Migration behavior has its own fixture-backed suite
@@ -301,7 +303,17 @@ class UpdateTransactionTests(unittest.TestCase):
         self.migrations = mock.patch.object(UPDATER, "run_migrations", return_value=[])
         self.migrations.start()
 
+        # Preflight behavior has dedicated tests. Transaction tests isolate
+        # downloading, pacman execution, rollback and history semantics.
+        self.preflight = mock.patch.object(
+            UPDATER,
+            "run_package_preflight",
+            return_value=[],
+        )
+        self.preflight.start()
+
     def tearDown(self) -> None:
+        self.preflight.stop()
         self.migrations.stop()
         (
             UPDATER.RELEASE_PATH,
@@ -310,9 +322,9 @@ class UpdateTransactionTests(unittest.TestCase):
             UPDATER.HISTORY_PATH,
             UPDATER.STATUS_PATH,
             UPDATER.LOCK_PATH,
+            UPDATER.PACMAN_LOCK_PATH,
         ) = self.original_paths
         self.temporary.cleanup()
-
     def info(self, value: dict) -> dict:
         assets = [
             {"name": item["asset"], "browser_download_url": f"fixture://{item['id']}"}
@@ -428,7 +440,7 @@ class UpdateTransactionTests(unittest.TestCase):
                 return mock.Mock(returncode=1, stdout="", stderr="")
             if command[:1] == ["systemctl"]:
                 return mock.Mock(returncode=0)
-            raise UPDATER.subprocess.CalledProcessError(1, command)
+            return mock.Mock(returncode=1, stdout='error: failed to commit transaction (conflicting files)\nnodalix-cursor-theme: /usr/share/icons/Nodalix/index.theme exists in filesystem\n')
 
         with (
             mock.patch.object(UPDATER.os, "geteuid", return_value=0),
@@ -437,10 +449,77 @@ class UpdateTransactionTests(unittest.TestCase):
             mock.patch.object(UPDATER, "download_to", side_effect=self.download),
             mock.patch.object(UPDATER.subprocess, "run", side_effect=run),
         ):
-            with self.assertRaises(UPDATER.subprocess.CalledProcessError):
+            with self.assertRaises(UPDATER.PackageTransactionError) as ctx:
                 UPDATER.do_update({})
+
+        self.assertIn("conflicting files", str(ctx.exception))
+        self.assertIn("exists in filesystem", str(ctx.exception))
         self.assertEqual(UPDATER.current_version(), "0.1.1")
         self.assertFalse(UPDATER.HISTORY_PATH.exists())
+        self.assertTrue(UPDATER.pacman_log_path().exists())
+
+    def test_preflight_failure_prevents_pacman_transaction(self) -> None:
+        value = manifest()
+
+        error = UPDATER.PackagePreflightError(
+            "conflicting files",
+            target_version="0.2.0",
+            conflicts=[
+                {
+                    "package": "nodalix-cursor-theme",
+                    "path": "/usr/share/icons/Nodalix/index.theme",
+                    "kind": "unowned",
+                    "owner": None,
+                }
+            ],
+        )
+
+        with (
+            mock.patch.object(
+                UPDATER.os,
+                "geteuid",
+                return_value=0,
+            ),
+            mock.patch.object(
+                UPDATER,
+                "release_info",
+                return_value=self.info(value),
+            ),
+            mock.patch.object(
+                UPDATER,
+                "package_installed",
+                return_value=True,
+            ),
+            mock.patch.object(
+                UPDATER,
+                "download_to",
+                side_effect=self.download,
+            ),
+            mock.patch.object(
+                UPDATER,
+                "run_package_preflight",
+                side_effect=error,
+            ),
+            mock.patch.object(
+                UPDATER,
+                "run_pacman_transaction",
+            ) as transaction,
+        ):
+            with self.assertRaises(
+                UPDATER.PackagePreflightError
+            ):
+                UPDATER.do_update({})
+
+        transaction.assert_not_called()
+
+        self.assertEqual(
+            UPDATER.current_version(),
+            "0.1.1",
+        )
+
+        self.assertFalse(
+            UPDATER.HISTORY_PATH.exists()
+        )
 
     def test_pacman_is_not_called_with_overwrite(self) -> None:
         value = manifest()
@@ -465,6 +544,150 @@ class UpdateTransactionTests(unittest.TestCase):
             UPDATER.do_update({})
         self.assertTrue(any(cmd[:2] == ["pacman", "-U"] for cmd in seen))
         self.assertFalse(any("--overwrite" in cmd for cmd in seen))
+
+
+
+class PacmanTransactionTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary = tempfile.TemporaryDirectory()
+        self.root = Path(self.temporary.name)
+        self.old_state = UPDATER.STATE_DIR
+        self.old_lock = UPDATER.PACMAN_LOCK_PATH
+        UPDATER.STATE_DIR = self.root / "state"
+        UPDATER.PACMAN_LOCK_PATH = self.root / "db.lck"
+
+    def tearDown(self) -> None:
+        UPDATER.STATE_DIR = self.old_state
+        UPDATER.PACMAN_LOCK_PATH = self.old_lock
+        self.temporary.cleanup()
+
+    def test_pacman_failure_persists_full_output(self) -> None:
+        output = 'error: failed to commit transaction (conflicting files)\nnodalix-cursor-theme: /usr/share/icons/Nodalix/index.theme exists in filesystem\n'
+        result = mock.Mock(returncode=1, stdout=output)
+
+        with mock.patch.object(
+            UPDATER.subprocess,
+            "run",
+            return_value=result,
+        ):
+            with self.assertRaises(UPDATER.PackageTransactionError) as ctx:
+                UPDATER.run_pacman_transaction(
+                    ["/tmp/nodalix.pkg.tar.zst"],
+                    target_version="0.2.3",
+                )
+
+        self.assertEqual(UPDATER.pacman_log_path().read_text(), output)
+        self.assertIn("exists in filesystem", str(ctx.exception))
+        self.assertEqual(ctx.exception.returncode, 1)
+        self.assertEqual(ctx.exception.target_version, "0.2.3")
+
+    def test_pacman_lock_blocks_transaction(self) -> None:
+        UPDATER.PACMAN_LOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
+        UPDATER.PACMAN_LOCK_PATH.touch()
+
+        with mock.patch.object(UPDATER.subprocess, "run") as run:
+            with self.assertRaises(UPDATER.BusyError):
+                UPDATER.run_pacman_transaction(
+                    ["/tmp/nodalix.pkg.tar.zst"],
+                    target_version="0.2.3",
+                )
+
+        run.assert_not_called()
+
+    def test_successful_transaction_also_writes_log(self) -> None:
+        output = 'transaction completed\n'
+        result = mock.Mock(returncode=0, stdout=output)
+
+        with mock.patch.object(
+            UPDATER.subprocess,
+            "run",
+            return_value=result,
+        ):
+            UPDATER.run_pacman_transaction(
+                ["/tmp/nodalix.pkg.tar.zst"],
+                target_version="0.2.3",
+            )
+
+        self.assertEqual(
+            UPDATER.pacman_log_path().read_text(),
+            output,
+        )
+
+    def test_preflight_detects_unowned_cursor_from_0_2_2(self) -> None:
+        cursor = (
+            self.root
+            / "usr/share/icons/Nodalix/index.theme"
+        )
+        cursor.parent.mkdir(parents=True)
+        cursor.write_text("legacy cursor", encoding="utf-8")
+
+        def payload(_package: str):
+            return (
+                "nodalix-cursor-theme",
+                [
+                    "usr/share/icons/Nodalix/index.theme",
+                ],
+            )
+
+        conflicts = UPDATER.package_conflicts(
+            ["/tmp/nodalix-cursor-theme.pkg.tar.zst"],
+            root=self.root,
+            payload_reader=payload,
+            owner_lookup=lambda _path: None,
+        )
+
+        self.assertEqual(len(conflicts), 1)
+        self.assertEqual(
+            conflicts[0]["path"],
+            "/usr/share/icons/Nodalix/index.theme",
+        )
+        self.assertEqual(
+            conflicts[0]["kind"],
+            "unowned",
+        )
+        self.assertIsNone(conflicts[0]["owner"])
+
+    def test_preflight_allows_file_owned_by_same_package(self) -> None:
+        target = self.root / "usr/share/nodalix/file"
+        target.parent.mkdir(parents=True)
+        target.write_text("old", encoding="utf-8")
+
+        conflicts = UPDATER.package_conflicts(
+            ["/tmp/shell.pkg.tar.zst"],
+            root=self.root,
+            payload_reader=lambda _package: (
+                "nodalix-shell",
+                ["usr/share/nodalix/file"],
+            ),
+            owner_lookup=lambda _path: "nodalix-shell",
+        )
+
+        self.assertEqual(conflicts, [])
+
+    def test_preflight_detects_file_owned_by_other_package(self) -> None:
+        target = self.root / "usr/share/nodalix/file"
+        target.parent.mkdir(parents=True)
+        target.write_text("existing", encoding="utf-8")
+
+        conflicts = UPDATER.package_conflicts(
+            ["/tmp/shell.pkg.tar.zst"],
+            root=self.root,
+            payload_reader=lambda _package: (
+                "nodalix-shell",
+                ["usr/share/nodalix/file"],
+            ),
+            owner_lookup=lambda _path: "some-other-package",
+        )
+
+        self.assertEqual(len(conflicts), 1)
+        self.assertEqual(
+            conflicts[0]["kind"],
+            "other_owner",
+        )
+        self.assertEqual(
+            conflicts[0]["owner"],
+            "some-other-package",
+        )
 
 
 if __name__ == "__main__":

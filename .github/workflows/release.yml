@@ -209,10 +209,131 @@ jobs:
           path: dist/packages/*
           if-no-files-found: error
 
+  upgrade-test:
+    needs:
+      - test
+      - build
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.test.outputs.release_tag }}
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: nodalix-packages
+          path: dist/packages
+
+      - name: Resolve previous stable releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ needs.test.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p dist/upgrade-baselines
+
+          mapfile -t BASELINES < <(
+            gh api \
+              --paginate \
+              "repos/$GITHUB_REPOSITORY/releases" \
+              --jq '.[] | select(.draft == false and .prerelease == false) | .tag_name' \
+            | sed 's/^v//' \
+            | grep -vx "$RELEASE_TAG" \
+            | sort -V \
+            | tail -n 2
+          )
+
+          if (( ${#BASELINES[@]} == 0 )); then
+            echo "::error::No previous stable release found"
+            exit 1
+          fi
+
+          printf 'Testing baselines:'
+          printf ' %s' "${BASELINES[@]}"
+          printf '\n'
+
+          for version in "${BASELINES[@]}"; do
+            mkdir -p "dist/upgrade-baselines/$version"
+
+            gh release download \
+              "$version" \
+              --repo "$GITHUB_REPOSITORY" \
+              --pattern '*.pkg.tar.zst' \
+              --dir "dist/upgrade-baselines/$version"
+          done
+
+          printf '%s\n' "${BASELINES[@]}" \
+            > dist/upgrade-baselines/versions.txt
+
+      - name: Test clean candidate package set
+        env:
+          RELEASE_TAG: ${{ needs.test.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          mkdir -p dist/upgrade-baselines/clean
+
+          docker run --rm \
+            -v "$PWD":/src \
+            -w /src \
+            archlinux:latest \
+            bash -lc "
+              pacman -Syu --noconfirm &&
+              /src/tools/test-package-upgrade.sh \
+                /src/dist/upgrade-baselines/clean \
+                /src/dist/packages \
+                '$RELEASE_TAG' \
+                clean
+            "
+
+      - name: Test upgrades from previous stable releases
+        env:
+          RELEASE_TAG: ${{ needs.test.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+
+          mapfile -t BASELINES \
+            < dist/upgrade-baselines/versions.txt
+
+          for version in "${BASELINES[@]}"; do
+            scenario=normal
+
+            if ! compgen -G \
+              "dist/upgrade-baselines/$version/nodalix-cursor-theme-*.pkg.tar.zst" \
+              >/dev/null
+            then
+              scenario=legacy-cursor
+            fi
+
+            echo
+            echo "========================================"
+            echo "Testing $version -> $RELEASE_TAG"
+            echo "Scenario: $scenario"
+            echo "========================================"
+
+            docker run --rm \
+              -v "$PWD":/src \
+              -w /src \
+              archlinux:latest \
+              bash -lc "
+                pacman -Syu --noconfirm &&
+                /src/tools/test-package-upgrade.sh \
+                  '/src/dist/upgrade-baselines/$version' \
+                  /src/dist/packages \
+                  '$RELEASE_TAG' \
+                  '$scenario'
+              "
+          done
+
   iso:
     needs:
       - test
       - build
+      - upgrade-test
 
     if: needs.test.outputs.stable == 'true'
 
@@ -303,12 +424,14 @@ jobs:
     needs:
       - test
       - build
+      - upgrade-test
       - iso
 
     if: >-
       always() &&
       needs.test.result == 'success' &&
       needs.build.result == 'success' &&
+      needs.upgrade-test.result == 'success' &&
       (
         needs.test.outputs.stable != 'true' ||
         needs.iso.result == 'success'
