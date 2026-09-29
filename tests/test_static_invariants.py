@@ -242,15 +242,19 @@ class StaticInvariantTests(unittest.TestCase):
         self.assertIn("python-gobject", pkgbuild)
         self.assertIn("evolution-data-server", pkgbuild)
 
-        self.assertIn("ExecStart=/usr/bin/vdirsyncer sync", service)
-        self.assertIn(
-            "ExecStartPost=/usr/bin/nodalix-calendar-bridge --sync",
-            service,
-        )
+        export = "ExecStart=/usr/bin/nodalix-calendar-bridge --export"
+        sync = "ExecStart=/usr/bin/vdirsyncer sync"
+        import_ = "ExecStart=/usr/bin/nodalix-calendar-bridge --import"
 
-        self.assertIn('EDS_UID = "nodalix-calendar"', text)
+        self.assertIn(export, service)
+        self.assertIn(sync, service)
+        self.assertIn(import_, service)
+        self.assertLess(service.index(export), service.index(sync))
+        self.assertLess(service.index(sync), service.index(import_))
+
+        self.assertIn("nodalix-calendar", text)
         self.assertIn("EDataServer.Source.new_with_uid", text)
-        self.assertIn("get_objects_for_uid_sync", text)
+        self.assertIn("get_object_list_as_comps_sync", text)
         self.assertIn("ECal.ObjModType.THIS", text)
         self.assertIn("X-NODALIX-SOURCE-FILE:", text)
 

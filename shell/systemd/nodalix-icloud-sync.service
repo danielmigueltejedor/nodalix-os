@@ -7,5 +7,6 @@ ConditionPathExists=/usr/bin/vdirsyncer
 
 [Service]
 Type=oneshot
+ExecStart=/usr/bin/nodalix-calendar-bridge --export
 ExecStart=/usr/bin/vdirsyncer sync
-ExecStartPost=/usr/bin/nodalix-calendar-bridge --sync
+ExecStart=/usr/bin/nodalix-calendar-bridge --import

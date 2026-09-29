@@ -235,11 +235,18 @@ PanelWindow {
     // automatically when released (no manual refocus bounce). textActive is set
     // only while a hover-popout text field is actually being edited, so plain
     // hover never grabs. Network/bluetooth text entry is its own PopupWindow.
-    readonly property bool _layerWantsKbd: ToolsService.open
-        || PopoutService.textActive
-    WlrLayershell.keyboardFocus: root._launcherActive
-        ? WlrKeyboardFocus.Exclusive
-        : WlrKeyboardFocus.None
+    readonly property bool _layerWantsKbd:
+        ToolsService.open
+        || root._calendarWantsKbd
+    readonly property bool _calendarWantsKbd:
+        PopoutService.textActive
+        && PopoutService.currentName === "dashboard"
+        && PopoutService.anchorScreen?.name === root.modelData?.name
+
+    WlrLayershell.keyboardFocus:
+        (root._launcherActive || root._calendarWantsKbd)
+            ? WlrKeyboardFocus.Exclusive
+            : WlrKeyboardFocus.None
     HyprlandFocusGrab {
         id: _layerFocusGrab
         windows: [root]
@@ -249,10 +256,21 @@ PanelWindow {
         // compositor focus grab. Request TextField focus when the grab is
         // actually active, not merely when the launcher state flips open.
         onActiveChanged: {
-            if (active && root._launcherActive) {
+            if (!active)
+                return
+
+            if (root._launcherActive) {
                 Qt.callLater(() => {
                     if (_launcherLoader.item)
                         _launcherLoader.item.requestSearchFocus()
+                })
+            } else if (
+                PopoutService.textActive
+                && PopoutService.currentName === "dashboard"
+            ) {
+                Qt.callLater(() => {
+                    if (_dashboardLoader.item)
+                        _dashboardLoader.item.requestCalendarInputFocus()
                 })
             }
         }

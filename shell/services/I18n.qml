@@ -180,6 +180,7 @@ QtObject {
         "Recommended apps appear here as you use them": "Las aplicaciones recomendadas aparecerán aquí conforme las uses", "Pinned": "Fijadas",
         "Pin": "Fijar", "Unpin": "Desfijar", "Remove from recommended": "Quitar de recomendadas", "Results": "Resultados",
         "Title": "Título", "Location (optional)": "Ubicación (opcional)", "Saving…": "Guardando…", "Add event": "Añadir evento",
+        "Edit": "Editar", "Save changes": "Guardar cambios", "Confirm delete": "Confirmar eliminación",
         "No events": "No hay eventos", "All day": "Todo el día", "brightnessctl not found": "No se encontró brightnessctl",
         "Reminders": "Recordatorios",
         "Open blueman-manager": "Abrir blueman-manager", "Open network settings": "Abrir ajustes de red", "Weather unavailable": "Tiempo no disponible",

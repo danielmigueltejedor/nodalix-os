@@ -79,6 +79,45 @@ QtObject {
         _new.running = true
     }
 
+    function canEditEvent(event) {
+        return canCreate && !!event
+            && event.calendar === "family"
+            && String(event.uid || "") !== ""
+    }
+
+    function updateEvent(event, startTime, endTime, summary, location) {
+        if (busy || !summary || !canEditEvent(event)) return
+        busy = true
+        _mutation.command = [
+            "python", Paths.configDir + "/scripts/nodalix-calendar-event.py",
+            "update",
+            "--uid", event.uid,
+            "--original-date", event.sdate,
+            "--original-start", event.stime || "",
+            "--start-date", event.sdate,
+            "--start-time", startTime || "",
+            "--end-date", event.edate || event.sdate,
+            "--end-time", endTime || "",
+            "--title", summary,
+            "--location", location || ""
+        ]
+        _mutation.running = true
+    }
+
+    function deleteEvent(event) {
+        if (busy || !canEditEvent(event)) return
+        busy = true
+        _mutation.command = [
+            "python", Paths.configDir + "/scripts/nodalix-calendar-event.py",
+            "delete",
+            "--uid", event.uid,
+            "--original-date", event.sdate,
+            "--original-start", event.stime || ""
+        ]
+        _mutation.running = true
+    }
+
+
     property Process _list: Process {
         stdout: StdioCollector { onStreamFinished: root._parse(text) }
     }
@@ -130,12 +169,46 @@ QtObject {
         root.eventsByDate = map
     }
 
-    // khal new → push via vdirsyncer → reload
+    // Calendar mutation pipeline:
+    // EDS -> bridge export -> vdirsyncer -> bridge import -> refresh.
     property Process _new: Process {
-        onExited: (code, status) => root._sync.running = true
+        onExited: (code, status) => {
+            if (code === 0) root._sync.running = true
+            else root.busy = false
+        }
     }
+
+    property Process _mutation: Process {
+        onExited: (code, status) => {
+            if (code === 0) root._bridgeExport.running = true
+            else root.busy = false
+        }
+    }
+
+    property Process _bridgeExport: Process {
+        command: ["python", Paths.configDir + "/scripts/nodalix-calendar-bridge.py", "--export"]
+        onExited: (code, status) => {
+            if (code === 0) root._sync.running = true
+            else root.busy = false
+        }
+    }
+
     property Process _sync: Process {
         command: ["vdirsyncer", "sync"]
-        onExited: (code, status) => { root.busy = false; root.loadMonth(root._lastView) }
+        onExited: (code, status) => {
+            if (code === 0) root._bridgeImport.running = true
+            else {
+                root.busy = false
+                root.loadMonth(root._lastView)
+            }
+        }
+    }
+
+    property Process _bridgeImport: Process {
+        command: ["python", Paths.configDir + "/scripts/nodalix-calendar-bridge.py", "--import"]
+        onExited: (code, status) => {
+            root.busy = false
+            root.loadMonth(root._lastView)
+        }
     }
 }

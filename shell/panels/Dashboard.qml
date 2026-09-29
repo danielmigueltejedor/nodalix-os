@@ -77,11 +77,28 @@ Item {
     // Calendar day overlay (YYYY-MM-DD, "" = closed) + create-form toggle
     property string calSelectedDate: ""
     property bool   calCreating:     false
-    onCalSelectedDateChanged: calCreating = false
+    property var    calEditingEvent: null
+    onCalSelectedDateChanged: {
+        calCreating = false
+        calEditingEvent = null
+    }
     // Grab the shell layer's keyboard (via PopoutService.textActive) only while
     // the create form is open, so its text fields receive keys and focus is
     // restored on close — without stealing keyboard on plain hover.
-    onCalCreatingChanged: PopoutService.textActive = calCreating
+    onCalCreatingChanged: {
+        PopoutService.textActive = calCreating
+
+        if (calCreating)
+            Qt.callLater(() => root.requestCalendarInputFocus())
+    }
+
+    function requestCalendarInputFocus() {
+        if (!calCreating) return
+
+        Qt.callLater(() => {
+            _evTitle.forceInputFocus()
+        })
+    }
 
     // Pending dangerous power action awaiting confirmation ("" | "reboot" | "shutdown")
     property string _confirmAction: ""
@@ -1534,8 +1551,28 @@ Item {
                         font.pixelSize: ThemeManager.fontSizeMd; font.weight: Font.Bold
                         elide: Text.ElideRight
                     }
-                    CalIconBtn { visible: CalendarService.canCreate; state: root.calCreating ? "close" : "add"; onClicked: root.calCreating = !root.calCreating }
-                    CalIconBtn { state: "close"; onClicked: root.calSelectedDate = "" }
+                    CalIconBtn {
+                        visible: CalendarService.canCreate
+                        state: root.calCreating ? "close" : "add"
+                        onClicked: {
+                            if (root.calCreating) {
+                                root.calCreating = false
+                                root.calEditingEvent = null
+                            } else {
+                                root.calEditingEvent = null
+                                _evTitle.text = ""
+                                _evStart.text = ""
+                                _evEnd.text = ""
+                                _evLoc.text = ""
+                                root.calCreating = true
+                            }
+                        }
+                    }
+                    CalIconBtn {
+                        visible: !root.calCreating
+                        state: "close"
+                        onClicked: root.calSelectedDate = ""
+                    }
                 }
 
                 // ── Create form ───────────────────────────────────────────────
@@ -1563,7 +1600,9 @@ Item {
                         opacity: CalendarService.busy ? 0.5 : 1
                         Text {
                             anchors.centerIn: parent
-                            text: I18n.tr(CalendarService.busy ? "Saving…" : "Add event")
+                            text: I18n.tr(CalendarService.busy
+                                ? "Saving…"
+                                : (root.calEditingEvent !== null ? "Save changes" : "Add event"))
                             color: ThemeManager.onPrimary
                             font.family: ThemeManager.fontFor(text)
                             font.pixelSize: ThemeManager.fontSizeSm; font.weight: Font.Medium
@@ -1574,9 +1613,29 @@ Item {
                             enabled: !CalendarService.busy && _evTitle.text !== ""
                             cursorShape: Qt.PointingHandCursor
                             onClicked: {
-                                CalendarService.createEvent(root.calSelectedDate,
-                                    _evStart.text, _evEnd.text, _evTitle.text, _evLoc.text)
-                                _evTitle.text = ""; _evStart.text = ""; _evEnd.text = ""; _evLoc.text = ""
+                                if (root.calEditingEvent !== null) {
+                                    CalendarService.updateEvent(
+                                        root.calEditingEvent,
+                                        _evStart.text,
+                                        _evEnd.text,
+                                        _evTitle.text,
+                                        _evLoc.text
+                                    )
+                                } else {
+                                    CalendarService.createEvent(
+                                        root.calSelectedDate,
+                                        _evStart.text,
+                                        _evEnd.text,
+                                        _evTitle.text,
+                                        _evLoc.text
+                                    )
+                                }
+
+                                _evTitle.text = ""
+                                _evStart.text = ""
+                                _evEnd.text = ""
+                                _evLoc.text = ""
+                                root.calEditingEvent = null
                                 root.calCreating = false
                             }
                         }
@@ -1601,6 +1660,7 @@ Item {
                         id: _evRow
                         required property var modelData
                         property bool expanded: false
+                        property bool deleteConfirm: false
                         Layout.fillWidth: true
                         implicitHeight: _evInner.implicitHeight + 16
                         radius: ThemeManager.chipRadius
@@ -1645,6 +1705,95 @@ Item {
                                     cursorShape: Qt.PointingHandCursor
                                     onClicked: _evRow.expanded = !_evRow.expanded
                                 }
+                            }
+
+                            RowLayout {
+                                visible: _evRow.expanded
+                                    && CalendarService.canEditEvent(_evRow.modelData)
+                                Layout.fillWidth: true
+                                Layout.leftMargin: 11
+                                Layout.topMargin: 4
+                                spacing: 6
+
+                                Rectangle {
+                                    implicitWidth: _editText.implicitWidth + 18
+                                    implicitHeight: 28
+                                    radius: ThemeManager.chipRadius
+                                    color: Qt.rgba(
+                                        ThemeManager.primary.r,
+                                        ThemeManager.primary.g,
+                                        ThemeManager.primary.b,
+                                        0.12
+                                    )
+
+                                    Text {
+                                        id: _editText
+                                        anchors.centerIn: parent
+                                        text: I18n.tr("Edit")
+                                        color: ThemeManager.primary
+                                        font.family: ThemeManager.fontFor(text)
+                                        font.pixelSize: 11
+                                        font.weight: Font.Medium
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        enabled: !CalendarService.busy
+                                        onClicked: {
+                                            root.calEditingEvent = _evRow.modelData
+                                            _evTitle.text = _evRow.modelData.title
+                                            _evStart.text = _evRow.modelData.stime
+                                            _evEnd.text = _evRow.modelData.etime
+                                            _evLoc.text = _evRow.modelData.location
+                                            root.calCreating = true
+                                        }
+                                    }
+                                }
+
+                                Rectangle {
+                                    implicitWidth: _deleteText.implicitWidth + 18
+                                    implicitHeight: 28
+                                    radius: ThemeManager.chipRadius
+                                    color: Qt.rgba(
+                                        ThemeManager.onSurface.r,
+                                        ThemeManager.onSurface.g,
+                                        ThemeManager.onSurface.b,
+                                        0.06
+                                    )
+
+                                    Text {
+                                        id: _deleteText
+                                        anchors.centerIn: parent
+                                        text: I18n.tr(
+                                            _evRow.deleteConfirm
+                                                ? "Confirm delete"
+                                                : "Delete"
+                                        )
+                                        color: ThemeManager.onSurfaceVariant
+                                        font.family: ThemeManager.fontFor(text)
+                                        font.pixelSize: 11
+                                        font.weight: Font.Medium
+                                    }
+
+                                    MouseArea {
+                                        anchors.fill: parent
+                                        cursorShape: Qt.PointingHandCursor
+                                        enabled: !CalendarService.busy
+                                        onClicked: {
+                                            if (_evRow.deleteConfirm) {
+                                                CalendarService.deleteEvent(
+                                                    _evRow.modelData
+                                                )
+                                                _evRow.deleteConfirm = false
+                                            } else {
+                                                _evRow.deleteConfirm = true
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Item { Layout.fillWidth: true }
                             }
 
                             // Details (expanded)
@@ -1775,6 +1924,10 @@ Item {
     component CalField: Rectangle {
         property string placeholder: ""
         property alias  text: _fieldInput.text
+
+        function forceInputFocus() {
+            _fieldInput.forceActiveFocus()
+        }
         Layout.fillWidth: true
         implicitHeight: 30
         radius: ThemeManager.chipRadius
