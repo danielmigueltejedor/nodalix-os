@@ -1,0 +1,88 @@
+#!/bin/sh
+set -eu
+
+ROOT=${NODALIX_ROOT:-}
+ROOT=${ROOT%/}
+
+legacy="$ROOT/usr/share/icons/Nodalix"
+target="/usr/share/nodalix/cursor-theme/Nodalix"
+target_real="$ROOT$target"
+state="$ROOT/var/lib/nodalix-updater/migrations/cursor-theme-layout-v1"
+
+warn() {
+    printf 'nodalix-cursor-theme: %s\n' "$*" >&2
+}
+
+owner_of() {
+    path=$1
+
+    if ! command -v pacman >/dev/null 2>&1; then
+        return 1
+    fi
+
+    if [ -n "$ROOT" ]; then
+        pacman \
+            --root "$ROOT" \
+            --dbpath "$ROOT/var/lib/pacman" \
+            -Qoq "$path" \
+            2>/dev/null
+    else
+        pacman -Qoq "$path" 2>/dev/null
+    fi
+}
+
+if [ ! -d "$target_real/cursors" ] || [ ! -f "$target_real/index.theme" ]; then
+    warn "packaged cursor payload is missing; leaving the current cursor untouched"
+    exit 0
+fi
+
+mkdir -p "$ROOT/usr/share/icons"
+
+if [ -L "$legacy" ]; then
+    current=$(readlink "$legacy" 2>/dev/null || true)
+
+    if [ "$current" = "$target" ]; then
+        exit 0
+    fi
+
+    warn "$legacy is already a different symlink ($current); leaving it untouched"
+    exit 0
+fi
+
+if [ -e "$legacy" ]; then
+    foreign_owner=""
+
+    while IFS= read -r path; do
+        owner=$(owner_of "$path" || true)
+
+        if [ -n "$owner" ] && [ "$owner" != "nodalix-cursor-theme" ]; then
+            foreign_owner="$owner"
+            break
+        fi
+    done <<EOF
+$(find "$legacy" \( -type f -o -type l \) -print 2>/dev/null)
+EOF
+
+    if [ -n "$foreign_owner" ]; then
+        warn "$legacy contains files owned by $foreign_owner; leaving it untouched"
+        exit 0
+    fi
+
+    mkdir -p "$state"
+
+    stamp=$(date -u +%Y%m%dT%H%M%SZ)
+    backup="$state/legacy-Nodalix-$stamp-$$"
+
+    mv "$legacy" "$backup"
+
+    {
+        printf 'timestamp=%s\n' "$stamp"
+        printf 'source=%s\n' "/usr/share/icons/Nodalix"
+        printf 'backup=%s\n' "${backup#"$ROOT"}"
+        printf 'action=moved-unowned-legacy-cursor\n'
+    } > "$state/latest"
+
+    warn "moved legacy cursor theme to ${backup#"$ROOT"}"
+fi
+
+ln -s "$target" "$legacy"
