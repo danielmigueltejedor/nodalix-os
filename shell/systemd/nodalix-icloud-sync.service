@@ -1,0 +1,10 @@
+[Unit]
+Description=Synchronize iCloud and ULE calendars for Nodalix
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=%h/.config/vdirsyncer/config
+ConditionPathExists=/usr/bin/vdirsyncer
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/vdirsyncer sync

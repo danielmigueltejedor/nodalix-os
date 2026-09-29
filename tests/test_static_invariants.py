@@ -184,6 +184,23 @@ class StaticInvariantTests(unittest.TestCase):
             self.assertIn("WantedBy=graphical-session.target", unit)
             self.assertNotIn("WantedBy=default.target", unit)
 
+    def test_icloud_drive_packaging_is_self_contained(self) -> None:
+        pkgbuild = (ROOT / "packaging/nodalix-shell/PKGBUILD").read_text(encoding="utf-8")
+        service = (SHELL / "systemd/nodalix-icloud-drive.service").read_text(encoding="utf-8")
+        helper = SHELL / "scripts/nodalix-icloud-apply-icon.fish"
+
+        self.assertIn("rclone", pkgbuild)
+        self.assertIn("fuse3", pkgbuild)
+        self.assertIn("*nodalix-icloud-drive.service)", pkgbuild)
+        self.assertIn("nodalix-icloud-apply-icon.fish", pkgbuild)
+
+        self.assertTrue(helper.is_file())
+        self.assertIn("ConditionPathExists=%h/.config/rclone/rclone.conf", service)
+        self.assertIn("ExecStart=/usr/bin/rclone mount icloud:", service)
+        self.assertIn("ExecStartPost=/usr/bin/nodalix-icloud-apply-icon", service)
+        self.assertIn("ExecStop=/usr/bin/fusermount3", service)
+
+
     def test_avatar_dialog_releases_exclusive_settings_focus(self) -> None:
         settings = (SHELL / "panels" / "Settings.qml").read_text(encoding="utf-8")
         self.assertIn("function _chooseAvatarImage()", settings)

@@ -1,0 +1,19 @@
+[Unit]
+Description=iCloud Drive en Archivador de Nodalix
+Documentation=https://rclone.org/iclouddrive/
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=%h/.config/rclone/rclone.conf
+
+[Service]
+Type=notify
+ExecStartPre=/usr/bin/mkdir -p "%h/.local/share/nodalix/mounts/iCloud Drive" %h/.cache/nodalix/icloud %h/.local/state/nodalix
+ExecStart=/usr/bin/rclone mount icloud: "%h/.local/share/nodalix/mounts/iCloud Drive" --config=%h/.config/rclone/rclone.conf --cache-dir=%h/.cache/nodalix/icloud --vfs-cache-mode=full --vfs-cache-max-size=10Gi --vfs-cache-max-age=24h --dir-cache-time=1h --poll-interval=1m --umask=077 "--option=x-gvfs-name=iCloud Drive" --option=x-gvfs-icon=nodalix-icloud-drive --option=x-gvfs-symbolic-icon=nodalix-icloud-drive-symbolic --log-level=INFO --log-file=%h/.local/state/nodalix/icloud-drive.log
+ExecStartPost=/usr/bin/nodalix-icloud-apply-icon
+ExecStop=/usr/bin/fusermount3 -uz "%h/.local/share/nodalix/mounts/iCloud Drive"
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=20
+
+[Install]
+WantedBy=default.target

@@ -5,7 +5,8 @@ pkgdesc="Nodalix desktop shell"
 arch=("x86_64")
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-depends=("nodalix-wallpaper-engine" "quickshell" "qt6-declarative" "qt6-5compat" "fontconfig" "python" "zenity" "xdg-user-dirs" "librsvg" "imagemagick")
+depends=("nodalix-wallpaper-engine" "quickshell" "qt6-declarative" "qt6-5compat" "fontconfig" "python" "zenity" "xdg-user-dirs" "librsvg" "imagemagick" "rclone" "fuse3")
+optdepends=("vdirsyncer: sincronización de calendarios externos de Nodalix")
 makedepends=("hyprland" "pkgconf" "cmake" "ninja" "qt6-shadertools")
 options=("!debug")
 install=nodalix-shell.install
@@ -41,7 +42,7 @@ package() {
     for unit in "$srcdir/shell/systemd/"*; do
         install -m644 "$unit" "$pkgdir/usr/lib/systemd/user/"
         case "$unit" in
-            *.timer|*.path|*nodalix-localsend.service) ln -s "../$(basename "$unit")" "$pkgdir/usr/lib/systemd/user/default.target.wants/$(basename "$unit")" ;;
+            *.timer|*.path|*nodalix-localsend.service|*nodalix-icloud-drive.service) ln -s "../$(basename "$unit")" "$pkgdir/usr/lib/systemd/user/default.target.wants/$(basename "$unit")" ;;
         esac
     done
     install -Dm755 "$srcdir/nodalix-shell" "$pkgdir/usr/bin/nodalix-shell"
@@ -49,6 +50,7 @@ package() {
     install -Dm755 "$srcdir/shell/scripts/nodalix-layout-mode.py" "$pkgdir/usr/bin/nodalix-layout-mode"
     install -Dm755 "$srcdir/shell/scripts/nodalix-cache-launcher-icons.py" "$pkgdir/usr/bin/nodalix-cache-launcher-icons"
     install -Dm755 "$srcdir/shell/scripts/nodalix-localsend.py" "$pkgdir/usr/lib/nodalix/nodalix-localsend.py"
+    install -Dm755 "$srcdir/shell/scripts/nodalix-icloud-apply-icon.fish" "$pkgdir/usr/bin/nodalix-icloud-apply-icon"
     install -Dm644 "$srcdir/shell/assets/fonts/NodalixPhosphorCompat.ttf" "$pkgdir/usr/share/fonts/nodalix/NodalixPhosphorCompat.ttf"
     install -Dm644 "$srcdir/shell/assets/fonts/LICENSE-phosphor" "$pkgdir/usr/share/licenses/nodalix-shell/LICENSE-phosphor"
     install -Dm644 "$srcdir/shell/assets/fonts/geist-v1.7.2/OFL.txt" "$pkgdir/usr/share/licenses/nodalix-shell/OFL-geist.txt"
