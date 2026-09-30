@@ -823,16 +823,63 @@ def installed_path_owner(path: Path) -> str | None:
     return owner[0] if owner else None
 
 
+def installed_path_owners(
+    paths: list[Path],
+    *,
+    progress_callback=None,
+) -> dict[str, str]:
+    """Resolve package ownership in batches instead of spawning pacman per file."""
+    owners: dict[str, str] = {}
+    total = len(paths)
+
+    if total == 0:
+        if progress_callback is not None:
+            progress_callback(0, 0, "")
+        return owners
+
+    chunk_size = 256
+
+    for offset in range(0, total, chunk_size):
+        chunk = paths[offset:offset + chunk_size]
+        result = subprocess.run(
+            ["pacman", "-Qo", "--", *map(str, chunk)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False,
+            env={**os.environ, "LC_ALL": "C"},
+        )
+
+        marker = " is owned by "
+
+        for line in result.stdout.splitlines():
+            if marker not in line:
+                continue
+
+            path_text, owner_text = line.rsplit(marker, 1)
+            owner = owner_text.split(" ", 1)[0].strip()
+
+            if path_text and owner:
+                owners[path_text] = owner
+
+        if progress_callback is not None:
+            done = min(offset + len(chunk), total)
+            progress_callback(done, total, str(chunk[-1]))
+
+    return owners
+
+
 def package_conflicts(
     packages: list[str],
     *,
     root: Path = Path("/"),
     payload_reader=None,
     owner_lookup=None,
+    progress_callback=None,
 ) -> list[dict]:
     read_payload = payload_reader or package_payload
-    lookup_owner = owner_lookup or installed_path_owner
     conflicts: list[dict] = []
+    candidates: list[tuple[str, str, Path]] = []
 
     for package in packages:
         package_name, paths = read_payload(package)
@@ -843,11 +890,33 @@ def package_conflicts(
             if not target.exists() and not target.is_symlink():
                 continue
 
-            owner = lookup_owner(target)
+            candidates.append((package_name, relative, target))
 
-            if owner == package_name:
-                continue
+    total = len(candidates)
 
+    if total == 0:
+        if progress_callback is not None:
+            progress_callback(0, 0, "")
+        return []
+
+    if owner_lookup is None and root == Path("/"):
+        owners = installed_path_owners(
+            [target for _, _, target in candidates],
+            progress_callback=progress_callback,
+        )
+
+        def lookup(target: Path) -> str | None:
+            return owners.get(str(target))
+    else:
+        lookup = owner_lookup or installed_path_owner
+
+    for index, (package_name, relative, target) in enumerate(
+        candidates,
+        start=1,
+    ):
+        owner = lookup(target)
+
+        if owner != package_name:
             conflicts.append(
                 {
                     "package": package_name,
@@ -856,6 +925,13 @@ def package_conflicts(
                     "owner": owner,
                 }
             )
+
+        if (
+            progress_callback is not None
+            and not (owner_lookup is None and root == Path("/"))
+            and (index == 1 or index == total or index % 128 == 0)
+        ):
+            progress_callback(index, total, str(target))
 
     return conflicts
 
@@ -868,7 +944,31 @@ def run_package_preflight(
     log_path = STATE_DIR / "last-preflight.json"
     log_path.unlink(missing_ok=True)
 
-    conflicts = package_conflicts(packages)
+    def report_progress(
+        current: int,
+        total: int,
+        detail: str,
+    ) -> None:
+        fraction = 1.0 if total <= 0 else current / total
+
+        set_status(
+            "preflight",
+            status="preflight",
+            stage="preflight",
+            version=target_version,
+            target_version=target_version,
+            current_version=current_version(),
+            progress=round(0.58 + 0.24 * fraction, 4),
+            progress_current=current,
+            progress_total=total,
+            progress_detail=detail,
+            last_error=None,
+        )
+
+    conflicts = package_conflicts(
+        packages,
+        progress_callback=report_progress,
+    )
 
     if not conflicts:
         return []
@@ -892,7 +992,7 @@ def run_package_preflight(
             detail = "existe sin pertenecer a ningún paquete"
 
         lines.append(
-            f"{conflict[package]}: {conflict[path]} ({detail})"
+            f"{conflict['package']}: {conflict['path']} ({detail})"
         )
 
     if len(conflicts) > 20:
@@ -908,6 +1008,7 @@ def run_package_preflight(
         conflicts=conflicts,
         log_path=str(log_path),
     )
+
 
 def pacman_log_path() -> Path:
     return STATE_DIR / "last-pacman.log"
@@ -978,6 +1079,9 @@ def do_update(config: dict, force: bool = False) -> dict:
             stage="checking",
             current_version=previous,
             target_version=None,
+            progress=0.02,
+            progress_current=0,
+            progress_total=0,
             last_error=None,
         )
         info = release_info(config)
@@ -1018,6 +1122,15 @@ def do_update(config: dict, force: bool = False) -> dict:
                 component_count=len(components),
                 total_size=total_size,
                 current_version=previous,
+                progress=round(
+                    0.05
+                    + 0.45
+                    * ((index - 1) / max(1, len(components))),
+                    4,
+                ),
+                progress_current=index - 1,
+                progress_total=len(components),
+                progress_detail=component["id"],
                 last_error=None,
             )
             asset = assets.get(component["asset"])
@@ -1034,6 +1147,17 @@ def do_update(config: dict, force: bool = False) -> dict:
                 target_version=target_version,
                 current_version=previous,
                 component=component["id"],
+                component_index=index,
+                component_count=len(components),
+                progress=round(
+                    0.05
+                    + 0.45
+                    * ((index - 0.5) / max(1, len(components))),
+                    4,
+                ),
+                progress_current=index,
+                progress_total=len(components),
+                progress_detail=component["id"],
                 last_error=None,
             )
             digest = sha256_file(destination)
@@ -1048,6 +1172,9 @@ def do_update(config: dict, force: bool = False) -> dict:
             version=manifest["version"],
             current_version=previous,
             target_version=target_version,
+            progress=0.54,
+            progress_current=0,
+            progress_total=0,
             last_error=None,
         )
         try:
@@ -1068,6 +1195,9 @@ def do_update(config: dict, force: bool = False) -> dict:
             target_version=target_version,
             current_version=previous,
             components=[item["id"] for item in components],
+            progress=0.58,
+            progress_current=0,
+            progress_total=0,
             last_error=None,
         )
 
@@ -1084,6 +1214,9 @@ def do_update(config: dict, force: bool = False) -> dict:
             target_version=target_version,
             current_version=previous,
             components=[item["id"] for item in components],
+            progress=0.86,
+            progress_current=0,
+            progress_total=len(components),
             last_error=None,
         )
         # Pacman replaces files, including this script. Keep running from the
@@ -1108,6 +1241,9 @@ def do_update(config: dict, force: bool = False) -> dict:
             previous_version=previous,
             current_version=installed,
             target_version=target_version,
+            progress=1.0,
+            progress_current=len(components),
+            progress_total=len(components),
             last_error=None,
             components=[item["id"] for item in components],
             shell_restart_required=any(item["restart"] == "shell" for item in components),

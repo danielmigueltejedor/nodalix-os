@@ -613,6 +613,42 @@ class PacmanTransactionTests(unittest.TestCase):
             output,
         )
 
+    def test_batched_owner_lookup_uses_one_pacman_process_for_many_files(self) -> None:
+        paths = [
+            Path("/usr/share/nodalix/a"),
+            Path("/usr/share/nodalix/b"),
+        ]
+
+        output = (
+            "/usr/share/nodalix/a is owned by nodalix-shell 0.2.4-1\n"
+            "/usr/share/nodalix/b is owned by nodalix-apps 0.2.4-1\n"
+        )
+
+        with mock.patch.object(
+            UPDATER.subprocess,
+            "run",
+            return_value=mock.Mock(
+                returncode=0,
+                stdout=output,
+                stderr="",
+            ),
+        ) as run:
+            owners = UPDATER.installed_path_owners(paths)
+
+        self.assertEqual(
+            owners["/usr/share/nodalix/a"],
+            "nodalix-shell",
+        )
+        self.assertEqual(
+            owners["/usr/share/nodalix/b"],
+            "nodalix-apps",
+        )
+        self.assertEqual(run.call_count, 1)
+        self.assertEqual(
+            run.call_args.args[0][:3],
+            ["pacman", "-Qo", "--"],
+        )
+
     def test_preflight_detects_unowned_cursor_from_0_2_2(self) -> None:
         cursor = (
             self.root

@@ -61,6 +61,26 @@ class SettingsUpdatesTests(unittest.TestCase):
         self.assertIn('UpdateService.autoNodalix', pane)
         self.assertIn('UpdateService.autoSystem', pane)
 
+    def test_nodalix_update_progress_is_visible_and_polled(self) -> None:
+        pane = self.settings.split(
+            '// Updates',
+            1,
+        )[1].split(
+            '// Desktop widgets',
+            1,
+        )[0]
+
+        service = (
+            ROOT / 'shell/services/UpdateService.qml'
+        ).read_text(encoding='utf-8')
+
+        self.assertIn('UpdateService.progressVisible', pane)
+        self.assertIn('UpdateService.updatePercent + "%"', pane)
+        self.assertIn('UpdateService.updateProgress', pane)
+        self.assertIn('property real updateProgress: -1', service)
+        self.assertIn('nodalix-updater", "status", "--json"', service)
+        self.assertIn('interval: root.updateInProgress', service)
+
 
 
     def test_release_notes_are_markdown_and_collapsible(self) -> None:

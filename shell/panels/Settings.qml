@@ -2787,6 +2787,103 @@ PanelWindow {
                             action: root._updatesPage ? "nodalix" : ""
                         }
 
+                        Rectangle {
+                            visible: root._updatesPage && UpdateService.progressVisible
+                            Layout.fillWidth: true
+                            implicitHeight: _nodalixProgress.implicitHeight + 24
+                            radius: ThemeManager.panelRadius
+                            color: ThemeManager.surfaceContainerHigh
+                            border.width: 1
+                            border.color: ThemeManager.primary
+
+                            ColumnLayout {
+                                id: _nodalixProgress
+                                anchors {
+                                    left: parent.left
+                                    right: parent.right
+                                    top: parent.top
+                                    margins: 12
+                                }
+                                spacing: 8
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 1
+
+                                        Text {
+                                            text: UpdateService.updateStageText
+                                            color: ThemeManager.onSurface
+                                            font.family: ThemeManager.fontFor(text)
+                                            font.pixelSize: ThemeManager.fontSizeMd
+                                            font.weight: Font.DemiBold
+                                        }
+
+                                        Text {
+                                            visible: UpdateService.updateTargetVersion !== ""
+                                            text: "Nodalix " + UpdateService.updateTargetVersion
+                                            color: ThemeManager.onSurfaceVariant
+                                            font.family: ThemeManager.fontFor(text)
+                                            font.pixelSize: 10
+                                        }
+                                    }
+
+                                    Text {
+                                        text: UpdateService.updatePercent + "%"
+                                        color: ThemeManager.primary
+                                        font.family: ThemeManager.fontFor(text)
+                                        font.pixelSize: ThemeManager.fontSizeSm
+                                        font.weight: Font.DemiBold
+                                    }
+                                }
+
+                                Rectangle {
+                                    Layout.fillWidth: true
+                                    implicitHeight: 18
+                                    radius: 9
+                                    clip: true
+                                    color: ThemeManager.surfaceContainer
+
+                                    Rectangle {
+                                        anchors {
+                                            left: parent.left
+                                            top: parent.top
+                                            bottom: parent.bottom
+                                        }
+                                        width: parent.width
+                                            * Math.max(0, Math.min(1, UpdateService.updateProgress))
+                                        radius: parent.radius
+                                        color: ThemeManager.primary
+
+                                        Behavior on width {
+                                            NumberAnimation {
+                                                duration: 160
+                                                easing.type: Easing.OutCubic
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Text {
+                                    visible: UpdateService.progressTotal > 0
+                                    Layout.fillWidth: true
+                                    text: UpdateService.progressCurrent
+                                        + " / "
+                                        + UpdateService.progressTotal
+                                        + " "
+                                        + I18n.tr(UpdateService.updateStage === "preflight"
+                                            ? "files"
+                                            : "components")
+                                    color: ThemeManager.onSurfaceVariant
+                                    font.family: ThemeManager.fontFor(text)
+                                    font.pixelSize: 10
+                                    elide: Text.ElideMiddle
+                                }
+                            }
+                        }
+
                         SettingSection {
                             visible: root._updatesPage
                             text: I18n.tr("Arch and applications")

@@ -37,6 +37,28 @@ QtObject {
     property string repository: ""
     property string releaseUrl: ""
 
+    property real updateProgress: -1
+    property string updateStage: ""
+    property string updateTargetVersion: ""
+    property int progressCurrent: 0
+    property int progressTotal: 0
+    property string progressDetail: ""
+    property bool _progressHold: false
+
+    readonly property bool updateInProgress:
+        ["checking", "downloading", "verifying", "migrating", "preflight", "installing"]
+            .indexOf(updateStage) >= 0
+
+    readonly property bool progressVisible:
+        updateInProgress
+        || (running && pendingAction === "nodalix")
+        || _progressHold
+
+    readonly property int updatePercent:
+        Math.max(0, Math.min(100, Math.round(Math.max(0, updateProgress) * 100)))
+
+    readonly property string updateStageText: _stageLabel(updateStage)
+
     // Compatibility with the 0.1 settings view while it migrates to the
     // dedicated Nodalix OS update page.
     readonly property string nodalixCurrent: installedVersion || "—"
@@ -58,6 +80,54 @@ QtObject {
         for (const component of components)
             if (String(component.id || "") === id) return Boolean(component.will_update)
         return false
+    }
+
+    function _stageLabel(stage) {
+        switch (stage) {
+        case "checking": return I18n.tr("Preparing update…")
+        case "downloading": return I18n.tr("Downloading update…")
+        case "verifying": return I18n.tr("Verifying packages…")
+        case "migrating": return I18n.tr("Applying migrations…")
+        case "preflight": return I18n.tr("Checking package conflicts…")
+        case "installing": return I18n.tr("Installing Nodalix update…")
+        case "completed": return I18n.tr("Update completed")
+        default: return I18n.tr("Updating in background…")
+        }
+    }
+
+    function _fallbackProgress(stage, data) {
+        const current = Number(data.progress_current ?? data.component_index ?? 0)
+        const total = Number(data.progress_total ?? data.component_count ?? 0)
+        const fraction = total > 0 ? Math.max(0, Math.min(1, current / total)) : 0
+
+        switch (stage) {
+        case "checking": return 0.02
+        case "downloading": return 0.05 + 0.45 * fraction
+        case "verifying": return 0.05 + 0.45 * fraction
+        case "migrating": return 0.54
+        case "preflight": return 0.58 + 0.24 * fraction
+        case "installing": return 0.86
+        case "completed": return 1.0
+        default: return updateProgress
+        }
+    }
+
+    function _acceptProgress(data) {
+        const stage = String(data.stage || data.status || "")
+        if (stage === "") return
+
+        updateStage = stage
+        updateTargetVersion = String(
+            data.target_version || data.version || updateTargetVersion || latestVersion
+        )
+        progressCurrent = Number(data.progress_current ?? data.component_index ?? 0) || 0
+        progressTotal = Number(data.progress_total ?? data.component_count ?? 0) || 0
+        progressDetail = String(data.progress_detail || data.component || "")
+
+        const explicitProgress = Number(data.progress)
+        updateProgress = isNaN(explicitProgress)
+            ? _fallbackProgress(stage, data)
+            : Math.max(0, Math.min(1, explicitProgress))
     }
 
     function check() {
@@ -128,9 +198,16 @@ QtObject {
     function _runAuthorized(action) {
         const enable = action.endsWith("-on")
         let command = []
-        if (action === "nodalix")
+        if (action === "nodalix") {
             command = ["sudo", "-n", "/usr/bin/nodalix-updater", "update"]
-        else if (action === "system")
+            updateStage = "checking"
+            updateProgress = 0.0
+            updateTargetVersion = latestVersion
+            progressCurrent = 0
+            progressTotal = 0
+            progressDetail = ""
+            _progressHold = false
+        } else if (action === "system")
             command = ["sudo", "-n", "pacman", "-Syu", "--noconfirm"]
         else if (action === "firmware")
             command = ["sudo", "-n", "sh", "-c", "fwupdmgr refresh --force && fwupdmgr update -y"]
@@ -176,6 +253,12 @@ QtObject {
         _password = ""
         if (code === 0) {
             statusText = I18n.tr("Update completed")
+            if (action === "nodalix") {
+                updateStage = "completed"
+                updateProgress = 1.0
+                _progressHold = true
+                _progressHoldTimer.restart()
+            }
             const automatic = /^auto-(nodalix|system|apps|firmware)-(on|off)$/.exec(action)
             if (automatic)
                 SettingsService.set("updates.auto." + automatic[1], automatic[2] === "on")
@@ -202,6 +285,36 @@ QtObject {
         state = String(data.status || (updateAvailable ? "update_available" : "up_to_date"))
         statusText = updateAvailable ? I18n.tr("Nodalix update available") : I18n.tr("Nodalix is up to date")
         lastChecked = new Date().toLocaleString(Qt.locale(I18n.localeName))
+    }
+
+    property Process _nodalixStatus: Process {
+        command: ["/usr/bin/nodalix-updater", "status", "--json"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                try { root._acceptProgress(JSON.parse(text)) }
+                catch (e) {}
+            }
+        }
+        stderr: StdioCollector {}
+    }
+
+    property Timer _progressPoll: Timer {
+        interval: root.updateInProgress
+            || (root.running && root.pendingAction === "nodalix")
+            ? 400 : 5000
+        repeat: true
+        running: true
+        triggeredOnStart: true
+        onTriggered: {
+            if (!root._nodalixStatus.running)
+                root._nodalixStatus.running = true
+        }
+    }
+
+    property Timer _progressHoldTimer: Timer {
+        interval: 4500
+        repeat: false
+        onTriggered: root._progressHold = false
     }
 
     property Process _authenticate: Process {
