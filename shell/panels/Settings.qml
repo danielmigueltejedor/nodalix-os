@@ -2925,7 +2925,7 @@ PanelWindow {
                         Repeater {
                             model: root._updatesPage ? [
                                 { key: "system", title: I18n.tr("System and kernel"), detail: I18n.tr("Official Arch packages, dependencies and kernel"), count: UpdateService.systemUpdates },
-                                { key: "aur", title: "AUR", detail: I18n.tr("User repository applications"), count: UpdateService.aurUpdates },
+                                { key: "aur", title: "AUR", detail: I18n.tr("Community packages · review required before building"), count: UpdateService.aurUpdates },
                                 { key: "flatpak", title: "Flatpak", detail: I18n.tr("Sandboxed applications and runtimes"), count: UpdateService.flatpakUpdates },
                                 { key: "firmware", title: I18n.tr("Firmware"), detail: I18n.tr("Device firmware through fwupd"), count: -1 }
                             ] : []
@@ -2961,7 +2961,7 @@ PanelWindow {
                                             font.family: ThemeManager.fontFor(text); font.pixelSize: 10
                                         }
                                         SettingBtn {
-                                            label: I18n.tr("Update")
+                                            label: modelData.key === "aur" ? I18n.tr("Review and update") : I18n.tr("Update")
                                             enabled: !UpdateService.running && (modelData.key !== "firmware" || DependencyService.available("fwupdmgr"))
                                             onClicked: UpdateService.request(modelData.key)
                                         }
@@ -2984,7 +2984,7 @@ PanelWindow {
                             model: root._updatesPage ? [
                                 { key: "nodalix", title: "Nodalix OS", sub: I18n.tr("Update the shell and themes automatically every day"), enabled: UpdateService.autoNodalix },
                                 { key: "system", title: I18n.tr("System and kernel"), sub: I18n.tr("Install automatically every day"), enabled: UpdateService.autoSystem },
-                                { key: "apps", title: I18n.tr("Applications"), sub: I18n.tr("Update AUR and Flatpak applications every day"), enabled: UpdateService.autoApps },
+                                { key: "apps", title: I18n.tr("Applications"), sub: I18n.tr("Update Flatpak applications every day; AUR always requires review"), enabled: UpdateService.autoApps },
                                 { key: "firmware", title: I18n.tr("Firmware"), sub: I18n.tr("Check and install firmware weekly"), enabled: UpdateService.autoFirmware }
                             ] : []
                             delegate: SettingRowBase {
