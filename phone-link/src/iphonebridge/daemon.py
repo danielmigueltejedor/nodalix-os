@@ -55,7 +55,9 @@ SESSION_RETRY_SEC = 60
 # Keep trying while the phone is away, but back off so an out-of-range iPhone
 # does not create constant Bluetooth traffic or waste power.
 RECONNECT_TICK_SEC = 15
-RECONNECT_MAX_SEC = 5 * 60
+# Keep an absent phone cheap to poll, but do not let exponential backoff make a
+# returning phone wait several minutes before Nodalix notices it again.
+RECONNECT_MAX_SEC = 60
 
 
 class Daemon:
@@ -96,11 +98,10 @@ class Daemon:
                 "adapter is in A/V Hands-Free CoD if the toggles aren't there."
             )
 
-        # ANCS — per-app notifications via BLE GATT. Independent of MAP/PBAP;
-        # may or may not work depending on whether BlueZ has established a
-        # BLE link to the iPhone (we don't yet do the LastUsedBearer=le
-        # dance). Either way, the client just waits patiently for the three
-        # ANCS characteristics to appear and subscribes when they do.
+        # ANCS — per-app notifications via BLE GATT. Independent of MAP/PBAP.
+        # Keep BlueZ free to choose the best initial bearer; if classic
+        # Bluetooth reconnects first, the watchdog restores LE independently
+        # through org.bluez.Bearer.LE1 without tearing classic services down.
         device_path = (
             f"/org/bluez/{config.ADAPTER}"
             f"/dev_{config.IPHONE_MAC.replace(':', '_')}"
@@ -317,6 +318,14 @@ class Daemon:
         return True
 
     def _ensure_preferred_bearer(self) -> None:
+        """Avoid pinning a dual-mode iPhone to one Bluetooth bearer.
+
+        BlueZ removes a device from its automatic-connect path when it is
+        forced from BR/EDR to PreferredBearer=le. Older Nodalix builds used
+        that setting to make ANCS appear, which can leave an already-paired
+        iPhone slow to reconnect. Use last-seen instead and recover the LE
+        bearer explicitly when classic Bluetooth comes up first.
+        """
         device_path = (
             f"/org/bluez/{config.ADAPTER}"
             f"/dev_{config.IPHONE_MAC.replace(":", "_")}"
@@ -334,19 +343,19 @@ class Daemon:
                 )
             )
 
-            if current != "le":
+            if current in {"le", "bredr"}:
                 props.Set(
                     "org.bluez.Device1",
                     "PreferredBearer",
-                    dbus.String("le"),
+                    dbus.String("last-seen"),
                 )
                 log.info(
-                    "iPhone PreferredBearer changed: %s -> le",
+                    "iPhone PreferredBearer changed: %s -> last-seen",
                     current,
                 )
         except dbus.exceptions.DBusException as error:
             log.warning(
-                "could not set iPhone PreferredBearer=le: %s",
+                "could not normalize iPhone PreferredBearer: %s",
                 error.get_dbus_message() or str(error),
             )
 
