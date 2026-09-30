@@ -83,6 +83,34 @@ class SettingsUpdatesTests(unittest.TestCase):
 
 
 
+    def test_aur_updates_require_interactive_recipe_review(self) -> None:
+        service = (
+            ROOT / "shell/services/UpdateService.qml"
+        ).read_text(encoding="utf-8")
+        updater = (
+            ROOT / "updater/nodalix-system-update"
+        ).read_text(encoding="utf-8")
+
+        # Manual AUR updates expose recipe/diff review and keep confirmation.
+        self.assertIn('"--diffmenu"', service)
+        self.assertIn('"--editmenu"', service)
+        self.assertIn('"--cleanmenu"', service)
+        self.assertIn('"foot"', service)
+        aur_block = service.split('if (action === "aur")', 1)[1].split(
+            'else if (action === "flatpak")',
+            1,
+        )[0]
+        self.assertNotIn("--noconfirm", aur_block)
+
+        # Unattended user-app updates may update Flatpaks, never AUR recipes.
+        user_apps = updater.split("    user-apps)", 1)[1].split(
+            "        ;;",
+            1,
+        )[0]
+        self.assertNotIn("yay", user_apps)
+        self.assertIn("flatpak update -y --noninteractive", user_apps)
+
+
     def test_release_notes_are_markdown_and_collapsible(self) -> None:
         settings = (
             ROOT / "shell/panels/Settings.qml"
