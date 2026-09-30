@@ -352,33 +352,57 @@ jobs:
 
       - name: Build Nodalix ISO
         run: |
-          rm -rf \
-            dist/iso-work \
-            dist/iso
+          set -euo pipefail
 
-          mkdir -p dist/iso
+          max_attempts=3
 
-          docker run \
-            --rm \
-            --privileged \
-            -v "$PWD":/src \
-            -w /src \
-            archlinux:latest \
-            bash -lc '
-              set -euo pipefail
+          for attempt in $(seq 1 "$max_attempts"); do
+            echo
+            echo "========================================"
+            echo "ISO build attempt $attempt/$max_attempts"
+            echo "========================================"
 
-              pacman -Syu --noconfirm
+            sudo rm -rf \
+              dist/iso-work \
+              dist/iso
 
-              pacman -S --noconfirm \
-                archiso \
-                python
+            mkdir -p dist/iso
 
-              python3 \
-                /src/tools/build-iso.py \
-                --assets /src/dist/packages \
-                --work /src/dist/iso-work \
-                --output /src/dist/iso
-            '
+            if docker run \
+              --rm \
+              --privileged \
+              -v "$PWD":/src \
+              -w /src \
+              archlinux:latest \
+              bash -lc '
+                set -euo pipefail
+
+                pacman -Syu --noconfirm
+
+                pacman -S --noconfirm \
+                  archiso \
+                  python
+
+                python3 \
+                  /src/tools/build-iso.py \
+                  --assets /src/dist/packages \
+                  --work /src/dist/iso-work \
+                  --output /src/dist/iso
+              '
+            then
+              echo "ISO build succeeded on attempt $attempt"
+              break
+            fi
+
+            if (( attempt == max_attempts )); then
+              echo "::error::ISO build failed after $max_attempts attempts"
+              exit 1
+            fi
+
+            delay=$((attempt * 30))
+            echo "::warning::ISO build failed; retrying in ${delay}s"
+            sleep "$delay"
+          done
 
       - name: Validate ISO
         env:
