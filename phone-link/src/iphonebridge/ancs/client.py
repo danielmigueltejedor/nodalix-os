@@ -36,15 +36,17 @@ from iphonebridge.ancs.constants import (
     NOTIFICATION_SOURCE_CHAR,
     CommandID,
     EventID,
+    NotificationAttributeID,
 )
 from iphonebridge.ancs.events import AncsEvent
 from iphonebridge.ancs.parsers import (
     AppAttributes,
-    DataSourceEvent,
     Notification,
     NotificationAttributes,
+    app_attributes_response_length,
     build_get_app_attributes,
     build_get_notification_attributes,
+    notification_attributes_response_length,
 )
 from iphonebridge.bus import system_bus
 
@@ -78,9 +80,16 @@ class AncsClient:
         self._cp_path: str | None = None
         self._notify_started = False
 
-        # In-flight per-notification attribute requests + app-name cache
+        # In-flight Data Source state. ANCS responses can span several GATT
+        # notifications, so keep the stream and the original Notification Source
+        # metadata until the corresponding attributes have been fully reassembled.
+        self._ds_buffer = bytearray()
+        self._notification_meta: dict[int, Notification] = {}
+
+        # App display names are stable enough to cache across ANCS reconnects.
         self._app_name_cache: dict[str, str] = {}
         self._pending_app_lookups: dict[str, list[NotificationAttributes]] = {}
+        self._app_lookup_in_flight: set[str] = set()
 
         # Permanent ObjectManager subscriptions + per-GATT-session subscriptions.
         self._manager_matches: list = []
@@ -141,6 +150,10 @@ class AncsClient:
                 pass
         self._char_matches = []
         self._notify_started = False
+        self._ds_buffer.clear()
+        self._notification_meta.clear()
+        self._pending_app_lookups.clear()
+        self._app_lookup_in_flight.clear()
 
     # ---- ObjectManager event handlers -----------------------------------
 
@@ -236,9 +249,11 @@ class AncsClient:
                       n.id, n.category)
             return
         if n.type == EventID.NotificationRemoved:
+            self._notification_meta.pop(n.id, None)
             log.debug("ANCS removed uid=%d", n.id)
             return
-        # Added or Modified → request full attrs
+        # Added or Modified → request full attrs. Keep the NS packet so the
+        # eventual event retains its real category and Silent/action flags.
         self._request_attrs(n)
 
     def _request_attrs(self, n: Notification) -> None:
@@ -249,12 +264,14 @@ class AncsClient:
             want_positive=n.has_positive_action,
             want_negative=n.has_negative_action,
         )
+        self._notification_meta[n.id] = n
         try:
             dbus.Interface(
                 system_bus.get_object("org.bluez", self._cp_path),
                 "org.bluez.GattCharacteristic1",
             ).WriteValue([dbus.Byte(b) for b in pkt], {})
         except dbus.exceptions.DBusException as e:
+            self._notification_meta.pop(n.id, None)
             log.warning("CP WriteValue failed: %s", e.get_dbus_name())
 
     # ---- Data Source: responses to our CP writes ------------------------
@@ -265,25 +282,83 @@ class AncsClient:
         value = changed.get("Value")
         if value is None:
             return
-        try:
-            ev = DataSourceEvent.parse(bytes(value))
-        except Exception as e:
-            log.error("DS parse failed: %s", e)
-            return
-        if ev.type == CommandID.GetNotificationAttributes:
+
+        # A Data Source response is a byte stream, not one response per GATT
+        # notification. Apple explicitly permits fragmentation at the negotiated
+        # MTU, so append every fragment and drain only complete ANCS frames.
+        self._ds_buffer.extend(bytes(value))
+        self._drain_ds_buffer()
+
+    def _drain_ds_buffer(self) -> None:
+        while self._ds_buffer:
+            command = self._ds_buffer[0]
+
             try:
-                attrs = NotificationAttributes.parse(ev.body)
-            except Exception as e:
-                log.error("NotificationAttributes parse failed: %s", e)
+                if command == CommandID.GetNotificationAttributes:
+                    if len(self._ds_buffer) < 5:
+                        return
+
+                    notification_id = int.from_bytes(
+                        self._ds_buffer[1:5],
+                        "little",
+                    )
+                    source = self._notification_meta.get(notification_id)
+                    if source is None:
+                        # Every request issued by this client records its NS
+                        # metadata first. An unknown UID therefore belongs to a
+                        # stale/foreign ANCS transaction and cannot be framed
+                        # safely because we do not know which optional attrs
+                        # were requested.
+                        log.warning(
+                            "dropping ANCS Data Source response for unknown uid=%d",
+                            notification_id,
+                        )
+                        self._ds_buffer.clear()
+                        return
+
+                    expected = [
+                        NotificationAttributeID.AppIdentifier,
+                        NotificationAttributeID.Title,
+                        NotificationAttributeID.Subtitle,
+                        NotificationAttributeID.Message,
+                    ]
+                    if source.has_positive_action:
+                        expected.append(NotificationAttributeID.PositiveActionLabel)
+                    if source.has_negative_action:
+                        expected.append(NotificationAttributeID.NegativeActionLabel)
+
+                    frame_len = notification_attributes_response_length(
+                        bytes(self._ds_buffer),
+                        tuple(expected),
+                    )
+                    if frame_len is None:
+                        return
+
+                    frame = bytes(self._ds_buffer[:frame_len])
+                    del self._ds_buffer[:frame_len]
+                    attrs = NotificationAttributes.parse(frame[1:])
+                    self._handle_notification_attrs(attrs)
+                    continue
+
+                if command == CommandID.GetAppAttributes:
+                    frame_len = app_attributes_response_length(
+                        bytes(self._ds_buffer)
+                    )
+                    if frame_len is None:
+                        return
+
+                    frame = bytes(self._ds_buffer[:frame_len])
+                    del self._ds_buffer[:frame_len]
+                    app_attrs = AppAttributes.parse(frame[1:])
+                    self._handle_app_attrs(app_attrs)
+                    continue
+
+                raise ValueError(f"unknown Data Source command {command}")
+
+            except ValueError as e:
+                log.error("ANCS Data Source stream parse failed: %s", e)
+                self._ds_buffer.clear()
                 return
-            self._handle_notification_attrs(attrs)
-        elif ev.type == CommandID.GetAppAttributes:
-            try:
-                app_attrs = AppAttributes.parse(ev.body)
-            except Exception as e:
-                log.error("AppAttributes parse failed: %s", e)
-                return
-            self._handle_app_attrs(app_attrs)
 
     def _handle_notification_attrs(self, attrs: NotificationAttributes) -> None:
         # If we don't have the app's display name yet, queue and ask the
@@ -295,8 +370,9 @@ class AncsClient:
             self._request_app_name(attrs.app_id)
 
     def _request_app_name(self, app_id: str) -> None:
-        if not self._cp_path:
+        if not self._cp_path or app_id in self._app_lookup_in_flight:
             return
+        self._app_lookup_in_flight.add(app_id)
         try:
             dbus.Interface(
                 system_bus.get_object("org.bluez", self._cp_path),
@@ -305,19 +381,19 @@ class AncsClient:
                 [dbus.Byte(b) for b in build_get_app_attributes(app_id)], {}
             )
         except dbus.exceptions.DBusException as e:
+            self._app_lookup_in_flight.discard(app_id)
             log.warning("App-name lookup failed for %s: %s",
                         app_id, e.get_dbus_name())
 
     def _handle_app_attrs(self, app_attrs: AppAttributes) -> None:
+        self._app_lookup_in_flight.discard(app_attrs.app_id)
         self._app_name_cache[app_attrs.app_id] = app_attrs.app_name
         pending = self._pending_app_lookups.pop(app_attrs.app_id, [])
         for attrs in pending:
             self._emit(attrs, app_attrs.app_name)
 
     def _emit(self, attrs: NotificationAttributes, app_name: str) -> None:
-        # We don't store the original Notification packet alongside the
-        # attrs response, so category/silent are unknown by the time we
-        # emit. That's a TODO — for now fill with defaults.
+        source = self._notification_meta.pop(attrs.id, None)
         event = AncsEvent(
             notification_id=attrs.id,
             device_path=self.device_path,
@@ -326,9 +402,14 @@ class AncsClient:
             title=attrs.title,
             subtitle=attrs.subtitle,
             body=attrs.message,
-            category=CATEGORY_NAMES.get(0, "Other"),
-            is_silent=False,
-            is_preexisting=False,
+            category=CATEGORY_NAMES.get(
+                source.category if source is not None else 0,
+                "Other",
+            ),
+            is_silent=source.is_silent if source is not None else False,
+            is_preexisting=(
+                source.is_preexisting if source is not None else False
+            ),
             positive_action=attrs.positive_action,
             negative_action=attrs.negative_action,
         )
