@@ -297,6 +297,29 @@ python3 -c 'import json,pathlib;p=pathlib.Path("/home/nodalix/.local/state/nodal
 
 chown -R nodalix:nodalix /home/nodalix
 
+# Keep the live medium lean without removing anything from the installed
+# system. These heavy integrations are not needed by the installer session;
+# the wallpaper-engine package itself remains embedded in the installer
+# payload for deployment to the target system.
+for pkg in nodalix-wallpaper-engine rclone; do
+    if pacman -Q "$pkg" >/dev/null 2>&1; then
+        pacman -Qlq "$pkg" \
+            | while IFS= read -r path; do
+                if [[ -f "$path" || -L "$path" ]]; then
+                    rm -f -- "$path"
+                fi
+              done
+    fi
+done
+
+# Documentation and package caches are unnecessary on the ephemeral live
+# session and only increase the release asset size.
+rm -rf \
+    /usr/share/doc/* \
+    /usr/share/man/* \
+    /usr/share/info/* \
+    /var/cache/pacman/pkg/*
+
 install -d -o greeter -g greeter \
     /var/lib/nodalix-greeter \
     /var/lib/nodalix-greeter/cache
@@ -311,7 +334,9 @@ systemctl disable \
     systemd-networkd \
     systemd-networkd-wait-online \
     iwd \
-    sshd 2>/dev/null || true
+    sshd \
+    nodalix-icloud-drive.service \
+    nodalix-icloud-sync.timer 2>/dev/null || true
 
 printf 'en_US.UTF-8 UTF-8\\nes_ES.UTF-8 UTF-8\\n' > /etc/locale.gen
 locale-gen
