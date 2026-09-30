@@ -39,9 +39,9 @@ case "$mode" in
             printf '%s\n' "user-apps must run as the desktop user" >&2
             exit 77
         }
-        if command -v yay >/dev/null 2>&1; then
-            yay -Sua --noconfirm
-        fi
+        # AUR recipes are executable user-maintained build instructions.
+        # Never execute them from the unattended timer: they require an
+        # explicit diff/PKGBUILD review in the interactive update path.
         if command -v flatpak >/dev/null 2>&1; then
             flatpak update -y --noninteractive
         fi
