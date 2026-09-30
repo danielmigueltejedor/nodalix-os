@@ -86,6 +86,13 @@ class AncsClient:
         self._ds_buffer = bytearray()
         self._notification_meta: dict[int, Notification] = {}
 
+        # ANCS uses one shared Data Source stream for Control Point responses.
+        # Keep exactly one request in flight so fragmented responses can never
+        # overlap and become ambiguous on the stream.
+        self._cp_queue: list[tuple[int, int | str, bytes]] = []
+        self._cp_in_flight: tuple[int, int | str, bytes] | None = None
+        self._notification_requests_pending: set[int] = set()
+
         # App display names are stable enough to cache across ANCS reconnects.
         self._app_name_cache: dict[str, str] = {}
         self._pending_app_lookups: dict[str, list[NotificationAttributes]] = {}
@@ -152,6 +159,9 @@ class AncsClient:
         self._notify_started = False
         self._ds_buffer.clear()
         self._notification_meta.clear()
+        self._cp_queue.clear()
+        self._cp_in_flight = None
+        self._notification_requests_pending.clear()
         self._pending_app_lookups.clear()
         self._app_lookup_in_flight.clear()
 
@@ -250,29 +260,104 @@ class AncsClient:
             return
         if n.type == EventID.NotificationRemoved:
             self._notification_meta.pop(n.id, None)
+            self._notification_requests_pending.discard(n.id)
+            self._cp_queue = [
+                item for item in self._cp_queue
+                if not (
+                    item[0] == CommandID.GetNotificationAttributes
+                    and item[1] == n.id
+                )
+            ]
             log.debug("ANCS removed uid=%d", n.id)
             return
         # Added or Modified → request full attrs. Keep the NS packet so the
         # eventual event retains its real category and Silent/action flags.
         self._request_attrs(n)
 
+    def _queue_control_point(
+        self,
+        command: int,
+        key: int | str,
+        packet: bytes,
+    ) -> None:
+        self._cp_queue.append((int(command), key, packet))
+        self._pump_control_point()
+
+    def _pump_control_point(self) -> None:
+        if self._cp_in_flight is not None or not self._cp_path or not self._cp_queue:
+            return
+
+        command, key, packet = self._cp_queue.pop(0)
+        self._cp_in_flight = (command, key, packet)
+
+        try:
+            dbus.Interface(
+                system_bus.get_object("org.bluez", self._cp_path),
+                "org.bluez.GattCharacteristic1",
+            ).WriteValue([dbus.Byte(b) for b in packet], {})
+        except dbus.exceptions.DBusException as e:
+            self._cp_in_flight = None
+            if command == CommandID.GetNotificationAttributes:
+                self._notification_requests_pending.discard(int(key))
+                self._notification_meta.pop(int(key), None)
+            elif command == CommandID.GetAppAttributes:
+                self._app_lookup_in_flight.discard(str(key))
+            log.warning("CP WriteValue failed: %s", e.get_dbus_name())
+            self._pump_control_point()
+
+    def _complete_control_point(self, command: int, key: int | str) -> None:
+        current = self._cp_in_flight
+        if current is None:
+            log.debug(
+                "ANCS response arrived with no Control Point request in flight: "
+                "command=%s key=%r",
+                command,
+                key,
+            )
+            return
+
+        current_command, current_key, _packet = current
+        if current_command != int(command) or current_key != key:
+            log.warning(
+                "ANCS response does not match in-flight request: "
+                "got command=%s key=%r, expected command=%s key=%r",
+                command,
+                key,
+                current_command,
+                current_key,
+            )
+            return
+
+        if current_command == CommandID.GetNotificationAttributes:
+            self._notification_requests_pending.discard(int(current_key))
+        elif current_command == CommandID.GetAppAttributes:
+            self._app_lookup_in_flight.discard(str(current_key))
+
+        self._cp_in_flight = None
+        self._pump_control_point()
+
     def _request_attrs(self, n: Notification) -> None:
         if not self._cp_path:
             return
+
+        # A Modified event for the same UID can arrive while its first request
+        # is still queued/in flight. Preserve the newest metadata, but do not
+        # issue a second overlapping Control Point request for the same UID.
+        self._notification_meta[n.id] = n
+        if n.id in self._notification_requests_pending:
+            return
+
         pkt = build_get_notification_attributes(
             n.id,
             want_positive=n.has_positive_action,
             want_negative=n.has_negative_action,
         )
-        self._notification_meta[n.id] = n
-        try:
-            dbus.Interface(
-                system_bus.get_object("org.bluez", self._cp_path),
-                "org.bluez.GattCharacteristic1",
-            ).WriteValue([dbus.Byte(b) for b in pkt], {})
-        except dbus.exceptions.DBusException as e:
-            self._notification_meta.pop(n.id, None)
-            log.warning("CP WriteValue failed: %s", e.get_dbus_name())
+        self._notification_requests_pending.add(n.id)
+        self._queue_control_point(
+            CommandID.GetNotificationAttributes,
+            n.id,
+            pkt,
+        )
 
     # ---- Data Source: responses to our CP writes ------------------------
 
@@ -338,6 +423,10 @@ class AncsClient:
                     del self._ds_buffer[:frame_len]
                     attrs = NotificationAttributes.parse(frame[1:])
                     self._handle_notification_attrs(attrs)
+                    self._complete_control_point(
+                        CommandID.GetNotificationAttributes,
+                        attrs.id,
+                    )
                     continue
 
                 if command == CommandID.GetAppAttributes:
@@ -351,6 +440,10 @@ class AncsClient:
                     del self._ds_buffer[:frame_len]
                     app_attrs = AppAttributes.parse(frame[1:])
                     self._handle_app_attrs(app_attrs)
+                    self._complete_control_point(
+                        CommandID.GetAppAttributes,
+                        app_attrs.app_id,
+                    )
                     continue
 
                 raise ValueError(f"unknown Data Source command {command}")
@@ -373,17 +466,11 @@ class AncsClient:
         if not self._cp_path or app_id in self._app_lookup_in_flight:
             return
         self._app_lookup_in_flight.add(app_id)
-        try:
-            dbus.Interface(
-                system_bus.get_object("org.bluez", self._cp_path),
-                "org.bluez.GattCharacteristic1",
-            ).WriteValue(
-                [dbus.Byte(b) for b in build_get_app_attributes(app_id)], {}
-            )
-        except dbus.exceptions.DBusException as e:
-            self._app_lookup_in_flight.discard(app_id)
-            log.warning("App-name lookup failed for %s: %s",
-                        app_id, e.get_dbus_name())
+        self._queue_control_point(
+            CommandID.GetAppAttributes,
+            app_id,
+            build_get_app_attributes(app_id),
+        )
 
     def _handle_app_attrs(self, app_attrs: AppAttributes) -> None:
         self._app_lookup_in_flight.discard(app_attrs.app_id)
