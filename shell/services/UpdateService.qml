@@ -234,8 +234,22 @@ QtObject {
 
     function _runUnprivileged(action) {
         let command = []
-        if (action === "aur") command = ["sh", "-c", "command -v yay >/dev/null && yay -Sua --noconfirm"]
-        else if (action === "flatpak") command = ["flatpak", "update", "-y", "--noninteractive"]
+        if (action === "aur") {
+            // AUR PKGBUILDs are executable community-maintained recipes. Keep
+            // this path interactive so the user sees the diff and recipe before
+            // yay is allowed to build anything.
+            command = [
+                "foot",
+                "--title=Review AUR updates",
+                "-e",
+                "yay",
+                "-Sua",
+                "--diffmenu",
+                "--editmenu",
+                "--cleanmenu"
+            ]
+            statusText = I18n.tr("Review AUR changes in the opened terminal")
+        } else if (action === "flatpak") command = ["flatpak", "update", "-y", "--noninteractive"]
         else if (action === "apps") command = ["/usr/bin/nodalix-system-update", "user-apps"]
         else if (action.indexOf("auto-apps-") === 0)
             command = ["systemctl", "--user", action.endsWith("-on") ? "enable" : "disable", "--now", "nodalix-update-apps.timer"]
