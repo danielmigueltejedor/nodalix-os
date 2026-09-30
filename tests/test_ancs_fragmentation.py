@@ -169,6 +169,71 @@ class AncsFragmentationTests(unittest.TestCase):
         self.assertEqual(attrs.app_id, app_id)
         self.assertEqual(attrs.app_name, name)
 
+    def test_control_point_requests_are_serialized(self):
+        writes = []
+
+        class FakeDbusException(Exception):
+            def get_dbus_name(self):
+                return "org.bluez.Error.Failed"
+
+        class FakeCharacteristic:
+            def WriteValue(self, value, _options):
+                writes.append(bytes(value))
+
+        class FakeBus:
+            def get_object(self, _service, _path):
+                return FakeCharacteristic()
+
+        class FakeDbus:
+            Byte = staticmethod(int)
+
+            class exceptions:
+                DBusException = FakeDbusException
+
+            @staticmethod
+            def Interface(obj, _iface):
+                return obj
+
+        AncsClient = _load_ancs_client()
+        client = AncsClient("/org/bluez/hci0/dev_TEST", lambda _event: None)
+        client._cp_path = "/org/bluez/hci0/dev_TEST/service/char"
+
+        globals_ = client._pump_control_point.__globals__
+        globals_["dbus"] = FakeDbus
+        globals_["system_bus"] = FakeBus()
+
+        first = Notification(
+            id=1,
+            type=EventID.NotificationAdded,
+            flags=0,
+            category=CategoryID.Social,
+            category_count=1,
+        )
+        second = Notification(
+            id=2,
+            type=EventID.NotificationAdded,
+            flags=0,
+            category=CategoryID.Email,
+            category_count=1,
+        )
+
+        client._request_attrs(first)
+        client._request_attrs(second)
+
+        self.assertEqual(len(writes), 1)
+        self.assertEqual(client._cp_in_flight[1], 1)
+        self.assertEqual(len(client._cp_queue), 1)
+        self.assertEqual(client._cp_queue[0][1], 2)
+
+        client._complete_control_point(
+            CommandID.GetNotificationAttributes,
+            1,
+        )
+
+        self.assertEqual(len(writes), 2)
+        self.assertEqual(client._cp_in_flight[1], 2)
+        self.assertEqual(client._cp_queue, [])
+
     def test_client_reassembles_fragments_and_preserves_silent_category(self):
         uid = 99
         frame = _notification_frame(uid)
