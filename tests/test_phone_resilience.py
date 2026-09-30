@@ -18,7 +18,7 @@ def load(filename, names, **scope):
     tree = ast.parse((ROOT / filename).read_text())
     nodes = [ast.ImportFrom(module='__future__', names=[ast.alias(name='annotations')], level=0)]
     nodes += [n for n in tree.body if isinstance(n, (ast.ClassDef, ast.FunctionDef)) and n.name in names]
-    env = dict(log=logging.getLogger('resilience'), dbus=SimpleNamespace(exceptions=SimpleNamespace(DBusException=BusError)), **scope)
+    env = dict(log=logging.getLogger('resilience'), dbus=SimpleNamespace(exceptions=SimpleNamespace(DBusException=BusError), String=lambda value: value), **scope)
     exec(compile(ast.fix_missing_locations(ast.Module(body=nodes, type_ignores=[])), filename, 'exec'), env)
     return SimpleNamespace(**env)
 
@@ -83,6 +83,11 @@ class PhoneResilience(unittest.TestCase):
                    MapEventListener=Mock(return_value=listener), claim_bus_name=Mock(), MessagesService=Mock(), signal=SimpleNamespace(SIGINT=2, SIGTERM=15, signal=Mock()), SessionError=RuntimeError)
         daemon = mod.Daemon()
         daemon.start()
+        bluez.return_value.Set.assert_called_once_with(
+            'org.bluez.Device1',
+            'PreferredBearer',
+            'last-seen',
+        )
         ancs.start.assert_called_once()
         sessions.open_all.assert_called_once()
         listener.start.assert_called_once()
@@ -96,5 +101,11 @@ class PhoneResilience(unittest.TestCase):
         mod.bluez_setup.prepare.side_effect = None; mod.bluez_setup.prepare.return_value = True
         self.assertFalse(daemon._retry_bluetooth())
         self.assertIsNone(daemon._bluetooth_retry_id)
+
+        # Once normalized, do not keep rewriting PreferredBearer.
+        bluez.return_value.Set.reset_mock()
+        bluez.return_value.Get.return_value = 'last-seen'
+        daemon._ensure_preferred_bearer()
+        bluez.return_value.Set.assert_not_called()
 
 if __name__ == '__main__': unittest.main()
