@@ -39,7 +39,7 @@ Item {
         spacing: ThemeManager.spacing
 
         Item {
-            visible:        root._notifCount > 0
+            visible:        NotificationService.centerNotifs.length > 0
             implicitWidth:  _clearText.implicitWidth + 12
             implicitHeight: 22
             Rectangle {
@@ -92,8 +92,7 @@ Item {
         // ── Empty state ──────────────────────────────────────────────────────
         Text {
             visible:             !root.toastMode
-                                 && root._notifCount === 0
-                                 && NotificationService.liveCallEntries.length === 0
+                                 && NotificationService.centerNotifs.length === 0
             anchors.horizontalCenter: parent.horizontalCenter
             text: I18n.tr("No notifications")
             color:               ThemeManager.onSurfaceVariant
@@ -109,168 +108,8 @@ Item {
             width:   _flick.width
             spacing: ThemeManager.spacing
 
-            // ── Live calls ---------------------------------------------------
-            // Calls are rendered in their own fixed section before notification
-            // history. Their data is a plain snapshot owned by NotificationService,
-            // so Quickshell replaces_id updates cannot invalidate these controls.
-            Repeater {
-                model: NotificationService.liveCallEntries
-
-                delegate: Rectangle {
-                    id: _callDelegate
-                    required property int index
-                    required property var modelData
-                    readonly property var call: modelData
-
-                    width: _col.width
-                    height: _callContent.height + ThemeManager.spacing * 2
-                    radius: ThemeManager.chipRadius
-                    color: ThemeManager.surfaceContainerHigh
-                    border.width: 1
-                    border.color: ThemeManager.primary
-
-                    Column {
-                        id: _callContent
-                        x: ThemeManager.spacing
-                        y: ThemeManager.spacing
-                        width: parent.width - ThemeManager.spacing * 2
-                        spacing: 4
-
-                        Item {
-                            width: parent.width
-                            height: 22
-
-                            Text {
-                                id: _callIcon
-                                anchors.left: parent.left
-                                anchors.verticalCenter: parent.verticalCenter
-                                text: "☎"
-                                color: ThemeManager.primary
-                                font.family: ThemeManager.fontFor(text)
-                                font.pixelSize: 18
-                                font.weight: Font.Bold
-                            }
-
-                            Text {
-                                anchors {
-                                    left: _callIcon.right
-                                    leftMargin: 6
-                                    right: parent.right
-                                    verticalCenter: parent.verticalCenter
-                                }
-                                text: "" + (_callDelegate.call?.appName ?? "Enlace móvil")
-                                color: ThemeManager.primary
-                                font.family: ThemeManager.fontFor(text)
-                                font.pixelSize: ThemeManager.fontSizeSm
-                                font.weight: Font.DemiBold
-                                elide: Text.ElideRight
-                            }
-                        }
-
-                        Text {
-                            readonly property string _s:
-                                "" + (_callDelegate.call?.summary ?? "")
-                            visible: _s.length > 0
-                            width: parent.width
-                            text: _s
-                            color: ThemeManager.onSurface
-                            font.family: ThemeManager.fontFor(text)
-                            font.pixelSize: ThemeManager.fontSizeSm
-                            font.weight: Font.Medium
-                            wrapMode: Text.WordWrap
-                        }
-
-                        Text {
-                            readonly property string _b:
-                                "" + (_callDelegate.call?.body ?? "")
-                            visible: _b.length > 0
-                            width: parent.width
-                            text: _b
-                            color: ThemeManager.onSurfaceVariant
-                            font.family: ThemeManager.fontFor(text)
-                            font.pixelSize: ThemeManager.fontSizeSm
-                            wrapMode: Text.WordWrap
-                        }
-
-                        Row {
-                            id: _callActions
-                            readonly property var actions:
-                                _callDelegate.call?.actions ?? []
-                            visible: actions.length > 0
-                            width: parent.width
-                            height: visible ? 32 : 0
-                            spacing: 8
-
-                            Repeater {
-                                model: _callActions.actions
-
-                                delegate: Rectangle {
-                                    id: _callAction
-                                    required property var modelData
-                                    readonly property var action: modelData
-                                    readonly property string actionId:
-                                        "" + (action?.id ?? "")
-                                    readonly property bool destructive:
-                                        actionId === "decline"
-                                        || actionId === "hangup"
-
-                                    width: (_callActions.width
-                                            - Math.max(0, _callActions.actions.length - 1)
-                                              * _callActions.spacing)
-                                           / Math.max(1, _callActions.actions.length)
-                                    height: 32
-                                    radius: ThemeManager.chipRadius
-                                    color: destructive
-                                        ? Qt.rgba(
-                                            ThemeManager.error.r,
-                                            ThemeManager.error.g,
-                                            ThemeManager.error.b,
-                                            _callActionMa.containsMouse ? 0.28 : 0.18
-                                          )
-                                        : Qt.rgba(
-                                            ThemeManager.primary.r,
-                                            ThemeManager.primary.g,
-                                            ThemeManager.primary.b,
-                                            _callActionMa.containsMouse ? 0.32 : 0.22
-                                          )
-
-                                    Text {
-                                        anchors.centerIn: parent
-                                        width: parent.width - 16
-                                        text: I18n.tr(
-                                            "" + (_callAction.action?.text
-                                                  ?? _callAction.actionId)
-                                        )
-                                        color: _callAction.destructive
-                                            ? ThemeManager.error
-                                            : ThemeManager.primary
-                                        font.family: ThemeManager.fontFor(text)
-                                        font.pixelSize: ThemeManager.fontSizeSm
-                                        font.weight: Font.DemiBold
-                                        elide: Text.ElideRight
-                                        horizontalAlignment: Text.AlignHCenter
-                                    }
-
-                                    MouseArea {
-                                        id: _callActionMa
-                                        anchors.fill: parent
-                                        hoverEnabled: true
-                                        cursorShape: Qt.PointingHandCursor
-                                        onClicked: {
-                                            NotificationService.invokeCallAction(
-                                                "" + (_callDelegate.call?.callPath ?? ""),
-                                                _callAction.actionId
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // Normal notifications live below the fixed call-control section.
+            // Normal notification history. Active calls are rendered once at
+            // MainWindow level, above every notification surface.
             Repeater {
                 // Use the ordered notification objects themselves as the model.
                 // A numeric count model can keep existing delegates in their old
