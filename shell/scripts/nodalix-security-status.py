@@ -163,21 +163,29 @@ def flatpak_permissions() -> dict[str, object]:
                 continue
 
             reasons: set[str] = set()
+            section = ""
             for raw in perms.stdout.splitlines():
                 line = raw.strip()
-                if line.startswith("filesystems="):
-                    values = line.split("=", 1)[1].split(";")
-                    if any(
-                        value == "home"
-                        or value == "host"
-                        or value.startswith("host-")
-                        for value in values
-                    ):
-                        reasons.add("filesystem")
-                elif line.startswith("devices="):
-                    values = line.split("=", 1)[1].split(";")
-                    if "all" in values:
-                        reasons.add("devices")
+                if line.startswith("[") and line.endswith("]"):
+                    section = line[1:-1]
+                    continue
+                if "=" not in line:
+                    continue
+
+                key, value = line.split("=", 1)
+                values = [item for item in value.split(";") if item]
+
+                if section == "Context" and key == "filesystems":
+                    if any(item == "home" or item.startswith("home:") for item in values):
+                        reasons.add("home-filesystem")
+                    if any(item == "host" or item.startswith("host-") for item in values):
+                        reasons.add("host-filesystem")
+                elif section == "Context" and key == "devices" and "all" in values:
+                    reasons.add("all-devices")
+                elif section == "Session Bus Policy" and key == "*" and value in {"talk", "own"}:
+                    reasons.add("session-bus")
+                elif section == "System Bus Policy" and key == "*" and value in {"talk", "own"}:
+                    reasons.add("system-bus")
 
             if not reasons:
                 continue
