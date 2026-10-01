@@ -49,6 +49,7 @@ Item {
         onClicked: {
             const pos = root.mapToItem(null, root.width / 2, 0)
             NotificationService.markRead()
+            NotificationService.closeCenter()
             PopoutService.togglePin("notif", pos.x, root.barScreen)
         }
     }
@@ -57,6 +58,7 @@ Item {
         onHoveredChanged: {
             const pos = root.mapToItem(null, root.width / 2, 0)
             if (hovered) {
+                NotificationService.closeCenter()
                 PopoutService.open("notif", pos.x, root.barScreen)
                 PopoutService.widgetHovered = true
             } else {
