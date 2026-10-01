@@ -325,76 +325,71 @@ class StaticInvariantTests(unittest.TestCase):
             SHELL / "panels/NotificationCenter.qml"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("function _pinLiveCallsFirst(items)", service)
-        self.assertIn("function _rebuildNotificationViews()", service)
-        self.assertIn(
-            "notif.actionsChanged.connect(root._rebuildNotificationViews)",
-            service,
-        )
-        self.assertIn(
-            "notif.hintsChanged.connect(root._rebuildNotificationViews)",
-            service,
-        )
-        self.assertIn(
-            "centerNotifs = _pinLiveCallsFirst(center)",
-            service,
-        )
-        self.assertIn("function _callActionIds(notif)", service)
-        self.assertIn('"x-nodalix-phone-call"', service)
-        self.assertIn('"x-nodalix-call-path"', service)
-        self.assertIn("function invokeNotificationAction(notif, action)", service)
+        # Live calls must be copied into plain snapshots instead of exposing
+        # Quickshell NotificationAction objects across replaces_id updates.
+        self.assertIn("property var liveCallEntries: []", service)
+        self.assertIn("function _snapshotCall(notif)", service)
+        self.assertIn("actions: actions", service)
+        self.assertIn("liveCallEntries = calls", service)
+        self.assertIn("centerNotifs = center", service)
+        self.assertIn("if (_isLiveCall(n))", service)
+        self.assertIn("calls.push(_snapshotCall(n))", service)
+
+        # Every replacement-facing property must rebuild the snapshot.
+        for signal in (
+            "actionsChanged",
+            "hintsChanged",
+            "bodyChanged",
+            "summaryChanged",
+            "appIconChanged",
+        ):
+            self.assertIn(
+                f"notif.{signal}.connect",
+                service,
+            )
+
+        # Call buttons use the stable call path and Phone Link D-Bus directly.
+        self.assertIn("function invokeCallAction(callPath, actionId)", service)
+        self.assertIn('"/usr/bin/busctl", "--user", "call"', service)
         self.assertIn('"com.gabriel.iphonebridge.Calls1"', service)
         self.assertIn('"AnswerCall"', service)
         self.assertIn('"HangupCall"', service)
-        self.assertIn('ids.indexOf("answer") >= 0', service)
-        self.assertIn('ids.indexOf("hangup") >= 0', service)
-        self.assertNotIn(
-            "notif.urgency === NotificationUrgency.Critical",
-            service,
-        )
-        self.assertIn("property var centerNotifs: []", service)
-        self.assertIn("property var toastNotifs: []", service)
+        self.assertIn('"x-nodalix-phone-call"', service)
+        self.assertIn('"x-nodalix-call-path"', service)
+
+        # The call section is physically before normal notification history.
+        call_model = "model: NotificationService.liveCallEntries"
+        normal_model = "? NotificationService.toastNotifs"
+        self.assertIn(call_model, panel)
+        self.assertIn(normal_model, panel)
+        self.assertLess(panel.index(call_model), panel.index(normal_model))
         self.assertIn(
-            "centerNotifs = _pinLiveCallsFirst(center)",
-            service,
+            "NotificationService.invokeCallAction(",
+            panel,
         )
         self.assertIn(
-            "toastNotifs = _pinLiveCallsFirst(toast)",
-            service,
+            '_callDelegate.call?.callPath',
+            panel,
         )
+
+        # Live calls cannot be dismissed as ordinary notifications.
         self.assertIn("if (_isLiveCall(notif)) return", service)
         self.assertIn(
             "const calls = notifList.filter(n => _isLiveCall(n))",
             service,
         )
-        self.assertIn(
-            "? NotificationService.toastNotifs",
-            panel,
-        )
-        self.assertIn(
-            ": NotificationService.centerNotifs",
-            panel,
-        )
-        self.assertIn("required property var modelData", panel)
-        self.assertIn("readonly property var notif: modelData", panel)
-        self.assertIn(
-            "visible: !NotificationService._isLiveCall(_notifDelegate.notif)",
-            panel,
-        )
-        self.assertIn(
-            "NotificationService.invokeNotificationAction(",
-            panel,
-        )
-        self.assertIn(
-            "&& !_notifDelegate._hasActions",
-            panel,
-        )
 
         libnotify = (
             ROOT / "phone-link/src/iphonebridge/sinks/libnotify.py"
         ).read_text(encoding="utf-8")
-        self.assertIn('"x-nodalix-phone-call": dbus.Boolean(True)', libnotify)
-        self.assertIn('"x-nodalix-call-path": dbus.String(event.call_path)', libnotify)
+        self.assertIn(
+            '"x-nodalix-phone-call": dbus.Boolean(True)',
+            libnotify,
+        )
+        self.assertIn(
+            '"x-nodalix-call-path": dbus.String(event.call_path)',
+            libnotify,
+        )
 
         migration = (
             ROOT / "phone-link/systemd/migrate-user"
