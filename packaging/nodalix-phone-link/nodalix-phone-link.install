@@ -1,4 +1,27 @@
+_cleanup_legacy_phone_link_bluetooth() {
+    local unit="nodalix-iphone-bluetooth.service"
+    local path
+
+    systemctl disable --now "$unit" >/dev/null 2>&1 || true
+
+    for path in \
+        /etc/systemd/system/"$unit" \
+        /usr/lib/systemd/system/"$unit"
+    do
+        [[ -e "$path" || -L "$path" ]] || continue
+
+        # Never delete a file owned by another package. This cleanup targets
+        # only the old unowned Nodalix bootstrap unit.
+        if pacman -Qo "$path" >/dev/null 2>&1; then
+            continue
+        fi
+
+        rm -f -- "$path"
+    done
+}
+
 _prepare_nodalix_phone_link() {
+    _cleanup_legacy_phone_link_bluetooth
     systemctl daemon-reload >/dev/null 2>&1 || true
 
     local experimental_result
