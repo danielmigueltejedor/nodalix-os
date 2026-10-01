@@ -55,6 +55,8 @@ class SecurityDashboardTests(unittest.TestCase):
         )
         self.assertIn("property bool secureBootEnabled", service)
         self.assertIn("property int flatpakBroadCount", service)
+        self.assertIn("property var flatpakBroadApps", service)
+        self.assertIn("flatpakReasonText", service)
         self.assertIn("property int servicesWithoutHardeningCount", service)
 
 
@@ -106,6 +108,40 @@ class SecurityDashboardTests(unittest.TestCase):
         self.assertIn("Layout.preferredWidth: 152", updates)
         self.assertIn("id: _updateAction", updates)
         self.assertIn("Text.ElideRight", updates)
+
+    def test_flatpak_permission_review_is_explanatory(self) -> None:
+        helper = (
+            ROOT / "shell/scripts/nodalix-security-status.py"
+        ).read_text(encoding="utf-8")
+        settings = (
+            ROOT / "shell/panels/Settings.qml"
+        ).read_text(encoding="utf-8")
+
+        for reason in (
+            "host-filesystem",
+            "home-filesystem",
+            "all-devices",
+            "session-bus",
+            "system-bus",
+        ):
+            self.assertIn(reason, helper)
+
+        self.assertIn(
+            'I18n.tr("Flatpak permission review")',
+            settings,
+        )
+        self.assertIn(
+            "SecurityService.flatpakBroadApps",
+            settings,
+        )
+        self.assertIn(
+            "SecurityService.flatpakReasonText(modelData.reasons)",
+            settings,
+        )
+        self.assertIn(
+            "does not automatically mean they are unsafe",
+            settings,
+        )
 
     def test_security_settings_keeps_locking_and_adds_dashboard(self) -> None:
         settings = (
