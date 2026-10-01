@@ -7,6 +7,7 @@ url="https://github.com/danielmigueltejedor/nodalix-os"
 license=('GPL-3.0-or-later')
 depends=('python' 'pacman' 'polkit' 'minisign' 'timeshift' 'rsync' 'btrfs-progs')
 backup=('etc/nodalix/updater.json')
+install=nodalix-updater.install
 source=("nodalix-updater-$pkgver.tar.zst")
 sha256sums=('SKIP')
 
