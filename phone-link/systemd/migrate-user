@@ -9,6 +9,10 @@ home = Path.home()
 env_file = home / ".config/iphonebridge/local.env"
 legacy_unit = home / ".config/systemd/user/iphonebridge.service"
 legacy_code = home / ".local/share/nodalix/iphonebridge"
+legacy_wireplumber = [
+    home / ".config/wireplumber/wireplumber.conf.d/51-bluez-hfp-hf.conf",
+    home / ".config/wireplumber/wireplumber.conf.d/99-nodalix-bluetooth-audio.conf",
+]
 
 
 def systemctl(*args):
@@ -63,6 +67,27 @@ if legacy_code.exists():
         shutil.rmtree(legacy_code)
     except OSError as exc:
         print(f"Nodalix Phone Link: could not remove legacy code: {exc}")
+
+# 0.2.5 ships the canonical WirePlumber policy system-wide. Older Phone Link
+# builds wrote per-user overrides that take precedence over /etc and can keep
+# the desktop acting as an A2DP Sink, causing iPhone media to route through the
+# PC. Preserve those files as backups, but stop loading them.
+stamp = int(time.time())
+for path in legacy_wireplumber:
+    if not path.exists():
+        continue
+    backup = path.with_name(path.name + f".bak.nodalix-0.2.5.{stamp}")
+    try:
+        path.replace(backup)
+        print(
+            "Nodalix Phone Link: backed up legacy WirePlumber override "
+            f"{path} -> {backup}"
+        )
+    except OSError as exc:
+        print(
+            "Nodalix Phone Link: could not migrate legacy WirePlumber "
+            f"override {path}: {exc}"
+        )
 
 systemctl("daemon-reload")
 
