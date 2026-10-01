@@ -260,22 +260,28 @@ class AncsClient:
             )
             return True
         except dbus.exceptions.DBusException as e:
-            if e.get_dbus_name() == "org.freedesktop.DBus.Error.NoReply":
+            error_name = e.get_dbus_name()
+            if error_name in {
+                "org.freedesktop.DBus.Error.NoReply",
+                "org.bluez.Error.NotPermitted",
+            }:
                 # Do not immediately call StartNotify here.  On real iPhones
-                # BlueZ can complete AcquireNotify just after the client-side
-                # timeout, leaving NotifyAcquired=true; StartNotify would then
-                # fail with NotPermitted.  Treat this as a failed subscription
-                # and let the daemon retry/rebuild cleanly.
+                # BlueZ can complete AcquireNotify just after a client timeout,
+                # or briefly retain the previous notify acquisition while the
+                # LE/GATT session is being rebuilt.  In both cases StartNotify
+                # is rejected and only adds churn.  Let the daemon retry the
+                # direct acquisition once BlueZ settles.
                 log.warning(
-                    "ANCS %s AcquireNotify timed out; not falling back to "
-                    "StartNotify because BlueZ may still be completing it",
+                    "ANCS %s AcquireNotify deferred (%s); not falling back "
+                    "to StartNotify",
                     label,
+                    error_name,
                 )
                 return False
             log.info(
                 "ANCS %s AcquireNotify unavailable (%s); falling back to StartNotify",
                 label,
-                e.get_dbus_name(),
+                error_name,
             )
         except (OSError, ValueError, TypeError) as e:
             log.warning(
