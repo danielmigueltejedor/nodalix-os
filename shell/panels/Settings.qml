@@ -803,6 +803,79 @@ PanelWindow {
                             font.pixelSize: ThemeManager.fontSizeSm
                         }
 
+                        SettingSection {
+                            visible: SecurityService.flatpakBroadApps.length > 0
+                            text: I18n.tr("Flatpak permission review")
+                            Layout.topMargin: 8
+                        }
+
+                        Text {
+                            visible: SecurityService.flatpakBroadApps.length > 0
+                            Layout.fillWidth: true
+                            text: I18n.tr("These apps request unusually broad access. This does not automatically mean they are unsafe; review whether the access matches what the app needs.")
+                            wrapMode: Text.WordWrap
+                            color: ThemeManager.onSurfaceVariant
+                            font.family: ThemeManager.fontFor(text)
+                            font.pixelSize: ThemeManager.fontSizeSm
+                        }
+
+                        Repeater {
+                            model: SettingsUi.category === "security"
+                                ? SecurityService.flatpakBroadApps
+                                : []
+
+                            delegate: Rectangle {
+                                required property var modelData
+                                Layout.fillWidth: true
+                                implicitHeight: 58
+                                radius: ThemeManager.chipRadius + 2
+                                color: ThemeManager.surfaceContainerLow
+                                border.width: 1
+                                border.color: ThemeManager.settingsOutline
+
+                                RowLayout {
+                                    anchors { fill: parent; margins: 12 }
+                                    spacing: 12
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        Layout.minimumWidth: 0
+                                        spacing: 1
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: modelData.name || modelData.id
+                                            color: ThemeManager.onSurface
+                                            font.family: ThemeManager.fontFor(text)
+                                            font.pixelSize: ThemeManager.fontSizeMd
+                                            font.weight: Font.Medium
+                                            elide: Text.ElideRight
+                                        }
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: modelData.id
+                                            color: ThemeManager.onSurfaceVariant
+                                            font.family: ThemeManager.fontFor(text)
+                                            font.pixelSize: 10
+                                            elide: Text.ElideMiddle
+                                        }
+                                    }
+
+                                    Text {
+                                        Layout.preferredWidth: 210
+                                        Layout.minimumWidth: 150
+                                        horizontalAlignment: Text.AlignRight
+                                        text: SecurityService.flatpakReasonText(modelData.reasons)
+                                        color: ThemeManager.error
+                                        font.family: ThemeManager.fontFor(text)
+                                        font.pixelSize: 10
+                                        elide: Text.ElideRight
+                                    }
+                                }
+                            }
+                        }
+
                         SettingSection { text: I18n.tr("Automatic screen lock"); Layout.topMargin: 8 }
                         Text {
                             Layout.fillWidth: true
