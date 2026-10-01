@@ -10,8 +10,10 @@ Design notes (from bmh129/ancs4linux + iphonebridge's Phase 0):
   we listen for ObjectManager.InterfacesAdded and wait for all three ANCS
   characteristic UUIDs to show up under the target iPhone's device path.
 
-- StartNotify is called on Notification Source and Data Source as soon as
-  they're present + we're paired. Control Point is write-only.
+- Notification Source and Data Source prefer BlueZ AcquireNotify so every
+  GATT packet is consumed directly from its SOCK_SEQPACKET fd. StartNotify +
+  PropertiesChanged remains a fallback for BlueZ/device combinations where
+  AcquireNotify is unavailable. Control Point is write-only.
 
 - For each NotificationAdded/Modified event we get on NS, we synthesize a
   GetNotificationAttributes packet asking for AppIdentifier+Title+Subtitle+
@@ -23,10 +25,12 @@ Design notes (from bmh129/ancs4linux + iphonebridge's Phase 0):
 from __future__ import annotations
 
 import logging
+import os
 from collections.abc import Callable
 
 import dbus
 import dbus.exceptions
+from gi.repository import GLib
 
 from iphonebridge.ancs.constants import (
     ANCS_CHAR_UUIDS,
@@ -101,6 +105,8 @@ class AncsClient:
         # Permanent ObjectManager subscriptions + per-GATT-session subscriptions.
         self._manager_matches: list = []
         self._char_matches: list = []
+        self._notify_fds: dict[str, tuple[int, int]] = {}
+        self._start_notify_paths: set[str] = set()
 
     # ---- lifecycle ------------------------------------------------------
 
@@ -130,17 +136,7 @@ class AncsClient:
             except Exception:
                 pass
         self._manager_matches = []
-        self._reset_subscription()
-        # StopNotify on the chars if we'd started
-        for path in (self._ns_path, self._ds_path):
-            if path:
-                try:
-                    dbus.Interface(
-                        system_bus.get_object("org.bluez", path),
-                        "org.bluez.GattCharacteristic1",
-                    ).StopNotify()
-                except dbus.exceptions.DBusException:
-                    pass
+        self._reset_subscription(stop_notify=True)
         self._ns_path = self._ds_path = self._cp_path = None
         self._notify_started = False
 
@@ -148,14 +144,36 @@ class AncsClient:
     def active(self) -> bool:
         return self._notify_started
 
-    def _reset_subscription(self) -> None:
-        """Drop per-GATT-session receivers so reconnects cannot duplicate events."""
+    def _reset_subscription(self, *, stop_notify: bool = False) -> None:
+        """Drop per-GATT-session transports so reconnects cannot duplicate events."""
         for match in self._char_matches:
             try:
                 match.remove()
             except Exception:
                 pass
         self._char_matches = []
+
+        for path, (fd, watch_id) in list(self._notify_fds.items()):
+            try:
+                GLib.source_remove(watch_id)
+            except Exception:
+                pass
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+            self._notify_fds.pop(path, None)
+
+        if stop_notify:
+            for path in list(self._start_notify_paths):
+                try:
+                    dbus.Interface(
+                        system_bus.get_object("org.bluez", path),
+                        "org.bluez.GattCharacteristic1",
+                    ).StopNotify()
+                except dbus.exceptions.DBusException:
+                    pass
+        self._start_notify_paths.clear()
         self._notify_started = False
         self._ds_buffer.clear()
         self._notification_meta.clear()
@@ -199,43 +217,142 @@ class AncsClient:
         if lost_ancs:
             self._reset_subscription()
 
+    def _subscribe_characteristic(
+        self,
+        path: str,
+        dbus_callback,
+        packet_callback,
+        label: str,
+    ) -> bool:
+        char = dbus.Interface(
+            system_bus.get_object("org.bluez", path),
+            "org.bluez.GattCharacteristic1",
+        )
+
+        try:
+            fd_obj, mtu = char.AcquireNotify(
+                dbus.Dictionary({}, signature="sv")
+            )
+            fd = fd_obj.take() if hasattr(fd_obj, "take") else int(fd_obj)
+            os.set_blocking(fd, False)
+            watch_id = GLib.io_add_watch(
+                fd,
+                GLib.PRIORITY_DEFAULT,
+                GLib.IO_IN | GLib.IO_HUP | GLib.IO_ERR | GLib.IO_NVAL,
+                self._on_notify_fd,
+                path,
+                packet_callback,
+                int(mtu),
+            )
+            self._notify_fds[path] = (fd, watch_id)
+            log.info(
+                "ANCS %s using AcquireNotify fd=%d mtu=%d",
+                label,
+                fd,
+                int(mtu),
+            )
+            return True
+        except dbus.exceptions.DBusException as e:
+            log.info(
+                "ANCS %s AcquireNotify unavailable (%s); falling back to StartNotify",
+                label,
+                e.get_dbus_name(),
+            )
+        except (OSError, ValueError, TypeError) as e:
+            log.warning(
+                "ANCS %s AcquireNotify setup failed (%s); falling back to StartNotify",
+                label,
+                e,
+            )
+
+        try:
+            char.StartNotify()
+        except dbus.exceptions.DBusException as e:
+            log.warning(
+                "ANCS %s StartNotify failed: %s",
+                label,
+                e.get_dbus_name(),
+            )
+            return False
+
+        self._start_notify_paths.add(path)
+        self._char_matches.append(
+            system_bus.add_signal_receiver(
+                dbus_callback,
+                dbus_interface="org.freedesktop.DBus.Properties",
+                signal_name="PropertiesChanged",
+                path=path,
+            )
+        )
+        log.info("ANCS %s using StartNotify fallback", label)
+        return True
+
+    def _on_notify_fd(
+        self,
+        fd: int,
+        condition,
+        path: str,
+        packet_callback,
+        mtu: int,
+    ) -> bool:
+        if condition & (GLib.IO_HUP | GLib.IO_ERR | GLib.IO_NVAL):
+            log.info("ANCS notify fd closed for %s", path)
+            self._notify_fds.pop(path, None)
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+            self._notify_started = False
+            return False
+
+        try:
+            while True:
+                packet = os.read(fd, max(65535, mtu))
+                if not packet:
+                    self._notify_fds.pop(path, None)
+                    try:
+                        os.close(fd)
+                    except OSError:
+                        pass
+                    self._notify_started = False
+                    return False
+                packet_callback(packet)
+        except BlockingIOError:
+            return True
+        except OSError as e:
+            log.warning("ANCS notify fd read failed for %s: %s", path, e)
+            self._notify_fds.pop(path, None)
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+            self._notify_started = False
+            return False
+
     def _try_subscribe(self) -> None:
         if self._notify_started:
             return
         if not (self._ns_path and self._ds_path and self._cp_path):
             return
-        # Subscribe to NS + DS via StartNotify and PropertiesChanged.
-        try:
-            ns = dbus.Interface(
-                system_bus.get_object("org.bluez", self._ns_path),
-                "org.bluez.GattCharacteristic1",
-            )
-            ds = dbus.Interface(
-                system_bus.get_object("org.bluez", self._ds_path),
-                "org.bluez.GattCharacteristic1",
-            )
-            ns.StartNotify()
-            ds.StartNotify()
-        except dbus.exceptions.DBusException as e:
-            log.warning("ANCS StartNotify failed: %s", e.get_dbus_name())
+
+        if not self._subscribe_characteristic(
+            self._ns_path,
+            self._on_ns_changed,
+            self._handle_ns_value,
+            "Notification Source",
+        ):
+            self._reset_subscription(stop_notify=True)
             return
 
-        self._char_matches.append(
-            system_bus.add_signal_receiver(
-                self._on_ns_changed,
-                dbus_interface="org.freedesktop.DBus.Properties",
-                signal_name="PropertiesChanged",
-                path=self._ns_path,
-            )
-        )
-        self._char_matches.append(
-            system_bus.add_signal_receiver(
-                self._on_ds_changed,
-                dbus_interface="org.freedesktop.DBus.Properties",
-                signal_name="PropertiesChanged",
-                path=self._ds_path,
-            )
-        )
+        if not self._subscribe_characteristic(
+            self._ds_path,
+            self._on_ds_changed,
+            self._handle_ds_value,
+            "Data Source",
+        ):
+            self._reset_subscription(stop_notify=True)
+            return
+
         self._notify_started = True
         log.info("ANCS subscription active for %s", self.device_path)
 
@@ -247,8 +364,11 @@ class AncsClient:
         value = changed.get("Value")
         if value is None:
             return
+        self._handle_ns_value(bytes(value))
+
+    def _handle_ns_value(self, value: bytes) -> None:
         try:
-            n = Notification.parse(bytes(value))
+            n = Notification.parse(value)
         except Exception as e:
             log.error("NS parse failed: %s", e)
             return
@@ -367,11 +487,13 @@ class AncsClient:
         value = changed.get("Value")
         if value is None:
             return
+        self._handle_ds_value(bytes(value))
 
+    def _handle_ds_value(self, value: bytes) -> None:
         # A Data Source response is a byte stream, not one response per GATT
         # notification. Apple explicitly permits fragmentation at the negotiated
         # MTU, so append every fragment and drain only complete ANCS frames.
-        self._ds_buffer.extend(bytes(value))
+        self._ds_buffer.extend(value)
         self._drain_ds_buffer()
 
     def _drain_ds_buffer(self) -> None:
