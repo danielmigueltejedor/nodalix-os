@@ -321,74 +321,82 @@ class StaticInvariantTests(unittest.TestCase):
         service = (
             SHELL / "services/NotificationService.qml"
         ).read_text(encoding="utf-8")
-        panel = (
+        center = (
             SHELL / "panels/NotificationCenter.qml"
         ).read_text(encoding="utf-8")
+        call_card = (
+            SHELL / "panels/LiveCallCard.qml"
+        ).read_text(encoding="utf-8")
+        main = (SHELL / "MainWindow.qml").read_text(encoding="utf-8")
+        button = (
+            SHELL / "widgets/bar/NotifButton.qml"
+        ).read_text(encoding="utf-8")
 
-        # Live calls must be driven by Calls1, not by mutable notification
-        # objects. Notification snapshots remain a compatibility fallback.
+        # Calls1 is authoritative. Mutable freedesktop NotificationAction
+        # objects must not be the persistent call-control state.
         self.assertIn("import Quickshell.Io", service)
         self.assertIn("property var liveCallEntries: []", service)
-        self.assertIn("property var _callFeedEntries: []", service)
-        self.assertIn("property bool _callFeedAvailable: false", service)
         self.assertIn("function _callEntryFromState(call)", service)
         self.assertIn("function _consumeCallFeed(line)", service)
-        self.assertIn('command: ["/usr/bin/nodalix-phone-call-feed"]', service)
         self.assertIn(
-            "liveCallEntries = _callFeedAvailable",
+            'command: ["/usr/bin/nodalix-phone-call-feed"]',
             service,
         )
-        self.assertIn(
-            "? _callFeedEntries",
-            service,
-        )
-        self.assertIn(
-            ": _notificationCallEntries",
-            service,
-        )
-        self.assertIn("function _snapshotCall(notif)", service)
-        self.assertIn("calls.push(_snapshotCall(n))", service)
-        self.assertIn("_notificationCallEntries = calls", service)
-        self.assertIn("centerNotifs = center", service)
+        self.assertIn("liveCallEntries = entries", service)
+        self.assertNotIn("_notificationCallEntries", service)
+        self.assertNotIn("function _snapshotCall(notif)", service)
 
-        # Every replacement-facing property must rebuild the snapshot.
-        for signal in (
-            "actionsChanged",
-            "hintsChanged",
-            "bodyChanged",
-            "summaryChanged",
-            "appIconChanged",
-        ):
-            self.assertIn(
-                f"notif.{signal}.connect",
-                service,
-            )
-
-        # Call buttons use the stable call path and Phone Link D-Bus directly.
-        self.assertIn("function invokeCallAction(callPath, actionId)", service)
+        # Call actions run through an observable Process so failures are visible.
+        self.assertIn(
+            "property Process _callActionProcess: Process",
+            service,
+        )
+        self.assertIn(
+            "function invokeCallAction(callPath, actionId)",
+            service,
+        )
         self.assertIn('"/usr/bin/busctl", "--user", "call"', service)
         self.assertIn('"com.gabriel.iphonebridge.Calls1"', service)
         self.assertIn('"AnswerCall"', service)
         self.assertIn('"HangupCall"', service)
-        self.assertIn('"x-nodalix-phone-call"', service)
-        self.assertIn('"x-nodalix-call-path"', service)
+        self.assertIn("Phone call action result:", service)
 
-        # The call section is physically before normal notification history.
-        call_model = "model: NotificationService.liveCallEntries"
-        normal_model = "? NotificationService.toastNotifs"
-        self.assertIn(call_model, panel)
-        self.assertIn(normal_model, panel)
-        self.assertLess(panel.index(call_model), panel.index(normal_model))
+        # The live-call card is not part of NotificationCenter at all.
+        self.assertNotIn(
+            "NotificationService.liveCallEntries",
+            center,
+        )
         self.assertIn(
             "NotificationService.invokeCallAction(",
-            panel,
+            call_card,
         )
-        self.assertIn(
-            '_callDelegate.call?.callPath',
-            panel,
-        )
+        self.assertIn("TapHandler {", call_card)
 
-        # Live calls cannot be dismissed as ordinary notifications.
+        # One top-level surface always renders above all toast/popout surfaces.
+        self.assertIn("id: _liveCallLayer", main)
+        self.assertIn("model: NotificationService.liveCallEntries", main)
+        self.assertIn("delegate: LiveCallCard {", main)
+        self.assertIn("z: 1000000", main)
+        self.assertIn("y: root._panelTop", main)
+        self.assertIn("y:      root._notifSurfaceY", main)
+        self.assertIn("y:       root._popoutSurfaceY", main)
+        self.assertIn("toastMode:    true", main)
+
+        # PanelWindow's input mask must cover the same live-call rectangle.
+        live_mask = (
+            "y:      root._panelTop\n"
+            "            width:  root._liveCallVisible ? root._panelWidth : 0\n"
+            "            height: root._liveCallVisible "
+            "? Math.ceil(root._liveCallLayer.height) : 0"
+        )
+        self.assertIn(live_mask, main)
+
+        # Opening the bell closes the independent toast surface first.
+        self.assertIn("NotificationService.closeCenter()", button)
+
+        # Live-call freedesktop notifications remain hidden from history and
+        # cannot be cleared as ordinary notifications.
+        self.assertIn("if (!_isLiveCall(n))", service)
         self.assertIn("if (_isLiveCall(notif)) return", service)
         self.assertIn(
             "const calls = notifList.filter(n => _isLiveCall(n))",
