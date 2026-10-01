@@ -347,9 +347,15 @@ class StaticInvariantTests(unittest.TestCase):
             service,
         )
         self.assertIn(
-            "const arr = NotificationService.centerNotifs",
+            "? NotificationService.toastNotifs",
             panel,
         )
+        self.assertIn(
+            ": NotificationService.centerNotifs",
+            panel,
+        )
+        self.assertIn("required property var modelData", panel)
+        self.assertIn("readonly property var notif: modelData", panel)
         self.assertIn(
             "visible: !NotificationService._isLiveCall(_notifDelegate.notif)",
             panel,
