@@ -316,5 +316,52 @@ class StaticInvariantTests(unittest.TestCase):
         self.assertIn('"a2dp_sink"', wireplumber)
 
 
+    def test_live_phone_calls_are_pinned_and_resident(self) -> None:
+        service = (
+            SHELL / "services/NotificationService.qml"
+        ).read_text(encoding="utf-8")
+        panel = (
+            SHELL / "panels/NotificationCenter.qml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("function _pinLiveCallsFirst(items)", service)
+        self.assertIn("readonly property var centerNotifs:", service)
+        self.assertIn("return _pinLiveCallsFirst(a)", service)
+        self.assertIn("if (_isLiveCall(notif)) return", service)
+        self.assertIn(
+            "const calls = notifList.filter(n => _isLiveCall(n))",
+            service,
+        )
+        self.assertIn(
+            "const arr = NotificationService.centerNotifs",
+            panel,
+        )
+        self.assertIn(
+            "visible: !NotificationService._isLiveCall(_notifDelegate.notif)",
+            panel,
+        )
+
+    def test_phone_contacts_are_mirrored_to_gnome_contacts(self) -> None:
+        bridge = (
+            ROOT / "phone-link/src/iphonebridge/eds_contacts.py"
+        ).read_text(encoding="utf-8")
+        contacts = (
+            ROOT / "phone-link/src/iphonebridge/contacts.py"
+        ).read_text(encoding="utf-8")
+        pkgbuild = (
+            ROOT / "packaging/nodalix-phone-link/PKGBUILD"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('SOURCE_UID = "nodalix-iphone-contacts"', bridge)
+        self.assertIn('SOURCE_NAME = "iPhone (Nodalix)"', bridge)
+        self.assertIn("SOURCE_EXTENSION_ADDRESS_BOOK", bridge)
+        self.assertIn("EBook.BookClient.connect_sync", bridge)
+        self.assertIn("new_from_vcard_with_uid", bridge)
+        self.assertIn("sync_gnome_contacts(blob)", contacts)
+        self.assertIn("'evolution-data-server'", pkgbuild)
+        self.assertIn("'ofono'", pkgbuild)
+        self.assertIn("pkgver=0.2.5", pkgbuild)
+
+
 if __name__ == "__main__":
     unittest.main()
