@@ -30,17 +30,32 @@ QtObject {
     readonly property int _toastMax: SettingsService.get("notifications.toastMax", 5)  // cap visible toast stack
     property var _toastEntries: []                // [{ n: notif, exp: ms }]
 
+    function _callActionIds(notif) {
+        const ids = []
+        const actions = notif?.actions ?? []
+        for (let i = 0; i < actions.length; i++)
+            ids.push("" + (actions[i]?.identifier ?? ""))
+        return ids
+    }
+
     function _isLiveCall(notif) {
-        // Calls are the only critical notifications emitted by Enlace móvil.
-        return notif
-            && ("" + (notif.appName ?? "")) === "Enlace móvil"
-            && notif.urgency === NotificationUrgency.Critical
+        if (!notif || ("" + (notif.appName ?? "")) !== "Enlace móvil")
+            return false
+
+        // Do not depend on the notification server's urgency/category mapping.
+        // Enlace móvil call notifications are uniquely identified by their HFP
+        // control actions, while SMS/ANCS notifications carry none of these.
+        const ids = _callActionIds(notif)
+        return ids.indexOf("answer") >= 0
+            || ids.indexOf("decline") >= 0
+            || ids.indexOf("hangup") >= 0
     }
 
     function _isIncomingCall(notif) {
         if (!_isLiveCall(notif)) return false
-        const body = "" + (notif.body ?? "")
-        return body === "Llamada entrante" || body === "Incoming call"
+        const ids = _callActionIds(notif)
+        return ids.indexOf("answer") >= 0
+            || ids.indexOf("decline") >= 0
     }
 
     property SoundEffect _notificationSound: SoundEffect {
