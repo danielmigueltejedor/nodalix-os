@@ -31,7 +31,15 @@ class PhoneResilience(unittest.TestCase):
             Boolean=lambda value: value,
         )
         # Interface is injected after loading to keep the helper defaults simple.
-        mod = load('hfp/ofono_client.py', ['HfpManager', '_safe_remove'], system_bus=bus, OFONO='org.ofono', _MGR_IFACE='org.ofono.Manager')
+        mod = load(
+            'hfp/ofono_client.py',
+            ['HfpManager', '_safe_remove'],
+            system_bus=bus,
+            OFONO='org.ofono',
+            _MGR_IFACE='org.ofono.Manager',
+            _MODEM_IFACE='org.ofono.Modem',
+            _VCM_IFACE='org.ofono.VoiceCallManager',
+        )
         mod.HfpManager.start.__globals__['dbus'] = dbus
         return mod.HfpManager(Mock()), bus
 
@@ -102,6 +110,7 @@ class PhoneResilience(unittest.TestCase):
             SessionManager=Mock(return_value=Mock()),
             ContactsResolver=Mock(return_value=Mock()),
             config=SimpleNamespace(CALLS_ENABLED=True),
+            RECONNECT_TICK_SEC=15,
         )
         daemon = mod.Daemon()
         daemon.hfp = hfp
