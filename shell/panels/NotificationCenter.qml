@@ -91,7 +91,9 @@ Item {
 
         // ── Empty state ──────────────────────────────────────────────────────
         Text {
-            visible:             !root.toastMode && root._notifCount === 0
+            visible:             !root.toastMode
+                                 && root._notifCount === 0
+                                 && NotificationService.liveCallEntries.length === 0
             anchors.horizontalCenter: parent.horizontalCenter
             text: I18n.tr("No notifications")
             color:               ThemeManager.onSurfaceVariant
