@@ -138,28 +138,6 @@ QtObject {
         if (action) action.invoke()
     }
 
-    function _snapshotCall(notif) {
-        const actions = []
-        const source = notif?.actions ?? []
-        for (let i = 0; i < source.length; i++) {
-            actions.push({
-                id: "" + (source[i]?.identifier ?? ""),
-                text: "" + (source[i]?.text ?? source[i]?.identifier ?? "")
-            })
-        }
-
-        return {
-            notificationId: Number(notif?.id ?? -1),
-            callPath: _callPath(notif),
-            appName: "" + (notif?.appName ?? "Enlace móvil"),
-            summary: "" + (notif?.summary ?? ""),
-            body: "" + (notif?.body ?? ""),
-            appIcon: "" + (notif?.appIcon ?? ""),
-            image: "" + (notif?.image ?? ""),
-            actions: actions
-        }
-    }
-
     property SoundEffect _notificationSound: SoundEffect {
         source: Qt.resolvedUrl("../assets/sounds/notification.wav")
         volume: 0.72
@@ -187,21 +165,8 @@ QtObject {
 
     onDoNotDisturbChanged: { if (doNotDisturb) _ringSound.stop() }
 
-    function _toastExpiry(notif) {
-        // A phone call must remain actionable until Enlace móvil replaces or
-        // closes it. Normal notifications retain the user-configured timeout.
-        return _isLiveCall(notif) ? Number.MAX_SAFE_INTEGER : Date.now() + _toastTTL
-    }
-
-    function _pinLiveCallsFirst(items) {
-        const calls = []
-        const rest = []
-        for (let i = 0; i < items.length; i++) {
-            const n = items[i]
-            if (_isLiveCall(n)) calls.push(n)
-            else rest.push(n)
-        }
-        return calls.concat(rest)
+    function _toastExpiry(_notif) {
+        return Date.now() + _toastTTL
     }
 
     // Calls are a control surface, not notification history. Calls1 is the
