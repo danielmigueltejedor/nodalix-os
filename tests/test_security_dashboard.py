@@ -57,6 +57,56 @@ class SecurityDashboardTests(unittest.TestCase):
         self.assertIn("property int flatpakBroadCount", service)
         self.assertIn("property int servicesWithoutHardeningCount", service)
 
+
+    def test_security_navigation_lives_under_system(self) -> None:
+        settings = (
+            ROOT / "shell/panels/Settings.qml"
+        ).read_text(encoding="utf-8")
+
+        personal = settings.split(
+            '"personal-group": [',
+            1,
+        )[1].split(
+            '"appearance-group": [',
+            1,
+        )[0]
+        system = settings.split(
+            '"system-group": [',
+            1,
+        )[1].split(
+            '    })',
+            1,
+        )[0]
+
+        self.assertNotIn('id: "security"', personal)
+        self.assertIn('id: "security"', system)
+        self.assertIn(
+            'I18n.tr("Firewall, Secure Boot and system protection")',
+            system,
+        )
+
+    def test_updates_keep_compact_aur_copy_and_aligned_action_columns(self) -> None:
+        settings = (
+            ROOT / "shell/panels/Settings.qml"
+        ).read_text(encoding="utf-8")
+
+        updates = settings.split(
+            '// Updates',
+            1,
+        )[1].split(
+            '// Desktop widgets',
+            1,
+        )[0]
+
+        self.assertIn(
+            'I18n.tr("AUR packages · manual review")',
+            updates,
+        )
+        self.assertIn("Layout.preferredWidth: 112", updates)
+        self.assertIn("Layout.preferredWidth: 152", updates)
+        self.assertIn("id: _updateAction", updates)
+        self.assertIn("Text.ElideRight", updates)
+
     def test_security_settings_keeps_locking_and_adds_dashboard(self) -> None:
         settings = (
             ROOT / "shell/panels/Settings.qml"
