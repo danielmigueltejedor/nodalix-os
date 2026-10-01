@@ -145,10 +145,16 @@ Item {
 
                     // Click the notification (anywhere but the ✕) → open its app.
                     readonly property bool _clickOpens: SettingsService.get("notifications.clickOpensApp", true)
+                    readonly property bool _hasActions:
+                        (_notifDelegate.notif?.actions?.length ?? 0) > 0
                     MouseArea {
                         id: _activateMa
                         anchors.fill: parent
+                        // Never let the card-level click target steal pointer
+                        // events from explicit notification action buttons.
                         enabled: _notifDelegate._clickOpens
+                            && !_notifDelegate._hasActions
+                            && !NotificationService._isLiveCall(_notifDelegate.notif)
                         hoverEnabled: _notifDelegate._clickOpens
                         cursorShape:  Qt.PointingHandCursor
                         onClicked: {
@@ -367,7 +373,10 @@ Item {
                                         hoverEnabled: true
                                         cursorShape: Qt.PointingHandCursor
                                         onClicked: {
-                                            if (_actionButton.action) _actionButton.action.invoke()
+                                            NotificationService.invokeNotificationAction(
+                                                _notifDelegate.notif,
+                                                _actionButton.action
+                                            )
                                         }
                                     }
                                 }
