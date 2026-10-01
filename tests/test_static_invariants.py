@@ -352,8 +352,16 @@ class StaticInvariantTests(unittest.TestCase):
             "notif.urgency === NotificationUrgency.Critical",
             service,
         )
-        self.assertIn("readonly property var centerNotifs:", service)
-        self.assertIn("return _pinLiveCallsFirst(a)", service)
+        self.assertIn("property var centerNotifs: []", service)
+        self.assertIn("property var toastNotifs: []", service)
+        self.assertIn(
+            "centerNotifs = _pinLiveCallsFirst(center)",
+            service,
+        )
+        self.assertIn(
+            "toastNotifs = _pinLiveCallsFirst(toast)",
+            service,
+        )
         self.assertIn("if (_isLiveCall(notif)) return", service)
         self.assertIn(
             "const calls = notifList.filter(n => _isLiveCall(n))",
