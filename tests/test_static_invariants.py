@@ -283,5 +283,38 @@ class StaticInvariantTests(unittest.TestCase):
             self.assertNotIn("thumbCY", source)
 
 
+    def test_phone_link_reserves_bluez_hfp_for_ofono(self) -> None:
+        dropin = (
+            ROOT
+            / "phone-link/systemd/50-nodalix-phone-link-bluez-hfp.conf"
+        ).read_text(encoding="utf-8")
+        pkgbuild = (
+            ROOT / "packaging/nodalix-phone-link/PKGBUILD"
+        ).read_text(encoding="utf-8")
+        install = (
+            ROOT
+            / "packaging/nodalix-phone-link/nodalix-phone-link.install"
+        ).read_text(encoding="utf-8")
+        wireplumber = (
+            ROOT / "phone-link/wireplumber/51-nodalix-phone-link.conf"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            "ExecStart=/usr/lib/bluetooth/bluetoothd --noplugin=hfp",
+            dropin,
+        )
+        self.assertIn(
+            "bluetooth.service.d/50-nodalix-phone-link-bluez-hfp.conf",
+            pkgbuild,
+        )
+        self.assertIn("--noplugin=hfp", install)
+        self.assertIn(
+            '"bluez5.hfphsp-backend" = "ofono"',
+            wireplumber,
+        )
+        self.assertIn('"hfp_hf"', wireplumber)
+        self.assertIn('"a2dp_sink"', wireplumber)
+
+
 if __name__ == "__main__":
     unittest.main()
