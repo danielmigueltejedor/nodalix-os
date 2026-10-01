@@ -105,6 +105,7 @@ class HfpManager:
         self._vcm_hooked = False
         self._power_retry_id: int | None = None
         self._power_retry_attempt = 0
+        self._power_request_in_flight = False
 
         self._mgr_matches: list = []          # ModemAdded / ModemRemoved
         self._modem_sub = None                # modem PropertyChanged
@@ -166,6 +167,7 @@ class HfpManager:
 
     def _teardown_modem(self) -> None:
         self._cancel_power_retry()
+        self._power_request_in_flight = False
         _safe_remove(self._modem_sub)
         self._modem_sub = None
         for m in self._vcm_matches:
@@ -286,28 +288,52 @@ class HfpManager:
         if props.get("Powered"):
             self._cancel_power_retry()
             return
-
-        try:
-            modem.SetProperty("Powered", dbus.Boolean(True))
-            log.info("HFP modem power requested")
-        except dbus.exceptions.DBusException as e:
-            log.warning(
-                "could not power the HFP modem (%s); retrying automatically",
-                e.get_dbus_message() or e.get_dbus_name(),
-            )
-            self._schedule_power_retry()
+        if self._power_request_in_flight:
             return
 
-        # Verify instead of assuming SetProperty completed synchronously.
-        try:
-            refreshed = dict(modem.GetProperties())
-        except dbus.exceptions.DBusException:
-            refreshed = {}
+        modem_path = self._modem_path
+        self._power_request_in_flight = True
 
-        if refreshed.get("Powered"):
-            self._cancel_power_retry()
-            self._maybe_hook_vcm(refreshed)
-        else:
+        def on_reply() -> None:
+            if modem_path != self._modem_path:
+                return
+            self._power_request_in_flight = False
+            log.info("HFP modem power request completed")
+            # oFono normally emits Powered/Interfaces PropertyChanged signals.
+            # Keep a lightweight verification retry in case a backend omits
+            # one of those signals.
+            self._schedule_power_retry()
+
+        def on_error(error) -> None:
+            if modem_path != self._modem_path:
+                return
+            self._power_request_in_flight = False
+            try:
+                message = error.get_dbus_message() or error.get_dbus_name()
+            except Exception:
+                message = str(error)
+            log.warning(
+                "could not power the HFP modem (%s); retrying automatically",
+                message,
+            )
+            self._schedule_power_retry()
+
+        try:
+            modem.SetProperty(
+                "Powered",
+                dbus.Boolean(True),
+                reply_handler=on_reply,
+                error_handler=on_error,
+                timeout=30,
+            )
+            log.info("HFP modem power requested asynchronously")
+        except dbus.exceptions.DBusException as error:
+            self._power_request_in_flight = False
+            log.warning(
+                "could not start HFP modem power request (%s); "
+                "retrying automatically",
+                error.get_dbus_message() or error.get_dbus_name(),
+            )
             self._schedule_power_retry()
 
     def _maybe_hook_vcm(self, props: dict) -> None:
