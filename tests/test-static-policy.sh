@@ -18,8 +18,13 @@ fi
 
 rg -q 'ExecStart=/usr/bin/nodalix-shell' \
     "$repo_root/packaging/nodalix-shell/nodalix-shell.service"
-rg -q 'qs --no-duplicate -c nodalix' \
+rg -q 'qs --no-duplicate -p /etc/xdg/quickshell/nodalix/shell.qml' \
     "$repo_root/packaging/nodalix-shell/nodalix-shell"
+if rg -q 'qs --no-duplicate -c nodalix' \
+    "$repo_root/packaging/nodalix-shell/nodalix-shell"; then
+    printf '%s\n' "Nodalix shell must not use XDG named-config precedence" >&2
+    exit 1
+fi
 
 if rg -n 'hl\.bind\([^)]*SUPER \+ SPACE|ipc call launcher toggle' \
     "$repo_root/shell/hypr/quickshell.lua"; then
