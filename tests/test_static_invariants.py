@@ -326,6 +326,12 @@ class StaticInvariantTests(unittest.TestCase):
 
         self.assertIn("function _pinLiveCallsFirst(items)", service)
         self.assertIn("function _callActionIds(notif)", service)
+        self.assertIn('"x-nodalix-phone-call"', service)
+        self.assertIn('"x-nodalix-call-path"', service)
+        self.assertIn("function invokeNotificationAction(notif, action)", service)
+        self.assertIn('"com.gabriel.iphonebridge.Calls1"', service)
+        self.assertIn('"AnswerCall"', service)
+        self.assertIn('"HangupCall"', service)
         self.assertIn('ids.indexOf("answer") >= 0', service)
         self.assertIn('ids.indexOf("hangup") >= 0', service)
         self.assertNotIn(
@@ -347,6 +353,20 @@ class StaticInvariantTests(unittest.TestCase):
             "visible: !NotificationService._isLiveCall(_notifDelegate.notif)",
             panel,
         )
+        self.assertIn(
+            "NotificationService.invokeNotificationAction(",
+            panel,
+        )
+        self.assertIn(
+            "&& !_notifDelegate._hasActions",
+            panel,
+        )
+
+        libnotify = (
+            ROOT / "phone-link/src/iphonebridge/sinks/libnotify.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('"x-nodalix-phone-call": dbus.Boolean(True)', libnotify)
+        self.assertIn('"x-nodalix-call-path": dbus.String(event.call_path)', libnotify)
 
     def test_phone_contacts_are_mirrored_to_gnome_contacts(self) -> None:
         bridge = (
