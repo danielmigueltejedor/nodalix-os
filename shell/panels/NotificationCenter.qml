@@ -109,22 +109,20 @@ Item {
 
             // Toast mode: stacked toast queue (newest on top). Full mode: all items.
             Repeater {
-                model: root.toastMode ? NotificationService.toastCount : root._notifCount
+                // Use the ordered notification objects themselves as the model.
+                // A numeric count model can keep existing delegates in their old
+                // positions when only the order changes, which allowed a live
+                // phone call to fall below newer notifications.
+                model: root.toastMode
+                    ? NotificationService.toastNotifs
+                    : NotificationService.centerNotifs
 
                 delegate: Rectangle {
                     id: _notifDelegate
                     required property int index
+                    required property var modelData
 
-                    // Toast: newest-first toast stack. Full: newest-first full list.
-                    readonly property var notif: {
-                        if (root.toastMode) {
-                            const t = NotificationService.toastNotifs
-                            return (t && index < t.length) ? t[index] : null
-                        }
-                        const _ = root._notifCount
-                        const arr = NotificationService.centerNotifs
-                        return (arr && index < arr.length) ? arr[index] : null
-                    }
+                    readonly property var notif: modelData
 
                     // Hide stale/blank delegates: backing notification gone (count
                     // vs list briefly out of sync) OR a destroyed ref whose props
