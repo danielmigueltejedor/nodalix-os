@@ -326,6 +326,11 @@ class LibnotifySink:
                     "urgency": dbus.Byte(2),
                     "resident": dbus.Boolean(True),
                     "category": dbus.String("x-nodalix.phone-call"),
+                    # Stable Nodalix hints consumed by the shell.  Do not make
+                    # call pinning or controls depend on how a notification
+                    # server maps urgency/category/action objects.
+                    "x-nodalix-phone-call": dbus.Boolean(True),
+                    "x-nodalix-call-path": dbus.String(event.call_path),
                 }, signature="sv"),
                 dbus.Int32(0),  # 0 = never expire (we close it ourselves)
             ))
