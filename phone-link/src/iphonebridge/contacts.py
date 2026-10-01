@@ -20,6 +20,7 @@ import dbus
 from iphonebridge import config
 from iphonebridge.bus import obex
 from iphonebridge.events import normalize_phone
+from iphonebridge.eds_contacts import sync_gnome_contacts
 from iphonebridge.obex.sessions import SessionManager
 
 log = logging.getLogger(__name__)
@@ -151,6 +152,16 @@ def pull_phonebook(sessions: SessionManager, *, max_contacts: int = 65535) -> in
                     "('last_pull', ?), ('count', ?)",
                     (str(now), str(len(parsed))),
                 )
+
+        # GNOME Contacts consumes Evolution Data Server. Keep a dedicated
+        # iPhone address book in sync, but never let an EDS failure break the
+        # independent Phone Link cache or call/message name resolution.
+        try:
+            sync_gnome_contacts(blob)
+        except Exception:
+            log.exception(
+                "GNOME Contacts sync failed; Phone Link contact cache remains active"
+            )
 
         return len(parsed)
 
