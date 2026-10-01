@@ -313,7 +313,8 @@ class StaticInvariantTests(unittest.TestCase):
             wireplumber,
         )
         self.assertIn('"hfp_hf"', wireplumber)
-        self.assertIn('"a2dp_sink"', wireplumber)
+        self.assertIn('"a2dp_source"', wireplumber)
+        self.assertNotIn('"a2dp_sink"', wireplumber)
 
 
     def test_live_phone_calls_are_pinned_and_resident(self) -> None:
@@ -367,6 +368,13 @@ class StaticInvariantTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn('"x-nodalix-phone-call": dbus.Boolean(True)', libnotify)
         self.assertIn('"x-nodalix-call-path": dbus.String(event.call_path)', libnotify)
+
+        migration = (
+            ROOT / "phone-link/systemd/migrate-user"
+        ).read_text(encoding="utf-8")
+        self.assertIn("51-bluez-hfp-hf.conf", migration)
+        self.assertIn("99-nodalix-bluetooth-audio.conf", migration)
+        self.assertIn(".bak.nodalix-0.2.5.", migration)
 
     def test_phone_contacts_are_mirrored_to_gnome_contacts(self) -> None:
         bridge = (
