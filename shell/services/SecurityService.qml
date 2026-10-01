@@ -26,8 +26,25 @@ QtObject {
 
     property int foreignPackageCount: 0
     property int flatpakBroadCount: 0
+    property var flatpakBroadApps: []
     property int privilegedServiceCount: 0
     property int servicesWithoutHardeningCount: 0
+
+    function flatpakReasonText(reasons) {
+        const values = Array.isArray(reasons) ? reasons : []
+        const labels = []
+        if (values.indexOf("host-filesystem") >= 0)
+            labels.push(I18n.tr("System files"))
+        if (values.indexOf("home-filesystem") >= 0)
+            labels.push(I18n.tr("Home folder"))
+        if (values.indexOf("all-devices") >= 0)
+            labels.push(I18n.tr("All devices"))
+        if (values.indexOf("session-bus") >= 0)
+            labels.push(I18n.tr("Session bus"))
+        if (values.indexOf("system-bus") >= 0)
+            labels.push(I18n.tr("System bus"))
+        return labels.join(" · ")
+    }
 
     function refresh() {
         if (_probe.running) return
@@ -63,7 +80,9 @@ QtObject {
                     root.keyringVersion = String(keyring.version || "")
 
                     root.foreignPackageCount = Number((data.foreign_packages || {}).count || 0)
-                    root.flatpakBroadCount = Number((data.flatpak || {}).broad_count || 0)
+                    const flatpak = data.flatpak || {}
+                    root.flatpakBroadCount = Number(flatpak.broad_count || 0)
+                    root.flatpakBroadApps = Array.isArray(flatpak.broad_apps) ? flatpak.broad_apps : []
 
                     const services = data.nodalix_services || {}
                     root.privilegedServiceCount = Number(services.privileged_count || 0)
