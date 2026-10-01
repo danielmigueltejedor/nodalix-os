@@ -13,23 +13,37 @@ install=nodalix-phone-link.install
 
 package() {
   install -d "$pkgdir/usr/lib/nodalix-phone-link"
-  cp -a --no-preserve=ownership "$srcdir/phone-link/src/iphonebridge"     "$pkgdir/usr/lib/nodalix-phone-link/"
+  cp -a --no-preserve=ownership "$srcdir/phone-link/src/iphonebridge" \
+    "$pkgdir/usr/lib/nodalix-phone-link/"
 
   install -Dm755 "$srcdir/phone-link/bin/enlace-movil" "$pkgdir/usr/bin/enlace-movil"
   install -Dm755 "$srcdir/phone-link/bin/enlace-movil-ui" "$pkgdir/usr/bin/enlace-movil-ui"
   install -Dm755 "$srcdir/phone-link/bin/nodalix-phone-link-settings" "$pkgdir/usr/bin/nodalix-phone-link-settings"
-  install -Dm755 "$srcdir/phone-link/systemd/prepare-bluetooth"     "$pkgdir/usr/lib/nodalix-phone-link/prepare-bluetooth"
-  install -Dm755 "$srcdir/phone-link/systemd/enable-bluez-experimental"     "$pkgdir/usr/lib/nodalix-phone-link/enable-bluez-experimental"
-  install -Dm755 "$srcdir/phone-link/systemd/migrate-user"     "$pkgdir/usr/lib/nodalix-phone-link/migrate-user"
+  install -Dm755 "$srcdir/phone-link/systemd/prepare-bluetooth" \
+    "$pkgdir/usr/lib/nodalix-phone-link/prepare-bluetooth"
+  install -Dm755 "$srcdir/phone-link/systemd/enable-bluez-experimental" \
+    "$pkgdir/usr/lib/nodalix-phone-link/enable-bluez-experimental"
+  install -Dm755 "$srcdir/phone-link/systemd/migrate-user" \
+    "$pkgdir/usr/lib/nodalix-phone-link/migrate-user"
 
-  install -Dm644 "$srcdir/phone-link/systemd/nodalix-phone-link.service"     "$pkgdir/usr/lib/systemd/user/nodalix-phone-link.service"
-  install -Dm644 "$srcdir/phone-link/systemd/nodalix-phone-link-bluetooth.service"     "$pkgdir/usr/lib/systemd/system/nodalix-phone-link-bluetooth.service"
+  install -Dm644 "$srcdir/phone-link/systemd/nodalix-phone-link.service" \
+    "$pkgdir/usr/lib/systemd/user/nodalix-phone-link.service"
+  install -Dm644 "$srcdir/phone-link/systemd/nodalix-phone-link-bluetooth.service" \
+    "$pkgdir/usr/lib/systemd/system/nodalix-phone-link-bluetooth.service"
+  install -Dm644 "$srcdir/phone-link/systemd/50-nodalix-phone-link-bluez-hfp.conf" \
+    "$pkgdir/usr/lib/systemd/system/bluetooth.service.d/50-nodalix-phone-link-bluez-hfp.conf"
   install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
-  ln -s /usr/lib/systemd/system/nodalix-phone-link-bluetooth.service     "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/nodalix-phone-link-bluetooth.service"
+  ln -s /usr/lib/systemd/system/nodalix-phone-link-bluetooth.service \
+    "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/nodalix-phone-link-bluetooth.service"
 
-  install -Dm644 "$srcdir/phone-link/wireplumber/51-nodalix-phone-link.conf"     "$pkgdir/etc/wireplumber/wireplumber.conf.d/51-nodalix-phone-link.conf"
-  install -Dm644 "$srcdir/phone-link/data/com.nodalix.PhoneLink.desktop"     "$pkgdir/usr/share/applications/com.nodalix.PhoneLink.desktop"
-  install -Dm644 "$srcdir/phone-link/data/icons/nodalix-phone-link.svg"     "$pkgdir/usr/share/icons/hicolor/scalable/apps/nodalix-phone-link.svg"
-  install -Dm644 "$srcdir/phone-link/LICENSE"     "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
-  install -Dm644 "$srcdir/phone-link/NODALIX_CHANGES.md"     "$pkgdir/usr/share/doc/$pkgname/NODALIX_CHANGES.md"
+  install -Dm644 "$srcdir/phone-link/wireplumber/51-nodalix-phone-link.conf" \
+    "$pkgdir/etc/wireplumber/wireplumber.conf.d/51-nodalix-phone-link.conf"
+  install -Dm644 "$srcdir/phone-link/data/com.nodalix.PhoneLink.desktop" \
+    "$pkgdir/usr/share/applications/com.nodalix.PhoneLink.desktop"
+  install -Dm644 "$srcdir/phone-link/data/icons/nodalix-phone-link.svg" \
+    "$pkgdir/usr/share/icons/hicolor/scalable/apps/nodalix-phone-link.svg"
+  install -Dm644 "$srcdir/phone-link/LICENSE" \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "$srcdir/phone-link/NODALIX_CHANGES.md" \
+    "$pkgdir/usr/share/doc/$pkgname/NODALIX_CHANGES.md"
 }
