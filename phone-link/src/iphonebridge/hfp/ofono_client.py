@@ -53,7 +53,7 @@ _WP_CONF_BODY = """# Installed by `iphonebridge hfp-enable`.
 # oFono, so call control (answer/hangup/dial, caller ID) is available on
 # D-Bus. Reversible: restore the .bak alongside this file, restart wireplumber.
 monitor.bluez.properties = {
-  "bluez5.roles"            = [ "hsp_hs", "hsp_ag", "hfp_hf", "hfp_ag", "a2dp_sink", "a2dp_source" ]
+  "bluez5.roles"            = [ "hsp_hs", "hsp_ag", "hfp_hf", "hfp_ag", "a2dp_source" ]
   "bluez5.codecs"           = [ "sbc", "sbc_xq" ]
   "bluez5.enable-msbc"      = true
   "bluez5.enable-hw-volume" = true
