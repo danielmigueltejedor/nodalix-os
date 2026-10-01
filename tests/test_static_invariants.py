@@ -325,6 +325,13 @@ class StaticInvariantTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn("function _pinLiveCallsFirst(items)", service)
+        self.assertIn("function _callActionIds(notif)", service)
+        self.assertIn('ids.indexOf("answer") >= 0', service)
+        self.assertIn('ids.indexOf("hangup") >= 0', service)
+        self.assertNotIn(
+            "notif.urgency === NotificationUrgency.Critical",
+            service,
+        )
         self.assertIn("readonly property var centerNotifs:", service)
         self.assertIn("return _pinLiveCallsFirst(a)", service)
         self.assertIn("if (_isLiveCall(notif)) return", service)
