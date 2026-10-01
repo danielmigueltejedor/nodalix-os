@@ -73,36 +73,52 @@ QtObject {
             || ids.indexOf("decline") >= 0
     }
 
-    function invokeNotificationAction(notif, action) {
-        if (!action) return
+    function invokeCallAction(callPath, actionId) {
+        const path = "" + (callPath ?? "")
+        const id = "" + (actionId ?? "")
+        if (path === "") return
+        if (id !== "answer" && id !== "decline" && id !== "hangup") return
 
-        const actionId = "" + (action.identifier ?? "")
-        const callPath = _callPath(notif)
+        const method = id === "answer" ? "AnswerCall" : "HangupCall"
+        Quickshell.execDetached([
+            "/usr/bin/busctl", "--user", "call",
+            "com.gabriel.iphonebridge",
+            "/com/gabriel/iphonebridge",
+            "com.gabriel.iphonebridge.Calls1",
+            method,
+            "s",
+            path
+        ])
+    }
 
-        if (
-            _isLiveCall(notif)
-            && callPath !== ""
-            && (
-                actionId === "answer"
-                || actionId === "decline"
-                || actionId === "hangup"
-            )
-        ) {
-            const method = actionId === "answer" ? "AnswerCall" : "HangupCall"
-            Quickshell.execDetached([
-                "busctl", "--user", "call",
-                "com.gabriel.iphonebridge",
-                "/com/gabriel/iphonebridge",
-                "com.gabriel.iphonebridge.Calls1",
-                method,
-                "s",
-                callPath
-            ])
-            return
+    function invokeNotificationAction(_notif, action) {
+        // Ordinary notifications can safely use Quickshell's live
+        // NotificationAction. Phone calls never reach this path: their UI uses
+        // a plain snapshot and invokeCallAction(), so a replaces_id update cannot
+        // invalidate a button by deleting/replacing NotificationAction objects.
+        if (action) action.invoke()
+    }
+
+    function _snapshotCall(notif) {
+        const actions = []
+        const source = notif?.actions ?? []
+        for (let i = 0; i < source.length; i++) {
+            actions.push({
+                id: "" + (source[i]?.identifier ?? ""),
+                text: "" + (source[i]?.text ?? source[i]?.identifier ?? "")
+            })
         }
 
-        // Generic freedesktop notification action fallback.
-        action.invoke()
+        return {
+            notificationId: Number(notif?.id ?? -1),
+            callPath: _callPath(notif),
+            appName: "" + (notif?.appName ?? "Enlace móvil"),
+            summary: "" + (notif?.summary ?? ""),
+            body: "" + (notif?.body ?? ""),
+            appIcon: "" + (notif?.appIcon ?? ""),
+            image: "" + (notif?.image ?? ""),
+            actions: actions
+        }
     }
 
     property SoundEffect _notificationSound: SoundEffect {
@@ -149,41 +165,43 @@ QtObject {
         return calls.concat(rest)
     }
 
-    // Explicitly materialized view models. Notification replacements can mutate
-    // actions/hints on an existing QObject without changing notifList itself;
-    // keeping these as computed bindings left the visual order stale.
+    // Calls are a control surface, not notification history. Keep immutable
+    // snapshots in a dedicated model rendered above the normal notification
+    // repeater. This avoids holding NotificationAction objects across
+    // replaces_id updates (Quickshell may delete and recreate those actions).
+    property var liveCallEntries: []
     property var toastNotifs: []
     property var centerNotifs: []
-    readonly property int toastCount: toastNotifs.length
+    readonly property int toastCount: liveCallEntries.length + toastNotifs.length
 
     function _rebuildNotificationViews() {
+        const calls = []
         const center = []
-        for (let i = notifList.length - 1; i >= 0; i--)
-            center.push(notifList[i])
-        centerNotifs = _pinLiveCallsFirst(center)
+
+        // Newest first within each group. Calls are removed from normal history
+        // entirely, so their top position cannot be displaced by later alerts.
+        for (let i = notifList.length - 1; i >= 0; i--) {
+            const n = notifList[i]
+            if (_isLiveCall(n))
+                calls.push(_snapshotCall(n))
+            else
+                center.push(n)
+        }
+
+        liveCallEntries = calls
+        centerNotifs = center
 
         const toast = []
         const seen = []
-
-        // A live call is always part of the visible toast model while it exists,
-        // even if the call started while the full notification center was open.
-        for (let i = 0; i < centerNotifs.length; i++) {
-            const n = centerNotifs[i]
-            if (_isLiveCall(n)) {
-                toast.push(n)
-                seen.push(n)
-            }
-        }
-
         for (let i = _toastEntries.length - 1; i >= 0; i--) {
             const n = _toastEntries[i].n
+            if (_isLiveCall(n)) continue
             if (seen.indexOf(n) < 0) {
                 toast.push(n)
                 seen.push(n)
             }
         }
-
-        toastNotifs = _pinLiveCallsFirst(toast)
+        toastNotifs = toast
     }
 
     // Prunes expired toasts; pauses while hovering so they don't vanish mid-read.
@@ -200,7 +218,8 @@ QtObject {
             }
             if (kept.length === 0) {
                 stop()
-                if (root.toastMode) root.closeCenter()
+                if (root.toastMode && root.liveCallEntries.length === 0)
+                    root.closeCenter()
             }
         }
     }
@@ -231,6 +250,7 @@ QtObject {
         actionsSupported: true
         bodySupported:    true
         imageSupported:   true
+        extraHints:       [ "x-nodalix-phone-call", "x-nodalix-call-path" ]
 
         onNotification: (notif) => {
             notif.tracked = true
@@ -242,16 +262,22 @@ QtObject {
                 if (root._isLiveCall(notif)) root._ringSound.stop()
                 root._drop(notif)
             })
-            // Most servers expose property-change signals on a replacement
-            // notification.  Use it for a zero-delay stop; the short watchdog
-            // above remains as a compatibility fallback.
-            if (root._isLiveCall(notif) && notif.bodyChanged) {
+            // replaces_id mutates this same Notification object in place.
+            // Re-snapshot every call-facing property so the pinned call card
+            // never holds a deleted NotificationAction or stale call state.
+            if (notif.bodyChanged) {
                 notif.bodyChanged.connect(() => {
-                    if (!root._isIncomingCall(notif)) root._ringSound.stop()
+                    if (root._isLiveCall(notif) && !root._isIncomingCall(notif))
+                        root._ringSound.stop()
+                    root._rebuildNotificationViews()
                 })
             }
-            // Rebuild ordering when a replacement notification changes the
-            // properties that identify a live phone call.
+            if (notif.summaryChanged)
+                notif.summaryChanged.connect(root._rebuildNotificationViews)
+            if (notif.appIconChanged)
+                notif.appIconChanged.connect(root._rebuildNotificationViews)
+            if (notif.imageChanged)
+                notif.imageChanged.connect(root._rebuildNotificationViews)
             if (notif.actionsChanged)
                 notif.actionsChanged.connect(root._rebuildNotificationViews)
             if (notif.hintsChanged)
