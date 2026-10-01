@@ -74,15 +74,51 @@ QtObject {
             || ids.indexOf("decline") >= 0
     }
 
+    property string _callActionLabel: ""
+    property string _callActionPath: ""
+
+    property Process _callActionProcess: Process {
+        running: false
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const out = text.trim()
+                if (out !== "")
+                    console.info("Phone call action stdout:", out)
+            }
+        }
+        stderr: StdioCollector {
+            onStreamFinished: {
+                const out = text.trim()
+                if (out !== "")
+                    console.warn("Phone call action stderr:", out)
+            }
+        }
+        onExited: (code, status) => {
+            console.info(
+                "Phone call action result:",
+                root._callActionLabel,
+                root._callActionPath,
+                "exit=" + code,
+                "status=" + status
+            )
+        }
+    }
+
     function invokeCallAction(callPath, actionId) {
         const path = "" + (callPath ?? "")
         const id = "" + (actionId ?? "")
         if (path === "") return
         if (id !== "answer" && id !== "decline" && id !== "hangup") return
+        if (_callActionProcess.running) {
+            console.warn("Phone call action already running:", _callActionLabel)
+            return
+        }
 
         const method = id === "answer" ? "AnswerCall" : "HangupCall"
+        _callActionLabel = id
+        _callActionPath = path
         console.info("Phone call action:", id, path)
-        Quickshell.execDetached([
+        _callActionProcess.command = [
             "/usr/bin/busctl", "--user", "call",
             "com.gabriel.iphonebridge",
             "/com/gabriel/iphonebridge",
@@ -90,7 +126,8 @@ QtObject {
             method,
             "s",
             path
-        ])
+        ]
+        _callActionProcess.running = true
     }
 
     function invokeNotificationAction(_notif, action) {
@@ -167,16 +204,14 @@ QtObject {
         return calls.concat(rest)
     }
 
-    // Calls are a control surface, not notification history. The authoritative
-    // source is Calls1 via nodalix-phone-call-feed; notification snapshots are
-    // retained only as a compatibility fallback when Phone Link is unavailable.
+    // Calls are a control surface, not notification history. Calls1 is the
+    // single source of truth; freedesktop call notifications are only used for
+    // ringtone/compatibility and are filtered out of normal notification lists.
     property var liveCallEntries: []
-    property var _callFeedEntries: []
-    property var _notificationCallEntries: []
     property bool _callFeedAvailable: false
     property var toastNotifs: []
     property var centerNotifs: []
-    readonly property int toastCount: liveCallEntries.length + toastNotifs.length
+    readonly property int toastCount: toastNotifs.length
 
     function _callEntryFromState(call) {
         if (!call) return null
@@ -224,12 +259,6 @@ QtObject {
         }
     }
 
-    function _refreshLiveCallEntries() {
-        liveCallEntries = _callFeedAvailable
-            ? _callFeedEntries
-            : _notificationCallEntries
-    }
-
     function _consumeCallFeed(line) {
         if (!line) return
         let payload
@@ -248,8 +277,7 @@ QtObject {
         }
 
         _callFeedAvailable = Boolean(payload.available)
-        _callFeedEntries = entries
-        _refreshLiveCallEntries()
+        liveCallEntries = entries
     }
 
     property Process _callFeed: Process {
@@ -259,29 +287,34 @@ QtObject {
             splitMarker: "\n"
             onRead: (line) => root._consumeCallFeed(line)
         }
-        onExited: {
+        stderr: StdioCollector {
+            onStreamFinished: {
+                const out = text.trim()
+                if (out !== "")
+                    console.warn("Phone call feed stderr:", out)
+            }
+        }
+        onExited: (code, status) => {
             root._callFeedAvailable = false
-            root._callFeedEntries = []
-            root._refreshLiveCallEntries()
+            root.liveCallEntries = []
+            console.warn(
+                "Phone call feed exited:",
+                "exit=" + code,
+                "status=" + status
+            )
         }
     }
 
     function _rebuildNotificationViews() {
-        const calls = []
         const center = []
 
-        // Calls are excluded from normal notification history. Their snapshots
-        // remain only as fallback until the authoritative Calls1 feed is ready.
+        // Call notifications stay tracked for compatibility but never enter the
+        // visual history. The top-level LiveCallCard owns the call UI.
         for (let i = notifList.length - 1; i >= 0; i--) {
             const n = notifList[i]
-            if (_isLiveCall(n))
-                calls.push(_snapshotCall(n))
-            else
+            if (!_isLiveCall(n))
                 center.push(n)
         }
-
-        _notificationCallEntries = calls
-        _refreshLiveCallEntries()
         centerNotifs = center
 
         const toast = []
@@ -332,7 +365,6 @@ QtObject {
         if (bellHovered || panelHovered) {
             _closeTimer.stop()
             _toastTimer.stop()
-            if (toastMode) toastMode = false   // expand toast → full view
         } else {
             _closeTimer.restart()
         }
@@ -381,25 +413,29 @@ QtObject {
             root.notifList = [...root.notifList, notif]
             root.notifCount++
             root._rebuildNotificationViews()
+
+            if (root._isLiveCall(notif)) {
+                if (!root.doNotDisturb && root._isIncomingCall(notif))
+                    root._ringSound.play()
+                else if (!root._isIncomingCall(notif))
+                    root._ringSound.stop()
+                return
+            }
+
             if (!root.doNotDisturb && !(notif.hints && notif.hints["x-nodalix-silent"])) {
-                if (root._isIncomingCall(notif)) root._ringSound.play()
-                else {
-                    if (root._isLiveCall(notif)) root._ringSound.stop()
-                    root._notificationSound.play()
-                }
+                root._notificationSound.play()
                 root.unreadCount++
-                // Suppress toast only when the full center is open (bell popout, or
-                // inline non-toast center). Otherwise add to the toast stack.
-                const popoutOpen     = PopoutService.currentName === "notif"
-                const fullCenterOpen = root.centerOpen && !root.toastMode
-                if (!popoutOpen && !fullCenterOpen) {
+                // The automatic surface is toast-only. Opening the bell uses
+                // PopoutService and suppresses this independent layer.
+                const popoutOpen = PopoutService.currentName === "notif"
+                if (!popoutOpen) {
                     let q = [...root._toastEntries, { n: notif, exp: root._toastExpiry(notif) }]
                     if (q.length > root._toastMax) q = q.slice(q.length - root._toastMax)
                     root._toastEntries = q
                     root._rebuildNotificationViews()
-                    root.toastMode    = true
-                    root.centerScreen = null   // show on all screens
-                    root.centerOpen   = true
+                    root.toastMode = true
+                    root.centerScreen = null
+                    root.centerOpen = true
                     root._toastTimer.restart()
                 }
             }
