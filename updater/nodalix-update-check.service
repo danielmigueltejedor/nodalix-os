@@ -6,3 +6,18 @@ After=network.target
 Type=oneshot
 ExecStart=/usr/bin/sh -c '/usr/bin/install -d -m755 /var/cache/nodalix-updater; /usr/bin/nodalix-updater check --json > /var/cache/nodalix-updater/check.json.tmp && /usr/bin/mv /var/cache/nodalix-updater/check.json.tmp /var/cache/nodalix-updater/check.json'
 TimeoutStartSec=90
+
+# Read-only network checker: it only needs its state/cache directories.
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/cache/nodalix-updater /var/lib/nodalix-updater
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+CapabilityBoundingSet=
