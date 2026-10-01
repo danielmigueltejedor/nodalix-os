@@ -326,6 +326,19 @@ class StaticInvariantTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn("function _pinLiveCallsFirst(items)", service)
+        self.assertIn("function _rebuildNotificationViews()", service)
+        self.assertIn(
+            "notif.actionsChanged.connect(root._rebuildNotificationViews)",
+            service,
+        )
+        self.assertIn(
+            "notif.hintsChanged.connect(root._rebuildNotificationViews)",
+            service,
+        )
+        self.assertIn(
+            "centerNotifs = _pinLiveCallsFirst(center)",
+            service,
+        )
         self.assertIn("function _callActionIds(notif)", service)
         self.assertIn('"x-nodalix-phone-call"', service)
         self.assertIn('"x-nodalix-call-path"', service)
