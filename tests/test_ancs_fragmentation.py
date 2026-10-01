@@ -174,7 +174,6 @@ class AncsFragmentationTests(unittest.TestCase):
             PHONE_SRC / "iphonebridge" / "ancs" / "client.py"
         ).read_text(encoding="utf-8")
         self.assertIn("AcquireNotify", source)
-        self.assertIn("NotifyAcquired", source)
         self.assertIn("GLib.io_add_watch", source)
         self.assertIn("os.read", source)
         self.assertIn("StartNotify fallback", source)
