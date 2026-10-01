@@ -38,17 +38,32 @@ QtObject {
         return ids
     }
 
-    function _isLiveCall(notif) {
-        if (!notif || ("" + (notif.appName ?? "")) !== "Enlace móvil")
-            return false
+    function _hint(notif, key, fallback) {
+        if (!notif || !notif.hints) return fallback
+        const value = notif.hints[key]
+        return value === undefined || value === null ? fallback : value
+    }
 
-        // Do not depend on the notification server's urgency/category mapping.
-        // Enlace móvil call notifications are uniquely identified by their HFP
-        // control actions, while SMS/ANCS notifications carry none of these.
+    function _isLiveCall(notif) {
+        if (!notif) return false
+
+        // Primary identity: a stable Nodalix-specific hint emitted by
+        // Enlace móvil.  This is available as soon as the notification is
+        // created and survives replacements throughout the call lifecycle.
+        if (Boolean(_hint(notif, "x-nodalix-phone-call", false)))
+            return true
+
+        // Compatibility fallback for notifications created by an older daemon.
+        if (("" + (notif.appName ?? "")) !== "Enlace móvil")
+            return false
         const ids = _callActionIds(notif)
         return ids.indexOf("answer") >= 0
             || ids.indexOf("decline") >= 0
             || ids.indexOf("hangup") >= 0
+    }
+
+    function _callPath(notif) {
+        return "" + _hint(notif, "x-nodalix-call-path", "")
     }
 
     function _isIncomingCall(notif) {
@@ -56,6 +71,38 @@ QtObject {
         const ids = _callActionIds(notif)
         return ids.indexOf("answer") >= 0
             || ids.indexOf("decline") >= 0
+    }
+
+    function invokeNotificationAction(notif, action) {
+        if (!action) return
+
+        const actionId = "" + (action.identifier ?? "")
+        const callPath = _callPath(notif)
+
+        if (
+            _isLiveCall(notif)
+            && callPath !== ""
+            && (
+                actionId === "answer"
+                || actionId === "decline"
+                || actionId === "hangup"
+            )
+        ) {
+            const method = actionId === "answer" ? "AnswerCall" : "HangupCall"
+            Quickshell.execDetached([
+                "busctl", "--user", "call",
+                "com.gabriel.iphonebridge",
+                "/com/gabriel/iphonebridge",
+                "com.gabriel.iphonebridge.Calls1",
+                method,
+                "s",
+                callPath
+            ])
+            return
+        }
+
+        // Generic freedesktop notification action fallback.
+        action.invoke()
     }
 
     property SoundEffect _notificationSound: SoundEffect {
