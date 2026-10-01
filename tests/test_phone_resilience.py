@@ -25,7 +25,11 @@ def load(filename, names, **scope):
 class PhoneResilience(unittest.TestCase):
     def hfp(self):
         bus = Mock()
-        dbus = SimpleNamespace(exceptions=SimpleNamespace(DBusException=BusError), Interface=lambda obj, _: obj)
+        dbus = SimpleNamespace(
+            exceptions=SimpleNamespace(DBusException=BusError),
+            Interface=lambda obj, _: obj,
+            Boolean=lambda value: value,
+        )
         # Interface is injected after loading to keep the helper defaults simple.
         mod = load('hfp/ofono_client.py', ['HfpManager', '_safe_remove'], system_bus=bus, OFONO='org.ofono', _MGR_IFACE='org.ofono.Manager')
         mod.HfpManager.start.__globals__['dbus'] = dbus
@@ -62,6 +66,49 @@ class PhoneResilience(unittest.TestCase):
         self.assertIn('error_handler=on_error', source)
         self.assertIn('timeout=30', source)
         self.assertIn('_power_request_in_flight', source)
+
+    def test_hfp_recovery_cancels_backoff_and_retries_immediately(self):
+        manager, bus = self.hfp()
+        manager._modem_path = '/hfp/test'
+        manager._power_retry_id = 42
+        manager._power_retry_attempt = 5
+
+        proxy = bus.get_object.return_value
+        proxy.GetProperties.return_value = {
+            'Powered': False,
+            'Interfaces': [],
+        }
+
+        glib = Mock()
+        manager.recover_now.__globals__['GLib'] = glib
+
+        self.assertFalse(manager.recover_now())
+
+        glib.source_remove.assert_called_once_with(42)
+        self.assertIsNone(manager._power_retry_id)
+        self.assertEqual(manager._power_retry_attempt, 0)
+        proxy.SetProperty.assert_called_once()
+        args, kwargs = proxy.SetProperty.call_args
+        self.assertEqual(args[:2], ('Powered', True))
+        self.assertEqual(kwargs['timeout'], 30)
+        self.assertTrue(manager._power_request_in_flight)
+
+    def test_daemon_can_kick_hfp_recovery_immediately(self):
+        hfp = Mock()
+        hfp.ready = False
+        mod = load(
+            'daemon.py',
+            ['Daemon'],
+            SessionManager=Mock(return_value=Mock()),
+            ContactsResolver=Mock(return_value=Mock()),
+            config=SimpleNamespace(CALLS_ENABLED=True),
+        )
+        daemon = mod.Daemon()
+        daemon.hfp = hfp
+
+        daemon._recover_hfp_now()
+
+        hfp.recover_now.assert_called_once_with()
 
     def test_advertising_capacity_timeout_and_proxy_failure(self):
         for name in ('org.bluez.Error.NotPermitted', 'org.bluez.Error.Failed', 'org.freedesktop.DBus.Error.NoReply', 'org.freedesktop.DBus.Error.ServiceUnknown'):
