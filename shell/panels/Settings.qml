@@ -217,7 +217,6 @@ PanelWindow {
     readonly property var _groups: ({
         "personal-group": [
             { id: "user", label: I18n.tr("User"), sub: I18n.tr("Profile, image and personal settings") },
-            { id: "security", label: I18n.tr("Security"), sub: I18n.tr("Automatic lock and inactivity") },
             { id: "date-time", label: I18n.tr("Date and time"), sub: I18n.tr("Time zone and automatic synchronization") }
         ],
         "appearance-group": [
@@ -250,6 +249,7 @@ PanelWindow {
         ],
         "system-group": [
             { id: "updates", label: I18n.tr("Updates"), sub: I18n.tr("System, applications and firmware") },
+            { id: "security", label: I18n.tr("Security"), sub: I18n.tr("Firewall, Secure Boot and system protection") },
             { id: "keybindings", label: I18n.tr("Keybindings"), sub: I18n.tr("Keyboard shortcuts") },
             { id: "tools", label: I18n.tr("Tools"), sub: I18n.tr("Quick actions and custom tools") },
             { id: "dependencies", label: I18n.tr("Dependencies"), sub: I18n.tr("Optional system features") },
@@ -3076,7 +3076,7 @@ PanelWindow {
                         Repeater {
                             model: root._updatesPage ? [
                                 { key: "system", title: I18n.tr("System and kernel"), detail: I18n.tr("Official Arch packages, dependencies and kernel"), count: UpdateService.systemUpdates },
-                                { key: "aur", title: "AUR", detail: I18n.tr("Community packages · review required before building"), count: UpdateService.aurUpdates },
+                                { key: "aur", title: "AUR", detail: I18n.tr("AUR packages · manual review"), count: UpdateService.aurUpdates },
                                 { key: "flatpak", title: "Flatpak", detail: I18n.tr("Sandboxed applications and runtimes"), count: UpdateService.flatpakUpdates },
                                 { key: "firmware", title: I18n.tr("Firmware"), detail: I18n.tr("Device firmware through fwupd"), count: -1 }
                             ] : []
@@ -3101,20 +3101,54 @@ PanelWindow {
                                             iconSize: 20
                                         }
                                         ColumnLayout {
-                                            Layout.fillWidth: true; spacing: 1
-                                            Text { text: modelData.title; color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeMd; font.weight: Font.Medium }
-                                            Text { text: modelData.detail; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 10 }
+                                            Layout.fillWidth: true
+                                            Layout.minimumWidth: 0
+                                            spacing: 1
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: modelData.title
+                                                color: ThemeManager.onSurface
+                                                font.family: ThemeManager.fontFor(text)
+                                                font.pixelSize: ThemeManager.fontSizeMd
+                                                font.weight: Font.Medium
+                                                elide: Text.ElideRight
+                                            }
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: modelData.detail
+                                                color: ThemeManager.onSurfaceVariant
+                                                font.family: ThemeManager.fontFor(text)
+                                                font.pixelSize: 10
+                                                elide: Text.ElideRight
+                                            }
                                         }
-                                        Text {
-                                            visible: modelData.count >= 0
-                                            text: modelData.count + " " + I18n.tr(modelData.count === 1 ? "update" : "updates")
-                                            color: modelData.count > 0 ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                                            font.family: ThemeManager.fontFor(text); font.pixelSize: 10
+                                        Item {
+                                            Layout.preferredWidth: 112
+                                            Layout.minimumWidth: 112
+                                            implicitHeight: _updateCount.implicitHeight
+                                            Text {
+                                                id: _updateCount
+                                                anchors.right: parent.right
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                visible: modelData.count >= 0
+                                                text: modelData.count + " " + I18n.tr(modelData.count === 1 ? "update" : "updates")
+                                                color: modelData.count > 0 ? ThemeManager.primary : ThemeManager.onSurfaceVariant
+                                                font.family: ThemeManager.fontFor(text)
+                                                font.pixelSize: 10
+                                            }
                                         }
-                                        SettingBtn {
-                                            label: modelData.key === "aur" ? I18n.tr("Review and update") : I18n.tr("Update")
-                                            enabled: !UpdateService.running && (modelData.key !== "firmware" || DependencyService.available("fwupdmgr"))
-                                            onClicked: UpdateService.request(modelData.key)
+                                        Item {
+                                            Layout.preferredWidth: 152
+                                            Layout.minimumWidth: 152
+                                            implicitHeight: _updateAction.implicitHeight
+                                            SettingBtn {
+                                                id: _updateAction
+                                                anchors.right: parent.right
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                label: modelData.key === "aur" ? I18n.tr("Review and update") : I18n.tr("Update")
+                                                enabled: !UpdateService.running && (modelData.key !== "firmware" || DependencyService.available("fwupdmgr"))
+                                                onClicked: UpdateService.request(modelData.key)
+                                            }
                                         }
                                     }
                                 }
