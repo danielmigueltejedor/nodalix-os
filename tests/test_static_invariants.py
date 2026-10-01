@@ -325,15 +325,31 @@ class StaticInvariantTests(unittest.TestCase):
             SHELL / "panels/NotificationCenter.qml"
         ).read_text(encoding="utf-8")
 
-        # Live calls must be copied into plain snapshots instead of exposing
-        # Quickshell NotificationAction objects across replaces_id updates.
+        # Live calls must be driven by Calls1, not by mutable notification
+        # objects. Notification snapshots remain a compatibility fallback.
+        self.assertIn("import Quickshell.Io", service)
         self.assertIn("property var liveCallEntries: []", service)
+        self.assertIn("property var _callFeedEntries: []", service)
+        self.assertIn("property bool _callFeedAvailable: false", service)
+        self.assertIn("function _callEntryFromState(call)", service)
+        self.assertIn("function _consumeCallFeed(line)", service)
+        self.assertIn('command: ["/usr/bin/nodalix-phone-call-feed"]', service)
+        self.assertIn(
+            "liveCallEntries = _callFeedAvailable",
+            service,
+        )
+        self.assertIn(
+            "? _callFeedEntries",
+            service,
+        )
+        self.assertIn(
+            ": _notificationCallEntries",
+            service,
+        )
         self.assertIn("function _snapshotCall(notif)", service)
-        self.assertIn("actions: actions", service)
-        self.assertIn("liveCallEntries = calls", service)
-        self.assertIn("centerNotifs = center", service)
-        self.assertIn("if (_isLiveCall(n))", service)
         self.assertIn("calls.push(_snapshotCall(n))", service)
+        self.assertIn("_notificationCallEntries = calls", service)
+        self.assertIn("centerNotifs = center", service)
 
         # Every replacement-facing property must rebuild the snapshot.
         for signal in (
@@ -378,6 +394,17 @@ class StaticInvariantTests(unittest.TestCase):
             "const calls = notifList.filter(n => _isLiveCall(n))",
             service,
         )
+
+        call_feed = (
+            ROOT / "phone-link/bin/nodalix-phone-call-feed"
+        ).read_text(encoding="utf-8")
+        pkgbuild = (
+            ROOT / "packaging/nodalix-phone-link/PKGBUILD"
+        ).read_text(encoding="utf-8")
+        self.assertIn("CallStateChanged", call_feed)
+        self.assertIn("ListCalls", call_feed)
+        self.assertIn('"available": bool(self.owner)', call_feed)
+        self.assertIn("nodalix-phone-call-feed", pkgbuild)
 
         libnotify = (
             ROOT / "phone-link/src/iphonebridge/sinks/libnotify.py"
