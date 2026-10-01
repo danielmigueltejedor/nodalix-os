@@ -418,6 +418,7 @@ class Daemon:
             return
 
         log.info("iPhone LE bearer connected")
+        self._recover_hfp_now()
 
         if self._ancs_recover_pending:
             if self._ancs_restart_id is not None:
@@ -430,6 +431,20 @@ class Daemon:
                 750,
                 self._restart_ancs_after_le,
             )
+
+    def _recover_hfp_now(self) -> None:
+        """Collapse stale HFP backoff as soon as the iPhone is reachable."""
+        if (
+            not config.CALLS_ENABLED
+            or self.hfp is None
+            or self.hfp.ready
+        ):
+            return
+
+        try:
+            self.hfp.recover_now()
+        except Exception:
+            log.exception("immediate HFP recovery failed")
 
     def _kick_phone_recovery(self) -> bool:
         self._maintain_phone_connection()
@@ -510,6 +525,7 @@ class Daemon:
                     le_connected = False
 
                 if le_connected and self.ancs.active:
+                    self._recover_hfp_now()
                     self._reconnect_backoff = RECONNECT_TICK_SEC
                     self._reconnect_next = (
                         now + RECONNECT_TICK_SEC
@@ -517,6 +533,7 @@ class Daemon:
                     return True
 
                 if le_connected:
+                    self._recover_hfp_now()
                     log.info(
                         "iPhone LE connected but ANCS inactive; "
                         "refreshing ANCS client"
@@ -541,6 +558,7 @@ class Daemon:
                     connect_le_only = True
 
             elif device_connected:
+                self._recover_hfp_now()
                 self._reconnect_backoff = RECONNECT_TICK_SEC
                 self._reconnect_next = (
                     now + RECONNECT_TICK_SEC
@@ -607,6 +625,7 @@ class Daemon:
             )
         else:
             log.info("automatic iPhone reconnect succeeded")
+            self._recover_hfp_now()
             self._reconnect_backoff = RECONNECT_TICK_SEC
             self._reconnect_next = now + RECONNECT_TICK_SEC
         return False
