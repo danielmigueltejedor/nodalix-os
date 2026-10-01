@@ -158,6 +158,45 @@ class HfpManager:
         )
         return True
 
+    @property
+    def ready(self) -> bool:
+        """Whether oFono call control is fully available."""
+        return bool(self._modem_path and self._vcm_hooked)
+
+    def recover_now(self) -> bool:
+        """Retry HFP immediately after the phone returns.
+
+        An out-of-range iPhone can push the normal power retry backoff to
+        30 seconds. When BlueZ tells the daemon that the phone is reachable
+        again, cancel that stale timer and ask oFono to reconnect HFP now.
+        """
+        if self._modem_path is None:
+            return False
+
+        self._cancel_power_retry()
+
+        try:
+            modem = dbus.Interface(
+                system_bus.get_object(OFONO, self._modem_path),
+                _MODEM_IFACE,
+            )
+            props = dict(modem.GetProperties())
+        except dbus.exceptions.DBusException as error:
+            log.debug(
+                "HFP immediate recovery could not read modem: %s",
+                error.get_dbus_message() or error.get_dbus_name(),
+            )
+            self._schedule_power_retry()
+            return False
+
+        if props.get("Powered"):
+            self._maybe_hook_vcm(props)
+            return self.ready
+
+        log.info("iPhone returned; retrying HFP modem power immediately")
+        self._ensure_powered(modem, props)
+        return False
+
     def stop(self) -> None:
         log.info("HFP manager stopping")
         for m in self._mgr_matches:
