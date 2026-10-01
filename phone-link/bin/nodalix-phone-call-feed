@@ -1,0 +1,181 @@
+#!/usr/bin/env python3
+"""Stream Enlace móvil call state as JSON lines for the Nodalix shell.
+
+The notification protocol is deliberately not used as the source of truth:
+org.freedesktop.Notifications replacements may mutate/close presentation
+objects while a phone call is still active. Calls1 is authoritative.
+"""
+from __future__ import annotations
+
+import json
+import signal
+import sys
+
+import dbus
+from dbus.mainloop.glib import DBusGMainLoop
+from gi.repository import GLib
+
+BUS_NAME = "com.gabriel.iphonebridge"
+OBJECT_PATH = "/com/gabriel/iphonebridge"
+CALLS_IFACE = "com.gabriel.iphonebridge.Calls1"
+DBUS_IFACE = "org.freedesktop.DBus"
+DBUS_PATH = "/org/freedesktop/DBus"
+
+
+def _plain(value):
+    if isinstance(value, dbus.Dictionary):
+        return {str(k): _plain(v) for k, v in value.items()}
+    if isinstance(value, (dbus.Array, list, tuple)):
+        return [_plain(v) for v in value]
+    if isinstance(value, (dbus.String, dbus.ObjectPath)):
+        return str(value)
+    if isinstance(value, dbus.Boolean):
+        return bool(value)
+    if isinstance(
+        value,
+        (
+            dbus.Byte,
+            dbus.Int16,
+            dbus.UInt16,
+            dbus.Int32,
+            dbus.UInt32,
+            dbus.Int64,
+            dbus.UInt64,
+        ),
+    ):
+        return int(value)
+    if isinstance(value, dbus.Double):
+        return float(value)
+    return value
+
+
+class CallFeed:
+    def __init__(self) -> None:
+        self.bus = dbus.SessionBus()
+        self.calls: dict[str, dict] = {}
+        self.owner = ""
+
+        self.bus.add_signal_receiver(
+            self._on_call_state,
+            signal_name="CallStateChanged",
+            dbus_interface=CALLS_IFACE,
+            bus_name=BUS_NAME,
+            path=OBJECT_PATH,
+        )
+        self.bus.add_signal_receiver(
+            self._on_name_owner_changed,
+            signal_name="NameOwnerChanged",
+            dbus_interface=DBUS_IFACE,
+            bus_name=DBUS_IFACE,
+            path=DBUS_PATH,
+            arg0=BUS_NAME,
+        )
+
+        self._refresh_owner()
+        if self.owner:
+            self._snapshot()
+        else:
+            self._emit()
+
+        # Reconcile periodically as a defensive fallback if the shell or Phone
+        # Link starts in the middle of a D-Bus ownership transition.
+        GLib.timeout_add_seconds(5, self._reconcile)
+
+    def _emit(self) -> None:
+        print(
+            json.dumps(
+                {
+                    "available": bool(self.owner),
+                    "calls": list(self.calls.values()),
+                },
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ),
+            flush=True,
+        )
+
+    def _refresh_owner(self) -> None:
+        try:
+            dbus_obj = self.bus.get_object(DBUS_IFACE, DBUS_PATH)
+            dbus_iface = dbus.Interface(dbus_obj, DBUS_IFACE)
+            self.owner = str(dbus_iface.GetNameOwner(BUS_NAME))
+        except dbus.exceptions.DBusException:
+            self.owner = ""
+
+    def _snapshot(self) -> None:
+        if not self.owner:
+            self.calls.clear()
+            self._emit()
+            return
+        try:
+            proxy = self.bus.get_object(BUS_NAME, OBJECT_PATH)
+            iface = dbus.Interface(proxy, CALLS_IFACE)
+            raw = json.loads(str(iface.ListCalls()))
+        except (dbus.exceptions.DBusException, json.JSONDecodeError, TypeError):
+            return
+
+        fresh: dict[str, dict] = {}
+        for item in raw if isinstance(raw, list) else []:
+            if not isinstance(item, dict):
+                continue
+            path = str(item.get("call_path") or "")
+            state = str(item.get("state") or "")
+            if not path or state == "disconnected":
+                continue
+            fresh[path] = item
+        self.calls = fresh
+        self._emit()
+
+    def _on_call_state(self, props) -> None:
+        call = _plain(props)
+        if not isinstance(call, dict):
+            return
+        path = str(call.get("call_path") or "")
+        if not path:
+            return
+
+        kind = str(call.get("kind") or "")
+        state = str(call.get("state") or "")
+        if kind == "call_ended" or state == "disconnected":
+            self.calls.pop(path, None)
+        else:
+            self.calls[path] = call
+        self._emit()
+
+    def _on_name_owner_changed(self, _name, _old_owner, new_owner) -> None:
+        self.owner = str(new_owner or "")
+        if not self.owner:
+            self.calls.clear()
+            self._emit()
+            return
+        self._snapshot()
+
+    def _reconcile(self) -> bool:
+        had_owner = bool(self.owner)
+        self._refresh_owner()
+        if not self.owner:
+            if had_owner or self.calls:
+                self.calls.clear()
+                self._emit()
+            return True
+        self._snapshot()
+        return True
+
+
+def main() -> int:
+    DBusGMainLoop(set_as_default=True)
+    feed = CallFeed()
+    loop = GLib.MainLoop()
+
+    def stop(_signum, _frame):
+        loop.quit()
+
+    signal.signal(signal.SIGTERM, stop)
+    signal.signal(signal.SIGINT, stop)
+    loop.run()
+    del feed
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
