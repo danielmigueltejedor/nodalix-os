@@ -122,10 +122,8 @@ Item {
                             return (t && index < t.length) ? t[index] : null
                         }
                         const _ = root._notifCount
-                        const arr = NotificationService.notifList
-                        if (!arr || !arr.length) return null
-                        const idx = arr.length - 1 - index
-                        return (idx >= 0 && idx < arr.length) ? arr[idx] : null
+                        const arr = NotificationService.centerNotifs
+                        return (arr && index < arr.length) ? arr[index] : null
                     }
 
                     // Hide stale/blank delegates: backing notification gone (count
@@ -261,6 +259,7 @@ Item {
                             }
                             Item {
                                 id: _dismissBtn
+                                visible: !NotificationService._isLiveCall(_notifDelegate.notif)
                                 anchors.right: parent.right
                                 anchors.verticalCenter: parent.verticalCenter
                                 width:  18; height: 18
