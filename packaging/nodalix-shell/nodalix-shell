@@ -70,4 +70,7 @@ if command -v nodalix-cache-launcher-icons >/dev/null 2>&1; then
     nodalix-cache-launcher-icons >/dev/null 2>&1 || true
 fi
 
-exec qs --no-duplicate -c nodalix "$@"
+# Nodalix Shell is a system-owned packaged configuration.  Do not resolve it
+# by the named-config search path: a stale ~/.config/quickshell/nodalix copy
+# would take precedence over /etc/xdg and silently shadow package updates.
+exec qs --no-duplicate -p /etc/xdg/quickshell/nodalix/shell.qml "$@"
