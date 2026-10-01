@@ -149,22 +149,41 @@ QtObject {
         return calls.concat(rest)
     }
 
-    readonly property int toastCount: _toastEntries.length
+    // Explicitly materialized view models. Notification replacements can mutate
+    // actions/hints on an existing QObject without changing notifList itself;
+    // keeping these as computed bindings left the visual order stale.
+    property var toastNotifs: []
+    property var centerNotifs: []
+    readonly property int toastCount: toastNotifs.length
 
-    // Live calls always stay at the top, even when newer notifications arrive.
-    // Within each group preserve newest-first ordering.
-    readonly property var toastNotifs: {
-        const a = []
-        for (let i = _toastEntries.length - 1; i >= 0; i--)
-            a.push(_toastEntries[i].n)
-        return _pinLiveCallsFirst(a)
-    }
-
-    readonly property var centerNotifs: {
-        const a = []
+    function _rebuildNotificationViews() {
+        const center = []
         for (let i = notifList.length - 1; i >= 0; i--)
-            a.push(notifList[i])
-        return _pinLiveCallsFirst(a)
+            center.push(notifList[i])
+        centerNotifs = _pinLiveCallsFirst(center)
+
+        const toast = []
+        const seen = new Set()
+
+        // A live call is always part of the visible toast model while it exists,
+        // even if the call started while the full notification center was open.
+        for (let i = 0; i < centerNotifs.length; i++) {
+            const n = centerNotifs[i]
+            if (_isLiveCall(n)) {
+                toast.push(n)
+                seen.add(n)
+            }
+        }
+
+        for (let i = _toastEntries.length - 1; i >= 0; i--) {
+            const n = _toastEntries[i].n
+            if (!seen.has(n)) {
+                toast.push(n)
+                seen.add(n)
+            }
+        }
+
+        toastNotifs = _pinLiveCallsFirst(toast)
     }
 
     // Prunes expired toasts; pauses while hovering so they don't vanish mid-read.
@@ -175,7 +194,10 @@ QtObject {
             if (root.bellHovered || root.panelHovered) return
             const now  = Date.now()
             const kept = root._toastEntries.filter(e => e.exp > now)
-            if (kept.length !== root._toastEntries.length) root._toastEntries = kept
+            if (kept.length !== root._toastEntries.length) {
+                root._toastEntries = kept
+                root._rebuildNotificationViews()
+            }
             if (kept.length === 0) {
                 stop()
                 if (root.toastMode) root.closeCenter()
@@ -228,8 +250,18 @@ QtObject {
                     if (!root._isIncomingCall(notif)) root._ringSound.stop()
                 })
             }
+            // Rebuild ordering when a replacement notification changes the
+            // properties that identify a live phone call.
+            if (notif.actionsChanged)
+                notif.actionsChanged.connect(root._rebuildNotificationViews)
+            if (notif.hintsChanged)
+                notif.hintsChanged.connect(root._rebuildNotificationViews)
+            if (notif.appNameChanged)
+                notif.appNameChanged.connect(root._rebuildNotificationViews)
+
             root.notifList = [...root.notifList, notif]
             root.notifCount++
+            root._rebuildNotificationViews()
             if (!root.doNotDisturb && !(notif.hints && notif.hints["x-nodalix-silent"])) {
                 if (root._isIncomingCall(notif)) root._ringSound.play()
                 else {
@@ -245,6 +277,7 @@ QtObject {
                     let q = [...root._toastEntries, { n: notif, exp: root._toastExpiry(notif) }]
                     if (q.length > root._toastMax) q = q.slice(q.length - root._toastMax)
                     root._toastEntries = q
+                    root._rebuildNotificationViews()
                     root.toastMode    = true
                     root.centerScreen = null   // show on all screens
                     root.centerOpen   = true
@@ -265,6 +298,7 @@ QtObject {
         }
         notifList = [...notifList, n]
         notifCount++
+        _rebuildNotificationViews()
         if (doNotDisturb) return
         _notificationSound.play()
         unreadCount++
@@ -274,6 +308,7 @@ QtObject {
         let q = [..._toastEntries, { n: n, exp: Date.now() + _toastTTL }]
         if (q.length > _toastMax) q = q.slice(q.length - _toastMax)
         _toastEntries = q
+        _rebuildNotificationViews()
         toastMode    = true
         centerScreen = null
         centerOpen   = true
@@ -372,6 +407,7 @@ QtObject {
         notifList = notifList.filter(n => n !== notif)
         _toastEntries = _toastEntries.filter(e => e.n !== notif)
         notifCount = notifList.length
+        _rebuildNotificationViews()
         if (wasPresent && unreadCount > 0) unreadCount--
         if (unreadCount > notifCount) unreadCount = notifCount
         notif.tracked = false
@@ -384,6 +420,7 @@ QtObject {
         notifList = notifList.filter(n => n !== notif)
         _toastEntries = _toastEntries.filter(e => e.n !== notif)
         notifCount = notifList.length
+        _rebuildNotificationViews()
         // App closed/replaced this notif — keep the unread badge in sync so it
         // can't outlive the list (stale count over an empty center).
         if (unreadCount > notifCount) unreadCount = notifCount
@@ -397,6 +434,7 @@ QtObject {
         notifList = calls
         _toastEntries = _toastEntries.filter(e => _isLiveCall(e.n))
         notifCount = calls.length
+        _rebuildNotificationViews()
         unreadCount = Math.min(unreadCount, notifCount)
         old.forEach(n => { n.tracked = false })
     }
@@ -416,6 +454,7 @@ QtObject {
         bellHovered   = false
         panelHovered  = false
         _toastEntries = []
+        _rebuildNotificationViews()
         _closeTimer.stop()
         _toastTimer.stop()
     }
