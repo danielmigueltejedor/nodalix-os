@@ -169,6 +169,16 @@ class AncsFragmentationTests(unittest.TestCase):
         self.assertEqual(attrs.app_id, app_id)
         self.assertEqual(attrs.app_name, name)
 
+    def test_client_prefers_acquire_notify_with_startnotify_fallback(self):
+        source = (
+            PHONE_SRC / "iphonebridge" / "ancs" / "client.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("AcquireNotify", source)
+        self.assertIn("NotifyAcquired", source)
+        self.assertIn("GLib.io_add_watch", source)
+        self.assertIn("os.read", source)
+        self.assertIn("StartNotify fallback", source)
+
     def test_control_point_requests_are_serialized(self):
         writes = []
 
