@@ -283,5 +283,120 @@ class StaticInvariantTests(unittest.TestCase):
             self.assertNotIn("thumbCY", source)
 
 
+    def test_phone_link_reserves_bluez_hfp_for_ofono(self) -> None:
+        dropin = (
+            ROOT
+            / "phone-link/systemd/50-nodalix-phone-link-bluez-hfp.conf"
+        ).read_text(encoding="utf-8")
+        pkgbuild = (
+            ROOT / "packaging/nodalix-phone-link/PKGBUILD"
+        ).read_text(encoding="utf-8")
+        install = (
+            ROOT
+            / "packaging/nodalix-phone-link/nodalix-phone-link.install"
+        ).read_text(encoding="utf-8")
+        wireplumber = (
+            ROOT / "phone-link/wireplumber/51-nodalix-phone-link.conf"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn(
+            "ExecStart=/usr/lib/bluetooth/bluetoothd --noplugin=hfp",
+            dropin,
+        )
+        self.assertIn(
+            "bluetooth.service.d/50-nodalix-phone-link-bluez-hfp.conf",
+            pkgbuild,
+        )
+        self.assertIn("--noplugin=hfp", install)
+        self.assertIn(
+            '"bluez5.hfphsp-backend" = "ofono"',
+            wireplumber,
+        )
+        self.assertIn('"hfp_hf"', wireplumber)
+        self.assertIn('"a2dp_source"', wireplumber)
+        self.assertNotIn('"a2dp_sink"', wireplumber)
+
+
+    def test_live_phone_calls_are_pinned_and_resident(self) -> None:
+        service = (
+            SHELL / "services/NotificationService.qml"
+        ).read_text(encoding="utf-8")
+        panel = (
+            SHELL / "panels/NotificationCenter.qml"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("function _pinLiveCallsFirst(items)", service)
+        self.assertIn("function _callActionIds(notif)", service)
+        self.assertIn('"x-nodalix-phone-call"', service)
+        self.assertIn('"x-nodalix-call-path"', service)
+        self.assertIn("function invokeNotificationAction(notif, action)", service)
+        self.assertIn('"com.gabriel.iphonebridge.Calls1"', service)
+        self.assertIn('"AnswerCall"', service)
+        self.assertIn('"HangupCall"', service)
+        self.assertIn('ids.indexOf("answer") >= 0', service)
+        self.assertIn('ids.indexOf("hangup") >= 0', service)
+        self.assertNotIn(
+            "notif.urgency === NotificationUrgency.Critical",
+            service,
+        )
+        self.assertIn("readonly property var centerNotifs:", service)
+        self.assertIn("return _pinLiveCallsFirst(a)", service)
+        self.assertIn("if (_isLiveCall(notif)) return", service)
+        self.assertIn(
+            "const calls = notifList.filter(n => _isLiveCall(n))",
+            service,
+        )
+        self.assertIn(
+            "const arr = NotificationService.centerNotifs",
+            panel,
+        )
+        self.assertIn(
+            "visible: !NotificationService._isLiveCall(_notifDelegate.notif)",
+            panel,
+        )
+        self.assertIn(
+            "NotificationService.invokeNotificationAction(",
+            panel,
+        )
+        self.assertIn(
+            "&& !_notifDelegate._hasActions",
+            panel,
+        )
+
+        libnotify = (
+            ROOT / "phone-link/src/iphonebridge/sinks/libnotify.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn('"x-nodalix-phone-call": dbus.Boolean(True)', libnotify)
+        self.assertIn('"x-nodalix-call-path": dbus.String(event.call_path)', libnotify)
+
+        migration = (
+            ROOT / "phone-link/systemd/migrate-user"
+        ).read_text(encoding="utf-8")
+        self.assertIn("51-bluez-hfp-hf.conf", migration)
+        self.assertIn("99-nodalix-bluetooth-audio.conf", migration)
+        self.assertIn(".bak.nodalix-0.2.5.", migration)
+
+    def test_phone_contacts_are_mirrored_to_gnome_contacts(self) -> None:
+        bridge = (
+            ROOT / "phone-link/src/iphonebridge/eds_contacts.py"
+        ).read_text(encoding="utf-8")
+        contacts = (
+            ROOT / "phone-link/src/iphonebridge/contacts.py"
+        ).read_text(encoding="utf-8")
+        pkgbuild = (
+            ROOT / "packaging/nodalix-phone-link/PKGBUILD"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('SOURCE_UID = "nodalix-iphone-contacts"', bridge)
+        self.assertIn('SOURCE_NAME = "iPhone (Nodalix)"', bridge)
+        self.assertIn("SOURCE_EXTENSION_ADDRESS_BOOK", bridge)
+        self.assertIn("EBook.BookClient.connect_sync", bridge)
+        self.assertIn("new_from_vcard_with_uid", bridge)
+        self.assertIn("sync_gnome_contacts(blob)", contacts)
+        self.assertIn("'evolution-data-server'", pkgbuild)
+        self.assertIn("'ofono'", pkgbuild)
+        self.assertIn("pkgver=0.2.5", pkgbuild)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -48,7 +48,7 @@
       "id": "phone-link",
       "name": "Enlace móvil",
       "package": "nodalix-phone-link",
-      "version": "0.2.4",
+      "version": "0.2.5",
       "required": true,
       "restart": "system"
     },

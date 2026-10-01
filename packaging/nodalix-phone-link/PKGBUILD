@@ -1,12 +1,12 @@
 pkgname=nodalix-phone-link
-pkgver=0.2.4
+pkgver=0.2.5
 pkgrel=1
 pkgdesc="Nodalix Phone Link integration for iOS"
 arch=('any')
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=('GPL-2.0-or-later')
-depends=('python' 'python-dbus' 'python-gobject' 'python-typer' 'bluez' 'bluez-utils' 'bluez-obex' 'gtk4' 'libadwaita')
-optdepends=('ofono: hands-free call audio and controls' 'wl-clipboard: copy verification codes')
+depends=('python' 'python-dbus' 'python-gobject' 'python-typer' 'bluez' 'bluez-utils' 'bluez-obex' 'gtk4' 'libadwaita' 'ofono' 'evolution-data-server')
+optdepends=('wl-clipboard: copy verification codes')
 source=("nodalix-phone-link-$pkgver.tar.zst")
 sha256sums=('SKIP')
 install=nodalix-phone-link.install
@@ -30,6 +30,8 @@ package() {
     "$pkgdir/usr/lib/systemd/user/nodalix-phone-link.service"
   install -Dm644 "$srcdir/phone-link/systemd/nodalix-phone-link-bluetooth.service" \
     "$pkgdir/usr/lib/systemd/system/nodalix-phone-link-bluetooth.service"
+  install -Dm644 "$srcdir/phone-link/systemd/50-nodalix-phone-link-bluez-hfp.conf" \
+    "$pkgdir/usr/lib/systemd/system/bluetooth.service.d/50-nodalix-phone-link-bluez-hfp.conf"
   install -d "$pkgdir/usr/lib/systemd/system/multi-user.target.wants"
   ln -s /usr/lib/systemd/system/nodalix-phone-link-bluetooth.service \
     "$pkgdir/usr/lib/systemd/system/multi-user.target.wants/nodalix-phone-link-bluetooth.service"

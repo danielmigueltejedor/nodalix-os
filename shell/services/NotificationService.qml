@@ -30,17 +30,79 @@ QtObject {
     readonly property int _toastMax: SettingsService.get("notifications.toastMax", 5)  // cap visible toast stack
     property var _toastEntries: []                // [{ n: notif, exp: ms }]
 
+    function _callActionIds(notif) {
+        const ids = []
+        const actions = notif?.actions ?? []
+        for (let i = 0; i < actions.length; i++)
+            ids.push("" + (actions[i]?.identifier ?? ""))
+        return ids
+    }
+
+    function _hint(notif, key, fallback) {
+        if (!notif || !notif.hints) return fallback
+        const value = notif.hints[key]
+        return value === undefined || value === null ? fallback : value
+    }
+
     function _isLiveCall(notif) {
-        // Calls are the only critical notifications emitted by Enlace móvil.
-        return notif
-            && ("" + (notif.appName ?? "")) === "Enlace móvil"
-            && notif.urgency === NotificationUrgency.Critical
+        if (!notif) return false
+
+        // Primary identity: a stable Nodalix-specific hint emitted by
+        // Enlace móvil.  This is available as soon as the notification is
+        // created and survives replacements throughout the call lifecycle.
+        if (Boolean(_hint(notif, "x-nodalix-phone-call", false)))
+            return true
+
+        // Compatibility fallback for notifications created by an older daemon.
+        if (("" + (notif.appName ?? "")) !== "Enlace móvil")
+            return false
+        const ids = _callActionIds(notif)
+        return ids.indexOf("answer") >= 0
+            || ids.indexOf("decline") >= 0
+            || ids.indexOf("hangup") >= 0
+    }
+
+    function _callPath(notif) {
+        return "" + _hint(notif, "x-nodalix-call-path", "")
     }
 
     function _isIncomingCall(notif) {
         if (!_isLiveCall(notif)) return false
-        const body = "" + (notif.body ?? "")
-        return body === "Llamada entrante" || body === "Incoming call"
+        const ids = _callActionIds(notif)
+        return ids.indexOf("answer") >= 0
+            || ids.indexOf("decline") >= 0
+    }
+
+    function invokeNotificationAction(notif, action) {
+        if (!action) return
+
+        const actionId = "" + (action.identifier ?? "")
+        const callPath = _callPath(notif)
+
+        if (
+            _isLiveCall(notif)
+            && callPath !== ""
+            && (
+                actionId === "answer"
+                || actionId === "decline"
+                || actionId === "hangup"
+            )
+        ) {
+            const method = actionId === "answer" ? "AnswerCall" : "HangupCall"
+            Quickshell.execDetached([
+                "busctl", "--user", "call",
+                "com.gabriel.iphonebridge",
+                "/com/gabriel/iphonebridge",
+                "com.gabriel.iphonebridge.Calls1",
+                method,
+                "s",
+                callPath
+            ])
+            return
+        }
+
+        // Generic freedesktop notification action fallback.
+        action.invoke()
     }
 
     property SoundEffect _notificationSound: SoundEffect {
@@ -76,12 +138,33 @@ QtObject {
         return _isLiveCall(notif) ? Number.MAX_SAFE_INTEGER : Date.now() + _toastTTL
     }
 
+    function _pinLiveCallsFirst(items) {
+        const calls = []
+        const rest = []
+        for (let i = 0; i < items.length; i++) {
+            const n = items[i]
+            if (_isLiveCall(n)) calls.push(n)
+            else rest.push(n)
+        }
+        return calls.concat(rest)
+    }
+
     readonly property int toastCount: _toastEntries.length
-    // Newest-first for display (newest toast on top)
+
+    // Live calls always stay at the top, even when newer notifications arrive.
+    // Within each group preserve newest-first ordering.
     readonly property var toastNotifs: {
         const a = []
-        for (let i = _toastEntries.length - 1; i >= 0; i--) a.push(_toastEntries[i].n)
-        return a
+        for (let i = _toastEntries.length - 1; i >= 0; i--)
+            a.push(_toastEntries[i].n)
+        return _pinLiveCallsFirst(a)
+    }
+
+    readonly property var centerNotifs: {
+        const a = []
+        for (let i = notifList.length - 1; i >= 0; i--)
+            a.push(notifList[i])
+        return _pinLiveCallsFirst(a)
     }
 
     // Prunes expired toasts; pauses while hovering so they don't vanish mid-read.
@@ -278,6 +361,9 @@ QtObject {
 
     function dismiss(notif) {
         if (!notif) return
+        // A live phone call is a control surface, not a disposable alert.
+        // Keep it resident until Enlace móvil closes it when the call ends.
+        if (_isLiveCall(notif)) return
         const wasPresent = notifList.indexOf(notif) >= 0
         // Remove the row before closing the backing D-Bus notification. Setting
         // tracked=false emits `closed` synchronously on some servers; doing it
@@ -304,13 +390,14 @@ QtObject {
     }
 
     function dismissAll() {
-        // Detach the UI list first for the same reason as dismiss(): every
-        // tracked=false can synchronously emit `closed`.
-        const old = notifList
-        notifList     = []
-        _toastEntries = []
-        notifCount    = 0
-        unreadCount   = 0
+        // Keep live-call controls resident. "Clear all" only clears ordinary
+        // notifications so Hang up/Answer remains immediately reachable.
+        const calls = notifList.filter(n => _isLiveCall(n))
+        const old = notifList.filter(n => !_isLiveCall(n))
+        notifList = calls
+        _toastEntries = _toastEntries.filter(e => _isLiveCall(e.n))
+        notifCount = calls.length
+        unreadCount = Math.min(unreadCount, notifCount)
         old.forEach(n => { n.tracked = false })
     }
 

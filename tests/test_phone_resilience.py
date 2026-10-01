@@ -18,16 +18,28 @@ def load(filename, names, **scope):
     tree = ast.parse((ROOT / filename).read_text())
     nodes = [ast.ImportFrom(module='__future__', names=[ast.alias(name='annotations')], level=0)]
     nodes += [n for n in tree.body if isinstance(n, (ast.ClassDef, ast.FunctionDef)) and n.name in names]
-    env = dict(log=logging.getLogger('resilience'), dbus=SimpleNamespace(exceptions=SimpleNamespace(DBusException=BusError)), **scope)
+    env = dict(log=logging.getLogger('resilience'), dbus=SimpleNamespace(exceptions=SimpleNamespace(DBusException=BusError), String=lambda value: value), **scope)
     exec(compile(ast.fix_missing_locations(ast.Module(body=nodes, type_ignores=[])), filename, 'exec'), env)
     return SimpleNamespace(**env)
 
 class PhoneResilience(unittest.TestCase):
     def hfp(self):
         bus = Mock()
-        dbus = SimpleNamespace(exceptions=SimpleNamespace(DBusException=BusError), Interface=lambda obj, _: obj)
+        dbus = SimpleNamespace(
+            exceptions=SimpleNamespace(DBusException=BusError),
+            Interface=lambda obj, _: obj,
+            Boolean=lambda value: value,
+        )
         # Interface is injected after loading to keep the helper defaults simple.
-        mod = load('hfp/ofono_client.py', ['HfpManager', '_safe_remove'], system_bus=bus, OFONO='org.ofono', _MGR_IFACE='org.ofono.Manager')
+        mod = load(
+            'hfp/ofono_client.py',
+            ['HfpManager', '_safe_remove'],
+            system_bus=bus,
+            OFONO='org.ofono',
+            _MGR_IFACE='org.ofono.Manager',
+            _MODEM_IFACE='org.ofono.Modem',
+            _VCM_IFACE='org.ofono.VoiceCallManager',
+        )
         mod.HfpManager.start.__globals__['dbus'] = dbus
         return mod.HfpManager(Mock()), bus
 
@@ -56,6 +68,57 @@ class PhoneResilience(unittest.TestCase):
         self.assertEqual(proxy.connect_to_signal.call_count, count)
         manager.stop()
 
+    def test_hfp_power_request_is_async(self):
+        source = (ROOT / 'hfp/ofono_client.py').read_text()
+        self.assertIn('reply_handler=on_reply', source)
+        self.assertIn('error_handler=on_error', source)
+        self.assertIn('timeout=30', source)
+        self.assertIn('_power_request_in_flight', source)
+
+    def test_hfp_recovery_cancels_backoff_and_retries_immediately(self):
+        manager, bus = self.hfp()
+        manager._modem_path = '/hfp/test'
+        manager._power_retry_id = 42
+        manager._power_retry_attempt = 5
+
+        proxy = bus.get_object.return_value
+        proxy.GetProperties.return_value = {
+            'Powered': False,
+            'Interfaces': [],
+        }
+
+        glib = Mock()
+        manager.recover_now.__globals__['GLib'] = glib
+
+        self.assertFalse(manager.recover_now())
+
+        glib.source_remove.assert_called_once_with(42)
+        self.assertIsNone(manager._power_retry_id)
+        self.assertEqual(manager._power_retry_attempt, 0)
+        proxy.SetProperty.assert_called_once()
+        args, kwargs = proxy.SetProperty.call_args
+        self.assertEqual(args[:2], ('Powered', True))
+        self.assertEqual(kwargs['timeout'], 30)
+        self.assertTrue(manager._power_request_in_flight)
+
+    def test_daemon_can_kick_hfp_recovery_immediately(self):
+        hfp = Mock()
+        hfp.ready = False
+        mod = load(
+            'daemon.py',
+            ['Daemon'],
+            SessionManager=Mock(return_value=Mock()),
+            ContactsResolver=Mock(return_value=Mock()),
+            config=SimpleNamespace(CALLS_ENABLED=True),
+            RECONNECT_TICK_SEC=15,
+        )
+        daemon = mod.Daemon()
+        daemon.hfp = hfp
+
+        daemon._recover_hfp_now()
+
+        hfp.recover_now.assert_called_once_with()
+
     def test_advertising_capacity_timeout_and_proxy_failure(self):
         for name in ('org.bluez.Error.NotPermitted', 'org.bluez.Error.Failed', 'org.freedesktop.DBus.Error.NoReply', 'org.freedesktop.DBus.Error.ServiceUnknown'):
             for stage in ('proxy', 'register'):
@@ -83,6 +146,11 @@ class PhoneResilience(unittest.TestCase):
                    MapEventListener=Mock(return_value=listener), claim_bus_name=Mock(), MessagesService=Mock(), signal=SimpleNamespace(SIGINT=2, SIGTERM=15, signal=Mock()), SessionError=RuntimeError)
         daemon = mod.Daemon()
         daemon.start()
+        bluez.return_value.Set.assert_called_once_with(
+            'org.bluez.Device1',
+            'PreferredBearer',
+            'last-seen',
+        )
         ancs.start.assert_called_once()
         sessions.open_all.assert_called_once()
         listener.start.assert_called_once()
@@ -96,5 +164,11 @@ class PhoneResilience(unittest.TestCase):
         mod.bluez_setup.prepare.side_effect = None; mod.bluez_setup.prepare.return_value = True
         self.assertFalse(daemon._retry_bluetooth())
         self.assertIsNone(daemon._bluetooth_retry_id)
+
+        # Once normalized, do not keep rewriting PreferredBearer.
+        bluez.return_value.Set.reset_mock()
+        bluez.return_value.Get.return_value = 'last-seen'
+        daemon._ensure_preferred_bearer()
+        bluez.return_value.Set.assert_not_called()
 
 if __name__ == '__main__': unittest.main()

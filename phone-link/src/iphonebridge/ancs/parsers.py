@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from iphonebridge.ancs.constants import (
     USHORT_MAX,
+    AppAttributeID,
     CommandID,
     EventFlag,
     EventID,
@@ -148,6 +149,65 @@ class DataSourceEvent:
         return cls(type=data[0], body=bytes(data[1:]))
 
 
+# ---- fragmented Data Source framing --------------------------------------
+
+def notification_attributes_response_length(
+    data: bytes,
+    expected_attr_ids: tuple[int, ...],
+) -> int | None:
+    """Return the complete GetNotificationAttributes frame length, if ready.
+
+    data includes the CommandID byte. ANCS may split a Data Source response
+    across multiple GATT notifications, so callers append fragments until this
+    function returns a length. The expected attribute IDs are the exact set
+    requested for the Notification Source event.
+    """
+    if len(data) < 5:
+        return None
+    if data[0] != CommandID.GetNotificationAttributes:
+        raise ValueError("not a GetNotificationAttributes response")
+
+    offset = 5  # command + notification UID
+    for expected_id in expected_attr_ids:
+        if len(data) < offset + 3:
+            return None
+        attr_id, size = struct.unpack("<BH", data[offset:offset + 3])
+        if attr_id != expected_id:
+            raise ValueError(
+                f"unexpected notification attribute {attr_id}, expected {expected_id}"
+            )
+        end = offset + 3 + size
+        if len(data) < end:
+            return None
+        offset = end
+    return offset
+
+
+def app_attributes_response_length(data: bytes) -> int | None:
+    """Return the complete GetAppAttributes frame length, if ready."""
+    if not data:
+        return None
+    if data[0] != CommandID.GetAppAttributes:
+        raise ValueError("not a GetAppAttributes response")
+
+    nul = data.find(b"\0", 1)
+    if nul < 0:
+        return None
+
+    offset = nul + 1
+    if len(data) < offset + 3:
+        return None
+    attr_id, size = struct.unpack("<BH", data[offset:offset + 3])
+    if attr_id != AppAttributeID.DisplayName:
+        raise ValueError(
+            f"unexpected app attribute {attr_id}, expected {AppAttributeID.DisplayName}"
+        )
+    end = offset + 3 + size
+    if len(data) < end:
+        return None
+    return end
+
+
 # ---- outbound builders ---------------------------------------------------
 
 def build_get_notification_attributes(
@@ -212,7 +272,9 @@ __all__ = [
     "EventID",
     "Notification",
     "NotificationAttributes",
+    "app_attributes_response_length",
     "build_get_app_attributes",
     "build_get_notification_attributes",
     "build_perform_action",
+    "notification_attributes_response_length",
 ]

@@ -122,10 +122,8 @@ Item {
                             return (t && index < t.length) ? t[index] : null
                         }
                         const _ = root._notifCount
-                        const arr = NotificationService.notifList
-                        if (!arr || !arr.length) return null
-                        const idx = arr.length - 1 - index
-                        return (idx >= 0 && idx < arr.length) ? arr[idx] : null
+                        const arr = NotificationService.centerNotifs
+                        return (arr && index < arr.length) ? arr[index] : null
                     }
 
                     // Hide stale/blank delegates: backing notification gone (count
@@ -147,10 +145,16 @@ Item {
 
                     // Click the notification (anywhere but the ✕) → open its app.
                     readonly property bool _clickOpens: SettingsService.get("notifications.clickOpensApp", true)
+                    readonly property bool _hasActions:
+                        (_notifDelegate.notif?.actions?.length ?? 0) > 0
                     MouseArea {
                         id: _activateMa
                         anchors.fill: parent
+                        // Never let the card-level click target steal pointer
+                        // events from explicit notification action buttons.
                         enabled: _notifDelegate._clickOpens
+                            && !_notifDelegate._hasActions
+                            && !NotificationService._isLiveCall(_notifDelegate.notif)
                         hoverEnabled: _notifDelegate._clickOpens
                         cursorShape:  Qt.PointingHandCursor
                         onClicked: {
@@ -261,6 +265,7 @@ Item {
                             }
                             Item {
                                 id: _dismissBtn
+                                visible: !NotificationService._isLiveCall(_notifDelegate.notif)
                                 anchors.right: parent.right
                                 anchors.verticalCenter: parent.verticalCenter
                                 width:  18; height: 18
@@ -368,7 +373,10 @@ Item {
                                         hoverEnabled: true
                                         cursorShape: Qt.PointingHandCursor
                                         onClicked: {
-                                            if (_actionButton.action) _actionButton.action.invoke()
+                                            NotificationService.invokeNotificationAction(
+                                                _notifDelegate.notif,
+                                                _actionButton.action
+                                            )
                                         }
                                     }
                                 }
