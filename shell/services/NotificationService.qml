@@ -76,12 +76,33 @@ QtObject {
         return _isLiveCall(notif) ? Number.MAX_SAFE_INTEGER : Date.now() + _toastTTL
     }
 
+    function _pinLiveCallsFirst(items) {
+        const calls = []
+        const rest = []
+        for (let i = 0; i < items.length; i++) {
+            const n = items[i]
+            if (_isLiveCall(n)) calls.push(n)
+            else rest.push(n)
+        }
+        return calls.concat(rest)
+    }
+
     readonly property int toastCount: _toastEntries.length
-    // Newest-first for display (newest toast on top)
+
+    // Live calls always stay at the top, even when newer notifications arrive.
+    // Within each group preserve newest-first ordering.
     readonly property var toastNotifs: {
         const a = []
-        for (let i = _toastEntries.length - 1; i >= 0; i--) a.push(_toastEntries[i].n)
-        return a
+        for (let i = _toastEntries.length - 1; i >= 0; i--)
+            a.push(_toastEntries[i].n)
+        return _pinLiveCallsFirst(a)
+    }
+
+    readonly property var centerNotifs: {
+        const a = []
+        for (let i = notifList.length - 1; i >= 0; i--)
+            a.push(notifList[i])
+        return _pinLiveCallsFirst(a)
     }
 
     // Prunes expired toasts; pauses while hovering so they don't vanish mid-read.
@@ -278,6 +299,9 @@ QtObject {
 
     function dismiss(notif) {
         if (!notif) return
+        // A live phone call is a control surface, not a disposable alert.
+        // Keep it resident until Enlace móvil closes it when the call ends.
+        if (_isLiveCall(notif)) return
         const wasPresent = notifList.indexOf(notif) >= 0
         // Remove the row before closing the backing D-Bus notification. Setting
         // tracked=false emits `closed` synchronously on some servers; doing it
@@ -304,13 +328,14 @@ QtObject {
     }
 
     function dismissAll() {
-        // Detach the UI list first for the same reason as dismiss(): every
-        // tracked=false can synchronously emit `closed`.
-        const old = notifList
-        notifList     = []
-        _toastEntries = []
-        notifCount    = 0
-        unreadCount   = 0
+        // Keep live-call controls resident. "Clear all" only clears ordinary
+        // notifications so Hang up/Answer remains immediately reachable.
+        const calls = notifList.filter(n => _isLiveCall(n))
+        const old = notifList.filter(n => !_isLiveCall(n))
+        notifList = calls
+        _toastEntries = _toastEntries.filter(e => _isLiveCall(e.n))
+        notifCount = calls.length
+        unreadCount = Math.min(unreadCount, notifCount)
         old.forEach(n => { n.tracked = false })
     }
 
