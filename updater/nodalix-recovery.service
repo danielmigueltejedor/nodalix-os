@@ -7,3 +7,13 @@ Type=oneshot
 ExecStart=/usr/bin/nodalix-recovery scheduled
 Nice=19
 IOSchedulingClass=idle
+
+# Recovery needs mount/snapshot and system filesystem access by design. Limit
+# unrelated surfaces without blocking Timeshift/Btrfs or restoration semantics.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+LockPersonality=yes

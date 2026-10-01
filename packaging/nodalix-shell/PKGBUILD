@@ -39,6 +39,7 @@ package() {
         install -Dm755 "$srcdir/shell/scripts/nodalix-${helper}.py" "$pkgdir/usr/bin/nodalix-${helper}"
     done
     install -Dm755 "$srcdir/shell/scripts/nodalix-calendar-bridge.py" "$pkgdir/usr/bin/nodalix-calendar-bridge"
+    install -Dm755 "$srcdir/shell/scripts/nodalix-security-status.py" "$pkgdir/usr/bin/nodalix-security-status"
     install -d "$pkgdir/usr/lib/systemd/user/default.target.wants"
     for unit in "$srcdir/shell/systemd/"*; do
         install -m644 "$unit" "$pkgdir/usr/lib/systemd/user/"

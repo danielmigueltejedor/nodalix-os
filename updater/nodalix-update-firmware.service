@@ -6,3 +6,13 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/nodalix-system-update privileged-firmware
+
+# fwupdmgr delegates flashing to fwupd over D-Bus. Keep device/kernel access
+# compatible while isolating the client from user homes and unrelated state.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+LockPersonality=yes

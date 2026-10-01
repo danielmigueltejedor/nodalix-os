@@ -217,7 +217,6 @@ PanelWindow {
     readonly property var _groups: ({
         "personal-group": [
             { id: "user", label: I18n.tr("User"), sub: I18n.tr("Profile, image and personal settings") },
-            { id: "security", label: I18n.tr("Security"), sub: I18n.tr("Automatic lock and inactivity") },
             { id: "date-time", label: I18n.tr("Date and time"), sub: I18n.tr("Time zone and automatic synchronization") }
         ],
         "appearance-group": [
@@ -250,6 +249,7 @@ PanelWindow {
         ],
         "system-group": [
             { id: "updates", label: I18n.tr("Updates"), sub: I18n.tr("System, applications and firmware") },
+            { id: "security", label: I18n.tr("Security"), sub: I18n.tr("Firewall, Secure Boot and system protection") },
             { id: "keybindings", label: I18n.tr("Keybindings"), sub: I18n.tr("Keyboard shortcuts") },
             { id: "tools", label: I18n.tr("Tools"), sub: I18n.tr("Quick actions and custom tools") },
             { id: "dependencies", label: I18n.tr("Dependencies"), sub: I18n.tr("Optional system features") },
@@ -651,8 +651,232 @@ PanelWindow {
                         Layout.fillWidth: true
                         Layout.margins: 20
                         spacing: 10
+                        onVisibleChanged: if (visible) SecurityService.refresh()
 
-                        SettingSection { text: I18n.tr("Automatic screen lock") }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            SettingSection { text: I18n.tr("System security"); Layout.fillWidth: true }
+                            SettingBtn {
+                                label: SecurityService.loading ? I18n.tr("Checking…") : I18n.tr("Refresh")
+                                enabled: !SecurityService.loading
+                                onClicked: SecurityService.refresh()
+                            }
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: I18n.tr("Review the security state of this Nodalix installation. These indicators describe concrete system settings and do not use an arbitrary security score.")
+                            wrapMode: Text.WordWrap
+                            color: ThemeManager.onSurfaceVariant
+                            font.family: ThemeManager.fontFor(text)
+                            font.pixelSize: ThemeManager.fontSizeSm
+                        }
+
+                        Repeater {
+                            model: SettingsUi.category === "security" ? [
+                                {
+                                    title: I18n.tr("Firewall"),
+                                    detail: !SecurityService.firewallInstalled
+                                        ? I18n.tr("No supported firewall detected")
+                                        : SecurityService.firewallProvider + " · " + (
+                                            SecurityService.firewallEnabled
+                                                ? I18n.tr("Enabled at startup")
+                                                : I18n.tr("Not enabled at startup")
+                                        ),
+                                    status: SecurityService.firewallActive
+                                        ? I18n.tr("Active")
+                                        : (SecurityService.firewallInstalled ? I18n.tr("Inactive") : I18n.tr("Not installed")),
+                                    warning: !SecurityService.firewallActive
+                                },
+                                {
+                                    title: I18n.tr("Secure Boot"),
+                                    detail: I18n.tr("Firmware boot verification"),
+                                    status: !SecurityService.uefi
+                                        ? I18n.tr("Legacy boot")
+                                        : (SecurityService.secureBootEnabled ? I18n.tr("Enabled") : I18n.tr("Disabled")),
+                                    warning: SecurityService.uefi && !SecurityService.secureBootEnabled
+                                },
+                                {
+                                    title: I18n.tr("Package signatures"),
+                                    detail: SecurityService.packageSignaturesRequired
+                                        ? I18n.tr("Repository packages require trusted signatures")
+                                        : I18n.tr("Pacman signature policy needs review"),
+                                    status: SecurityService.packageSignaturesRequired ? I18n.tr("Required") : I18n.tr("Review"),
+                                    warning: !SecurityService.packageSignaturesRequired
+                                },
+                                {
+                                    title: I18n.tr("Arch keyring"),
+                                    detail: I18n.tr("Package signing keys"),
+                                    status: SecurityService.keyringInstalled
+                                        ? SecurityService.keyringVersion
+                                        : I18n.tr("Not installed"),
+                                    warning: !SecurityService.keyringInstalled
+                                },
+                                {
+                                    title: I18n.tr("External / AUR packages"),
+                                    detail: I18n.tr("Packages installed outside the currently configured repositories"),
+                                    status: SecurityService.foreignPackageCount + " " + I18n.tr("packages"),
+                                    warning: false
+                                },
+                                {
+                                    title: I18n.tr("Flatpak permissions"),
+                                    detail: I18n.tr("Apps with host, home or unrestricted device access"),
+                                    status: SecurityService.flatpakBroadCount === 0
+                                        ? I18n.tr("No broad permissions")
+                                        : SecurityService.flatpakBroadCount + " " + I18n.tr("to review"),
+                                    warning: SecurityService.flatpakBroadCount > 0
+                                },
+                                {
+                                    title: I18n.tr("Privileged Nodalix services"),
+                                    detail: I18n.tr("System services that run with root privileges"),
+                                    status: SecurityService.privilegedServiceCount + " " + I18n.tr("services"),
+                                    warning: false
+                                },
+                                {
+                                    title: I18n.tr("Service hardening"),
+                                    detail: I18n.tr("Privileged services without explicit sandbox directives"),
+                                    status: SecurityService.servicesWithoutHardeningCount === 0
+                                        ? I18n.tr("No pending review")
+                                        : SecurityService.servicesWithoutHardeningCount + " " + I18n.tr("to review"),
+                                    warning: SecurityService.servicesWithoutHardeningCount > 0
+                                }
+                            ] : []
+
+                            delegate: Rectangle {
+                                required property var modelData
+                                Layout.fillWidth: true
+                                implicitHeight: 58
+                                radius: ThemeManager.chipRadius + 2
+                                color: ThemeManager.surfaceContainerLow
+                                border.width: 1
+                                border.color: ThemeManager.settingsOutline
+
+                                RowLayout {
+                                    anchors { fill: parent; margins: 12 }
+                                    spacing: 12
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 1
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: modelData.title
+                                            color: ThemeManager.onSurface
+                                            font.family: ThemeManager.fontFor(text)
+                                            font.pixelSize: ThemeManager.fontSizeMd
+                                            font.weight: Font.Medium
+                                            elide: Text.ElideRight
+                                        }
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: modelData.detail
+                                            color: ThemeManager.onSurfaceVariant
+                                            font.family: ThemeManager.fontFor(text)
+                                            font.pixelSize: 10
+                                            elide: Text.ElideRight
+                                        }
+                                    }
+
+                                    Text {
+                                        Layout.preferredWidth: 150
+                                        Layout.minimumWidth: 150
+                                        horizontalAlignment: Text.AlignRight
+                                        text: modelData.status
+                                        color: modelData.warning ? ThemeManager.error : ThemeManager.primary
+                                        font.family: ThemeManager.fontFor(text)
+                                        font.pixelSize: ThemeManager.fontSizeSm
+                                        font.weight: Font.Medium
+                                        elide: Text.ElideRight
+                                    }
+                                }
+                            }
+                        }
+
+                        Text {
+                            visible: SecurityService.errorMessage !== ""
+                            Layout.fillWidth: true
+                            text: SecurityService.errorMessage
+                            color: ThemeManager.error
+                            font.family: ThemeManager.fontFor(text)
+                            font.pixelSize: ThemeManager.fontSizeSm
+                        }
+
+                        SettingSection {
+                            visible: SecurityService.flatpakBroadApps.length > 0
+                            text: I18n.tr("Flatpak permission review")
+                            Layout.topMargin: 8
+                        }
+
+                        Text {
+                            visible: SecurityService.flatpakBroadApps.length > 0
+                            Layout.fillWidth: true
+                            text: I18n.tr("These apps request unusually broad access. This does not automatically mean they are unsafe; review whether the access matches what the app needs.")
+                            wrapMode: Text.WordWrap
+                            color: ThemeManager.onSurfaceVariant
+                            font.family: ThemeManager.fontFor(text)
+                            font.pixelSize: ThemeManager.fontSizeSm
+                        }
+
+                        Repeater {
+                            model: SettingsUi.category === "security"
+                                ? SecurityService.flatpakBroadApps
+                                : []
+
+                            delegate: Rectangle {
+                                required property var modelData
+                                Layout.fillWidth: true
+                                implicitHeight: 58
+                                radius: ThemeManager.chipRadius + 2
+                                color: ThemeManager.surfaceContainerLow
+                                border.width: 1
+                                border.color: ThemeManager.settingsOutline
+
+                                RowLayout {
+                                    anchors { fill: parent; margins: 12 }
+                                    spacing: 12
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        Layout.minimumWidth: 0
+                                        spacing: 1
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: modelData.name || modelData.id
+                                            color: ThemeManager.onSurface
+                                            font.family: ThemeManager.fontFor(text)
+                                            font.pixelSize: ThemeManager.fontSizeMd
+                                            font.weight: Font.Medium
+                                            elide: Text.ElideRight
+                                        }
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: modelData.id
+                                            color: ThemeManager.onSurfaceVariant
+                                            font.family: ThemeManager.fontFor(text)
+                                            font.pixelSize: 10
+                                            elide: Text.ElideMiddle
+                                        }
+                                    }
+
+                                    Text {
+                                        Layout.preferredWidth: 210
+                                        Layout.minimumWidth: 150
+                                        horizontalAlignment: Text.AlignRight
+                                        text: SecurityService.flatpakReasonText(modelData.reasons)
+                                        color: ThemeManager.error
+                                        font.family: ThemeManager.fontFor(text)
+                                        font.pixelSize: 10
+                                        elide: Text.ElideRight
+                                    }
+                                }
+                            }
+                        }
+
+                        SettingSection { text: I18n.tr("Automatic screen lock"); Layout.topMargin: 8 }
                         Text {
                             Layout.fillWidth: true
                             text: I18n.tr("Protect your session by showing the Nodalix lock screen after a period without activity.")
@@ -2925,7 +3149,7 @@ PanelWindow {
                         Repeater {
                             model: root._updatesPage ? [
                                 { key: "system", title: I18n.tr("System and kernel"), detail: I18n.tr("Official Arch packages, dependencies and kernel"), count: UpdateService.systemUpdates },
-                                { key: "aur", title: "AUR", detail: I18n.tr("Community packages · review required before building"), count: UpdateService.aurUpdates },
+                                { key: "aur", title: "AUR", detail: I18n.tr("AUR packages · manual review"), count: UpdateService.aurUpdates },
                                 { key: "flatpak", title: "Flatpak", detail: I18n.tr("Sandboxed applications and runtimes"), count: UpdateService.flatpakUpdates },
                                 { key: "firmware", title: I18n.tr("Firmware"), detail: I18n.tr("Device firmware through fwupd"), count: -1 }
                             ] : []
@@ -2950,20 +3174,54 @@ PanelWindow {
                                             iconSize: 20
                                         }
                                         ColumnLayout {
-                                            Layout.fillWidth: true; spacing: 1
-                                            Text { text: modelData.title; color: ThemeManager.onSurface; font.family: ThemeManager.fontFor(text); font.pixelSize: ThemeManager.fontSizeMd; font.weight: Font.Medium }
-                                            Text { text: modelData.detail; color: ThemeManager.onSurfaceVariant; font.family: ThemeManager.fontFor(text); font.pixelSize: 10 }
+                                            Layout.fillWidth: true
+                                            Layout.minimumWidth: 0
+                                            spacing: 1
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: modelData.title
+                                                color: ThemeManager.onSurface
+                                                font.family: ThemeManager.fontFor(text)
+                                                font.pixelSize: ThemeManager.fontSizeMd
+                                                font.weight: Font.Medium
+                                                elide: Text.ElideRight
+                                            }
+                                            Text {
+                                                Layout.fillWidth: true
+                                                text: modelData.detail
+                                                color: ThemeManager.onSurfaceVariant
+                                                font.family: ThemeManager.fontFor(text)
+                                                font.pixelSize: 10
+                                                elide: Text.ElideRight
+                                            }
                                         }
-                                        Text {
-                                            visible: modelData.count >= 0
-                                            text: modelData.count + " " + I18n.tr(modelData.count === 1 ? "update" : "updates")
-                                            color: modelData.count > 0 ? ThemeManager.primary : ThemeManager.onSurfaceVariant
-                                            font.family: ThemeManager.fontFor(text); font.pixelSize: 10
+                                        Item {
+                                            Layout.preferredWidth: 112
+                                            Layout.minimumWidth: 112
+                                            implicitHeight: _updateCount.implicitHeight
+                                            Text {
+                                                id: _updateCount
+                                                anchors.right: parent.right
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                visible: modelData.count >= 0
+                                                text: modelData.count + " " + I18n.tr(modelData.count === 1 ? "update" : "updates")
+                                                color: modelData.count > 0 ? ThemeManager.primary : ThemeManager.onSurfaceVariant
+                                                font.family: ThemeManager.fontFor(text)
+                                                font.pixelSize: 10
+                                            }
                                         }
-                                        SettingBtn {
-                                            label: modelData.key === "aur" ? I18n.tr("Review and update") : I18n.tr("Update")
-                                            enabled: !UpdateService.running && (modelData.key !== "firmware" || DependencyService.available("fwupdmgr"))
-                                            onClicked: UpdateService.request(modelData.key)
+                                        Item {
+                                            Layout.preferredWidth: 152
+                                            Layout.minimumWidth: 152
+                                            implicitHeight: _updateAction.implicitHeight
+                                            SettingBtn {
+                                                id: _updateAction
+                                                anchors.right: parent.right
+                                                anchors.verticalCenter: parent.verticalCenter
+                                                label: modelData.key === "aur" ? I18n.tr("Review and update") : I18n.tr("Update")
+                                                enabled: !UpdateService.running && (modelData.key !== "firmware" || DependencyService.available("fwupdmgr"))
+                                                onClicked: UpdateService.request(modelData.key)
+                                            }
                                         }
                                     }
                                 }
