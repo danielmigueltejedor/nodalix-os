@@ -1,0 +1,40 @@
+cleanup_legacy_update_units() {
+    local backup_dir="/var/lib/nodalix-updater/legacy-systemd"
+    local unit path backup
+
+    install -d -m700 "$backup_dir"
+
+    for unit in \
+        nodalix-update-system.service \
+        nodalix-update-firmware.service
+    do
+        path="/etc/systemd/system/$unit"
+
+        # Only clean the historical unmanaged override when the packaged
+        # replacement exists and no package owns the /etc copy.
+        [ -e "/usr/lib/systemd/system/$unit" ] || continue
+        [ -e "$path" ] || [ -L "$path" ] || continue
+
+        if pacman -Qo "$path" >/dev/null 2>&1; then
+            continue
+        fi
+
+        backup="$backup_dir/$unit.pre-packaging"
+        if [ ! -e "$backup" ] && [ ! -L "$backup" ]; then
+            cp -a -- "$path" "$backup"
+        fi
+
+        rm -f -- "$path"
+        echo "Nodalix Updater: removed legacy unmanaged override $path"
+    done
+
+    systemctl daemon-reload >/dev/null 2>&1 || true
+}
+
+post_install() {
+    cleanup_legacy_update_units
+}
+
+post_upgrade() {
+    cleanup_legacy_update_units
+}
