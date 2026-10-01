@@ -651,8 +651,159 @@ PanelWindow {
                         Layout.fillWidth: true
                         Layout.margins: 20
                         spacing: 10
+                        onVisibleChanged: if (visible) SecurityService.refresh()
 
-                        SettingSection { text: I18n.tr("Automatic screen lock") }
+                        RowLayout {
+                            Layout.fillWidth: true
+                            SettingSection { text: I18n.tr("System security"); Layout.fillWidth: true }
+                            SettingBtn {
+                                label: SecurityService.loading ? I18n.tr("Checking…") : I18n.tr("Refresh")
+                                enabled: !SecurityService.loading
+                                onClicked: SecurityService.refresh()
+                            }
+                        }
+
+                        Text {
+                            Layout.fillWidth: true
+                            text: I18n.tr("Review the security state of this Nodalix installation. These indicators describe concrete system settings and do not use an arbitrary security score.")
+                            wrapMode: Text.WordWrap
+                            color: ThemeManager.onSurfaceVariant
+                            font.family: ThemeManager.fontFor(text)
+                            font.pixelSize: ThemeManager.fontSizeSm
+                        }
+
+                        Repeater {
+                            model: SettingsUi.category === "security" ? [
+                                {
+                                    title: I18n.tr("Firewall"),
+                                    detail: !SecurityService.firewallInstalled
+                                        ? I18n.tr("No supported firewall detected")
+                                        : SecurityService.firewallProvider + " · " + (
+                                            SecurityService.firewallEnabled
+                                                ? I18n.tr("Enabled at startup")
+                                                : I18n.tr("Not enabled at startup")
+                                        ),
+                                    status: SecurityService.firewallActive
+                                        ? I18n.tr("Active")
+                                        : (SecurityService.firewallInstalled ? I18n.tr("Inactive") : I18n.tr("Not installed")),
+                                    warning: !SecurityService.firewallActive
+                                },
+                                {
+                                    title: I18n.tr("Secure Boot"),
+                                    detail: I18n.tr("Firmware boot verification"),
+                                    status: !SecurityService.uefi
+                                        ? I18n.tr("Legacy boot")
+                                        : (SecurityService.secureBootEnabled ? I18n.tr("Enabled") : I18n.tr("Disabled")),
+                                    warning: SecurityService.uefi && !SecurityService.secureBootEnabled
+                                },
+                                {
+                                    title: I18n.tr("Package signatures"),
+                                    detail: SecurityService.packageSignaturesRequired
+                                        ? I18n.tr("Repository packages require trusted signatures")
+                                        : I18n.tr("Pacman signature policy needs review"),
+                                    status: SecurityService.packageSignaturesRequired ? I18n.tr("Required") : I18n.tr("Review"),
+                                    warning: !SecurityService.packageSignaturesRequired
+                                },
+                                {
+                                    title: I18n.tr("Arch keyring"),
+                                    detail: I18n.tr("Package signing keys"),
+                                    status: SecurityService.keyringInstalled
+                                        ? SecurityService.keyringVersion
+                                        : I18n.tr("Not installed"),
+                                    warning: !SecurityService.keyringInstalled
+                                },
+                                {
+                                    title: I18n.tr("External / AUR packages"),
+                                    detail: I18n.tr("Packages installed outside the currently configured repositories"),
+                                    status: SecurityService.foreignPackageCount + " " + I18n.tr("packages"),
+                                    warning: false
+                                },
+                                {
+                                    title: I18n.tr("Flatpak permissions"),
+                                    detail: I18n.tr("Apps with host, home or unrestricted device access"),
+                                    status: SecurityService.flatpakBroadCount === 0
+                                        ? I18n.tr("No broad permissions")
+                                        : SecurityService.flatpakBroadCount + " " + I18n.tr("to review"),
+                                    warning: SecurityService.flatpakBroadCount > 0
+                                },
+                                {
+                                    title: I18n.tr("Privileged Nodalix services"),
+                                    detail: I18n.tr("System services that run with root privileges"),
+                                    status: SecurityService.privilegedServiceCount + " " + I18n.tr("services"),
+                                    warning: false
+                                },
+                                {
+                                    title: I18n.tr("Service hardening"),
+                                    detail: I18n.tr("Privileged services without explicit sandbox directives"),
+                                    status: SecurityService.servicesWithoutHardeningCount === 0
+                                        ? I18n.tr("No pending review")
+                                        : SecurityService.servicesWithoutHardeningCount + " " + I18n.tr("to review"),
+                                    warning: SecurityService.servicesWithoutHardeningCount > 0
+                                }
+                            ] : []
+
+                            delegate: Rectangle {
+                                required property var modelData
+                                Layout.fillWidth: true
+                                implicitHeight: 58
+                                radius: ThemeManager.chipRadius + 2
+                                color: ThemeManager.surfaceContainerLow
+                                border.width: 1
+                                border.color: ThemeManager.settingsOutline
+
+                                RowLayout {
+                                    anchors { fill: parent; margins: 12 }
+                                    spacing: 12
+
+                                    ColumnLayout {
+                                        Layout.fillWidth: true
+                                        spacing: 1
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: modelData.title
+                                            color: ThemeManager.onSurface
+                                            font.family: ThemeManager.fontFor(text)
+                                            font.pixelSize: ThemeManager.fontSizeMd
+                                            font.weight: Font.Medium
+                                            elide: Text.ElideRight
+                                        }
+
+                                        Text {
+                                            Layout.fillWidth: true
+                                            text: modelData.detail
+                                            color: ThemeManager.onSurfaceVariant
+                                            font.family: ThemeManager.fontFor(text)
+                                            font.pixelSize: 10
+                                            elide: Text.ElideRight
+                                        }
+                                    }
+
+                                    Text {
+                                        Layout.preferredWidth: 150
+                                        Layout.minimumWidth: 150
+                                        horizontalAlignment: Text.AlignRight
+                                        text: modelData.status
+                                        color: modelData.warning ? ThemeManager.error : ThemeManager.primary
+                                        font.family: ThemeManager.fontFor(text)
+                                        font.pixelSize: ThemeManager.fontSizeSm
+                                        font.weight: Font.Medium
+                                        elide: Text.ElideRight
+                                    }
+                                }
+                            }
+                        }
+
+                        Text {
+                            visible: SecurityService.errorMessage !== ""
+                            Layout.fillWidth: true
+                            text: SecurityService.errorMessage
+                            color: ThemeManager.error
+                            font.family: ThemeManager.fontFor(text)
+                            font.pixelSize: ThemeManager.fontSizeSm
+                        }
+
+                        SettingSection { text: I18n.tr("Automatic screen lock"); Layout.topMargin: 8 }
                         Text {
                             Layout.fillWidth: true
                             text: I18n.tr("Protect your session by showing the Nodalix lock screen after a period without activity.")
