@@ -19,6 +19,7 @@ package() {
   install -Dm755 "$srcdir/phone-link/bin/enlace-movil" "$pkgdir/usr/bin/enlace-movil"
   install -Dm755 "$srcdir/phone-link/bin/enlace-movil-ui" "$pkgdir/usr/bin/enlace-movil-ui"
   install -Dm755 "$srcdir/phone-link/bin/nodalix-phone-link-settings" "$pkgdir/usr/bin/nodalix-phone-link-settings"
+  install -Dm755 "$srcdir/phone-link/bin/nodalix-phone-call-feed" "$pkgdir/usr/bin/nodalix-phone-call-feed"
   install -Dm755 "$srcdir/phone-link/systemd/prepare-bluetooth" \
     "$pkgdir/usr/lib/nodalix-phone-link/prepare-bluetooth"
   install -Dm755 "$srcdir/phone-link/systemd/enable-bluez-experimental" \
