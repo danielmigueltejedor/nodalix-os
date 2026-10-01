@@ -2,6 +2,7 @@ pragma Singleton
 import QtQuick
 import QtMultimedia
 import Quickshell
+import Quickshell.Io
 import Quickshell.Hyprland
 import Quickshell.Services.Notifications
 import "."
@@ -166,21 +167,111 @@ QtObject {
         return calls.concat(rest)
     }
 
-    // Calls are a control surface, not notification history. Keep immutable
-    // snapshots in a dedicated model rendered above the normal notification
-    // repeater. This avoids holding NotificationAction objects across
-    // replaces_id updates (Quickshell may delete and recreate those actions).
+    // Calls are a control surface, not notification history. The authoritative
+    // source is Calls1 via nodalix-phone-call-feed; notification snapshots are
+    // retained only as a compatibility fallback when Phone Link is unavailable.
     property var liveCallEntries: []
+    property var _callFeedEntries: []
+    property var _notificationCallEntries: []
+    property bool _callFeedAvailable: false
     property var toastNotifs: []
     property var centerNotifs: []
     readonly property int toastCount: liveCallEntries.length + toastNotifs.length
+
+    function _callEntryFromState(call) {
+        if (!call) return null
+        const path = "" + (call.call_path ?? "")
+        const kind = "" + (call.kind ?? "")
+        const state = "" + (call.state ?? "")
+        if (path === "" || kind === "call_ended" || state === "disconnected")
+            return null
+
+        const incoming = kind === "call_incoming"
+            || state === "incoming"
+            || state === "waiting"
+        const outgoing = kind === "call_outgoing"
+            || state === "dialing"
+            || state === "alerting"
+
+        let body = I18n.tr("Call in progress")
+        let actions = [
+            { id: "hangup", text: I18n.tr("Hang up") }
+        ]
+        if (incoming) {
+            body = I18n.tr("Incoming call")
+            actions = [
+                { id: "answer", text: I18n.tr("Answer") },
+                { id: "decline", text: I18n.tr("Decline") }
+            ]
+        } else if (outgoing) {
+            body = I18n.tr("Calling…")
+        }
+
+        const summary = ""
+            + (call.contact_name
+               || call.peer_name
+               || call.peer_phone
+               || I18n.tr("Unknown"))
+
+        return {
+            callPath: path,
+            appName: "Enlace móvil",
+            summary: summary,
+            body: body,
+            appIcon: "",
+            image: "",
+            actions: actions
+        }
+    }
+
+    function _refreshLiveCallEntries() {
+        liveCallEntries = _callFeedAvailable
+            ? _callFeedEntries
+            : _notificationCallEntries
+    }
+
+    function _consumeCallFeed(line) {
+        if (!line) return
+        let payload
+        try {
+            payload = JSON.parse(line)
+        } catch (e) {
+            console.warn("Phone call feed JSON error:", e)
+            return
+        }
+
+        const entries = []
+        const calls = payload.calls ?? []
+        for (let i = 0; i < calls.length; i++) {
+            const entry = _callEntryFromState(calls[i])
+            if (entry) entries.push(entry)
+        }
+
+        _callFeedAvailable = Boolean(payload.available)
+        _callFeedEntries = entries
+        _refreshLiveCallEntries()
+    }
+
+    property Process _callFeed: Process {
+        command: ["/usr/bin/nodalix-phone-call-feed"]
+        running: true
+        stdout: SplitParser {
+            splitMarker: "\n"
+            onRead: (line) => root._consumeCallFeed(line)
+        }
+        onExited: {
+            root._callFeedAvailable = false
+            root._callFeedEntries = []
+            root._refreshLiveCallEntries()
+        }
+    }
 
     function _rebuildNotificationViews() {
         const calls = []
         const center = []
 
-        // Newest first within each group. Calls are removed from normal history
-        // entirely, so their top position cannot be displaced by later alerts.
+        // Calls are excluded from normal notification history. Their snapshots
+        // remain only as fallback until the authoritative Calls1 feed is ready.
         for (let i = notifList.length - 1; i >= 0; i--) {
             const n = notifList[i]
             if (_isLiveCall(n))
@@ -189,7 +280,8 @@ QtObject {
                 center.push(n)
         }
 
-        liveCallEntries = calls
+        _notificationCallEntries = calls
+        _refreshLiveCallEntries()
         centerNotifs = center
 
         const toast = []
