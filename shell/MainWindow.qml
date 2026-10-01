@@ -336,7 +336,7 @@ PanelWindow {
         Region { x: 0; y: 0; width: root.width; height: ThemeManager.barHeight }
         Region {
             x:      root.width - root._panelWidth - (root._islands ? ThemeManager.spacingLg : 0)
-            y:      root._notifSurfaceY
+            y:      root._panelTop
             width:  root._liveCallVisible ? root._panelWidth : 0
             height: root._liveCallVisible ? Math.ceil(root._liveCallLayer.height) : 0
         }
@@ -611,7 +611,7 @@ PanelWindow {
     Item {
         id: _notificationLayer
         x:      root.width - root._panelWidth - (root._islands ? ThemeManager.spacingLg : 0)
-        y:      root._panelTop
+        y:      root._notifSurfaceY
         width:  root._panelWidth
         height: root._notifHeight
         clip:   true
