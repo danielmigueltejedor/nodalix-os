@@ -327,6 +327,9 @@ class StaticInvariantTests(unittest.TestCase):
         call_card = (
             SHELL / "panels/LiveCallCard.qml"
         ).read_text(encoding="utf-8")
+        panels_qmldir = (
+            SHELL / "panels/qmldir"
+        ).read_text(encoding="utf-8")
         main = (SHELL / "MainWindow.qml").read_text(encoding="utf-8")
         button = (
             SHELL / "widgets/bar/NotifButton.qml"
@@ -369,6 +372,10 @@ class StaticInvariantTests(unittest.TestCase):
         self.assertIn(
             "NotificationService.invokeCallAction(",
             call_card,
+        )
+        self.assertIn(
+            "LiveCallCard       1.0 LiveCallCard.qml",
+            panels_qmldir,
         )
         self.assertIn("TapHandler {", call_card)
 
