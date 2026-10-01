@@ -80,6 +80,7 @@ QtObject {
         if (id !== "answer" && id !== "decline" && id !== "hangup") return
 
         const method = id === "answer" ? "AnswerCall" : "HangupCall"
+        console.info("Phone call action:", id, path)
         Quickshell.execDetached([
             "/usr/bin/busctl", "--user", "call",
             "com.gabriel.iphonebridge",
