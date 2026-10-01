@@ -11,8 +11,20 @@ _prepare_nodalix_phone_link() {
         return 0
     fi
 
+    local restart_bluetooth=0
+
     if [[ "$experimental_result" == "enabled" ]]; then
         echo "Nodalix Phone Link: enabling BlueZ experimental API"
+        restart_bluetooth=1
+    fi
+
+    if ! systemctl show bluetooth.service -p ExecStart --value 2>/dev/null |
+        grep -q -- "--noplugin=hfp"; then
+        echo "Nodalix Phone Link: reserving HFP for oFono"
+        restart_bluetooth=1
+    fi
+
+    if (( restart_bluetooth )); then
         systemctl restart bluetooth.service || true
         sleep 1
     fi
@@ -30,4 +42,7 @@ post_upgrade() {
 
 post_remove() {
     systemctl daemon-reload >/dev/null 2>&1 || true
+    if systemctl is-active --quiet bluetooth.service; then
+        systemctl restart bluetooth.service || true
+    fi
 }
