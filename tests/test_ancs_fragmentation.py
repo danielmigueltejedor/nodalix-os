@@ -176,6 +176,8 @@ class AncsFragmentationTests(unittest.TestCase):
         self.assertIn("AcquireNotify", source)
         self.assertIn("timeout=60.0", source)
         self.assertIn("org.freedesktop.DBus.Error.NoReply", source)
+        self.assertIn("org.bluez.Error.NotPermitted", source)
+        self.assertIn("not falling back", source)
         self.assertIn("GLib.io_add_watch", source)
         self.assertIn("os.read", source)
         self.assertIn("StartNotify fallback", source)
