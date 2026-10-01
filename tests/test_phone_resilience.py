@@ -56,6 +56,13 @@ class PhoneResilience(unittest.TestCase):
         self.assertEqual(proxy.connect_to_signal.call_count, count)
         manager.stop()
 
+    def test_hfp_power_request_is_async(self):
+        source = (ROOT / 'hfp/ofono_client.py').read_text()
+        self.assertIn('reply_handler=on_reply', source)
+        self.assertIn('error_handler=on_error', source)
+        self.assertIn('timeout=30', source)
+        self.assertIn('_power_request_in_flight', source)
+
     def test_advertising_capacity_timeout_and_proxy_failure(self):
         for name in ('org.bluez.Error.NotPermitted', 'org.bluez.Error.Failed', 'org.freedesktop.DBus.Error.NoReply', 'org.freedesktop.DBus.Error.ServiceUnknown'):
             for stage in ('proxy', 'register'):
