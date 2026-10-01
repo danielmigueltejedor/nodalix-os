@@ -316,6 +316,11 @@ class AncsClient:
                         pass
                     self._notify_started = False
                     return False
+                log.debug(
+                    "ANCS notify fd packet: path=%s len=%d",
+                    path,
+                    len(packet),
+                )
                 packet_callback(packet)
         except BlockingIOError:
             return True
