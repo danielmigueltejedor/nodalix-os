@@ -99,6 +99,57 @@ class ServiceHardeningTests(unittest.TestCase):
         self.assertNotIn("PrivateDevices=yes", unit)
         self.assertNotIn("ProtectSystem=strict", unit)
 
+    def test_updater_migrates_only_unmanaged_legacy_overrides(self) -> None:
+        install = (
+            ROOT
+            / "packaging/nodalix-updater/nodalix-updater.install"
+        ).read_text(encoding="utf-8")
+        pkgbuild = (
+            ROOT
+            / "packaging/nodalix-updater/PKGBUILD"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn("install=nodalix-updater.install", pkgbuild)
+
+        for unit in (
+            "nodalix-update-system.service",
+            "nodalix-update-firmware.service",
+        ):
+            self.assertIn(unit, install)
+
+        self.assertIn(
+            'path="/etc/systemd/system/$unit"',
+            install,
+        )
+        self.assertIn(
+            '[ -e "/usr/lib/systemd/system/$unit" ] || continue',
+            install,
+        )
+        self.assertIn(
+            'pacman -Qo "$path"',
+            install,
+        )
+        self.assertIn(
+            'cp -a -- "$path" "$backup"',
+            install,
+        )
+        self.assertIn(
+            'rm -f -- "$path"',
+            install,
+        )
+        self.assertLess(
+            install.index('pacman -Qo "$path"'),
+            install.index('rm -f -- "$path"'),
+        )
+        self.assertLess(
+            install.index('cp -a -- "$path" "$backup"'),
+            install.index('rm -f -- "$path"'),
+        )
+        self.assertIn(
+            'systemctl daemon-reload',
+            install,
+        )
+
     def test_legacy_bluetooth_cleanup_never_deletes_owned_units(self) -> None:
         install = (
             ROOT
