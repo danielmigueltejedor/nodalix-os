@@ -26,14 +26,38 @@ PanelWindow {
     color:         "transparent"
     WlrLayershell.namespace: "nodalix-shell"
 
-    // ── Notification panel state ──────────────────────────────────────────────
-    readonly property bool _notifOpen: NotificationService.centerOpen &&
-        (NotificationService.centerScreen === null ||
-         NotificationService.centerScreen?.name === root.modelData?.name)
+    // ── Notification / live-call state ───────────────────────────────────────
     readonly property int  _panelWidth: 320
     readonly property int  _maxHeight:  420
+    readonly property bool _liveCallVisible:
+        NotificationService.liveCallEntries.length > 0
+    readonly property real _liveCallReserve:
+        _liveCallVisible
+            ? Math.ceil(_liveCallLayer.height + ThemeManager.spacing)
+            : 0
+    readonly property bool _notifPopoutHere:
+        PopoutService.hasCurrent
+        && PopoutService.currentName === "notif"
+        && PopoutService.anchorScreen?.name === root.modelData?.name
+    readonly property bool _notifOpen:
+        NotificationService.centerOpen
+        && !_notifPopoutHere
+        && (
+            NotificationService.centerScreen === null
+            || NotificationService.centerScreen?.name === root.modelData?.name
+        )
+    readonly property real _notifSurfaceY:
+        root._panelTop + root._liveCallReserve
+    readonly property real _popoutSurfaceY:
+        root._panelTop
+        + (PopoutService.currentName === "notif" ? root._liveCallReserve : 0)
     readonly property int  _targetNotifHeight:
-        _notifOpen ? Math.min(notifCenter.implicitHeight, _maxHeight) : 0
+        _notifOpen
+            ? Math.min(
+                notifCenter.implicitHeight,
+                Math.max(0, _maxHeight - root._liveCallReserve)
+              )
+            : 0
 
     property real _notifHeight: _targetNotifHeight
     Behavior on _notifHeight {
@@ -85,7 +109,10 @@ PanelWindow {
             case "power":    return Math.min(_powerLoader.item?.implicitHeight    ?? 0, _popoutMaxHeight)
             case "powerprofile": return Math.min(_powerProfileLoader.item?.implicitHeight ?? 0, _popoutMaxHeight)
             case "dashboard": return Math.min(_dashboardLoader.item?.implicitHeight ?? 0, 700)
-            case "notif":    return Math.min(_notifLoader.item?.implicitHeight    ?? 0, _popoutMaxHeight)
+            case "notif":    return Math.min(
+                _notifLoader.item?.implicitHeight ?? 0,
+                Math.max(0, _popoutMaxHeight - root._liveCallReserve)
+            )
             case "network":  return Math.min(_networkLoader.item?.implicitHeight  ?? 0, _popoutMaxHeight)
             case "bluetooth": return Math.min(_bluetoothLoader.item?.implicitHeight ?? 0, _popoutMaxHeight)
             case "traymenu": return Math.min(_trayMenuLoader.item?.implicitHeight ?? 0, _popoutMaxHeight)
@@ -309,13 +336,19 @@ PanelWindow {
         Region { x: 0; y: 0; width: root.width; height: ThemeManager.barHeight }
         Region {
             x:      root.width - root._panelWidth - (root._islands ? ThemeManager.spacingLg : 0)
-            y:      root._panelTop
+            y:      root._notifSurfaceY
+            width:  root._liveCallVisible ? root._panelWidth : 0
+            height: root._liveCallVisible ? Math.ceil(root._liveCallLayer.height) : 0
+        }
+        Region {
+            x:      root.width - root._panelWidth - (root._islands ? ThemeManager.spacingLg : 0)
+            y:      root._notifSurfaceY
             width:  root._notifOpen ? root._panelWidth : 0
             height: root._notifOpen ? Math.ceil(root._notifHeight) : 0
         }
         Region {
             x:      root._popoutX
-            y:      root._panelTop
+            y:      root._popoutSurfaceY
             width:  root._popoutOpen ? root._popoutWidth : 0
             height: root._popoutOpen ? Math.ceil(root._popoutHeight) : 0
         }
@@ -419,7 +452,7 @@ PanelWindow {
         BlobRect {
             group:             root._notifHeight > 1 ? blobs : null
             x:                 parent.width - root._panelWidth - (root._islands ? ThemeManager.spacingLg : 0)
-            y:                 root._panelTop
+            y:                 root._notifSurfaceY
             implicitWidth:     root._panelWidth
             implicitHeight:    root._notifHeight
             topLeftRadius:     root._panelTopRadius; topRightRadius: root._panelTopRadius
@@ -431,7 +464,7 @@ PanelWindow {
         BlobRect {
             group:             root._popoutHeight > 1 ? blobs : null
             x:                 root._popoutX
-            y:                 root._panelTop
+            y:                 root._popoutSurfaceY
             implicitWidth:     root._popoutWidth
             implicitHeight:    root._popoutHeight
             topLeftRadius:     root._panelTopRadius; topRightRadius: root._panelTopRadius
@@ -543,6 +576,37 @@ PanelWindow {
         }
     }
 
+    // ── Live phone call control ───────────────────────────────────────────────
+    // One authoritative surface, above both automatic toasts and the bell
+    // popout. This prevents duplicate NotificationCenter instances from
+    // covering the call card or stealing pointer input.
+    Item {
+        id: _liveCallLayer
+        visible: root._liveCallVisible
+        x: root.width - root._panelWidth
+           - (root._islands ? ThemeManager.spacingLg : 0)
+        y: root._panelTop
+        width: root._panelWidth
+        height: _liveCallColumn.implicitHeight
+        z: 1000000
+
+        Column {
+            id: _liveCallColumn
+            width: parent.width
+            spacing: ThemeManager.spacing
+
+            Repeater {
+                model: NotificationService.liveCallEntries
+
+                delegate: LiveCallCard {
+                    required property var modelData
+                    width: _liveCallColumn.width
+                    call: modelData
+                }
+            }
+        }
+    }
+
     // ── Notification panel ────────────────────────────────────────────────────
     Item {
         id: _notificationLayer
@@ -566,7 +630,10 @@ PanelWindow {
         NotificationCenter {
             id:           notifCenter
             anchors.fill: parent
-            toastMode:    NotificationService.toastMode
+            // This surface is only for automatic toasts. The full history is
+            // the separate bell popout, so the two cannot become competing
+            // full notification centers.
+            toastMode:    true
         }
     }
 
@@ -577,7 +644,7 @@ PanelWindow {
     Item {
         id: _popoutContainer
         x:       root._popoutX
-        y:       root._panelTop
+        y:       root._popoutSurfaceY
         width:   root._popoutWidth
         height:  root._popoutHeight
         clip:    true
