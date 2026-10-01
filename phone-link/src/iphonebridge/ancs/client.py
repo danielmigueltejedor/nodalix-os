@@ -230,8 +230,15 @@ class AncsClient:
         )
 
         try:
+            # BlueZ may need longer than dbus-python's ~25 s default
+            # while the iPhone finishes LE/ATT setup.  A default-timeout
+            # NoReply can still leave NotifyAcquired=true, after which a
+            # StartNotify fallback is rejected with NotPermitted and the
+            # usable fd reply is effectively lost.  Wait long enough for
+            # the AcquireNotify reply itself instead.
             fd_obj, mtu = char.AcquireNotify(
-                dbus.Dictionary({}, signature="sv")
+                dbus.Dictionary({}, signature="sv"),
+                timeout=60.0,
             )
             fd = fd_obj.take() if hasattr(fd_obj, "take") else int(fd_obj)
             os.set_blocking(fd, False)
@@ -253,6 +260,18 @@ class AncsClient:
             )
             return True
         except dbus.exceptions.DBusException as e:
+            if e.get_dbus_name() == "org.freedesktop.DBus.Error.NoReply":
+                # Do not immediately call StartNotify here.  On real iPhones
+                # BlueZ can complete AcquireNotify just after the client-side
+                # timeout, leaving NotifyAcquired=true; StartNotify would then
+                # fail with NotPermitted.  Treat this as a failed subscription
+                # and let the daemon retry/rebuild cleanly.
+                log.warning(
+                    "ANCS %s AcquireNotify timed out; not falling back to "
+                    "StartNotify because BlueZ may still be completing it",
+                    label,
+                )
+                return False
             log.info(
                 "ANCS %s AcquireNotify unavailable (%s); falling back to StartNotify",
                 label,
