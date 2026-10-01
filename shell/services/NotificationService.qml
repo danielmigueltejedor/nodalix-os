@@ -163,7 +163,7 @@ QtObject {
         centerNotifs = _pinLiveCallsFirst(center)
 
         const toast = []
-        const seen = new Set()
+        const seen = []
 
         // A live call is always part of the visible toast model while it exists,
         // even if the call started while the full notification center was open.
@@ -171,15 +171,15 @@ QtObject {
             const n = centerNotifs[i]
             if (_isLiveCall(n)) {
                 toast.push(n)
-                seen.add(n)
+                seen.push(n)
             }
         }
 
         for (let i = _toastEntries.length - 1; i >= 0; i--) {
             const n = _toastEntries[i].n
-            if (!seen.has(n)) {
+            if (seen.indexOf(n) < 0) {
                 toast.push(n)
-                seen.add(n)
+                seen.push(n)
             }
         }
 
