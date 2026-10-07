@@ -150,7 +150,7 @@ def main():
     try:
         current = status()
         if not current.get('enabled'):
-            raise ValueError('Activa LocalSend en los ajustes rápidos')
+            raise ValueError('Activa LocalSend en Ajustes → Compartir → LocalSend')
         peer = next((p for p in current['devices'] if fingerprint(p['fingerprint']) == fingerprint(args.fingerprint)), None)
         if peer is None:
             raise ValueError('El dispositivo ya no está disponible')

@@ -20,6 +20,11 @@ XML = '''<node><interface name="com.nodalix.Settings1">
 <method name="GetWallpapers"><arg type="s" direction="out"/></method>
 <method name="SetWallpaper"><arg type="s" direction="in"/></method>
 <method name="StopWallpaper"/>
+<method name="GetLocalSend"><arg type="s" direction="out"/></method>
+<method name="SetLocalSendOption"><arg type="s" direction="in"/><arg type="s" direction="in"/></method>
+<method name="SetLocalSendEnabled"><arg type="b" direction="in"/></method>
+<method name="RefreshLocalSend"/>
+<method name="SetLocalSendFavorite"><arg type="s" direction="in"/><arg type="b" direction="in"/></method>
 <signal name="Changed"/>
 </interface></node>'''
 KINDS = ('nodalix', 'system', 'apps', 'flatpak', 'firmware')
@@ -46,6 +51,82 @@ def update_commands(kind):
         return [[program('flatpak'), 'update', '--user', '-y', '--noninteractive'],
                 [program('flatpak'), 'update', '--system', '-y', '--noninteractive']]
     raise ValueError('Tipo de actualización inválido')
+
+
+LOCAL_SCHEMA = 'org.gnome.shell.extensions.glocalsend'
+LOCAL_OPTIONS = {'alias': str, 'download-folder': str, 'auto-accept': bool,
+                 'start-on-login': bool, 'auto-disable-enabled': bool,
+                 'auto-disable-minutes': int}
+
+def localsend_settings():
+    default = Gio.SettingsSchemaSource.get_default()
+    schema = default.lookup(LOCAL_SCHEMA, True)
+    if not schema:
+        uuid = 'glocalsend@donnybeelo.github.com'
+        roots = [Path(os.environ.get('XDG_DATA_HOME',str(Path.home()/'.local/share'))),
+                 Path('/usr/share')]
+        for root in roots:
+            directory = root/'gnome-shell/extensions'/uuid/'schemas'
+            if (directory/'gschemas.compiled').is_file():
+                source = Gio.SettingsSchemaSource.new_from_directory(str(directory),default,False)
+                schema = source.lookup(LOCAL_SCHEMA,False)
+                if schema: break
+    if not schema:
+        raise ValueError('GLocalSend no está instalado')
+    return Gio.Settings.new_full(schema,None,None)
+
+
+def localsend_call(method, parameters=None):
+    bus = Gio.bus_get_sync(Gio.BusType.SESSION,None)
+    return bus.call_sync('com.nodalix.LocalSend','/com/nodalix/LocalSend','com.nodalix.LocalSend1',
+                         method,parameters,None,Gio.DBusCallFlags.NONE,1000,None)
+
+
+def localsend_snapshot():
+    state={'installed':False,'ready':False,'enabled':False,'devices':[],'config':{},
+           'message':'GLocalSend no está instalado'}
+    try:
+        prefs=localsend_settings()
+        state['installed']=True
+        state['config']={key:prefs.get_value(key).unpack() for key in LOCAL_OPTIONS}
+        state['favorites']=prefs.get_strv('favorite-fingerprints')
+        try:
+            data=json.loads(localsend_call('GetStatus').unpack()[0])
+            state.update(ready=True,enabled=bool(data['enabled']),devices=data['devices'])
+            state['message']='Activo · '+str(len(data['devices']))+' dispositivos cercanos' if data['enabled'] else 'LocalSend desactivado'
+        except GLib.Error:
+            state['message']='Vuelve a iniciar sesión para conectar Ajustes y Nautilus con GLocalSend'
+    except (ValueError,GLib.Error) as error:
+        state['message']=str(error)
+    return json.dumps(state,ensure_ascii=False)
+
+
+def set_localsend_option(key,encoded):
+    if key not in LOCAL_OPTIONS: raise ValueError('Opción de LocalSend no admitida')
+    value=json.loads(encoded)
+    if type(value) is not LOCAL_OPTIONS[key]: raise ValueError('Valor de LocalSend inválido')
+    if key=='alias' and (len(value)>128 or any(ord(c)<32 for c in value)):
+        raise ValueError('Nombre de dispositivo inválido')
+    if key=='download-folder' and (not Path(value).is_absolute() or not Path(value).is_dir()):
+        raise ValueError('Elige una carpeta de recepción existente')
+    if key=='auto-disable-minutes' and not 1 <= value <= 1440:
+        raise ValueError('El tiempo debe estar entre 1 y 1440 minutos')
+    prefs=localsend_settings()
+    # Write only the requested setting in the existing GLocalSend schema.
+    if isinstance(value,bool): prefs.set_boolean(key,value)
+    elif isinstance(value,int): prefs.set_int(key,value)
+    else: prefs.set_string(key,value)
+    Gio.Settings.sync()
+
+
+def set_localsend_favorite(fingerprint,enabled):
+    if not fingerprint or len(fingerprint)>256:raise ValueError('Identidad de dispositivo inválida')
+    prefs=localsend_settings()
+    favorites=list(prefs.get_strv('favorite-fingerprints'))
+    if enabled and fingerprint not in favorites: favorites.append(fingerprint)
+    if not enabled: favorites=[item for item in favorites if item!=fingerprint]
+    prefs.set_strv('favorite-fingerprints',favorites)
+    Gio.Settings.sync()
 
 
 def catalog():
@@ -224,7 +305,20 @@ class SettingsService:
             if method == 'GetWallpapers':
                 invocation.return_value(GLib.Variant('(s)',(json.dumps(catalog(),ensure_ascii=False),)))
                 return
-            if method == 'CheckUpdates':
+            if method == 'GetLocalSend':
+                invocation.return_value(GLib.Variant('(s)',(localsend_snapshot(),)))
+                return
+            if method == 'SetLocalSendOption':
+                set_localsend_option(*parameters.unpack())
+            elif method == 'SetLocalSendFavorite':
+                set_localsend_favorite(*parameters.unpack())
+            elif method == 'SetLocalSendEnabled':
+                desired=parameters.unpack()[0]
+                result=localsend_call('SetEnabled',GLib.Variant('(b)',(desired,)))
+                if bool(result.unpack()[0])!=desired: raise ValueError('No se pudo activar LocalSend; revisa su certificado')
+            elif method == 'RefreshLocalSend':
+                localsend_call('Refresh')
+            elif method == 'CheckUpdates':
                 self.check()
             elif method == 'StartUpdate':
                 self.start(parameters.unpack()[0])

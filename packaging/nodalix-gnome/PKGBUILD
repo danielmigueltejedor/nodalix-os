@@ -1,6 +1,6 @@
 pkgname=nodalix-gnome
 pkgver=0.2.4
-pkgrel=3
+pkgrel=4
 pkgdesc="GNOME Shell, GDM and native desktop integration for Nodalix"
 arch=("any")
 install=nodalix-gnome.install

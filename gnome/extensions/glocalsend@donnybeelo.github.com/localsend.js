@@ -106,6 +106,19 @@ export class LocalSendService {
     get port() {
         return this._httpPort;
     }
+    applySettings(key) {
+        if (key === 'alias') {
+            this._alias = ensureAlias(this._settings.get_string('alias'));
+            if (this.enabled) this._sendAnnouncement();
+        } else if (key === 'download-folder') {
+            this._downloadFolder = this._resolveDownloadFolder();
+        } else if (key === KEY_AUTO_DISABLE_ENABLED || key === KEY_AUTO_DISABLE_MINUTES) {
+            this._cancelAutoDisable();
+            if (this.enabled) this._scheduleAutoDisable();
+        }
+        // Applying preferences never restarts or cancels an active transfer.
+        this._callbacks.onStateChanged();
+    }
     toggleEnabled() {
         if (this.enabled) {
             this.stop();

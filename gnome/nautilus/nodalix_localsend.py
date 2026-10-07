@@ -168,6 +168,14 @@ class NodalixLocalSendMenu(GObject.GObject, Nautilus.MenuProvider):
             refresh.connect("activate", self._refresh)
             submenu.append_item(refresh)
 
+        settings_item = Nautilus.MenuItem(
+            name="NodalixLocalSend::Settings",
+            label="Ajustes de LocalSend",
+            tip="Configurar el mismo LocalSend del sistema",
+            icon="preferences-system-symbolic",
+        )
+        settings_item.connect("activate", self._open_settings)
+        submenu.append_item(settings_item)
         root.set_submenu(submenu)
         return [root]
 
@@ -209,6 +217,14 @@ class NodalixLocalSendMenu(GObject.GObject, Nautilus.MenuProvider):
                 )
             except OSError as error:
                 notify("No se pudo iniciar el envío", str(error), "critical")
+
+    def _open_settings(self, _item) -> None:
+        try:
+            subprocess.Popen(["gnome-control-center", "sharing", "localsend"],
+                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL, start_new_session=True)
+        except OSError as error:
+            notify("No se pudieron abrir los ajustes de LocalSend", str(error))
 
     def _refresh(self, _item) -> None:
         def announce() -> None:

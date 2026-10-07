@@ -1,6 +1,6 @@
 pkgname=nodalix-control-center
 pkgver=51.0.0
-pkgrel=1
+pkgrel=2
 pkgdesc="GNOME Settings with native Nodalix updates and animated backgrounds"
 arch=("x86_64")
 url="https://github.com/danielmigueltejedor/nodalix-os"

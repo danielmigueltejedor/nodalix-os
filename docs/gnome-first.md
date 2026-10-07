@@ -114,3 +114,13 @@ Fuentes, revisiones, construcción y pruebas:
 Las recetas y el instalador distinguen el proveedor Nodalix de Ajustes del paquete
 stock. El instalador permite el conflicto declarado para sustituir ese proveedor;
 no sobreescribe archivos de otros paquetes.
+
+### LocalSend desde Ajustes
+
+Compartir → LocalSend usa el mismo servicio GLocalSend que los controles rápidos
+y Nautilus. Comparte nombre, carpeta de recepción, activación al iniciar sesión,
+temporizador, aceptación automática y favoritos por fingerprint. El menú de
+Nautilus incluye «Ajustes de LocalSend». Se mantiene la identidad TLS existente;
+no se inicia un segundo receptor. Los módulos nuevos se cargan al volver a
+iniciar sesión normalmente. Acerca de muestra el logo Nodalix a 96 píxeles de
+altura y permite reducir la imagen original de alta resolución.

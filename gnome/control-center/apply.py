@@ -6,9 +6,9 @@ import sys
 root=Path(sys.argv[1]);source=Path(__file__).resolve().parent
 if 'cc_nodalix_updates_page' in (root/'panels/system/cc-system-panel.c').read_text():
     raise SystemExit('Already patched')
-for name in ['cc-nodalix-pages.h','cc-nodalix-pages.c']:
+for name in ['cc-nodalix-pages.h','cc-nodalix-pages.c','cc-nodalix-localsend.c']:
     shutil.copy2(source/name,root/'panels/system'/name)
-p=root/'panels/system/meson.build';t=p.read_text().replace("  'cc-system-panel.c',","  'cc-system-panel.c',\n  'cc-nodalix-pages.c',");t=t.replace("deps = common_deps + [", "deps = common_deps + [\n  dependency('json-glib-1.0'),");p.write_text(t)
+p=root/'panels/system/meson.build';t=p.read_text().replace("  'cc-system-panel.c',","  'cc-system-panel.c',\n  'cc-nodalix-pages.c',\n  'cc-nodalix-localsend.c',");t=t.replace("deps = common_deps + [", "deps = common_deps + [\n  dependency('json-glib-1.0'),");p.write_text(t)
 p=root/'panels/system/cc-system-panel.c';t=p.read_text().replace('#include "cc-system-panel.h"','#include "cc-system-panel.h"\n#include "cc-nodalix-pages.h"')
 t=t.replace('    g_type_ensure (CC_TYPE_ABOUT_PAGE);','    g_type_ensure (CC_TYPE_NODALIX_UPDATES_PAGE);\n    g_type_ensure (CC_TYPE_ABOUT_PAGE);')
 t=t.replace('    cc_panel_add_static_subpage (CC_PANEL (self), "about", CC_TYPE_ABOUT_PAGE);','    cc_panel_add_static_subpage (CC_PANEL (self), "updates", CC_TYPE_NODALIX_UPDATES_PAGE);\n    cc_panel_add_static_subpage (CC_PANEL (self), "about", CC_TYPE_ABOUT_PAGE);')
@@ -44,3 +44,21 @@ p=root/'panels/background/cc-background-panel.blp';t=p.read_text();pos=t.rfind('
             }
           }
 '''+t[pos:];p.write_text(t)
+
+p=root/'panels/sharing/cc-sharing-panel.c';t=p.read_text().replace('#include "cc-sharing-panel.h"','#include "cc-sharing-panel.h"\n#include "../system/cc-nodalix-pages.h"')
+t=t.replace('    gtk_widget_init_template (GTK_WIDGET (self));','    gtk_widget_init_template (GTK_WIDGET (self));\n    cc_panel_add_static_subpage (CC_PANEL (self), "localsend", CC_TYPE_NODALIX_LOCALSEND_PAGE);');p.write_text(t)
+p=root/'panels/sharing/cc-sharing-panel.blp';t=p.read_text().replace('        $CcListRow personal_file_sharing_row {','''        $CcListRow {
+          icon-name: "send-to-symbolic";
+          show-arrow: true;
+          title: "LocalSend";
+          subtitle: "Compartir archivos desde Nautilus y con dispositivos cercanos";
+          action-name: "navigation.push";
+          action-target: "'localsend'";
+        }
+        $CcListRow personal_file_sharing_row {''');p.write_text(t)
+
+# Allow a high resolution distributor image to shrink before the height clamp.
+p=root/'panels/system/about/cc-about-page.blp';t=p.read_text()
+t=t.replace('maximum-size: 192;', 'maximum-size: 96;').replace('tightening-threshold: 192;', 'tightening-threshold: 96;')
+t=t.replace('can-shrink: false;', 'can-shrink: true;')
+p.write_text(t)

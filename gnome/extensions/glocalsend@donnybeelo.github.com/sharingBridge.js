@@ -4,6 +4,8 @@ import {CERT_PATH, KEY_PATH} from './common.js';
 const XML = `<node><interface name="com.nodalix.LocalSend1">
 <method name="GetStatus"><arg name="status" type="s" direction="out"/></method>
 <method name="Refresh"/>
+<method name="SetEnabled"><arg type="b" direction="in"/><arg type="b" direction="out"/></method>
+<signal name="Changed"/>
 </interface></node>`;
 
 // The extension already owns discovery. Export small cached metadata only;
@@ -15,6 +17,10 @@ export class SharingBridge {
         this._settings = settings;
         this._object = Gio.DBusExportedObject.wrapJSObject(XML, this);
         this._object.export(Gio.DBus.session, '/com/nodalix/LocalSend');
+        this._settingsId = settings.connect('changed', (_settings, key) => {
+            this._service.applySettings(key);
+            this.changed();
+        });
         this._owner = Gio.bus_own_name_on_connection(Gio.DBus.session,
             'com.nodalix.LocalSend', Gio.BusNameOwnerFlags.NONE, null, null);
     }
@@ -33,7 +39,21 @@ export class SharingBridge {
         this._service.refreshPeers();
     }
 
+    SetEnabled(enabled) {
+        if (Boolean(enabled) !== this._service.enabled)
+            this._service.toggleEnabled();
+        this.changed();
+        return this._service.enabled;
+    }
+
+    changed() {
+        this._object?.emit_signal('Changed', null);
+    }
+
     destroy() {
+        if (this._settingsId)
+            this._settings.disconnect(this._settingsId);
+        this._settingsId = 0;
         if (this._owner)
             Gio.bus_unown_name(this._owner);
         this._owner = 0;

@@ -4,9 +4,10 @@ Based on GNOME Control Center 51.0, commit
 `6ae712c0454f2586f00821c3486150c1e8feb3e7` from
 https://github.com/GNOME/gnome-control-center.
 
-`apply.py` adds two native Adwaita navigation pages: System → Updates and
-Appearance → Animated backgrounds. Selecting a static background disables the
-video renderer. About uses `/usr/share/pixmaps/nodalix-logo.png`.
+`apply.py` adds native Adwaita navigation pages: System → Updates,
+Appearance → Animated backgrounds and Sharing → LocalSend. Selecting a static background disables the
+video renderer. About uses `/usr/share/pixmaps/nodalix-logo.png`, with a 96 pixel height clamp
+and shrinking enabled for high resolution images.
 
 The pages use the session D-Bus service `com.nodalix.Settings`, which remains
 running when Settings closes. Privileged operations use one root-owned helper
@@ -46,3 +47,13 @@ operation allowlisting, concurrent operation rejection, partial failures,
 privileged authentication, and recovery of managed Settings icon overrides.
 Real session playback is selectable after normal logout/login; newly installed
 extensions are discovered at Shell startup. No forced session restart is used.
+
+LocalSend uses the existing user GLocalSend schema and the same
+`com.nodalix.LocalSend` bridge that Nautilus uses. It controls activation,
+discovery, alias, receive folder, login activation, auto-disable, auto-accept
+and favorite fingerprints. No second receiver or separate settings store is
+created. Preferences take effect through the extension's settings-change handler
+without restarting a transfer. The existing TLS identity and certificates are
+preserved. Nautilus includes a shortcut to Sharing → LocalSend. New bridge modules
+load at the next normal login; until then the page can edit preferences and shows
+a clear message that the runtime connection requires a new login.

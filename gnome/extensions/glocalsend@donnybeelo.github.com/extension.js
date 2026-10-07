@@ -386,6 +386,7 @@ export default class LocalSendCompanionExtension extends Extension {
         this._service = new LocalSendService(this._settings, {
             onStateChanged: () => {
                 this._syncIndicator();
+                this._sharingBridge?.changed();
             },
             onNotification: (summary, body, actionUri) => {
                 const notification = Main.notify(summary, body);
