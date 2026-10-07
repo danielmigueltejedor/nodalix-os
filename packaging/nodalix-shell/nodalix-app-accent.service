@@ -4,4 +4,5 @@ ConditionPathExists=%h/.local/share/Steam/millennium/themes/fluenty
 
 [Service]
 Type=oneshot
+ExecCondition=/usr/lib/nodalix/is-hyprland-session
 ExecStart=/usr/bin/nodalix-sync-app-accent /etc/xdg/quickshell/nodalix

@@ -5,6 +5,7 @@ PartOf=graphical-session.target
 
 [Service]
 Type=simple
+ExecCondition=/usr/lib/nodalix/is-hyprland-session
 ExecStart=/usr/bin/nodalix-shell
 Restart=on-failure
 RestartSec=2

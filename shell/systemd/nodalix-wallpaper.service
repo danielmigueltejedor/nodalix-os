@@ -6,6 +6,7 @@ Conflicts=skwd-deck.service skwd-daemon.service skwd-walld.service
 
 [Service]
 Type=simple
+ExecCondition=/usr/lib/nodalix/is-hyprland-session
 Environment=SKWD_WALL_V2_CONFIG=%h/.config/nodalix/wallpaper
 Environment=SKWD_WALL_V2_CACHE=%h/.cache/nodalix/wallpaper
 ExecStart=/usr/bin/skwd-walld --wait-for-session

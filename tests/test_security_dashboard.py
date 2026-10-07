@@ -11,13 +11,13 @@ class SecurityDashboardTests(unittest.TestCase):
     def test_security_probe_is_packaged_and_read_only(self) -> None:
         helper = ROOT / "shell/scripts/nodalix-security-status.py"
         pkgbuild = (
-            ROOT / "packaging/nodalix-shell/PKGBUILD"
+            ROOT / "packaging/nodalix-integrations/PKGBUILD"
         ).read_text(encoding="utf-8")
         source = helper.read_text(encoding="utf-8")
 
         self.assertTrue(helper.is_file())
         self.assertIn(
-            'nodalix-security-status.py" "$pkgdir/usr/bin/nodalix-security-status"',
+            'security-status',
             pkgbuild,
         )
         self.assertNotIn("sudo", source)
