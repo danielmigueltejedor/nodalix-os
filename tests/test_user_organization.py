@@ -82,3 +82,23 @@ class Organization(unittest.TestCase):
         target=apps/'matlab.desktop'; original='[Desktop Entry]\nType=Application\nName=MATLAB\nExec=matlab\nIcon=matlab\n'; target.write_text(original)
         sync=lambda: icons.synchronize(self.home,[],[self.home/'themes'])
         sync(); icon.unlink(); sync(); self.assertEqual(target.read_text(),original)
+
+    def test_settings_panels_restore_managed_overrides_and_stay_symbolic(self):
+        import json
+        system=self.home/'system'; apps=system/'applications'; apps.mkdir(parents=True)
+        theme=self.home/'themes/Colloid-Teal/apps/scalable'; theme.mkdir(parents=True)
+        (theme/'keyboard.svg').write_text('<svg/>')
+        source=apps/'gnome-keyboard-panel.desktop'
+        source.write_text('[Desktop Entry]\nType=Application\nName=Keyboard\nExec=gnome-control-center keyboard\nIcon=org.gnome.Settings-keyboard-symbolic\nCategories=X-GNOME-Settings-Panel;\n')
+        destination=self.home/'.local/share/applications'/source.name
+        destination.parent.mkdir(parents=True)
+        old=icons.replace_icon(source.read_text(),str(theme/'keyboard.svg'))
+        destination.write_text(old)
+        state=self.home/'.local/state/nodalix/icons';state.mkdir(parents=True)
+        (state/'overrides.json').write_text(json.dumps({source.name:{'source':str(source),'original':'','written_hash':icons.digest(old)}}))
+        sync=lambda: icons.synchronize(self.home,[system],[self.home/'themes'])
+        self.assertNotIn(source.name,sync())
+        self.assertFalse(destination.exists())
+        self.assertNotIn(source.name,sync())
+        self.assertFalse(destination.exists())
+        self.assertIn('Icon=org.gnome.Settings-keyboard-symbolic',source.read_text())

@@ -1,6 +1,6 @@
 pkgname=nodalix-integrations
 pkgver=0.2.4
-pkgrel=2
+pkgrel=3
 pkgdesc="Nodalix desktop services independent of the compositor"
 arch=("any")
 url="https://github.com/danielmigueltejedor/nodalix-os"

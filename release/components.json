@@ -115,6 +115,30 @@
       "version": "0.2.4",
       "required": true,
       "restart": "system"
+    },
+    {
+      "id": "settings",
+      "name": "Nodalix Settings service",
+      "package": "nodalix-settings",
+      "version": "0.2.4",
+      "required": true,
+      "restart": "none"
+    },
+    {
+      "id": "control-center",
+      "name": "Nodalix native GNOME Settings",
+      "package": "nodalix-control-center",
+      "version": "51.0.0",
+      "required": true,
+      "restart": "none"
+    },
+    {
+      "id": "video-wallpapers",
+      "name": "Nodalix animated wallpaper collection",
+      "package": "nodalix-video-wallpapers",
+      "version": "0.2.4",
+      "required": true,
+      "restart": "system"
     }
   ]
 }

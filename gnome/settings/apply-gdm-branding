@@ -1,0 +1,20 @@
+#!/usr/bin/python3
+"""Preserve custom GDM profiles while adding the Nodalix branding database."""
+from pathlib import Path
+import shutil
+import subprocess
+profile = Path('/etc/dconf/profile/gdm')
+if not profile.exists():
+    vendor = Path('/usr/share/dconf/profile/gdm')
+    content = vendor.read_text() if vendor.exists() else 'user-db:user\n'
+else:
+    content = profile.read_text()
+if 'system-db:gdm' not in content.splitlines():
+    lines = content.splitlines()
+    lines.insert(1 if lines and lines[0].startswith('user-db:') else 0, 'system-db:gdm')
+    profile.parent.mkdir(parents=True, exist_ok=True)
+    profile.write_text('\n'.join(lines)+'\n')
+config = Path('/etc/dconf/db/gdm.d/90-nodalix-branding')
+config.parent.mkdir(parents=True, exist_ok=True)
+shutil.copyfile('/usr/lib/nodalix/gdm-branding', config)
+subprocess.run(['/usr/bin/dconf', 'update'], check=True)

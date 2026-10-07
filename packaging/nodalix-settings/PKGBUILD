@@ -1,0 +1,21 @@
+pkgname=nodalix-settings
+pkgver=0.2.4
+pkgrel=1
+pkgdesc="Native Nodalix updates, animated wallpaper controls and GNOME branding"
+arch=("any")
+url="https://github.com/danielmigueltejedor/nodalix-os"
+license=("GPL-3.0-or-later")
+depends=("python" "python-gobject" "polkit" "pacman-contrib" "nodalix-updater" "nodalix-apps")
+optdepends=("flatpak: Flatpak application updates" "fwupd: Firmware updates")
+install=nodalix-settings.install
+source=("nodalix-settings-$pkgver.tar.zst")
+sha256sums=("SKIP")
+package() {
+  install -Dm755 "$srcdir/gnome/settings/service.py" "$pkgdir/usr/lib/nodalix/settings-service"
+  install -Dm755 "$srcdir/gnome/settings/updates-privileged" "$pkgdir/usr/lib/nodalix/updates-privileged"
+  install -Dm644 "$srcdir/gnome/settings/com.nodalix.Settings.service" "$pkgdir/usr/share/dbus-1/services/com.nodalix.Settings.service"
+  install -Dm644 "$srcdir/gnome/settings/com.nodalix.settings.policy" "$pkgdir/usr/share/polkit-1/actions/com.nodalix.settings.policy"
+  install -Dm644 "$srcdir/docs/images/nodalix-logo.png" "$pkgdir/usr/share/pixmaps/nodalix-logo.png"
+  install -Dm644 "$srcdir/gnome/settings/gdm-branding" "$pkgdir/usr/lib/nodalix/gdm-branding"
+  install -Dm755 "$srcdir/gnome/settings/apply-gdm-branding" "$pkgdir/usr/lib/nodalix/apply-gdm-branding"
+}

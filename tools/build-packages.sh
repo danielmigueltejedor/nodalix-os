@@ -155,6 +155,8 @@ makepkg_one() {
 }
 
 if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
+  python3 "$root/tools/build-settings-packages.py" --output "$root/dist/native-settings"
+  find "$root/dist/native-settings" -mindepth 2 -maxdepth 2 -type f -name "*.pkg.tar.zst" ! -name "*-debug-*" -exec cp {} "$outdir/" \;
   makepkg_one "$engine_dir"
   makepkg_one "$updater_dir"
   makepkg_one "$apps_dir"

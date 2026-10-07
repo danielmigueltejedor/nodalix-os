@@ -87,14 +87,14 @@ done < "$work/assets.tsv"
 
 say "Instalando dependencias oficiales…"
 "${as_root[@]}" pacman -S --needed --noconfirm \
-    gnome-shell gnome-session gnome-control-center gdm nautilus nautilus-python \
+    gnome-shell gnome-session gdm nautilus nautilus-python \
     xdg-desktop-portal xdg-desktop-portal-gnome xdg-desktop-portal-gtk \
     python python-dbus python-gobject python-typer \
     bluez bluez-utils bluez-obex gtk4 libadwaita zenity polkit minisign gcc gawk \
     librsvg imagemagick
 
 say "Instalando Nodalix $release_tag…"
-"${as_root[@]}" pacman -U --needed --noconfirm "${packages[@]}"
+"${as_root[@]}" pacman -U --needed --noconfirm --ask 4 "${packages[@]}"
 "${as_root[@]}" systemctl enable --now nodalix-update-check.timer
 systemctl --user daemon-reload || true
 "${as_root[@]}" nodalix-gnome-migrate --system

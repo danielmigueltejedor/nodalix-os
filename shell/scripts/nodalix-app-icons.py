@@ -16,6 +16,11 @@ def digest(text):
 
 
 def candidates(identifier, entry):
+    # Settings panels are controls, not application launchers. Absolute file
+    # icons cannot be displayed by GNOME's panel list (it needs GThemedIcon).
+    if ('X-GNOME-Settings-Panel' in entry.get('Categories', '').split(';')
+            or entry.get('Icon', '').endswith('-symbolic')):
+        return []
     names = [entry.get('Icon', ''), identifier.removesuffix('.desktop')]
     try:
         command = shlex.split(entry.get('Exec', ''))

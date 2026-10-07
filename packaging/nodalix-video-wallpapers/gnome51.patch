@@ -1,0 +1,190 @@
+diff --git a/src/dbus.ts b/src/dbus.ts
+index 5dc587a..564d857 100644
+--- a/src/dbus.ts
++++ b/src/dbus.ts
+@@ -57,7 +57,7 @@ export class RendererWrapper {
+             </interface>
+         </node>`;
+         const DBusProxy = Gio.DBusProxy.makeProxyWrapper<RendererProxy>(interfaceXml);
+-        return DBusProxy(Gio.DBus.session, APPLICATION_ID, RENDERER_OBJECT_PATH);
++        return new DBusProxy(Gio.DBus.session, APPLICATION_ID, RENDERER_OBJECT_PATH);
+     }
+ 
+     async setPlay(): Promise<void> {
+@@ -96,7 +96,7 @@ export class UPowerWrapper {
+             '/org/freedesktop/UPower/devices/DisplayDevice';
+         const interfaceXml = DBusUtil.loadInterfaceXML(DBUS_INTERFACE);
+         const DBusProxy = Gio.DBusProxy.makeProxyWrapper<UPowerProxy>(interfaceXml);
+-        return DBusProxy(Gio.DBus.system, DBUS_BUS_NAME, DBUS_OBJECT_PATH);
++        return new DBusProxy(Gio.DBus.system, DBUS_BUS_NAME, DBUS_OBJECT_PATH);
+     }
+ 
+     getState(): number {
+@@ -127,7 +127,7 @@ export class DBusWrapper {
+         const DBUS_OBJECT_PATH = '/org/freedesktop/DBus';
+         const interfaceXml = DBusUtil.loadInterfaceXML(DBUS_INTERFACE);
+         const DBusProxy = Gio.DBusProxy.makeProxyWrapper<DBusSessionProxy>(interfaceXml);
+-        return DBusProxy(Gio.DBus.session, DBUS_BUS_NAME, DBUS_OBJECT_PATH);
++        return new DBusProxy(Gio.DBus.session, DBUS_BUS_NAME, DBUS_OBJECT_PATH);
+     }
+ 
+     listNames(): string[][] {
+@@ -157,7 +157,7 @@ export class MprisWrapper {
+         const DBUS_OBJECT_PATH = '/org/mpris/MediaPlayer2';
+         const interfaceXml = DBusUtil.loadInterfaceXML(DBUS_INTERFACE);
+         const DBusProxy = Gio.DBusProxy.makeProxyWrapper<MprisProxy>(interfaceXml);
+-        return DBusProxy(Gio.DBus.session, DBUS_BUS_NAME, DBUS_OBJECT_PATH);
++        return new DBusProxy(Gio.DBus.session, DBUS_BUS_NAME, DBUS_OBJECT_PATH);
+     }
+ 
+     getPlaybackStatus(): string {
+diff --git a/src/extension.ts b/src/extension.ts
+index 99dea7f..fc7c14c 100644
+--- a/src/extension.ts
++++ b/src/extension.ts
+@@ -53,6 +53,7 @@ export default class HanabiExtension extends Extension {
+     // Renderer subprocess and its relaunch timeout.
+     private currentProcess: WaylandSubprocess | null = null;
+     private launchRendererTimeoutId = 0;
++    private startupTimeoutId = 0;
+     private reloadTime = RENDERER_RELOAD_DELAY_MS;
+     private rendererSuspended = false;
+ 
+@@ -96,11 +97,12 @@ export default class HanabiExtension extends Extension {
+             const startupCompleteId = Main.layoutManager.connect(
+                 'startup-complete',
+                 () => {
+-                    GLib.timeout_add(
++                    this.startupTimeoutId = GLib.timeout_add(
+                         GLib.PRIORITY_DEFAULT,
+                         this.settings!.get_int('startup-delay'),
+                         () => {
+-                            this.innerEnable();
++                            this.startupTimeoutId = 0;
++                            if (this.settings) this.innerEnable();
+                             return false;
+                         }
+                     );
+@@ -108,11 +110,12 @@ export default class HanabiExtension extends Extension {
+             );
+             this.signalConnections.push([Main.layoutManager, startupCompleteId]);
+         } else {
+-            GLib.timeout_add(
++            this.startupTimeoutId = GLib.timeout_add(
+                 GLib.PRIORITY_DEFAULT,
+                 this.settings.get_int('startup-delay'),
+                 () => {
+-                    this.innerEnable();
++                    this.startupTimeoutId = 0;
++                    if (this.settings) this.innerEnable();
+                     return false;
+                 }
+             );
+@@ -251,6 +254,11 @@ export default class HanabiExtension extends Extension {
+     disable(): void {
+         logger.debug('Disabling');
+ 
++        this.isEnabled = false;
++        if (this.startupTimeoutId) {
++            GLib.source_remove(this.startupTimeoutId);
++            this.startupTimeoutId = 0;
++        }
+         this.killCurrentProcess();
+         this.rendererSuspended = false;
+ 
+diff --git a/src/metadata.json.in b/src/metadata.json.in
+index e33f8cb..bcf5790 100755
+--- a/src/metadata.json.in
++++ b/src/metadata.json.in
+@@ -1,11 +1,11 @@
+ {
+   "description": "Live Wallpaper for GNOME\n\nHanabi 花火【はなび】(n) fireworks\n( ・ω・)o─━・*:'・:・゜'・:※",
+   "gettext-domain": "@uuid@",
+-  "name": "Hanabi Extension",
++  "name": "Fondos animados Nodalix",
+   "settings-schema": "@settings_schema@",
+-  "session-modes": ["user", "unlock-dialog"],
++  "session-modes": ["user"],
+   "shell-version": [
+-    "50"
++    "51"
+   ],
+   "url": "https://github.com/jeffshee/gnome-ext-hanabi",
+   "uuid": "@uuid@",
+diff --git a/src/roundedCornersEffect.ts b/src/roundedCornersEffect.ts
+index adbb4b3..5535716 100644
+--- a/src/roundedCornersEffect.ts
++++ b/src/roundedCornersEffect.ts
+@@ -19,7 +19,6 @@ import Clutter from 'gi://Clutter';
+ import Cogl from 'gi://Cogl';
+ import GLib from 'gi://GLib';
+ import GObject from 'gi://GObject';
+-import Shell from 'gi://Shell';
+ 
+ import {Logger} from './logger.js';
+ 
+@@ -145,7 +144,7 @@ function getFboOffset(actor: Clutter.Actor): [number, number] {
+ }
+ 
+ export const RoundedCornersEffect = GObject.registerClass(
+-    class RoundedCornersEffect extends Shell.GLSLEffect {
++    class RoundedCornersEffect extends Clutter.ShaderEffect {
+         // Pending debounced log timers, keyed by label.
+         private logTimeouts = new Map<string, number>();
+ 
+@@ -177,12 +176,11 @@ export const RoundedCornersEffect = GObject.registerClass(
+             );
+         }
+ 
+-        vfunc_build_pipeline(): void {
+-            this.add_glsl_snippet(
++        vfunc_get_static_snippet(): Cogl.Snippet {
++            return Cogl.Snippet.new(
+                 Cogl.SnippetHook.FRAGMENT,
+                 fragmentShaderDeclarations,
+-                fragmentShaderCode,
+-                false
++                fragmentShaderCode
+             );
+         }
+ 
+@@ -230,13 +228,13 @@ export const RoundedCornersEffect = GObject.registerClass(
+             this.debugDebounced('textureMapping', width, height, scale, offsetX, offsetY);
+ 
+             this.set_uniform_float(
+-                this.get_uniform_location('pixel_step'),
++                'pixel_step',
+                 2,
+                 [1.0 / width, 1.0 / height]
+             );
+             const [x1, y1, x2, y2] = this.bounds;
+             this.set_uniform_float(
+-                this.get_uniform_location('bounds'),
++                'bounds',
+                 4,
+                 [
+                     (x1 - offsetX) * scale,
+@@ -246,12 +244,12 @@ export const RoundedCornersEffect = GObject.registerClass(
+                 ]
+             );
+             this.set_uniform_float(
+-                this.get_uniform_location('clip_radius'),
++                'clip_radius',
+                 1,
+                 [this.clipRadius * scale]
+             );
+             this.set_uniform_float(
+-                this.get_uniform_location('border_stroke'),
++                'border_stroke',
+                 1,
+                 [this.borderStroke * scale]
+             );
+@@ -278,7 +276,7 @@ export const RoundedCornersEffect = GObject.registerClass(
+         setBorderColor(color: number[]): void {
+             this.debugDebounced('borderColor', ...color);
+             this.set_uniform_float(
+-                this.get_uniform_location('border_color'),
++                'border_color',
+                 4,
+                 color
+             );

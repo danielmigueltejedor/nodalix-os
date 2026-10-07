@@ -1,0 +1,30 @@
+pkgname=nodalix-video-wallpapers
+pkgver=0.2.4
+pkgrel=1
+pkgdesc="GNOME 51 animated wallpaper player and Nodalix video collection"
+arch=("any")
+url="https://github.com/danielmigueltejedor/nodalix-os"
+license=("GPL-3.0-or-later")
+depends=("gnome-shell>=1:51" "gnome-shell<1:52" "gjs" "gtk4" "gst-plugin-gtk4" "gst-plugins-good" "gst-libav")
+makedepends=("nodejs" "pnpm" "meson" "ninja" "gettext")
+source=("hanabi-b18e041.tar.zst" "nodalix-video-wallpapers-$pkgver.tar.zst" "nodalix-animated-collection.tar.zst")
+sha256sums=("SKIP" "SKIP" "SKIP")
+prepare() {
+  cd "$srcdir/hanabi"
+  patch -p1 < "$srcdir/packaging/nodalix-video-wallpapers/gnome51.patch"
+  cp "$srcdir/packaging/nodalix-video-wallpapers/pnpm-lock.yaml" .
+}
+build() {
+  cd "$srcdir/hanabi"
+  pnpm install --frozen-lockfile --ignore-scripts
+  node build.js
+  meson setup "$srcdir/build" . --prefix=/usr
+  meson compile -C "$srcdir/build"
+}
+package() {
+  DESTDIR="$pkgdir" meson install -C "$srcdir/build" --no-rebuild
+  install -d "$pkgdir/usr/share/backgrounds/nodalix/Animados" "$pkgdir/usr/share/nodalix/wallpaper-previews"
+  cp -a "$srcdir/collection/." "$pkgdir/usr/share/backgrounds/nodalix/Animados/"
+  cp -a "$srcdir/previews/." "$pkgdir/usr/share/nodalix/wallpaper-previews/"
+  install -Dm644 "$srcdir/gnome/settings/animated-collection.json" "$pkgdir/usr/share/nodalix/animated-collection.json"
+}

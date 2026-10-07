@@ -1,12 +1,12 @@
 pkgname=nodalix-gnome
 pkgver=0.2.4
-pkgrel=2
+pkgrel=3
 pkgdesc="GNOME Shell, GDM and native desktop integration for Nodalix"
 arch=("any")
 install=nodalix-gnome.install
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-depends=("gnome-shell" "mutter" "gnome-session" "gdm" "gnome-control-center" "gnome-settings-daemon" "gnome-keyring" "gnome-console" "nautilus" "nautilus-python" "zenity" "libnotify" "xdg-desktop-portal" "xdg-desktop-portal-gnome" "xdg-desktop-portal-gtk" "nodalix-integrations>=0.2.4-2")
+depends=("gnome-shell" "mutter" "gnome-session" "gdm" "nodalix-control-center" "nodalix-settings" "nodalix-video-wallpapers" "gnome-settings-daemon" "gnome-keyring" "gnome-console" "nautilus" "nautilus-python" "zenity" "libnotify" "xdg-desktop-portal" "xdg-desktop-portal-gnome" "xdg-desktop-portal-gtk" "nodalix-integrations>=0.2.4-2")
 source=("nodalix-gnome-$pkgver.tar.zst")
 sha256sums=("SKIP")
 
@@ -27,6 +27,14 @@ package() {
     while IFS= read -r name; do
         ln -s "/usr/share/icons/hicolor/scalable/apps/$name" "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/symbolic/settings/$name"
     done < "$srcdir/gnome/session/settings-symbols.list"
+    rm "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/symbolic/settings/org.gnome.Settings-accessibility-symbolic.svg"
+    install -Dm644 "/usr/share/icons/Adwaita/symbolic/legacy/preferences-desktop-accessibility-symbolic.svg" "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/symbolic/settings/org.gnome.Settings-accessibility-symbolic.svg"
+    rm "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/symbolic/settings/org.gnome.Settings-keyboard-symbolic.svg"
+    install -Dm644 "/usr/share/icons/Adwaita/symbolic/devices/input-keyboard-symbolic.svg" "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/symbolic/settings/org.gnome.Settings-keyboard-symbolic.svg"
+    rm "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/symbolic/settings/org.gnome.Settings-display-symbolic.svg"
+    install -Dm644 "/usr/share/icons/Adwaita/symbolic/devices/video-display-symbolic.svg" "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/symbolic/settings/org.gnome.Settings-display-symbolic.svg"
+    rm "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/symbolic/settings/org.gnome.Settings-bluetooth-symbolic.svg"
+    install -Dm644 "/usr/share/icons/Adwaita/symbolic/devices/bluetooth-symbolic.svg" "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/symbolic/settings/org.gnome.Settings-bluetooth-symbolic.svg"
     install -Dm755 "$srcdir/gnome/lib/localsend-send.py" "$pkgdir/usr/lib/nodalix/localsend-send"
     install -Dm644 "$srcdir/gnome/nautilus/nodalix_localsend.py" "$pkgdir/usr/share/nautilus-python/extensions/nodalix_localsend.py"
     for uuid in nodalix-connect@getnodalia.com; do

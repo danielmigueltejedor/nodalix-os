@@ -3,6 +3,7 @@
 from pathlib import Path
 import configparser
 import os
+import shutil
 import subprocess
 
 NAME = 'Nodalix-Adwaita-Symbols'
@@ -38,6 +39,13 @@ for source in Path('/usr/share/icons/hicolor/scalable/apps').glob('org.gnome.Set
     target = settings/source.name
     if not target.exists() and not target.is_symlink():
         target.symlink_to(source)
+# Explicit Adwaita aliases for control-center panel names.
+for panel, asset in {'accessibility': 'legacy/preferences-desktop-accessibility-symbolic.svg', 'keyboard': 'devices/input-keyboard-symbolic.svg', 'display': 'devices/video-display-symbolic.svg', 'bluetooth': 'devices/bluetooth-symbolic.svg'}.items():
+    target = settings/f'org.gnome.Settings-{panel}-symbolic.svg'
+    if target.exists() or target.is_symlink():
+        target.unlink()
+    shutil.copy2(Path('/usr/share/icons/Adwaita/symbolic')/asset, target)
+cache = shutil.which('gtk4-update-icon-cache') or shutil.which('gtk-update-icon-cache')
 directories = CONTEXTS + ['settings']
 lines = ['[Icon Theme]', 'Name=Nodalix Adwaita Symbols',
          'Comment=Adwaita controls with existing application icons',
@@ -47,5 +55,7 @@ for context in directories:
     lines += [f'[symbolic/{context}]', 'Size=16', 'MinSize=8', 'MaxSize=512',
               'Type=Scalable', f'Context={"Actions" if context == "settings" else context.title()}', '']
 index.write_text('\n'.join(lines))
+if cache:
+    subprocess.run([cache, '-f', '-t', str(theme)], check=True)
 subprocess.run(['gsettings','set','org.gnome.desktop.interface','icon-theme',NAME],check=True)
 print(f'Adwaita control symbols applied; application theme inherited: {current}')

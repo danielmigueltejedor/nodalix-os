@@ -204,6 +204,9 @@ def prepare(assets: Path, work: Path) -> tuple[Path, str]:
     # emoji fonts and can push the ISO over GitHub Releases 2 GiB limit.
     live_nodalix_packages = [
         "nodalix-gnome",
+        "nodalix-settings",
+        "nodalix-control-center",
+        "nodalix-video-wallpapers",
         "nodalix-integrations",
     ]
 

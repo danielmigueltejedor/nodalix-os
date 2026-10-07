@@ -10,6 +10,12 @@ Overview, espacios de trabajo, notificaciones, fondos y ajustes rápidos.
   sincronización de calendario, organización de carpetas y utilidades de sistema.
 - `nodalix-gnome`: sesión, portales GNOME/GTK, integración de Nautilus, controles
   simbólicos Adwaita y Nodalix Connect.
+- `nodalix-control-center`: Ajustes GNOME con «Sistema → Actualizaciones» y
+  «Apariencia → Fondos animados», y marca Nodalix en «Acerca de».
+- `nodalix-settings`: servicio de actualizaciones independiente de Quickshell,
+  selector de fondos y logo de GDM.
+- `nodalix-video-wallpapers`: reproductor adaptado a GNOME 51 y los 16 vídeos
+  de la colección actual.
 - `nodalix-shell`, Hymission, greetd y el motor de fondos antiguo son opcionales.
   La shell, los fondos y los cambios de acento heredados solo se ejecutan bajo Hyprland.
 
@@ -33,7 +39,9 @@ No se aplican variables Ozone/GDK globales ni reglas de ventana por aplicación.
 El tema `Nodalix-Adwaita-Symbols` sustituye símbolos de controles y paneles de
 Ajustes por los originales de GNOME/Adwaita; hereda Colloid para aplicaciones.
 `nodalix-shell-symbols` crea una variante de usuario que hereda su tema actual.
-No reescribe entradas `.desktop` ni reemplaza logos de aplicaciones.
+El gestor `nodalix-app-icons` excluye los paneles internos de Ajustes y los
+iconos simbólicos; retira solo las entradas que él creó y que siguen intactas.
+Así no sustituye los nombres de los controles por rutas de archivos de aplicaciones.
 
 Enlace móvil usa `com.nodalix.PhoneLink` tanto como identificador GTK de su interfaz
 como nombre de su entrada desktop. El nombre D-Bus del backend permanece
@@ -87,3 +95,22 @@ desbloquear shell/fondos y habilitar los servicios que estuvieran habilitados an
 No activar Quickshell mientras se permanezca en GNOME.
 La configuración histórica de greetd/Hyprland se conserva en `iso/legacy-overlay`;
 no entra en la nueva ISO ni en una instalación oficial GNOME.
+
+## Ajustes nativos y fondos animados
+
+Las operaciones de actualizaciones continúan aunque se cierre Ajustes. Incluyen
+Nodalix, paquetes de repositorios Arch (también el kernel), apps instaladas mediante
+Nodalix Apps, Flatpak cuando está instalado y firmware cuando fwupd está instalado.
+La autenticación de administrador aparece para las operaciones privilegiadas.
+Actualizar todas las apps no instala apps ausentes ni reinicia Quickshell en GNOME.
+
+Seleccionar un vídeo habilita el reproductor y lo configura sin audio, con pausa
+al maximizar o entrar en pantalla completa y con batería baja. Seleccionar un fondo
+estático o «Usar el fondo estático» deshabilita la reproducción. El logo de GDM y
+la detección de la nueva extensión se ven al volver a iniciar sesión normalmente.
+
+Fuentes, revisiones, construcción y pruebas:
+[`gnome/control-center/UPSTREAM.md`](../gnome/control-center/UPSTREAM.md).
+Las recetas y el instalador distinguen el proveedor Nodalix de Ajustes del paquete
+stock. El instalador permite el conflicto declarado para sustituir ese proveedor;
+no sobreescribe archivos de otros paquetes.

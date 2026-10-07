@@ -1,7 +1,9 @@
 gnome-shell
 mutter
 gnome-session
-gnome-control-center
+nodalix-control-center
+nodalix-settings
+nodalix-video-wallpapers
 gnome-settings-daemon
 gnome-keyring
 gnome-console
