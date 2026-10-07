@@ -1,12 +1,12 @@
 pkgname=nodalix-gnome
 pkgver=0.2.4
-pkgrel=4
+pkgrel=5
 pkgdesc="GNOME Shell, GDM and native desktop integration for Nodalix"
 arch=("any")
 install=nodalix-gnome.install
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-depends=("gnome-shell" "mutter" "gnome-session" "gdm" "nodalix-control-center" "nodalix-settings" "nodalix-video-wallpapers" "gnome-settings-daemon" "gnome-keyring" "gnome-console" "nautilus" "nautilus-python" "zenity" "libnotify" "xdg-desktop-portal" "xdg-desktop-portal-gnome" "xdg-desktop-portal-gtk" "nodalix-integrations>=0.2.4-2")
+depends=("cups" "cups-pk-helper" "gnome-shell" "mutter" "gnome-session" "gdm" "nodalix-control-center" "nodalix-settings" "nodalix-video-wallpapers" "gnome-settings-daemon" "gnome-keyring" "gnome-console" "nautilus" "nautilus-python" "zenity" "libnotify" "xdg-desktop-portal" "xdg-desktop-portal-gnome" "xdg-desktop-portal-gtk" "nodalix-integrations>=0.2.4-2")
 source=("nodalix-gnome-$pkgver.tar.zst")
 sha256sums=("SKIP")
 

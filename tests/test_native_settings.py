@@ -119,4 +119,51 @@ class LocalSendBridgeTests(unittest.TestCase):
             self.assertEqual(result.returncode,0,result.stderr)
             self.assertIn('PASS:',result.stdout)
 
+class WallpaperActivationTests(unittest.TestCase):
+    def test_request_keeps_other_extensions_and_cancels_pending_video(self):
+        from unittest.mock import MagicMock
+        prefs=MagicMock();values={'enabled-extensions':['OTHER'], 'disabled-extensions':['DISABLED',settings.HANABI_UUID]}
+        prefs.get_strv.side_effect=lambda key:list(values[key])
+        prefs.set_strv.side_effect=lambda key,value:values.__setitem__(key,list(value))
+        with patch.object(settings.Gio.Settings,'new',return_value=prefs),patch.object(settings.Gio.Settings,'sync'):
+            settings.request_wallpaper(True)
+            self.assertEqual(values['enabled-extensions'],['OTHER',settings.HANABI_UUID])
+            self.assertEqual(values['disabled-extensions'],['DISABLED'])
+            settings.request_wallpaper(True)
+            self.assertEqual(values['enabled-extensions'].count(settings.HANABI_UUID),1)
+            settings.request_wallpaper(False)
+            self.assertEqual(values['enabled-extensions'],['OTHER'])
+
+    def test_new_extension_is_queued_without_claiming_playback(self):
+        from unittest.mock import MagicMock
+        prefs=MagicMock();prefs.get_string.return_value='/known.mp4'
+        shell=MagicMock();shell.get_strv.return_value=[settings.HANABI_UUID]
+        with patch.object(settings,'wallpaper_preferences',return_value=prefs),patch.object(settings.Gio.Settings,'new',return_value=shell),patch.object(settings,'extension_info',return_value={}):
+            state=json.loads(settings.wallpaper_snapshot())
+            self.assertTrue(state['requested']);self.assertFalse(state['active']);self.assertFalse(state['playing'])
+            self.assertIn('Cierra sesión',state['message'])
+
+    def test_enabled_extension_requires_a_renderer_before_reporting_active(self):
+        from unittest.mock import MagicMock
+        prefs=MagicMock();prefs.get_string.return_value='/known.mp4'
+        shell=MagicMock();shell.get_strv.return_value=[settings.HANABI_UUID]
+        bus=MagicMock();bus.call_sync.return_value=settings.GLib.Variant('(b)',(False,))
+        with patch.object(settings,'wallpaper_preferences',return_value=prefs),patch.object(settings.Gio.Settings,'new',return_value=shell),patch.object(settings,'extension_info',return_value={'state':1}),patch.object(settings.Gio,'bus_get_sync',return_value=bus):
+            state=json.loads(settings.wallpaper_snapshot())
+            self.assertFalse(state['active']);self.assertFalse(state['playing'])
+
+    def test_selection_persists_next_login_and_applies_the_matching_poster(self):
+        from unittest.mock import MagicMock
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            poster=Path(folder)/'poster.jpg';poster.write_bytes(b'poster')
+            items=[{'path':'/known.mp4','preview':str(poster)}]
+            video=MagicMock();background=MagicMock();service=settings.SettingsService()
+            with patch.object(settings,'catalog',return_value=items),patch.object(settings,'wallpaper_preferences',return_value=video),patch.object(settings,'request_wallpaper') as requested,patch.object(settings,'extension_info',return_value={}),patch.object(settings.Gio.Settings,'new',return_value=background),patch.object(service,'extension') as enable:
+                service.wallpaper('/known.mp4')
+                requested.assert_called_once_with(True);enable.assert_not_called()
+                video.set_string.assert_called_once_with('video-path','/known.mp4')
+                background.set_string.assert_any_call('picture-uri',poster.as_uri())
+                background.set_string.assert_any_call('picture-uri-dark',poster.as_uri())
+
 if __name__=='__main__': unittest.main()

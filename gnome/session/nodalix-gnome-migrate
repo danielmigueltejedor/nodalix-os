@@ -6,6 +6,7 @@ if [ "${1:-}" = --system ]; then
     # Select the next login manager without ending the active session.
     systemctl disable greetd.service 2>/dev/null || true
     systemctl enable gdm.service
+    systemctl enable cups.socket
     systemctl --global disable nodalix-shell.service nodalix-app-accent.path 2>/dev/null || true
     exit 0
 fi

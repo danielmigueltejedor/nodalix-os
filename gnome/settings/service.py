@@ -18,6 +18,7 @@ XML = '''<node><interface name="com.nodalix.Settings1">
 <method name="CheckUpdates"/>
 <method name="StartUpdate"><arg type="s" direction="in"/></method>
 <method name="GetWallpapers"><arg type="s" direction="out"/></method>
+<method name="GetWallpaperState"><arg type="s" direction="out"/></method>
 <method name="SetWallpaper"><arg type="s" direction="in"/></method>
 <method name="StopWallpaper"/>
 <method name="GetLocalSend"><arg type="s" direction="out"/></method>
@@ -127,6 +128,69 @@ def set_localsend_favorite(fingerprint,enabled):
     if not enabled: favorites=[item for item in favorites if item!=fingerprint]
     prefs.set_strv('favorite-fingerprints',favorites)
     Gio.Settings.sync()
+
+
+HANABI_SCHEMA = 'io.github.jeffshee.hanabi-extension'
+RENDERER_BUS = 'io.github.jeffshee.HanabiRenderer'
+
+def wallpaper_preferences():
+    if not Gio.SettingsSchemaSource.get_default().lookup(HANABI_SCHEMA,True):
+        raise ValueError('El reproductor de fondos no está instalado')
+    return Gio.Settings.new(HANABI_SCHEMA)
+
+
+def extension_info():
+    bus=Gio.bus_get_sync(Gio.BusType.SESSION,None)
+    reply=bus.call_sync('org.gnome.Shell','/org/gnome/Shell','org.gnome.Shell.Extensions',
+                        'GetExtensionInfo',GLib.Variant('(s)',(HANABI_UUID,)),None,
+                        Gio.DBusCallFlags.NONE,1500,None)
+    return reply.unpack()[0]
+
+
+def request_wallpaper(enabled):
+    prefs=Gio.Settings.new('org.gnome.shell')
+    desired=list(prefs.get_strv('enabled-extensions'))
+    if enabled and HANABI_UUID not in desired:desired.append(HANABI_UUID)
+    if not enabled:desired=[uuid for uuid in desired if uuid!=HANABI_UUID]
+    prefs.set_strv('enabled-extensions',desired)
+    if enabled:
+        prefs.set_strv('disabled-extensions',[uuid for uuid in prefs.get_strv('disabled-extensions') if uuid!=HANABI_UUID])
+    Gio.Settings.sync()
+
+
+def wallpaper_snapshot():
+    state={'available':False,'requested':False,'active':False,'playing':False,'path':'',
+           'message':'El reproductor de fondos no está instalado'}
+    try:
+        prefs=wallpaper_preferences();shell=Gio.Settings.new('org.gnome.shell')
+        state.update(available=True,path=prefs.get_string('video-path'),
+                     requested=HANABI_UUID in shell.get_strv('enabled-extensions'))
+        if not state['requested']:
+            state['message']='Elige una miniatura para usar un fondo animado'
+        else:
+            info=extension_info()
+            if not info:
+                state['message']='Fondo seleccionado. Cierra sesión y vuelve a entrar para activar la animación.'
+            elif info.get('state') in (3,4):
+                state['message']='No se pudo activar el fondo: '+str(info.get('error') or 'reproductor no compatible')
+            else:
+                state['message']='Activando fondo animado…'
+                bus=Gio.bus_get_sync(Gio.BusType.SESSION,None)
+                owner=bus.call_sync('org.freedesktop.DBus','/org/freedesktop/DBus','org.freedesktop.DBus',
+                                    'NameHasOwner',GLib.Variant('(s)',(RENDERER_BUS,)),None,
+                                    Gio.DBusCallFlags.NONE,1000,None).unpack()[0]
+                if info.get('state')==1 and owner:
+                    reply=bus.call_sync(RENDERER_BUS,'/io/github/jeffshee/HanabiRenderer',
+                                        'org.freedesktop.DBus.Properties','Get',
+                                        GLib.Variant('(ss)',(RENDERER_BUS,'isPlaying')),None,
+                                        Gio.DBusCallFlags.NONE,1000,None)
+                    playing=reply.unpack()[0]
+                    if isinstance(playing,GLib.Variant):playing=playing.unpack()
+                    state.update(active=True,playing=bool(playing))
+                    state['message']='Reproduciendo fondo animado' if playing else 'Fondo animado en pausa'
+    except (ValueError,GLib.Error) as error:
+        state['message']=str(error)
+    return json.dumps(state,ensure_ascii=False)
 
 
 def catalog():
@@ -284,17 +348,31 @@ class SettingsService:
             raise ValueError('El reproductor necesita volver a iniciar sesión para cargarse')
 
     def wallpaper(self, path):
-        allowed = {item['path'] for item in catalog()}
-        if path not in allowed:
+        items={item['path']:item for item in catalog()}
+        if path not in items:
             raise ValueError('El fondo no pertenece a la colección instalada')
-        settings = Gio.Settings.new('io.github.jeffshee.hanabi-extension')
-        settings.set_string('video-path', path)
-        settings.set_boolean('mute', True)
-        settings.set_boolean('show-panel-menu', False)
-        settings.set_boolean('show-on-lock-screen', False)
-        settings.set_int('pause-on-maximize-or-fullscreen', 1)
-        settings.set_int('pause-on-battery', 2)
-        self.extension('EnableExtension')
+        settings=wallpaper_preferences()
+        settings.set_string('video-path',path)
+        settings.set_boolean('mute',True)
+        settings.set_boolean('show-panel-menu',False)
+        settings.set_boolean('show-on-lock-screen',False)
+        settings.set_boolean('change-wallpaper',False)
+        settings.set_int('pause-on-maximize-or-fullscreen',1)
+        settings.set_int('pause-on-battery',2)
+        # Use the matching poster while the player starts or awaits Shell discovery.
+        preview=Path(items[path].get('preview',''))
+        if preview.is_file():
+            background=Gio.Settings.new('org.gnome.desktop.background')
+            background.set_string('picture-uri',preview.as_uri())
+            background.set_string('picture-uri-dark',preview.as_uri())
+            background.set_enum('picture-options',5)  # zoom
+        request_wallpaper(True)
+        if extension_info():self.extension('EnableExtension')
+        self.changed()
+
+    def stop_wallpaper(self):
+        request_wallpaper(False)
+        self.extension('DisableExtension')
         self.changed()
 
     def method_call(self, connection, sender, object_path, interface, method, parameters, invocation):
@@ -304,6 +382,9 @@ class SettingsService:
                 return
             if method == 'GetWallpapers':
                 invocation.return_value(GLib.Variant('(s)',(json.dumps(catalog(),ensure_ascii=False),)))
+                return
+            if method == 'GetWallpaperState':
+                invocation.return_value(GLib.Variant('(s)',(wallpaper_snapshot(),)))
                 return
             if method == 'GetLocalSend':
                 invocation.return_value(GLib.Variant('(s)',(localsend_snapshot(),)))
@@ -325,7 +406,7 @@ class SettingsService:
             elif method == 'SetWallpaper':
                 self.wallpaper(parameters.unpack()[0])
             elif method == 'StopWallpaper':
-                self.extension('DisableExtension')
+                self.stop_wallpaper()
             else:
                 raise ValueError('Operación no admitida')
             invocation.return_value(None)

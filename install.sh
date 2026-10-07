@@ -87,7 +87,7 @@ done < "$work/assets.tsv"
 
 say "Instalando dependencias oficiales…"
 "${as_root[@]}" pacman -S --needed --noconfirm \
-    gnome-shell gnome-session gdm nautilus nautilus-python \
+    gnome-shell gnome-session gdm nautilus nautilus-python cups cups-pk-helper \
     xdg-desktop-portal xdg-desktop-portal-gnome xdg-desktop-portal-gtk \
     python python-dbus python-gobject python-typer \
     bluez bluez-utils bluez-obex gtk4 libadwaita zenity polkit minisign gcc gawk \

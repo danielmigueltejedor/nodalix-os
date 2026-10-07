@@ -124,3 +124,13 @@ Nautilus incluye «Ajustes de LocalSend». Se mantiene la identidad TLS existent
 no se inicia un segundo receptor. Los módulos nuevos se cargan al volver a
 iniciar sesión normalmente. Acerca de muestra el logo Nodalix a 96 píxeles de
 altura y permite reducir la imagen original de alta resolución.
+
+### Impresión y fondos en la página Apariencia
+
+La base GNOME instala `cups` y `cups-pk-helper`, y habilita `cups.socket`.
+Los fondos animados se seleccionan directamente en Apariencia, debajo de los
+estáticos, con miniaturas de 144×108 y los mismos bordes e indicador de selección.
+El estado distingue reproducción, pausa y activación pendiente del próximo
+inicio de sesión. La selección queda persistida y aplica su imagen de vista
+previa mientras se carga el reproductor. Elegir un fondo estático cancela también
+una activación pendiente. Se conserva el resto de extensiones del usuario.

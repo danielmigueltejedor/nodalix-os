@@ -5,7 +5,9 @@ Based on GNOME Control Center 51.0, commit
 https://github.com/GNOME/gnome-control-center.
 
 `apply.py` adds native Adwaita navigation pages: System → Updates,
-Appearance → Animated backgrounds and Sharing → LocalSend. Selecting a static background disables the
+Sharing → LocalSend. Animated backgrounds are integrated directly into the
+Appearance page below static backgrounds, using the same thumbnail dimensions,
+rounding, selection marker and single-click interaction. Selecting a static background disables the
 video renderer. About uses `/usr/share/pixmaps/nodalix-logo.png`, with a 96 pixel height clamp
 and shrinking enabled for high resolution images. A 96 pixel height request
 also keeps the image visible when the long About page measures its minimum size.
@@ -31,6 +33,12 @@ https://github.com/jeffshee/gnome-ext-hanabi (GPL-3.0-or-later).
 and cancels delayed startup before disable. It targets GNOME Shell 51;
 compatibility must be tested again for later major Shell versions.
 Migration reference: https://gjs.guide/extensions/upgrading/gnome-shell-51.html.
+
+Playback status queries both the extension and the renderer. A new extension
+that Shell has not discovered is queued in enabled-extensions for the next
+normal login, preserving other extensions. Its poster is applied immediately;
+the UI reports the pending login instead of claiming playback. Static selection
+also cancels pending video activation.
 
 The existing 16 videos are recorded with size and SHA256 in
 `gnome/settings/animated-collection.json`. The builder takes them from
@@ -62,3 +70,10 @@ a clear message that the runtime connection requires a new login.
 The Sharing panel remains visible without gnome-user-share or Rygel: LocalSend
 is an independent reason to expose it. Those upstream sharing rows continue
 to follow their existing availability checks.
+
+The GNOME package depends on CUPS and cups-pk-helper. The system migration
+enables cups.socket, and installation includes both packages so the native
+Printers panel has a printing service. See https://openprinting.github.io/cups/doc/admin.html.
+GNOME 51 does not discover a newly installed local extension in the active
+session, and ReloadExtension is unsupported; see
+https://github.com/GNOME/gnome-shell/blob/51.0/js/ui/shellDBus.js.

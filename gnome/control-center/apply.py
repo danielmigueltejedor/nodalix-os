@@ -24,23 +24,24 @@ p=root/'panels/system/cc-system-panel.blp';t=p.read_text().replace('        $CcL
         }
 
         $CcListRow about_row {''');p.write_text(t)
-p=root/'panels/background/cc-background-panel.c';t=p.read_text().replace('#include "cc-background-panel.h"','#include "cc-background-panel.h"\n#include "../system/cc-nodalix-pages.h"')
+for name in ['cc-nodalix-background.c','cc-nodalix-background.h']:
+    shutil.copy2(source/name,root/'panels/background'/name)
+p=root/'panels/background/meson.build';t=p.read_text().replace("  'cc-background-chooser.c',","  'cc-background-chooser.c',\n  'cc-nodalix-background.c',")
+t=t.replace("deps = common_deps + [", "deps = common_deps + [\n  dependency('json-glib-1.0'),")
+p.write_text(t)
+p=root/'panels/background/cc-background-panel.c';t=p.read_text().replace('#include "cc-background-panel.h"','#include "cc-background-panel.h"\n#include "cc-nodalix-background.h"')
+t=t.replace('    g_type_ensure (CC_TYPE_BACKGROUND_CHOOSER);','    g_type_ensure (CC_TYPE_BACKGROUND_CHOOSER);\n    g_type_ensure (CC_TYPE_NODALIX_BACKGROUND_CHOOSER);')
 t=t.replace('    g_signal_handlers_block_by_func (self->settings, on_settings_changed, self);','''    g_dbus_connection_call (self->connection, "com.nodalix.Settings", "/com/nodalix/Settings",
                             "com.nodalix.Settings1", "StopWallpaper", NULL, NULL,
                             G_DBUS_CALL_FLAGS_NONE, 2000, NULL, NULL, NULL);
     g_signal_handlers_block_by_func (self->settings, on_settings_changed, self);''',1)
-t=t.replace('    gtk_widget_init_template (GTK_WIDGET (self));','    gtk_widget_init_template (GTK_WIDGET (self));\n    cc_panel_add_static_subpage (CC_PANEL (self), "animated-backgrounds", CC_TYPE_NODALIX_WALLPAPERS_PAGE);')
 p.write_text(t)
 p=root/'panels/background/cc-background-panel.blp';t=p.read_text();pos=t.rfind('        };');t=t[:pos]+'''          Adw.PreferencesGroup {
             title: "Fondos animados";
-            Adw.ActionRow {
-              title: "Colección Nodalix";
-              subtitle: "Fondos de vídeo, sin sonido";
-              icon-name: "media-playback-start-symbolic";
-              activatable: true;
-              action-name: "navigation.push";
-              action-target: "'animated-backgrounds'";
-              [suffix] Image { icon-name: "go-next-symbolic"; }
+            Adw.Bin {
+              styles ["card"]
+              accessible-role: group;
+              $CcNodalixBackgroundChooser { hexpand: true; }
             }
           }
 '''+t[pos:];p.write_text(t)

@@ -5,6 +5,8 @@ nodalix-control-center
 nodalix-settings
 nodalix-video-wallpapers
 gnome-settings-daemon
+cups
+cups-pk-helper
 gnome-keyring
 gnome-console
 gnome-text-editor
