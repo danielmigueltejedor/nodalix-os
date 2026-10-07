@@ -30,6 +30,7 @@ def verify_bridge_policy(raw, manifest, base=None, directory=None):
     client=Path('/usr/bin/nodalix-updater')
     spec=importlib.util.spec_from_loader('installed_updater',importlib.machinery.SourceFileLoader('installed_updater',str(client)))
     installed=importlib.util.module_from_spec(spec);spec.loader.exec_module(installed)
+    installed.validate_manifest(manifest)
     current=installed.current_version()
     if installed.compare_versions(current,'0.2.4')<0 or installed.compare_versions(current,'0.3.0')>=0:
         raise ValueError('Este puente está destinado a Nodalix 0.2.4')
@@ -71,4 +72,6 @@ def main():
             while chunk:=source.read(1024*1024):dest.write(chunk)
         install_bridge(manifest,folder)
 
-if __name__=='__main__':main()
+if __name__=='__main__':
+    try:main()
+    except Exception as error:raise SystemExit(f'Migración detenida: {error}') from None

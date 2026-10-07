@@ -116,3 +116,19 @@ class CLIErrorTests(unittest.TestCase):
             self.assertEqual(code,2)
             self.assertIn('Reinicio obligatorio',json.loads(output.getvalue())['error'])
             self.assertEqual(json.loads((Path(temp)/'status').read_text())['status'],'update_busy')
+
+class BridgePolicyTests(unittest.TestCase):
+    def test_signature_refusal_prevents_bootstrap_install(self):
+        import types,sys
+        with tempfile.TemporaryDirectory() as temp:
+            path=Path(temp);data=BridgeTests().fixture(path)
+            (path/'nodalix-manifest.json').write_text(json.dumps(data))
+            client=types.SimpleNamespace(validate_manifest=mock.Mock(),current_version=lambda:'0.2.4',compare_versions=UPDATER.compare_versions,load_config=lambda:{'require_signature':True},verify_manifest_signature=mock.Mock(side_effect=UPDATER.IntegrityError('manifest is not signed')))
+            with mock.patch.object(BRIDGE.importlib.util,'spec_from_loader',return_value=types.SimpleNamespace(loader=mock.Mock())),mock.patch.object(BRIDGE.importlib.util,'module_from_spec',return_value=client),mock.patch.object(BRIDGE.os,'geteuid',return_value=0),mock.patch.object(BRIDGE,'install_bridge') as install,mock.patch.object(sys,'argv',['bridge','--assets',str(path)]):
+                with self.assertRaises(UPDATER.IntegrityError):BRIDGE.main()
+            install.assert_not_called();client.validate_manifest.assert_called_once_with(data)
+    def test_bridge_refuses_downgrading_newer_installation(self):
+        import types
+        client=types.SimpleNamespace(validate_manifest=mock.Mock(),current_version=lambda:'0.4.0',compare_versions=UPDATER.compare_versions)
+        with mock.patch.object(BRIDGE.importlib.util,'spec_from_loader',return_value=types.SimpleNamespace(loader=mock.Mock())),mock.patch.object(BRIDGE.importlib.util,'module_from_spec',return_value=client):
+            with self.assertRaisesRegex(ValueError,'0.2.4'):BRIDGE.verify_bridge_policy(b'{}',{})
