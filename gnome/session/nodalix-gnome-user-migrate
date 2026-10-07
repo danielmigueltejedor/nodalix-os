@@ -17,7 +17,7 @@ for unit in nodalix-shell.service nodalix-wallpaper.service nodalix-app-accent.p
     systemctl --user is-enabled "$unit" >> "$backup/unit-states" 2>/dev/null || true
 done
 systemctl --user disable --now nodalix-shell.service nodalix-app-accent.path 2>/dev/null || true
-systemctl --user mask --now nodalix-shell.service nodalix-wallpaper.service
+systemctl --user mask --now --force nodalix-shell.service nodalix-wallpaper.service
 systemctl --user daemon-reload
 printf 'GNOME migration complete. Configuration backup: %s\n' "$backup"
 

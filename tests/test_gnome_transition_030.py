@@ -132,3 +132,34 @@ class BridgePolicyTests(unittest.TestCase):
         client=types.SimpleNamespace(validate_manifest=mock.Mock(),current_version=lambda:'0.4.0',compare_versions=UPDATER.compare_versions)
         with mock.patch.object(BRIDGE.importlib.util,'spec_from_loader',return_value=types.SimpleNamespace(loader=mock.Mock())),mock.patch.object(BRIDGE.importlib.util,'module_from_spec',return_value=client):
             with self.assertRaisesRegex(ValueError,'0.2.4'):BRIDGE.verify_bridge_policy(b'{}',{})
+
+class UserMigrationTests(unittest.TestCase):
+    def test_regular_user_overrides_backed_up_before_mask_and_migration_runs_once(self):
+        import os
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);commands=root/'bin';commands.mkdir()
+            home=root/'home';units=home/'.config/systemd/user';units.mkdir(parents=True)
+            unit=units/'nodalix-shell.service';unit.write_text('[Service]\nExecStart=personal-shell\n')
+            for name in ('gsettings','nodalix-app-icons'):
+                p=commands/name;p.write_text('#!/bin/sh\nexit 0\n');p.chmod(0o755)
+            p=commands/'systemctl';p.write_text('''#!/usr/bin/python3
+import os,sys
+from pathlib import Path
+with Path(os.environ['COMMAND_LOG']).open('a') as f:f.write(' '.join(sys.argv[1:])+'\\n')
+if 'is-enabled' in sys.argv:print('enabled')
+if 'mask' in sys.argv:
+    assert '--force' in sys.argv
+    p=Path(os.environ['HOME'])/'.config/systemd/user/nodalix-shell.service'
+    assert list((Path(os.environ['XDG_STATE_HOME'])/'nodalix/migrations').glob('gnome-first-*/user/nodalix-shell.service'))
+    p.unlink();p.symlink_to('/dev/null')
+''');p.chmod(0o755)
+            log=root/'commands.log'
+            env={**os.environ,'PATH':str(commands)+':'+os.environ['PATH'],'HOME':str(home),'XDG_CONFIG_HOME':str(home/'.config'),'XDG_STATE_HOME':str(root/'state'),'XDG_CURRENT_DESKTOP':'GNOME','GSETTINGS_BACKEND':'memory','COMMAND_LOG':str(log)}
+            helper=ROOT/'gnome/session/nodalix-gnome-user-migrate'
+            subprocess.run(['sh',str(helper)],env=env,check=True,capture_output=True)
+            self.assertEqual(unit.readlink(),Path('/dev/null'))
+            saved=list((root/'state/nodalix/migrations').glob('gnome-first-*/user/nodalix-shell.service'))
+            self.assertEqual(saved[0].read_text(),'[Service]\nExecStart=personal-shell\n')
+            before=log.read_text()
+            subprocess.run(['sh',str(helper)],env=env,check=True,capture_output=True)
+            self.assertEqual(log.read_text(),before)
