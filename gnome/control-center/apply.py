@@ -46,7 +46,10 @@ p=root/'panels/background/cc-background-panel.blp';t=p.read_text();pos=t.rfind('
 '''+t[pos:];p.write_text(t)
 
 p=root/'panels/sharing/cc-sharing-panel.c';t=p.read_text().replace('#include "cc-sharing-panel.h"','#include "cc-sharing-panel.h"\n#include "../system/cc-nodalix-pages.h"')
-t=t.replace('    gtk_widget_init_template (GTK_WIDGET (self));','    gtk_widget_init_template (GTK_WIDGET (self));\n    cc_panel_add_static_subpage (CC_PANEL (self), "localsend", CC_TYPE_NODALIX_LOCALSEND_PAGE);');p.write_text(t)
+t=t.replace('    gtk_widget_init_template (GTK_WIDGET (self));','    gtk_widget_init_template (GTK_WIDGET (self));\n    cc_panel_add_static_subpage (CC_PANEL (self), "localsend", CC_TYPE_NODALIX_LOCALSEND_PAGE);')
+# LocalSend provides a sharing page even without gnome-user-share or Rygel.
+t=t.replace('visible = cc_sharing_panel_check_schema_available (FILE_SHARING_SCHEMA_ID)\n              || cc_sharing_panel_check_media_sharing_available ();', 'visible = TRUE; /* Nodalix LocalSend is always available. */')
+p.write_text(t)
 p=root/'panels/sharing/cc-sharing-panel.blp';t=p.read_text().replace('        $CcListRow personal_file_sharing_row {','''        $CcListRow {
           icon-name: "send-to-symbolic";
           show-arrow: true;

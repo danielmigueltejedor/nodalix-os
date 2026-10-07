@@ -57,3 +57,7 @@ without restarting a transfer. The existing TLS identity and certificates are
 preserved. Nautilus includes a shortcut to Sharing → LocalSend. New bridge modules
 load at the next normal login; until then the page can edit preferences and shows
 a clear message that the runtime connection requires a new login.
+
+The Sharing panel remains visible without gnome-user-share or Rygel: LocalSend
+is an independent reason to expose it. Those upstream sharing rows continue
+to follow their existing availability checks.
