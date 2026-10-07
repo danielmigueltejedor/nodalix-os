@@ -131,8 +131,9 @@ La base GNOME instala `cups` y `cups-pk-helper`, y habilita `cups.socket`.
 Los fondos animados se seleccionan directamente en Apariencia, debajo de los
 estáticos, con miniaturas de 144×108 y los mismos bordes e indicador de selección.
 El estado distingue reproducción, pausa y activación pendiente del próximo
-inicio de sesión. La selección queda persistida y aplica su imagen de vista
-previa mientras se carga el reproductor. Elegir un fondo estático cancela también
+inicio de sesión. La selección queda persistida y aplica un fotograma nítido
+a resolución completa mientras se carga el reproductor. Las miniaturas pequeñas
+se usan solo en la galería. Elegir un fondo estático cancela también
 una activación pendiente. Se conserva el resto de extensiones del usuario.
 
 ### Tamaño del logo en GDM
@@ -143,3 +144,20 @@ intrínseco; el PNG original de 1254×1254 no debe configurarse directamente com
 logo del inicio de sesión. Se comprobaron las dimensiones con el cargador St de
 GNOME 51 a escala normal y doble. Actualizar la configuración dconf no exige
 reiniciar GDM ni interrumpir la sesión activa.
+
+### Arranque y desbloqueo de fondos animados
+
+La colección incluye fotogramas de respaldo a 3840×2160 en
+`/usr/share/nodalix/wallpaper-stills`; el escritorio ya no amplía la miniatura de
+480 píxeles. El reproductor no añade demora de inicio, detecta sus ventanas cada
+100 ms y usa una transición de 150 ms.
+
+La extensión admite `user` y `unlock-dialog`. Con la animación oculta en la
+pantalla de bloqueo, mantiene el reproductor y su último fotograma en pausa;
+al desbloquear reevalúa la pausa automática y conserva una pausa manual previa.
+Al deshabilitar la extensión o cerrar sesión sí elimina el reproductor y sus
+señales. Esta actualización de módulos y modos se carga con el próximo inicio
+de sesión normal; no se reinicia GNOME Shell ni se interrumpe la sesión activa.
+La prueba en GNOME 51 aislado conservó el PID y las fuentes de los clones,
+confirmó reproducción en la comprobación a unos 151 ms tras desbloquear,
+conservó la pausa manual y detuvo el proceso al desactivar.

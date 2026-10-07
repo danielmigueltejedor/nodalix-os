@@ -152,6 +152,20 @@ class WallpaperActivationTests(unittest.TestCase):
             state=json.loads(settings.wallpaper_snapshot())
             self.assertFalse(state['active']);self.assertFalse(state['playing'])
 
+    def test_desktop_uses_full_resolution_still_instead_of_gallery_thumbnail(self):
+        from unittest.mock import MagicMock
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            thumbnail=Path(folder)/'thumbnail.jpg';thumbnail.write_bytes(b'small')
+            still=Path(folder)/'still.jpg';still.write_bytes(b'large')
+            video=MagicMock();background=MagicMock();service=settings.SettingsService()
+            with patch.object(settings,'catalog',return_value=[{'path':'/known.mp4','preview':str(thumbnail),'still':str(still)}]),patch.object(settings,'wallpaper_preferences',return_value=video),patch.object(settings,'request_wallpaper'),patch.object(settings,'extension_info',return_value={}),patch.object(settings.Gio.Settings,'new',return_value=background):
+                service.wallpaper('/known.mp4')
+                background.set_string.assert_any_call('picture-uri',still.as_uri())
+                background.set_string.assert_any_call('picture-uri-dark',still.as_uri())
+                video.set_int.assert_any_call('startup-delay',0)
+                self.assertNotIn(('picture-uri',thumbnail.as_uri()),[tuple(c.args) for c in background.set_string.call_args_list])
+
     def test_selection_persists_next_login_and_applies_the_matching_poster(self):
         from unittest.mock import MagicMock
         import tempfile

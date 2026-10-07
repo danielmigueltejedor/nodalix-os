@@ -43,7 +43,8 @@ also cancels pending video activation.
 The existing 16 videos are recorded with size and SHA256 in
 `gnome/settings/animated-collection.json`. The builder takes them from
 `/usr/share/backgrounds/nodalix/Animados`, or `--collection`, generates poster
-frames with ffmpeg and packages them as a separate source archive. Videos and
+frames with ffmpeg and packages them as a separate source archive. The 480-pixel
+gallery previews and native-resolution desktop stills are separate assets. Videos and
 binary source archives are not committed to Git. Retain that archive in the
 release source cache for future builds. The wallpaper service also discovers
 user videos in `~/.local/share/backgrounds/nodalix/animated`.
@@ -86,3 +87,17 @@ time; external image references are avoided because the texture loader may lack
 a base URI. The native St loader was verified at 1× and 2× scaling: 64×64 and
 128×128 respectively. No GDM service restart is used when applying the database.
 Source: https://github.com/GNOME/gnome-shell/blob/51.0/js/gdm/loginDialog.js.
+
+
+Lock/unlock playback continuity: the pinned renderer patch supports the `user`
+and `unlock-dialog` session modes. When lock-screen playback is disabled it
+pauses, retains its decoded frame/window, and reevaluates automatic playback on
+unlock without overriding user pause. A real disable/logout still removes all
+processes, overrides and signals. The default/additional startup delay is zero;
+window discovery is polled at 100 ms and the transition takes 150 ms.
+Session-mode reference: https://gjs.guide/extensions/topics/session-modes.html.
+An isolated GNOME 51 test verified the same renderer PID and clone source across
+both modes, paused playback while locked, playback at the first 151 ms unlock
+check, manual-pause preservation and renderer shutdown on disable. Installed
+4K fallback frames preserve original video hashes and do not enlarge the gallery
+thumbnails. Updated extension modules/metadata require a normal new login.

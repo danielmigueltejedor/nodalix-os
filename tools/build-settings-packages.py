@@ -76,14 +76,15 @@ def main():
         cc_archive=out/'control-center-51.0.tar.zst';archive(stage,cc_archive,['control-center'])
         hanabi_archive=out/'hanabi-b18e041.tar.zst';archive(stage,hanabi_archive,['hanabi'])
         videos=json.loads((ROOT/'gnome/settings/animated-collection.json').read_text())
-        (stage/'collection').mkdir();(stage/'previews').mkdir()
+        (stage/'collection').mkdir();(stage/'previews').mkdir();(stage/'stills').mkdir()
         for item in videos:
             video=args.collection/item['file']
             if not video.is_file() or video.stat().st_size != item['size'] or hashlib.file_digest(video.open('rb'),'sha256').hexdigest() != item['sha256']:
                 raise SystemExit(f'Missing or changed collection asset: {video}')
             shutil.copy2(video,stage/'collection'/video.name)
             run(['ffmpeg','-hide_banner','-loglevel','error','-ss','1','-i',video,'-frames:v','1','-vf','scale=480:-2','-y',stage/'previews'/(video.stem+'.jpg')])
-        collection=out/'nodalix-animated-collection.tar.zst';archive(stage,collection,['collection','previews'])
+            run(['ffmpeg','-hide_banner','-loglevel','error','-ss','1','-i',video,'-frames:v','1','-q:v','2','-y',stage/'stills'/(video.stem+'.jpg')])
+        collection=out/'nodalix-animated-collection.tar.zst';archive(stage,collection,['collection','previews','stills'])
         settings=out/'nodalix-settings-0.2.4.tar.zst';archive(ROOT,settings,['gnome/settings','docs/images/nodalix-logo.png'])
         changes=out/'nodalix-control-center-51.0.0.tar.zst';archive(ROOT,changes,['gnome/control-center'])
         renderer=out/'nodalix-video-wallpapers-0.2.4.tar.zst';archive(ROOT,renderer,['gnome/settings/animated-collection.json','packaging/nodalix-video-wallpapers/gnome51.patch','packaging/nodalix-video-wallpapers/pnpm-lock.yaml'])

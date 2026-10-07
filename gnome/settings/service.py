@@ -209,7 +209,9 @@ def catalog():
             seen.add(resolved)
             name = video.stem.removeprefix('nodalix-').removesuffix('-4k').replace('-', ' ').title()
             preview = Path(os.environ.get('NODALIX_PREVIEW_DIR','/usr/share/nodalix/wallpaper-previews'))/(video.stem+'.jpg')
-            items.append({'path': resolved, 'title': name, 'preview': str(preview) if preview.exists() else ''})
+            still = Path(os.environ.get('NODALIX_STILL_DIR','/usr/share/nodalix/wallpaper-stills'))/(video.stem+'.jpg')
+            items.append({'path': resolved, 'title': name, 'preview': str(preview) if preview.exists() else '',
+                          'still': str(still) if still.is_file() else ''})
     return items
 
 
@@ -357,10 +359,11 @@ class SettingsService:
         settings.set_boolean('show-panel-menu',False)
         settings.set_boolean('show-on-lock-screen',False)
         settings.set_boolean('change-wallpaper',False)
+        settings.set_int('startup-delay',0)
         settings.set_int('pause-on-maximize-or-fullscreen',1)
         settings.set_int('pause-on-battery',2)
-        # Use the matching poster while the player starts or awaits Shell discovery.
-        preview=Path(items[path].get('preview',''))
+        # Native-resolution still for the desktop; thumbnails belong to the gallery.
+        preview=Path(items[path].get('still') or items[path].get('preview',''))
         if preview.is_file():
             background=Gio.Settings.new('org.gnome.desktop.background')
             background.set_string('picture-uri',preview.as_uri())

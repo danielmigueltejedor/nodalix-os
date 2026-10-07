@@ -1,3 +1,33 @@
+diff --git a/src/autoPause.ts b/src/autoPause.ts
+index 3ad4c49..5d150cc 100644
+--- a/src/autoPause.ts
++++ b/src/autoPause.ts
+@@ -33,12 +33,14 @@ const logger = new Logger('autoPause');
+ 
+ export class AutoPause {
+     private playbackState: PlaybackState;
++    private settings: Gio.Settings;
+     private modules: AutoPauseModule[];
+ 
+     constructor(extension: HanabiExtension) {
+         this.playbackState = extension.getPlaybackState();
+ 
+         const settings = extension.getSettings();
++        this.settings = settings;
+         this.modules = [
+             new PauseOnMaximizeOrFullscreenModule(settings),
+             new PauseOnFocusModule(settings),
+@@ -55,7 +57,9 @@ export class AutoPause {
+     }
+ 
+     eval(): void {
+-        if (this.modules.some(module => module.shouldAutoPause()))
++        const locked = Main.sessionMode.currentMode === 'unlock-dialog' &&
++            !this.settings.get_boolean('show-on-lock-screen');
++        if (locked || this.modules.some(module => module.shouldAutoPause()))
+             this.playbackState.autoPause();
+         else
+             this.playbackState.autoPlay();
 diff --git a/src/dbus.ts b/src/dbus.ts
 index 5dc587a..564d857 100644
 --- a/src/dbus.ts
@@ -39,7 +69,7 @@ index 5dc587a..564d857 100644
  
      getPlaybackStatus(): string {
 diff --git a/src/extension.ts b/src/extension.ts
-index 99dea7f..fc7c14c 100644
+index 99dea7f..36e96f2 100644
 --- a/src/extension.ts
 +++ b/src/extension.ts
 @@ -53,6 +53,7 @@ export default class HanabiExtension extends Extension {
@@ -80,8 +110,46 @@ index 99dea7f..fc7c14c 100644
                      return false;
                  }
              );
-@@ -251,6 +254,11 @@ export default class HanabiExtension extends Extension {
+@@ -159,6 +162,7 @@ export default class HanabiExtension extends Extension {
+             GLib.source_remove(this.launchRendererTimeoutId);
+ 
+         this.launchRenderer();
++        this.onSessionModeUpdated();
+     }
+ 
+     private onSessionModeUpdated(): void {
+@@ -174,14 +178,14 @@ export default class HanabiExtension extends Extension {
+     private suspendRenderer(): void {
+         if (this.rendererSuspended)
+             return;
+-        logger.debug('Suspending renderer (lock screen)');
++        logger.debug('Pausing warm renderer (lock screen)');
+         this.rendererSuspended = true;
+         if (this.launchRendererTimeoutId) {
+             GLib.source_remove(this.launchRendererTimeoutId);
+             this.launchRendererTimeoutId = 0;
+         }
+-        if (this.currentProcess?.subprocess)
+-            this.currentProcess.subprocess.send_signal(15);
++        // Keep the decoded frame and window available for immediate unlock.
++        this.playbackState?.autoPause();
+     }
+ 
+     private resumeRenderer(): void {
+@@ -189,6 +193,7 @@ export default class HanabiExtension extends Extension {
+             return;
+         logger.debug('Resuming renderer');
+         this.rendererSuspended = false;
++        this.autoPause?.eval();
+         if (this.isEnabled && !this.currentProcess)
+             this.launchRenderer();
+     }
+@@ -249,8 +254,15 @@ export default class HanabiExtension extends Extension {
+     }
+ 
      disable(): void {
++        // unlock-dialog support keeps the paused renderer warm across locks.
++        // A real disable/logout still tears down every process and signal.
          logger.debug('Disabling');
  
 +        this.isEnabled = false;
@@ -93,7 +161,7 @@ index 99dea7f..fc7c14c 100644
          this.rendererSuspended = false;
  
 diff --git a/src/metadata.json.in b/src/metadata.json.in
-index e33f8cb..bcf5790 100755
+index e33f8cb..0965ee8 100755
 --- a/src/metadata.json.in
 +++ b/src/metadata.json.in
 @@ -1,11 +1,11 @@
@@ -103,8 +171,7 @@ index e33f8cb..bcf5790 100755
 -  "name": "Hanabi Extension",
 +  "name": "Fondos animados Nodalix",
    "settings-schema": "@settings_schema@",
--  "session-modes": ["user", "unlock-dialog"],
-+  "session-modes": ["user"],
+   "session-modes": ["user", "unlock-dialog"],
    "shell-version": [
 -    "50"
 +    "51"
@@ -188,3 +255,32 @@ index adbb4b3..5535716 100644
                  4,
                  color
              );
+diff --git a/src/schemas/io.github.jeffshee.hanabi-extension.gschema.xml b/src/schemas/io.github.jeffshee.hanabi-extension.gschema.xml
+index 2528900..3e2441c 100644
+--- a/src/schemas/io.github.jeffshee.hanabi-extension.gschema.xml
++++ b/src/schemas/io.github.jeffshee.hanabi-extension.gschema.xml
+@@ -128,7 +128,7 @@
+ 
+         <key name="startup-delay" type="i">
+             <range min="0" max="10000" />
+-            <default>1000</default>
++            <default>0</default>
+             <summary>Startup Delay</summary>
+             <description>Add a startup delay (in milliseconds) to mitigate compatibility issues with
+                 other extensions</description>
+diff --git a/src/wallpaper.ts b/src/wallpaper.ts
+index 390765a..3e72fca 100644
+--- a/src/wallpaper.ts
++++ b/src/wallpaper.ts
+@@ -31,9 +31,9 @@ import {APPLICATION_ID} from './constants.js';
+ 
+ const logger = new Logger('wallpaper');
+ // Ref: https://gitlab.gnome.org/GNOME/gnome-shell/-/blob/main/js/ui/layout.js
+-const BACKGROUND_FADE_ANIMATION_TIME = 1000;
++const BACKGROUND_FADE_ANIMATION_TIME = 150;
+ // Interval for polling until the renderer window appears (ms).
+-const RENDERER_POLL_INTERVAL_MS = 1000;
++const RENDERER_POLL_INTERVAL_MS = 100;
+ 
+ export const LiveWallpaper = GObject.registerClass(
+     class LiveWallpaper extends St.Widget {
