@@ -7,7 +7,8 @@ https://github.com/GNOME/gnome-control-center.
 `apply.py` adds native Adwaita navigation pages: System → Updates,
 Appearance → Animated backgrounds and Sharing → LocalSend. Selecting a static background disables the
 video renderer. About uses `/usr/share/pixmaps/nodalix-logo.png`, with a 96 pixel height clamp
-and shrinking enabled for high resolution images.
+and shrinking enabled for high resolution images. A 96 pixel height request
+also keeps the image visible when the long About page measures its minimum size.
 
 The pages use the session D-Bus service `com.nodalix.Settings`, which remains
 running when Settings closes. Privileged operations use one root-owned helper

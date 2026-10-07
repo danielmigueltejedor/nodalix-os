@@ -63,5 +63,5 @@ p=root/'panels/sharing/cc-sharing-panel.blp';t=p.read_text().replace('        $C
 # Allow a high resolution distributor image to shrink before the height clamp.
 p=root/'panels/system/about/cc-about-page.blp';t=p.read_text()
 t=t.replace('maximum-size: 192;', 'maximum-size: 96;').replace('tightening-threshold: 192;', 'tightening-threshold: 96;')
-t=t.replace('can-shrink: false;', 'can-shrink: true;')
+t=t.replace('can-shrink: false;', 'can-shrink: true;\n              height-request: 96;')
 p.write_text(t)
