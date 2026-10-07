@@ -197,9 +197,12 @@ def load_status() -> dict:
 
 def candidate_info(directory: Path, config: dict) -> dict:
     """Explicit local candidate mode for CI/offline administration only."""
-    directory = directory.resolve(strict=True)
-    raw = (directory / "nodalix-manifest.json").read_bytes()
-    manifest = json.loads(raw)
+    try:
+        directory = directory.resolve(strict=True)
+        raw = (directory / "nodalix-manifest.json").read_bytes()
+        manifest = json.loads(raw)
+    except (OSError, ValueError) as error:
+        raise ManifestError(f"Candidato local no válido: {error}") from error
     validate_manifest(manifest)
     if manifest.get("arch", "x86_64") not in ("any", platform.machine()):
         raise ManifestError("Arquitectura del candidato incompatible")
@@ -1219,6 +1222,8 @@ def do_update(config: dict, force: bool = False, assets_dir: Path | None = None)
         fail_closed(info, "update")
         manifest = info["_manifest"]
         target_version = canonical_version(str(manifest["version"]))
+        if compare_versions(target_version, previous) < 0:
+            raise ManifestError("La versión instalada es más reciente; el actualizador no realiza descensos de versión")
         minimum = manifest["minimum_version"]
         if compare_versions(current_version(), minimum) < 0:
             raise ManifestError(f"Esta release requiere como mínimo Nodalix {minimum}")

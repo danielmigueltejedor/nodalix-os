@@ -163,3 +163,14 @@ if 'mask' in sys.argv:
             before=log.read_text()
             subprocess.run(['sh',str(helper)],env=env,check=True,capture_output=True)
             self.assertEqual(log.read_text(),before)
+
+class CandidateSafetyTests(unittest.TestCase):
+    def test_malformed_local_manifest_is_a_structured_updater_error(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path=Path(temp);(path/'nodalix-manifest.json').write_text('broken json')
+            with self.assertRaises(UPDATER.ManifestError):UPDATER.candidate_info(path,{})
+    def test_force_does_not_downgrade_unpublished_gnome_installation(self):
+        import contextlib
+        with tempfile.TemporaryDirectory() as temp,mock.patch.object(UPDATER,'REBOOT_REQUIRED_PATH',Path(temp)/'absent'),mock.patch.object(UPDATER.os,'geteuid',return_value=0),mock.patch.object(UPDATER,'current_version',return_value='0.3.0'),mock.patch.object(UPDATER,'update_lock',return_value=contextlib.nullcontext()),mock.patch.object(UPDATER,'set_status'),mock.patch.object(UPDATER,'release_info',return_value={'status':'up_to_date','_manifest':manifest(version='0.2.4')}),mock.patch.object(UPDATER,'prepare_gnome_dependencies') as dependencies,mock.patch.object(UPDATER,'run_pacman_transaction') as install:
+            with self.assertRaises(UPDATER.ManifestError):UPDATER.do_update({},force=True)
+        dependencies.assert_not_called();install.assert_not_called()
