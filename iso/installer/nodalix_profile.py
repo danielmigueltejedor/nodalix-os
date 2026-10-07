@@ -85,6 +85,8 @@ def verified_packages(
     packages: list[Path] = []
 
     for item in manifest["components"]:
+        if not item.get("required", False):
+            continue
         name = item["asset"]
 
         if (
@@ -149,7 +151,7 @@ class NodalixProfile(Profile):
         return [
             "NetworkManager",
             "bluetooth",
-            "greetd",
+            "gdm",
             "power-profiles-daemon",
         ]
 
@@ -215,21 +217,7 @@ class NodalixProfile(Profile):
             dirs_exist_ok=True,
         )
 
-        subprocess.run(
-            [
-                "arch-chroot",
-                str(target),
-                "install",
-                "-d",
-                "-o",
-                "greeter",
-                "-g",
-                "greeter",
-                "/var/lib/nodalix-greeter",
-                "/var/lib/nodalix-greeter/cache",
-            ],
-            check=True,
-        )
+        subprocess.run(["arch-chroot", str(target), "nodalix-gnome-migrate", "--system"], check=True)
 
         install_session.enable_service(
             self.services

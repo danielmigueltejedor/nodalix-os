@@ -87,20 +87,20 @@ class StaticInvariantTests(unittest.TestCase):
         self.assertIn("172e33c4ae415278384dcecc7d1a9b7a024266bc944bc751fd86532be1cc6251", cursor_pkg)
         self.assertIn("Name=Nodalix", cursor_pkg)
 
-        greetd = (ROOT / "iso/overlay/etc/greetd/config.toml").read_text(encoding="utf-8")
+        greetd = (ROOT / "iso/legacy-overlay/etc/greetd/config.toml").read_text(encoding="utf-8")
         packaged_greetd = (ROOT / "packaging/nodalix-greeter-theme/greetd-config.toml").read_text(encoding="utf-8")
         self.assertEqual(greetd, packaged_greetd)
         self.assertIn("/usr/lib/nodalix/nodalix-greeter-session", greetd)
         self.assertNotIn("cage -s -- regreet", greetd)
 
-        greeter_hypr = (ROOT / "iso/overlay/etc/greetd/hyprland.lua").read_text(encoding="utf-8")
+        greeter_hypr = (ROOT / "iso/legacy-overlay/etc/greetd/hyprland.lua").read_text(encoding="utf-8")
         packaged_hypr = (ROOT / "packaging/nodalix-greeter-theme/hyprland.lua").read_text(encoding="utf-8")
         self.assertEqual(greeter_hypr, packaged_hypr)
         self.assertIn('hl.env("XCURSOR_THEME", "Nodalix")', greeter_hypr)
         self.assertIn("enable_stdout_logs = true", greeter_hypr)
         self.assertIn('output = ""', greeter_hypr)
 
-        regreet = (ROOT / "iso/overlay/etc/greetd/regreet.toml").read_text(encoding="utf-8")
+        regreet = (ROOT / "iso/legacy-overlay/etc/greetd/regreet.toml").read_text(encoding="utf-8")
         packaged_regreet = (ROOT / "packaging/nodalix-greeter-theme/regreet.toml").read_text(encoding="utf-8")
         self.assertEqual(regreet, packaged_regreet)
         self.assertIn('cursor_theme_name = "Nodalix"', regreet)
@@ -185,13 +185,13 @@ class StaticInvariantTests(unittest.TestCase):
             self.assertNotIn("WantedBy=default.target", unit)
 
     def test_icloud_drive_packaging_is_self_contained(self) -> None:
-        pkgbuild = (ROOT / "packaging/nodalix-shell/PKGBUILD").read_text(encoding="utf-8")
+        pkgbuild = (ROOT / "packaging/nodalix-integrations/PKGBUILD").read_text(encoding="utf-8")
         service = (SHELL / "systemd/nodalix-icloud-drive.service").read_text(encoding="utf-8")
         helper = SHELL / "scripts/nodalix-icloud-apply-icon.fish"
 
         self.assertIn("rclone", pkgbuild)
         self.assertIn("fuse3", pkgbuild)
-        self.assertIn("*nodalix-icloud-drive.service)", pkgbuild)
+        self.assertIn("nodalix-icloud-drive.service", pkgbuild)
         self.assertIn("nodalix-icloud-apply-icon.fish", pkgbuild)
 
         self.assertTrue(helper.is_file())
@@ -232,13 +232,13 @@ class StaticInvariantTests(unittest.TestCase):
 
 
     def test_calendar_bridge_is_packaged_and_runs_after_vdirsyncer(self) -> None:
-        pkgbuild = (ROOT / "packaging/nodalix-shell/PKGBUILD").read_text(encoding="utf-8")
+        pkgbuild = (ROOT / "packaging/nodalix-integrations/PKGBUILD").read_text(encoding="utf-8")
         service = (SHELL / "systemd/nodalix-icloud-sync.service").read_text(encoding="utf-8")
         bridge = SHELL / "scripts/nodalix-calendar-bridge.py"
         text = bridge.read_text(encoding="utf-8")
 
         self.assertTrue(bridge.is_file())
-        self.assertIn("nodalix-calendar-bridge.py", pkgbuild)
+        self.assertIn("calendar-bridge", pkgbuild)
         self.assertIn("python-gobject", pkgbuild)
         self.assertIn("evolution-data-server", pkgbuild)
 

@@ -6,11 +6,11 @@ La ISO se genera con Archiso usando exactamente los mismos paquetes que publica
 el actualizador de Nodalix. El tag, `VERSION`, el manifiesto, los paquetes y la
 ISO deben pertenecer a la misma versión.
 
-La imagen ofrece arranque BIOS y UEFI, sesión live de Nodalix y el instalador
+La imagen ofrece arranque BIOS y UEFI, sesión live de GNOME Wayland con GDM y el instalador
 basado en Archinstall.
 
 La instalación requiere Internet para descargar las dependencias oficiales de
-Arch Linux. Los paquetes propios de Nodalix se incluyen dentro de la ISO y se
+Arch Linux. Nautilus es el gestor de archivos y Sushi proporciona las previsualizaciones. Los paquetes propios de Nodalix se incluyen dentro de la ISO y se
 verifican mediante SHA-256 antes de instalarse.
 
 La versión del instalador no está escrita manualmente en el código. Se obtiene

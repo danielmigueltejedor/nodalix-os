@@ -33,7 +33,7 @@
       "name": "Nodalix Shell",
       "package": "nodalix-shell",
       "version": "0.2.4",
-      "required": true,
+      "required": false,
       "restart": "shell"
     },
     {
@@ -46,7 +46,7 @@
     },
     {
       "id": "phone-link",
-      "name": "Enlace móvil",
+      "name": "Enlace m\u00f3vil",
       "package": "nodalix-phone-link",
       "version": "0.2.5",
       "required": true,
@@ -73,7 +73,7 @@
       "name": "Hymission window overview",
       "package": "nodalix-hymission",
       "version": "0.8.0",
-      "required": true,
+      "required": false,
       "restart": "system"
     },
     {
@@ -89,7 +89,7 @@
       "name": "Nodalix login screen",
       "package": "nodalix-greeter-theme",
       "version": "0.2.4",
-      "required": true,
+      "required": false,
       "restart": "none"
     },
     {
@@ -97,8 +97,24 @@
       "name": "Nodalix unified wallpaper engine",
       "package": "nodalix-wallpaper-engine",
       "version": "1.0.0-beta.17",
-      "required": true,
+      "required": false,
       "restart": "shell"
+    },
+    {
+      "id": "integrations",
+      "name": "Nodalix Integrations",
+      "package": "nodalix-integrations",
+      "version": "0.2.4",
+      "required": true,
+      "restart": "none"
+    },
+    {
+      "id": "gnome",
+      "name": "Nodalix Gnome",
+      "package": "nodalix-gnome",
+      "version": "0.2.4",
+      "required": true,
+      "restart": "system"
     }
   ]
 }

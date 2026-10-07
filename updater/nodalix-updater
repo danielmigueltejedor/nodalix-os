@@ -685,8 +685,8 @@ def reload_systemd_units(components: list[dict]) -> None:
         or packages & {"nodalix-updater", "nodalix-phone-link"}
     )
     needs_user = bool(
-        ids & {"shell", "nodalix-shell", "phone-link"}
-        or packages & {"nodalix-shell", "nodalix-phone-link"}
+        ids & {"shell", "nodalix-shell", "phone-link", "gnome", "integrations"}
+        or packages & {"nodalix-shell", "nodalix-phone-link", "nodalix-gnome", "nodalix-integrations"}
     )
     if needs_system:
         subprocess.run(["systemctl", "daemon-reload"], check=False)

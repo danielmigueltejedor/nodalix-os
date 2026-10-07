@@ -51,6 +51,8 @@ def prepare(assets: Path, work: Path) -> tuple[Path, str]:
     packages: list[Path] = []
 
     for entry in manifest["components"]:
+        if not entry.get("required", False):
+            continue
         name = entry["asset"]
 
         if Path(name).name != name or not name.startswith("nodalix-"):
@@ -201,9 +203,8 @@ def prepare(assets: Path, work: Path) -> tuple[Path, str]:
     # live root as well duplicates large assets such as wallpapers and
     # emoji fonts and can push the ISO over GitHub Releases 2 GiB limit.
     live_nodalix_packages = [
-        "nodalix-shell",
-        "nodalix-greeter-theme",
-        "nodalix-hymission",
+        "nodalix-gnome",
+        "nodalix-integrations",
     ]
 
     (profile / "packages.x86_64").write_text(
@@ -293,8 +294,11 @@ set -euo pipefail
 useradd -m -G wheel,audio,video -s /bin/bash nodalix
 passwd -d nodalix
 
-python3 -c 'import json,pathlib;p=pathlib.Path("/home/nodalix/.local/state/nodalix/settings.json");d=json.loads(p.read_text());d["security"]={"autoLock":{"enabled":False}};p.write_text(json.dumps(d))'
 
+install -d /etc/dconf/db/local.d /etc/dconf/profile
+printf 'user-db:user\\n system-db:local\\n' | sed 's/^ //' > /etc/dconf/profile/user
+printf '[org/gnome/desktop/session]\\nidle-delay=uint32 0\\n[org/gnome/desktop/screensaver]\\nlock-enabled=false\\n' > /etc/dconf/db/local.d/00-live
+dconf update
 chown -R nodalix:nodalix /home/nodalix
 
 # Keep the live medium lean without removing anything from the installed
@@ -320,14 +324,10 @@ rm -rf \
     /usr/share/info/* \
     /var/cache/pacman/pkg/*
 
-install -d -o greeter -g greeter \
-    /var/lib/nodalix-greeter \
-    /var/lib/nodalix-greeter/cache
-
 systemctl enable \
     NetworkManager \
     bluetooth \
-    greetd \
+    gdm \
     power-profiles-daemon
 
 systemctl disable \
@@ -356,15 +356,9 @@ printf 'LANG=en_US.UTF-8\\n' > /etc/locale.conf
         encoding="utf-8",
     )
 
-    greetd_config = root / "etc/greetd/config.toml"
-
-    with greetd_config.open("a", encoding="utf-8") as stream:
-        stream.write(
-            "\n"
-            "[initial_session]\n"
-            'command = "/usr/local/bin/nodalix-session"\n'
-            'user = "nodalix"\n'
-        )
+    gdm_config = root / "etc/gdm/custom.conf"
+    gdm_config.parent.mkdir(parents=True, exist_ok=True)
+    gdm_config.write_text("[daemon]\nWaylandEnable=true\nAutomaticLoginEnable=true\nAutomaticLogin=nodalix\n", encoding="utf-8")
 
     applications = root / "usr/share/applications"
     applications.mkdir(
@@ -377,7 +371,7 @@ printf 'LANG=en_US.UTF-8\\n' > /etc/locale.conf
         "Type=Application\n"
         "Name=Install Nodalix\n"
         "Name[es]=Instalar Nodalix\n"
-        "Exec=foot --title=Install-Nodalix sudo /usr/local/bin/nodalix-install\n"
+        "Exec=kgx --title=Install-Nodalix -- sudo /usr/local/bin/nodalix-install\n"
         "Icon=system-software-install\n"
         "Categories=System;\n",
         encoding="utf-8",

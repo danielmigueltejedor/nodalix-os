@@ -1,13 +1,13 @@
 <div align="center">
   <img src="https://raw.githubusercontent.com/danielmigueltejedor/nodalix-os/main/docs/images/nodalix-logo.png" width="192" height="192" alt="Nodalix OS">
   <h1>Nodalix OS</h1>
-  <p><strong>A cohesive Arch Linux desktop built around Hyprland and QuickShell.</strong></p>
+  <p><strong>An integrated Arch Linux desktop built around GNOME Shell and Mutter.</strong></p>
 
   <p>
     <a href="https://github.com/danielmigueltejedor/nodalix-os/releases/latest"><img src="https://img.shields.io/github/v/release/danielmigueltejedor/nodalix-os?label=stable&sort=semver" alt="Latest stable release"></a>
     <img src="https://img.shields.io/badge/platform-Linux%20x86__64-FCC624?logo=linux&logoColor=black" alt="Linux x86_64">
     <img src="https://img.shields.io/badge/base-Arch%20Linux-1793D1?logo=archlinux&logoColor=white" alt="Based on Arch Linux">
-    <img src="https://img.shields.io/badge/compositor-Hyprland-58E1FF" alt="Hyprland">
+    <img src="https://img.shields.io/badge/compositor-Mutter-58E1FF" alt="Mutter">
     <img src="https://img.shields.io/badge/display-Wayland-4A86CF" alt="Wayland">
   </p>
 
@@ -36,8 +36,8 @@ The shell, settings, application management, system updater, iPhone integration,
 
 | Desktop | System | Integration |
 |---|---|---|
-| Custom QuickShell interface | Arch Linux base | Integrated iPhone Phone Link |
-| Hyprland on Wayland | Versioned Arch packages | System-wide update management |
+| GNOME Shell and Quick Settings | Arch Linux base | Integrated iPhone Phone Link |
+| Mutter on Wayland | Versioned Arch packages | System-wide update management |
 | Cohesive controls and settings | Hardware-aware optimisation | Nodalix Apps |
 | Consistent icons, typography and surfaces | Verified release manifests | Bluetooth, audio and network integration |
 | Designed for keyboard and pointer use | Recovery paths kept available | Desktop notifications and media controls |
@@ -48,7 +48,7 @@ Nodalix is designed to feel like a complete operating system while retaining the
 
 | Component | Purpose |
 |---|---|
-| **Nodalix Shell** | QuickShell-based desktop interface, panels, controls and system surfaces |
+| **Nodalix GNOME** | GNOME session, GDM, portals and native integrations |
 | **Nodalix Apps** | Management and integration layer for applications distributed or adapted for Nodalix |
 | **Phone Link** | Native iPhone integration for notifications, contacts, messages and calls |
 | **Nodalix Updater** | Release discovery, validation, installation and update-channel management |
@@ -160,7 +160,7 @@ Personal accounts, pairing information, credentials and machine-specific user se
 ├───────────────────┬───────────────────┬─────────────────────┤
 │   Nodalix Shell   │    Nodalix Apps   │     Phone Link      │
 │                   │                   │                     │
-│ QuickShell / QML  │ app management    │ ANCS · MAP · PBAP   │
+│ GNOME / D-Bus  │ app management    │ ANCS · MAP · PBAP   │
 │ controls          │ integration       │ HFP · Bluetooth     │
 └─────────┬─────────┴─────────┬─────────┴──────────┬──────────┘
           │                   │                    │
@@ -173,28 +173,27 @@ Personal accounts, pairing information, credentials and machine-specific user se
               └──────────┬──────────┘
                          │
        ┌─────────────────▼──────────────────┐
-       │      Hyprland · Wayland · Arch    │
+       │      Mutter · Wayland · Arch    │
        │   systemd · PipeWire · BlueZ      │
        └─────────────────┬──────────────────┘
                          │
                     Linux kernel
 ```
 
-System-owned shell code is installed under:
+GNOME Shell manages windows, notifications, workspaces and Quick Settings. The
+`nodalix-gnome` package supplies the session and native integrations;
+`nodalix-integrations` owns compositor-independent iCloud, calendar and layout services.
+Hyprland and QuickShell remain optional legacy components, guarded by the active session.
 
-```text
-/etc/xdg/quickshell/nodalix/
-```
-
-and started through `nodalix-shell.service`.
-
-User configuration and private pairing data remain in the user's XDG directories.
+Read [the migration guide](./docs/gnome-first.md) before upgrading an existing system.
+User settings, LocalSend favorites, certificates and phone pairing data remain in XDG directories.
 
 ## Repository layout
 
 | Path | Contents |
 |---|---|
-| `shell/` | Nodalix QuickShell desktop |
+| `gnome/` | GNOME session, extensions and Nautilus integrations |
+| `shell/` | Optional legacy QuickShell desktop and shared service sources |
 | `nodalix-apps/` | Application management and integration |
 | `phone-link/` | iPhone integration and Bluetooth services |
 | `updater/` | Release detection, validation and installation |

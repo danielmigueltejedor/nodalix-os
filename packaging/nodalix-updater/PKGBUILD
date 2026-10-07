@@ -1,6 +1,6 @@
 pkgname=nodalix-updater
 pkgver=0.2.4
-pkgrel=1
+pkgrel=2
 pkgdesc="Nodalix GitHub Releases update service"
 arch=('any')
 url="https://github.com/danielmigueltejedor/nodalix-os"

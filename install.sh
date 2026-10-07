@@ -52,7 +52,7 @@ say "Descargando Nodalix $release_tag…"
 curl -fsSL "$manifest_url" -o "$work/nodalix-manifest.json"
 
 python3 - "$work/nodalix-manifest.json" "$work/assets.tsv" <<'PY'
-import json, pathlib, platform, re, sys
+import json, pathlib, platform, re, subprocess, sys
 
 manifest = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
 if manifest.get("schema") != 1 or manifest.get("schema_version") != 1:
@@ -61,7 +61,10 @@ if manifest.get("arch", "x86_64") not in ("any", platform.machine()):
     raise SystemExit("The release architecture does not match this computer")
 lines = []
 for item in manifest.get("components", []):
-    if not item.get("required"):
+    if not item.get("required") and subprocess.run(
+        ["pacman", "-Q", str(item.get("package", ""))],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    ).returncode != 0:
         continue
     asset = str(item.get("asset", ""))
     digest = str(item.get("sha256", "")).lower()
@@ -84,7 +87,9 @@ done < "$work/assets.tsv"
 
 say "Instalando dependencias oficiales…"
 "${as_root[@]}" pacman -S --needed --noconfirm \
-    quickshell qt6-declarative python python-dbus python-gobject python-typer \
+    gnome-shell gnome-session gnome-control-center gdm nautilus nautilus-python \
+    xdg-desktop-portal xdg-desktop-portal-gnome xdg-desktop-portal-gtk \
+    python python-dbus python-gobject python-typer \
     bluez bluez-utils bluez-obex gtk4 libadwaita zenity polkit minisign gcc gawk \
     librsvg imagemagick
 
@@ -92,7 +97,8 @@ say "Instalando Nodalix $release_tag…"
 "${as_root[@]}" pacman -U --needed --noconfirm "${packages[@]}"
 "${as_root[@]}" systemctl enable --now nodalix-update-check.timer
 systemctl --user daemon-reload || true
-systemctl --user enable nodalix-shell.service nodalix-app-accent.path nodalix-phone-link.service nodalix-localsend.service || true
+"${as_root[@]}" nodalix-gnome-migrate --system
+systemctl --user enable nodalix-phone-link.service || true
 
 if [[ -x /usr/lib/nodalix-phone-link/migrate-user ]]; then
     /usr/lib/nodalix-phone-link/migrate-user || true
@@ -100,10 +106,9 @@ elif [[ -f "$HOME/.config/iphonebridge/local.env" ]]; then
     systemctl --user start nodalix-phone-link.service || true
 fi
 
-systemctl --user start nodalix-app-accent.path nodalix-localsend.service || true
-if [[ -n ${WAYLAND_DISPLAY:-} ]]; then
-    systemctl --user restart nodalix-shell.service || true
-fi
+case ":${XDG_CURRENT_DESKTOP:-}:" in
+    *:GNOME:*|*:gnome:*) nodalix-gnome-migrate ;;
+esac
 
 if [[ ${NODALIX_SKIP_HARDWARE_PROFILE:-0} != 1 ]]; then
     say "Seleccionando repositorios y kernel según el hardware…"

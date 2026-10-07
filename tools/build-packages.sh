@@ -4,7 +4,7 @@ set -euo pipefail
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)
 version=$(tr -d '[:space:]' < "$root/VERSION")
 pkgver=${version//-/}
-pkgrel=1
+phone_pkgver=$(sed -n 's/^pkgver=//p' "$root/packaging/nodalix-phone-link/PKGBUILD")
 outdir=${1:-"$root/dist/packages"}
 srcdir="$root/dist/src"
 workdir="$root/dist/build"
@@ -50,12 +50,18 @@ tar --zstd -C "$root" -cf "$srcdir/nodalix-shell-$pkgver.tar.zst" \
   --exclude shell/blobs-plugin/build \
   --exclude shell/Caelestia \
   shell
-tar --zstd -C "$root" -cf "$srcdir/nodalix-phone-link-$pkgver.tar.zst" \
+tar --zstd -C "$root" -cf "$srcdir/nodalix-phone-link-$phone_pkgver.tar.zst" \
   --exclude phone-link/src/iphonebridge/.git \
   --exclude='*/__pycache__' \
   --exclude='*.pyc' \
   --exclude phone-link/tests \
   phone-link
+
+tar --zstd -C "$root" -cf "$srcdir/nodalix-integrations-$pkgver.tar.zst" \
+  shell/scripts shell/systemd packaging/nodalix-shell/is-hyprland-session
+tar --zstd -C "$root" -cf "$srcdir/nodalix-gnome-$pkgver.tar.zst" \
+  --exclude='*/__pycache__' --exclude='*.pyc' \
+  --exclude=gnome/extensions/glocalsend@donnybeelo.github.com gnome
 
 updater_dir="$workdir/nodalix-updater"
 apps_dir="$workdir/nodalix-apps"
@@ -98,8 +104,8 @@ inject_sha256 "$release_dir/PKGBUILD" "$release_dir/VERSION"
 
 cp "$root/packaging/nodalix-phone-link/PKGBUILD" "$phone_link_dir/PKGBUILD"
 cp "$root/packaging/nodalix-phone-link/nodalix-phone-link.install" "$phone_link_dir/nodalix-phone-link.install"
-cp "$srcdir/nodalix-phone-link-$pkgver.tar.zst" "$phone_link_dir/"
-inject_sha256 "$phone_link_dir/PKGBUILD" "$phone_link_dir/nodalix-phone-link-$pkgver.tar.zst"
+cp "$srcdir/nodalix-phone-link-$phone_pkgver.tar.zst" "$phone_link_dir/"
+inject_sha256 "$phone_link_dir/PKGBUILD" "$phone_link_dir/nodalix-phone-link-$phone_pkgver.tar.zst"
 
 cp "$root/packaging/nodalix-fluent-emoji/PKGBUILD" \
    "$root/packaging/nodalix-fluent-emoji/75-nodalix-fluent-emoji.conf" \
@@ -130,6 +136,19 @@ engine_dir="$workdir/nodalix-wallpaper-engine"
 mkdir -p "$engine_dir"
 cp "$root/packaging/nodalix-wallpaper-engine/PKGBUILD" "$engine_dir/"
 
+integrations_dir="$workdir/nodalix-integrations"
+gnome_dir="$workdir/nodalix-gnome"
+for name in integrations gnome; do
+  dir="$workdir/nodalix-$name"
+  mkdir -p "$dir"
+  cp "$root/packaging/nodalix-$name/PKGBUILD" "$dir/"
+  if [[ -f "$root/packaging/nodalix-$name/nodalix-$name.install" ]]; then
+    cp "$root/packaging/nodalix-$name/nodalix-$name.install" "$dir/"
+  fi
+  cp "$srcdir/nodalix-$name-$pkgver.tar.zst" "$dir/"
+  inject_sha256 "$dir/PKGBUILD" "$dir/nodalix-$name-$pkgver.tar.zst"
+done
+
 makepkg_one() {
   local dir=$1
   (cd "$dir" && makepkg -f --noconfirm --nodeps --cleanbuild)
@@ -139,6 +158,8 @@ if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
   makepkg_one "$engine_dir"
   makepkg_one "$updater_dir"
   makepkg_one "$apps_dir"
+  makepkg_one "$integrations_dir"
+  makepkg_one "$gnome_dir"
   makepkg_one "$shell_dir"
   makepkg_one "$phone_link_dir"
   makepkg_one "$fluent_dir"
