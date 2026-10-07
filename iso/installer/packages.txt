@@ -66,3 +66,13 @@ ffmpeg
 imagemagick
 rsync
 vulkan-swrast
+
+nodalix-phone-link
+nodalix-ofono
+nodalix-apps
+nodalix-updater
+nodalix-release
+nodalix-colloid-icons
+nodalix-cursor-theme
+nodalix-fluent-emoji
+nodalix-wallpapers

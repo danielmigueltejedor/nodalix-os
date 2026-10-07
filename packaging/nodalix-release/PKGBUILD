@@ -1,6 +1,6 @@
 pkgname=nodalix-release
-pkgver=0.2.4
-pkgrel=2
+pkgver=0.3.0
+pkgrel=1
 pkgdesc="Nodalix release identity and core component set"
 arch=("any")
 url="https://github.com/danielmigueltejedor/nodalix-os"

@@ -1,11 +1,11 @@
 pkgname=nodalix-shell
-pkgver=0.2.4
-pkgrel=2
+pkgver=0.3.0
+pkgrel=1
 pkgdesc="Nodalix desktop shell"
 arch=("x86_64")
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-depends=("nodalix-integrations>=0.2.4-2" "nodalix-wallpaper-engine" "quickshell" "qt6-declarative" "qt6-5compat" "fontconfig" "python" "python-gobject" "evolution-data-server" "zenity" "xdg-user-dirs" "librsvg" "imagemagick" "rclone" "fuse3")
+depends=("nodalix-integrations>=0.3.0" "nodalix-wallpaper-engine" "quickshell" "qt6-declarative" "qt6-5compat" "fontconfig" "python" "python-gobject" "evolution-data-server" "zenity" "xdg-user-dirs" "librsvg" "imagemagick" "rclone" "fuse3")
 optdepends=("vdirsyncer: sincronización de calendarios externos de Nodalix")
 makedepends=("hyprland" "pkgconf" "cmake" "ninja" "qt6-shadertools")
 options=("!debug")

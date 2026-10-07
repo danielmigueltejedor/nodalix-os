@@ -1,0 +1,38 @@
+#!/bin/sh
+set -eu
+
+case ":${XDG_CURRENT_DESKTOP:-}:" in
+    *:GNOME:*|*:gnome:*) ;;
+    *) echo 'Run user migration from a GNOME session' >&2; exit 1 ;;
+esac
+marker="${XDG_STATE_HOME:-$HOME/.local/state}/nodalix/migrations/gnome-0.3.0.done"
+[ ! -f "$marker" ] || exit 0
+backup="${XDG_STATE_HOME:-$HOME/.local/state}/nodalix/migrations/gnome-first-$(date -u +%Y%m%dT%H%M%SZ)-$$"
+mkdir -m 0700 -p "$backup"
+if [ -d "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user" ]; then
+    cp -a "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user" "$backup/"
+fi
+for unit in nodalix-shell.service nodalix-wallpaper.service nodalix-app-accent.path; do
+    printf '%s ' "$unit" >> "$backup/unit-states"
+    systemctl --user is-enabled "$unit" >> "$backup/unit-states" 2>/dev/null || true
+done
+systemctl --user disable --now nodalix-shell.service nodalix-app-accent.path 2>/dev/null || true
+systemctl --user mask --now nodalix-shell.service nodalix-wallpaper.service
+systemctl --user daemon-reload
+printf 'GNOME migration complete. Configuration backup: %s\n' "$backup"
+
+gsettings set org.gnome.desktop.interface icon-theme Nodalix-Adwaita-Symbols
+nodalix-app-icons || true
+# Enable only the installed Nodalix extension; keep user selections and identities.
+python3 - <<'EXTENSIONS'
+from gi.repository import Gio
+from pathlib import Path
+settings=Gio.Settings.new('org.gnome.shell')
+uuid='nodalix-connect@getnodalia.com'
+if Path('/usr/share/gnome-shell/extensions',uuid).is_dir():
+    enabled=settings.get_strv('enabled-extensions')
+    if uuid not in enabled:settings.set_strv('enabled-extensions',[*enabled,uuid])
+Gio.Settings.sync()
+EXTENSIONS
+mkdir -p "$(dirname "$marker")"
+printf '%s\n' '0.3.0' > "$marker"

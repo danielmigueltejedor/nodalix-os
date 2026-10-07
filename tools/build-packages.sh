@@ -61,7 +61,7 @@ tar --zstd -C "$root" -cf "$srcdir/nodalix-integrations-$pkgver.tar.zst" \
   shell/scripts shell/systemd packaging/nodalix-shell/is-hyprland-session
 tar --zstd -C "$root" -cf "$srcdir/nodalix-gnome-$pkgver.tar.zst" \
   --exclude='*/__pycache__' --exclude='*.pyc' \
-  --exclude=gnome/extensions/glocalsend@donnybeelo.github.com gnome
+  --exclude=gnome/extensions/glocalsend@donnybeelo.github.com --exclude=gnome/settings/animated gnome
 
 updater_dir="$workdir/nodalix-updater"
 apps_dir="$workdir/nodalix-apps"
@@ -74,7 +74,7 @@ colloid_dir="$workdir/nodalix-colloid-icons"
 cursor_dir="$workdir/nodalix-cursor-theme"
 mkdir -p "$updater_dir" "$apps_dir" "$shell_dir" "$release_dir" "$phone_link_dir" "$fluent_dir" "$wallpaper_dir" "$colloid_dir" "$cursor_dir"
 
-cp "$root/packaging/nodalix-updater/PKGBUILD" "$updater_dir/PKGBUILD"
+cp "$root/packaging/nodalix-updater/PKGBUILD" "$root/packaging/nodalix-updater/nodalix-updater.install" "$updater_dir/"
 cp "$srcdir/nodalix-updater-$pkgver.tar.zst" "$updater_dir/"
 inject_sha256 "$updater_dir/PKGBUILD" "$updater_dir/nodalix-updater-$pkgver.tar.zst"
 
@@ -155,20 +155,22 @@ makepkg_one() {
 }
 
 if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
-  python3 "$root/tools/build-settings-packages.py" --output "$root/dist/native-settings"
+  if [[ ${NODALIX_SKIP_NATIVE_BUILD:-0} != 1 ]]; then
+    python3 "$root/tools/build-settings-packages.py" --output "$root/dist/native-settings"
+  fi
   find "$root/dist/native-settings" -mindepth 2 -maxdepth 2 -type f -name "*.pkg.tar.zst" ! -name "*-debug-*" -exec cp {} "$outdir/" \;
-  makepkg_one "$engine_dir"
   makepkg_one "$updater_dir"
   makepkg_one "$apps_dir"
   makepkg_one "$integrations_dir"
   makepkg_one "$gnome_dir"
-  makepkg_one "$shell_dir"
   makepkg_one "$phone_link_dir"
+  ofono_dir="$workdir/nodalix-ofono"
+  mkdir -p "$ofono_dir"
+  cp "$root/packaging/nodalix-ofono/PKGBUILD" "$ofono_dir/"
+  makepkg_one "$ofono_dir"
   makepkg_one "$fluent_dir"
   makepkg_one "$colloid_dir"
-  makepkg_one "$hymission_dir"
   makepkg_one "$cursor_dir"
-  makepkg_one "$greeter_dir"
   makepkg_one "$wallpaper_dir"
   makepkg_one "$release_dir"
   find "$workdir" -mindepth 2 -maxdepth 2 -type f -name '*.pkg.tar.zst' ! -name '*-debug-*' -exec cp {} "$outdir/" \;

@@ -2,7 +2,7 @@
 """Prepare pinned native Settings packages and the installed video collection.
 
 Sources can be pre-fetched using --control-center-source and --hanabi-source.
-Video files remain in a separate source archive; never commit them to Git.
+Video assets are hash-checked against the tracked source collection.
 """
 import argparse
 import hashlib
@@ -16,6 +16,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 CC_REV = '6ae712c0454f2586f00821c3486150c1e8feb3e7'
+VERSION = (ROOT/'VERSION').read_text().strip().replace('-', '')
 HANABI_REV = 'b18e0414447a7b5eb472c6ede7b32782f972c4ae'
 
 def run(args, **kwargs):
@@ -23,7 +24,7 @@ def run(args, **kwargs):
 
 def checkout(source, cache, name, url, revision):
     target = Path(source).resolve() if source else cache/name
-    if not target.exists():
+    if not (target/'.git').exists():
         run(['git','clone',url,target])
         run(['git','checkout',revision],cwd=target)
     actual = subprocess.check_output(['git','rev-parse','HEAD'],cwd=target,text=True).strip()
@@ -40,7 +41,7 @@ def export(source, dest):
             tar.extractall(dest,filter='data')
 
 def archive(root, output, paths):
-    run(['tar','--zstd','-C',root,'-cf',output,'--exclude=*/__pycache__','--exclude=*.pyc',*paths])
+    run(['tar','--zstd','-C',root,'-cf',output,'--exclude=*/__pycache__','--exclude=*.pyc','--exclude=gnome/settings/animated',*paths])
 
 def recipe(name, output, archives):
     dest = output/name
@@ -60,7 +61,7 @@ def main():
     ap.add_argument('--output',type=Path,default=ROOT/'dist/native-settings')
     ap.add_argument('--control-center-source')
     ap.add_argument('--hanabi-source')
-    ap.add_argument('--collection',type=Path,default=Path('/usr/share/backgrounds/nodalix/Animados'))
+    ap.add_argument('--collection',type=Path,default=ROOT/'gnome/settings/animated')
     ap.add_argument('--prepare-only',action='store_true')
     args=ap.parse_args();out=args.output.resolve();out.mkdir(parents=True,exist_ok=True)
     cache=out/'cache';cache.mkdir(exist_ok=True)
@@ -85,9 +86,9 @@ def main():
             run(['ffmpeg','-hide_banner','-loglevel','error','-ss','1','-i',video,'-frames:v','1','-vf','scale=480:-2','-y',stage/'previews'/(video.stem+'.jpg')])
             run(['ffmpeg','-hide_banner','-loglevel','error','-ss','1','-i',video,'-frames:v','1','-q:v','2','-y',stage/'stills'/(video.stem+'.jpg')])
         collection=out/'nodalix-animated-collection.tar.zst';archive(stage,collection,['collection','previews','stills'])
-        settings=out/'nodalix-settings-0.2.4.tar.zst';archive(ROOT,settings,['gnome/settings','docs/images/nodalix-logo.png'])
+        settings=out/f'nodalix-settings-{VERSION}.tar.zst';archive(ROOT,settings,['gnome/settings','docs/images/nodalix-logo.png'])
         changes=out/'nodalix-control-center-51.0.0.tar.zst';archive(ROOT,changes,['gnome/control-center'])
-        renderer=out/'nodalix-video-wallpapers-0.2.4.tar.zst';archive(ROOT,renderer,['gnome/settings/animated-collection.json','packaging/nodalix-video-wallpapers/gnome51.patch','packaging/nodalix-video-wallpapers/pnpm-lock.yaml'])
+        renderer=out/f'nodalix-video-wallpapers-{VERSION}.tar.zst';archive(ROOT,renderer,['gnome/settings/animated-collection.json','packaging/nodalix-video-wallpapers/gnome51.patch','packaging/nodalix-video-wallpapers/pnpm-lock.yaml'])
         dirs=[recipe('nodalix-settings',out,[settings]),recipe('nodalix-control-center',out,[cc_archive,changes]),recipe('nodalix-video-wallpapers',out,[hanabi_archive,renderer,collection])]
     if not args.prepare_only:
         for folder in dirs:

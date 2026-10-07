@@ -1,6 +1,6 @@
 post_install() {
     /usr/bin/nodalix-gnome-migrate --system
-    echo 'Log out and choose Nodalix (GNOME). Run nodalix-gnome-migrate in that session.'
+    echo 'Reinicio obligatorio: GNOME se iniciará automáticamente después de reiniciar.'
 }
 
 post_upgrade() {

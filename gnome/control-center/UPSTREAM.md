@@ -40,14 +40,12 @@ normal login, preserving other extensions. Its poster is applied immediately;
 the UI reports the pending login instead of claiming playback. Static selection
 also cancels pending video activation.
 
-The existing 16 videos are recorded with size and SHA256 in
-`gnome/settings/animated-collection.json`. The builder takes them from
-`/usr/share/backgrounds/nodalix/Animados`, or `--collection`, generates poster
-frames with ffmpeg and packages them as a separate source archive. The 480-pixel
-gallery previews and native-resolution desktop stills are separate assets. Videos and
-binary source archives are not committed to Git. Retain that archive in the
-release source cache for future builds. The wallpaper service also discovers
-user videos in `~/.local/share/backgrounds/nodalix/animated`.
+The existing 16 videos are tracked in `gnome/settings/animated`, with their
+sizes and SHA-256 in `gnome/settings/animated-collection.json`. The builder
+checks every source and generates separate gallery thumbnails and full-resolution
+stills. `--collection` permits an equivalent verified local collection. Compiled
+packages and source archives stay out of Git. User videos remain under
+`~/.local/share/backgrounds/nodalix/animated`.
 
 Validation: native pages rendered against the real D-Bus implementation;
 GNOME 51 headless compositor ran the patched renderer, applied a video and

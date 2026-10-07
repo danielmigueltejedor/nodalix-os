@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "minimum_version": "0.1.1",
+  "minimum_version": "0.2.4",
   "channel": "stable",
   "arch": "x86_64",
   "components": [
@@ -8,7 +8,7 @@
       "id": "nodalix-release",
       "name": "Nodalix system identity",
       "package": "nodalix-release",
-      "version": "0.2.4",
+      "version": "0.3.0",
       "required": true,
       "restart": "none"
     },
@@ -16,7 +16,7 @@
       "id": "updater",
       "name": "Nodalix Updater",
       "package": "nodalix-updater",
-      "version": "0.2.4",
+      "version": "0.3.0",
       "required": true,
       "restart": "none"
     },
@@ -24,25 +24,17 @@
       "id": "apps",
       "name": "Nodalix Apps",
       "package": "nodalix-apps",
-      "version": "0.2.4",
+      "version": "0.3.0",
       "required": true,
       "restart": "none"
-    },
-    {
-      "id": "shell",
-      "name": "Nodalix Shell",
-      "package": "nodalix-shell",
-      "version": "0.2.4",
-      "required": false,
-      "restart": "shell"
     },
     {
       "id": "colloid-icons",
       "name": "Colloid-Teal icon theme",
       "package": "nodalix-colloid-icons",
-      "version": "0.2.4",
+      "version": "0.3.0",
       "required": true,
-      "restart": "shell"
+      "restart": "none"
     },
     {
       "id": "phone-link",
@@ -58,61 +50,37 @@
       "package": "nodalix-fluent-emoji",
       "version": "0.8.5",
       "required": true,
-      "restart": "shell"
+      "restart": "none"
     },
     {
       "id": "wallpapers",
       "name": "Nodalix wallpaper collection",
       "package": "nodalix-wallpapers",
-      "version": "0.2.4",
+      "version": "0.3.0",
       "required": true,
-      "restart": "shell"
-    },
-    {
-      "id": "hymission",
-      "name": "Hymission window overview",
-      "package": "nodalix-hymission",
-      "version": "0.8.0",
-      "required": false,
-      "restart": "system"
+      "restart": "none"
     },
     {
       "id": "cursor-theme",
       "name": "Nodalix cursor theme",
       "package": "nodalix-cursor-theme",
-      "version": "0.2.4",
+      "version": "0.3.0",
       "required": true,
       "restart": "system"
-    },
-    {
-      "id": "greeter-theme",
-      "name": "Nodalix login screen",
-      "package": "nodalix-greeter-theme",
-      "version": "0.2.4",
-      "required": false,
-      "restart": "none"
-    },
-    {
-      "id": "wallpaper-engine",
-      "name": "Nodalix unified wallpaper engine",
-      "package": "nodalix-wallpaper-engine",
-      "version": "1.0.0-beta.17",
-      "required": false,
-      "restart": "shell"
     },
     {
       "id": "integrations",
       "name": "Nodalix Integrations",
       "package": "nodalix-integrations",
-      "version": "0.2.4",
+      "version": "0.3.0",
       "required": true,
       "restart": "none"
     },
     {
       "id": "gnome",
-      "name": "Nodalix Gnome",
+      "name": "Nodalix GNOME Shell",
       "package": "nodalix-gnome",
-      "version": "0.2.4",
+      "version": "0.3.0",
       "required": true,
       "restart": "system"
     },
@@ -120,7 +88,7 @@
       "id": "settings",
       "name": "Nodalix Settings service",
       "package": "nodalix-settings",
-      "version": "0.2.4",
+      "version": "0.3.0",
       "required": true,
       "restart": "none"
     },
@@ -136,7 +104,15 @@
       "id": "video-wallpapers",
       "name": "Nodalix animated wallpaper collection",
       "package": "nodalix-video-wallpapers",
-      "version": "0.2.4",
+      "version": "0.3.0",
+      "required": true,
+      "restart": "system"
+    },
+    {
+      "id": "ofono",
+      "name": "oFono phone call backend",
+      "package": "nodalix-ofono",
+      "version": "2.19.0",
       "required": true,
       "restart": "system"
     }

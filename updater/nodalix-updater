@@ -41,7 +41,8 @@ DEFAULT_CONFIG = {
 }
 VALID_CHANNELS = ("stable", "beta")
 CHANNEL_ALIASES = {"rc": "beta"}
-UA = "Nodalix-Updater/0.2"
+UA = "Nodalix-Updater/0.3"
+REBOOT_REQUIRED_PATH = Path(os.environ.get("NODALIX_REBOOT_REQUIRED", "/run/nodalix-updater/reboot-required"))
 for _migrations_root in (Path(__file__).resolve().parent, Path("/usr/lib/nodalix-updater")):
     if str(_migrations_root) not in sys.path:
         sys.path.insert(0, str(_migrations_root))
@@ -173,13 +174,38 @@ def set_status(state: str, **fields: object) -> dict:
     return status
 
 
-def load_status() -> dict:
+def _load_status_file() -> dict:
     if not STATUS_PATH.exists():
         return {"state": "idle", "status": "idle", "updated_at": None}
     try:
         return json.loads(STATUS_PATH.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {"state": "error_recoverable", "status": "update_error", "error": "status file is unreadable"}
+
+
+def load_status() -> dict:
+    data = _load_status_file()
+    # /run is cleared on boot; stale on-disk completion flags must not block
+    # a future update after the required restart has taken place.
+    data["reboot_mandatory"] = REBOOT_REQUIRED_PATH.exists()
+    if data.get("reboot_mandatory"):
+        data["reboot_required"] = True
+    elif data.get("state") == "completed":
+        data["reboot_required"] = False
+    return data
+
+
+def candidate_info(directory: Path, config: dict) -> dict:
+    """Explicit local candidate mode for CI/offline administration only."""
+    directory = directory.resolve(strict=True)
+    raw = (directory / "nodalix-manifest.json").read_bytes()
+    manifest = json.loads(raw)
+    validate_manifest(manifest)
+    if manifest.get("arch", "x86_64") not in ("any", platform.machine()):
+        raise ManifestError("Arquitectura del candidato incompatible")
+    verify_manifest_signature(raw, manifest, {"assets": []}, config)
+    return {"status": "update_available", "_manifest": manifest,
+            "_release": {"assets": [{"name": c["asset"]} for c in manifest["components"]]}}
 
 
 def normalize_channel(value: object) -> str:
@@ -869,6 +895,76 @@ def installed_path_owners(
     return owners
 
 
+def package_metadata(package: str) -> dict[str, list[str]]:
+    result = subprocess.run(["bsdtar", "-xOf", package, ".PKGINFO"],
+                            capture_output=True, text=True, check=False)
+    if result.returncode:
+        raise PackagePreflightError(f"No se pudo leer {Path(package).name}")
+    values: dict[str, list[str]] = {}
+    for line in result.stdout.splitlines():
+        if " = " in line:
+            key, value = line.split(" = ", 1)
+            values.setdefault(key, []).append(value)
+    return values
+
+
+def transaction_replacements(packages: list[str]) -> set[str]:
+    # Only exact package names declared by the verified candidate archives.
+    return {name for package in packages for key in ("conflict", "replaces")
+            for value in package_metadata(package).get(key, [])
+            for name in [re.split(r"[<>=]", value, 1)[0]]
+            if PACKAGE_PATTERN.fullmatch(name)}
+
+
+def prepare_gnome_dependencies(packages: list[str], target_version: str) -> None:
+    if compare_versions(target_version, "0.3.0") < 0:
+        return
+    metadata = [package_metadata(package) for package in packages]
+    if not any("nodalix-gnome" in row.get("pkgname", []) for row in metadata):
+        return
+    provided = {re.split(r"[<>=]", value, 1)[0]
+                for row in metadata for key in ("pkgname", "provides")
+                for value in row.get(key, [])}
+    dependencies = sorted({value for row in metadata for value in row.get("depend", [])
+                           if re.split(r"[<>=]", value, 1)[0] not in provided})
+    for dependency in dependencies:
+        if not re.fullmatch(r"[a-z0-9@._+-]+(?:[<>=]+[a-zA-Z0-9:._+~-]+)?", dependency):
+            raise ManifestError("Dependencia no válida en el paquete candidato")
+    ensure_pacman_available()
+    set_status("dependencies", status="installing", stage="dependencies",
+               target_version=target_version, current_version=current_version(),
+               progress=0.52, last_error=None)
+    # Arch requires a complete repository upgrade when installing a new desktop.
+    result = subprocess.run(["pacman", "-Syu", "--needed", "--noconfirm", *dependencies],
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=False)
+    atomic_text(STATE_DIR / "last-dependencies.log", result.stdout or "")
+    if result.returncode:
+        raise PackageTransactionError("No se pudieron preparar las dependencias de GNOME",
+                                      returncode=result.returncode, target_version=target_version,
+                                      log_path=str(STATE_DIR / "last-dependencies.log"))
+
+
+def backup_gnome_transition(packages: list[str]) -> None:
+    if not any("nodalix-gnome" in package_metadata(p).get("pkgname", []) for p in packages):
+        return
+    backup = STATE_DIR / "migrations/gnome-0.3.0/files"
+    backup.mkdir(parents=True, exist_ok=True, mode=0o700)
+    backup.parent.chmod(0o700)
+    for relative in ("etc/greetd/config.toml", "etc/gdm/custom.conf", "etc/systemd/system/display-manager.service"):
+        source = Path("/") / relative
+        destination = backup / relative
+        if (source.exists() or source.is_symlink()) and not (destination.exists() or destination.is_symlink()):
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            if source.is_symlink():
+                destination.symlink_to(os.readlink(source))
+            else:
+                shutil.copy2(source, destination)
+
+
+def require_reboot(target_version: str) -> None:
+    atomic_text(REBOOT_REQUIRED_PATH, target_version + "\n")
+
+
 def package_conflicts(
     packages: list[str],
     *,
@@ -876,15 +972,22 @@ def package_conflicts(
     payload_reader=None,
     owner_lookup=None,
     progress_callback=None,
+    replacements: set[str] | None = None,
 ) -> list[dict]:
     read_payload = payload_reader or package_payload
     conflicts: list[dict] = []
     candidates: list[tuple[str, str, Path]] = []
+    replacements = replacements or set()
+    payload_owners: dict[str, str] = {}
+    candidate_names: set[str] = set()
 
     for package in packages:
         package_name, paths = read_payload(package)
-
+        candidate_names.add(package_name)
         for relative in paths:
+            if relative in payload_owners and payload_owners[relative] != package_name:
+                raise PackagePreflightError(f"Dos paquetes candidatos contienen /{relative}")
+            payload_owners[relative] = package_name
             target = root / relative
 
             if not target.exists() and not target.is_symlink():
@@ -916,7 +1019,7 @@ def package_conflicts(
     ):
         owner = lookup(target)
 
-        if owner != package_name:
+        if owner != package_name and owner not in replacements and not (owner in candidate_names and payload_owners.get(relative) == package_name):
             conflicts.append(
                 {
                     "package": package_name,
@@ -968,6 +1071,7 @@ def run_package_preflight(
     conflicts = package_conflicts(
         packages,
         progress_callback=report_progress,
+        replacements=transaction_replacements(packages) if compare_versions(target_version, "0.3.0") >= 0 else set(),
     )
 
     if not conflicts:
@@ -1037,6 +1141,9 @@ def run_pacman_transaction(
         *packages,
     ]
 
+    if compare_versions(target_version, "0.3.0") >= 0:
+        command[1:1] = ["--ask", "4"]  # ALPM conflict replacements, never file overwrites.
+
     log_path = pacman_log_path()
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -1067,10 +1174,12 @@ def run_pacman_transaction(
     if output:
         print(output, end="" if output.endswith("\n") else "\n")
 
-def do_update(config: dict, force: bool = False) -> dict:
+def do_update(config: dict, force: bool = False, assets_dir: Path | None = None) -> dict:
     if os.geteuid() != 0:
         raise UpdaterError("Usa: sudo nodalix-updater update")
     previous = current_version()
+    if REBOOT_REQUIRED_PATH.exists():
+        raise BusyError("Reinicio obligatorio pendiente: reinicia para terminar la migración a GNOME")
     with update_lock():
         target_version = None
         set_status(
@@ -1084,7 +1193,7 @@ def do_update(config: dict, force: bool = False) -> dict:
             progress_total=0,
             last_error=None,
         )
-        info = release_info(config)
+        info = candidate_info(assets_dir, config) if assets_dir else release_info(config)
         if info["status"] == "no_release":
             return set_status("no_release", status="no_release", current_version=previous)
         if info["status"] == "no_compatible_release":
@@ -1137,7 +1246,13 @@ def do_update(config: dict, force: bool = False) -> dict:
             if asset is None:
                 raise ManifestMissingError(f"Falta el asset {component['asset']}")
             destination = staging / component["asset"]
-            if not destination.exists() or sha256_file(destination) != component["sha256"].lower():
+            if assets_dir:
+                source = (assets_dir / component["asset"]).resolve(strict=True)
+                if source.parent != assets_dir.resolve() or not source.is_file():
+                    raise ManifestError("Ruta de paquete candidato no válida")
+                if source != destination.resolve():
+                    shutil.copyfile(source, destination)
+            elif not destination.exists() or sha256_file(destination) != component["sha256"].lower():
                 download_to(asset_download_url(asset), destination)
             set_status(
                 "verifying",
@@ -1165,6 +1280,7 @@ def do_update(config: dict, force: bool = False) -> dict:
                 destination.unlink(missing_ok=True)
                 raise IntegrityError(f"SHA-256 incorrecto para {component['asset']}")
             packages.append(str(destination))
+        prepare_gnome_dependencies(packages, target_version)
         set_status(
             "migrating",
             status="migrating",
@@ -1223,16 +1339,23 @@ def do_update(config: dict, force: bool = False) -> dict:
         # already-loaded Python process; do not re-exec mid-transaction.
         # Known 0.1.1 leftovers are removed by migrations; unknown conflicts
         # must still abort with the normal pacman error.
+        if compare_versions(target_version, "0.3.0") >= 0:
+            backup_gnome_transition(packages)
         run_pacman_transaction(
             packages,
             target_version=target_version,
         )
+        if any(item["id"] == "gnome" for item in components):
+            require_reboot(target_version)
+            subprocess.run(["/usr/bin/nodalix-gnome-migrate", "--system"], check=True)
         reload_systemd_units(components)
         installed = current_version()
         if installed != canonical_version(str(manifest["version"])):
             raise UpdaterError(
                 f"packages installed but system identity is {installed}, expected {manifest['version']}"
             )
+        if any(item["id"] == "gnome" for item in components):
+            require_reboot(installed)
         record_history(previous, installed, components)
         result = set_status(
             "completed",
@@ -1248,6 +1371,7 @@ def do_update(config: dict, force: bool = False) -> dict:
             components=[item["id"] for item in components],
             shell_restart_required=any(item["restart"] == "shell" for item in components),
             reboot_required=any(item["restart"] == "system" for item in components),
+            reboot_mandatory=REBOOT_REQUIRED_PATH.exists(),
         )
         print(f"Nodalix actualizado: {previous} -> {installed}")
         if result.get("shell_restart_required"):
@@ -1363,6 +1487,7 @@ def main() -> int:
     update = commands.add_parser("update")
     update.add_argument("--force", action="store_true")
     update.add_argument("--json", action="store_true")
+    update.add_argument("--assets", type=Path, help="Explicit local CI/offline candidate directory")
     history = commands.add_parser("history")
     history.add_argument("--json", action="store_true")
     channel = commands.add_parser("channel")
@@ -1391,7 +1516,7 @@ def main() -> int:
         elif args.command == "status":
             emit(load_status(), args.json)
         elif args.command == "update":
-            emit(do_update(config, args.force), args.json)
+            emit(do_update(config, args.force, args.assets), args.json)
         elif args.command == "history":
             events = []
             if HISTORY_PATH.exists():
@@ -1426,7 +1551,7 @@ def main() -> int:
         payload["last_error"] = str(error)
         payload["target_version"] = payload.get("target_version")
         with contextlib.suppress(OSError):
-            set_status(payload["state"], **payload)
+            set_status(**payload)
         if getattr(args, "json", False):
             print(json.dumps(payload, ensure_ascii=False))
         else:

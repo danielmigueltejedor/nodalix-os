@@ -1,6 +1,6 @@
 pkgname=nodalix-updater
-pkgver=0.2.4
-pkgrel=2
+pkgver=0.3.0
+pkgrel=1
 pkgdesc="Nodalix GitHub Releases update service"
 arch=('any')
 url="https://github.com/danielmigueltejedor/nodalix-os"
@@ -12,6 +12,7 @@ source=("nodalix-updater-$pkgver.tar.zst")
 sha256sums=('SKIP')
 
 package() {
+  install -Dm755 "$srcdir/updater/nodalix-migrate-gnome" "$pkgdir/usr/bin/nodalix-migrate-gnome"
   install -Dm755 "$srcdir/updater/nodalix-updater" "$pkgdir/usr/bin/nodalix-updater"
   install -Dm755 "$srcdir/updater/nodalix-system-update" "$pkgdir/usr/bin/nodalix-system-update"
   install -Dm755 "$srcdir/updater/nodalix-hardware-profile" "$pkgdir/usr/bin/nodalix-hardware-profile"

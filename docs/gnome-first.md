@@ -16,14 +16,17 @@ Overview, espacios de trabajo, notificaciones, fondos y ajustes rápidos.
   selector de fondos y logo de GDM.
 - `nodalix-video-wallpapers`: reproductor adaptado a GNOME 51 y los 16 vídeos
   de la colección actual.
-- `nodalix-shell`, Hymission, greetd y el motor de fondos antiguo son opcionales.
-  La shell, los fondos y los cambios de acento heredados solo se ejecutan bajo Hyprland.
+La versión 0.3.0 reemplaza `nodalix-shell` y `nodalix-greeter-theme` en una
+transacción declarada, conservando los datos de Hyprland. Las integraciones
+pasan a su paquete propio. El actualizador original de 0.2.4 necesita el puente
+`nodalix-migrate-gnome`: primero instala el nuevo actualizador verificado y
+continúa la actualización completa. No usa sobrescrituras generales.
 
-Actualizar la shell antigua y las integraciones en **una misma transacción**:
-los servicios compartidos cambian de propietario. El actualizador y el instalador
-incluyen los componentes opcionales que ya estén instalados. Instalar únicamente
-`nodalix-integrations` junto a una versión antigua de `nodalix-shell` puede producir
-conflictos de archivos. No usar `--overwrite` para resolverlos.
+La actualización instala las dependencias con una actualización completa de
+Arch, habilita GDM y CUPS para el siguiente arranque y guarda la configuración
+anterior en `/var/lib/nodalix-updater/migrations/gnome-0.3.0/files`. Al finalizar,
+Ajustes exige «Reiniciar ahora» y bloquea otras actualizaciones hasta el siguiente
+arranque. No hay cuenta atrás ni se reinicia automáticamente.
 
 El instalador nuevo activa GDM para el siguiente inicio. No reinicia el gestor
 de acceso ni termina la sesión actual. En GNOME, ejecutar `nodalix-gnome-migrate`

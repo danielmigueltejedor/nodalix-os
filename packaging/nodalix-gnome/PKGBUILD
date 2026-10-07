@@ -1,18 +1,23 @@
 pkgname=nodalix-gnome
-pkgver=0.2.4
-pkgrel=5
+pkgver=0.3.0
+pkgrel=1
 pkgdesc="GNOME Shell, GDM and native desktop integration for Nodalix"
 arch=("any")
 install=nodalix-gnome.install
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-depends=("cups" "cups-pk-helper" "gnome-shell" "mutter" "gnome-session" "gdm" "nodalix-control-center" "nodalix-settings" "nodalix-video-wallpapers" "gnome-settings-daemon" "gnome-keyring" "gnome-console" "nautilus" "nautilus-python" "zenity" "libnotify" "xdg-desktop-portal" "xdg-desktop-portal-gnome" "xdg-desktop-portal-gtk" "nodalix-integrations>=0.2.4-2")
+depends=("cups" "cups-pk-helper" "gnome-shell" "mutter" "gnome-session" "gdm" "nodalix-control-center" "nodalix-settings" "nodalix-video-wallpapers" "gnome-settings-daemon" "gnome-keyring" "gnome-console" "nautilus" "nautilus-python" "zenity" "libnotify" "xdg-desktop-portal" "xdg-desktop-portal-gnome" "xdg-desktop-portal-gtk" "nodalix-integrations>=0.3.0")
+provides=("nodalix-shell=$pkgver")
+conflicts=("nodalix-shell" "nodalix-greeter-theme")
+replaces=("nodalix-shell" "nodalix-greeter-theme")
 source=("nodalix-gnome-$pkgver.tar.zst")
 sha256sums=("SKIP")
 
 package() {
     install -Dm755 "$srcdir/gnome/session/nodalix-gnome-session" "$pkgdir/usr/lib/nodalix/nodalix-gnome-session"
+    install -Dm755 "$srcdir/gnome/session/nodalix-gnome-user-migrate" "$pkgdir/usr/lib/nodalix/nodalix-gnome-user-migrate"
     install -Dm755 "$srcdir/gnome/session/nodalix-gnome-migrate" "$pkgdir/usr/bin/nodalix-gnome-migrate"
+    install -Dm644 "$srcdir/gnome/session/nodalix-gnome-migrate.desktop" "$pkgdir/etc/xdg/autostart/nodalix-gnome-migrate.desktop"
     install -Dm755 "$srcdir/gnome/session/nodalix-shell-symbols" "$pkgdir/usr/bin/nodalix-shell-symbols"
     install -Dm644 "$srcdir/gnome/session/nodalix.desktop" "$pkgdir/usr/share/wayland-sessions/nodalix.desktop"
     install -Dm644 "$srcdir/gnome/session/gnome-portals.conf" "$pkgdir/etc/xdg/xdg-desktop-portal/gnome-portals.conf"

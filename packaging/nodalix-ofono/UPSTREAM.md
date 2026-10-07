@@ -1,0 +1,1 @@
+oFono 2.19 from kernel.org, SHA-256 pinned in PKGBUILD. Recipe adapted from AUR ofono (maintainers Jerome Leclanche and HurricanePootis). Packaging version 2.19.0 maps to upstream 2.19. This dependency is shipped so clean Arch migration and ISO builds do not depend on an AUR helper. GPL-2.0-only; original upstream COPYING is installed with the package.

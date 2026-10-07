@@ -16,6 +16,7 @@ INTERFACE = 'com.nodalix.Settings1'
 XML = '''<node><interface name="com.nodalix.Settings1">
 <method name="GetUpdates"><arg type="s" direction="out"/></method>
 <method name="CheckUpdates"/>
+<method name="Restart"/>
 <method name="StartUpdate"><arg type="s" direction="in"/></method>
 <method name="GetWallpapers"><arg type="s" direction="out"/></method>
 <method name="GetWallpaperState"><arg type="s" direction="out"/></method>
@@ -237,6 +238,12 @@ class SettingsService:
 
     def snapshot(self):
         with self.lock:
+            pending = Path('/run/nodalix-updater/reboot-required').exists()
+            self.state['reboot_mandatory'] = pending
+            if pending:
+                self.state['reboot_required'] = True
+                if not self.state['busy']:
+                    self.state['message'] = 'Reinicio obligatorio para terminar la migración a GNOME'
             return json.dumps(self.state, ensure_ascii=False)
 
     def append_log(self, text):
@@ -248,6 +255,8 @@ class SettingsService:
         if target not in KINDS and target != 'all':
             raise ValueError('Tipo de actualización inválido')
         with self.lock:
+            if Path('/run/nodalix-updater/reboot-required').exists():
+                raise ValueError('Reinicia ahora para terminar la migración a GNOME')
             if self.state['busy'] or self.state['checking']:
                 raise ValueError('Ya hay una operación en curso')
             tasks = [k for k in KINDS if self.available(k)] if target == 'all' else [target]
@@ -404,6 +413,14 @@ class SettingsService:
                 localsend_call('Refresh')
             elif method == 'CheckUpdates':
                 self.check()
+            elif method == 'Restart':
+                if self.state['busy']:
+                    raise ValueError('Espera a que termine la actualización')
+                bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+                bus.call_sync('org.freedesktop.login1', '/org/freedesktop/login1',
+                              'org.freedesktop.login1.Manager', 'Reboot',
+                              GLib.Variant('(b)', (True,)), None,
+                              Gio.DBusCallFlags.NONE, -1, None)
             elif method == 'StartUpdate':
                 self.start(parameters.unpack()[0])
             elif method == 'SetWallpaper':

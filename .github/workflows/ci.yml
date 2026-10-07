@@ -2,31 +2,60 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [main, gnome-first]
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: candidate-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   validate:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
+      - name: Install native test dependencies
+        run: sudo apt-get update && sudo apt-get install -y python3-gi gir1.2-gtk-4.0 gir1.2-adw-1 nodejs libarchive-tools gjs xvfb dbus-x11 libadwaita-1-dev libjson-glib-dev
       - name: Require curated release notes
-        run: |
-          VERSION="$(tr -d '[:space:]' < VERSION)"
-          python3 tools/release_notes.py validate \
-            --version "$VERSION"
-
-      - name: Run updater and release tests
-        run: python -m unittest discover -s tests -v
+        run: /usr/bin/python3 tools/release_notes.py validate --version "$(cat VERSION)"
+      - name: Run updater, migration and desktop integration tests
+        run: /usr/bin/python3 -m unittest discover -s tests -v
+      - name: Verify mandatory restart in the native Settings page
+        run: bash tools/test-native-restart.sh
+  packages:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build all GNOME candidate packages from pinned sources
+        run: docker run --rm -e NODALIX_CI_CONTAINER=1 -v "$PWD":/src -w /src archlinux:latest bash tools/ci-build-gnome.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nodalix-0.3.0-candidate
+          path: dist/packages/*
+          if-no-files-found: error
+          retention-days: 14
+  migrate-024:
+    needs: packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: nodalix-0.3.0-candidate
+          path: dist/packages
+      - name: Test original 0.2.4 to GNOME upgrade with real pacman
+        run: docker run --rm -e NODALIX_CI_CONTAINER=1 -v "$PWD":/src -w /src archlinux:latest bash tools/ci-migrate-024.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nodalix-migration-evidence
+          path: dist/migration-evidence/*

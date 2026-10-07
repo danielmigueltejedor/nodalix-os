@@ -181,3 +181,19 @@ class WallpaperActivationTests(unittest.TestCase):
                 background.set_string.assert_any_call('picture-uri-dark',poster.as_uri())
 
 if __name__=='__main__': unittest.main()
+
+class RestartTests(unittest.TestCase):
+    def test_restart_uses_logind_and_completes_one_reply(self):
+        from unittest.mock import MagicMock
+        service=settings.SettingsService();invocation=MagicMock();bus=MagicMock()
+        with patch.object(settings.Gio,'bus_get_sync',return_value=bus):
+            service.method_call(None,None,None,None,'Restart',None,invocation)
+        bus.call_sync.assert_called_once()
+        self.assertEqual(bus.call_sync.call_args.args[3],'Reboot')
+        invocation.return_value.assert_called_once_with(None)
+    def test_restart_rejected_while_installing(self):
+        from unittest.mock import MagicMock
+        service=settings.SettingsService();service.state['busy']=True;invocation=MagicMock()
+        with patch.object(settings.Gio,'bus_get_sync') as bus:
+            service.method_call(None,None,None,None,'Restart',None,invocation)
+        bus.assert_not_called();invocation.return_dbus_error.assert_called_once()

@@ -15,6 +15,7 @@ struct _CcNodalixUpdatesPage {
   GtkTextBuffer *log;
   AdwActionRow *rows[5];
   GtkWidget *buttons[7];
+  GtkWidget *restart;
   guint timer;
   gboolean fetching;
 };
@@ -36,6 +37,8 @@ static void state_ready(GObject *source, GAsyncResult *result, gpointer data)
     if (json_parser_load_from_data(parser, text, -1, &error)) {
       JsonObject *state = json_node_get_object(json_parser_get_root(parser));
       gboolean busy = json_object_get_boolean_member(state, "busy") || json_object_get_boolean_member(state, "checking");
+      gboolean mandatory = json_object_get_boolean_member(state, "reboot_mandatory");
+      gtk_widget_set_visible(self->restart, !busy && json_object_get_boolean_member(state, "reboot_required"));
       const char *message = json_object_get_string_member(state, "message");
       gtk_label_set_text(self->status, message);
       gtk_widget_set_visible(GTK_WIDGET(self->progress), busy);
@@ -45,10 +48,10 @@ static void state_ready(GObject *source, GAsyncResult *result, gpointer data)
       for (guint i = 0; i < MIN(5, json_array_get_length(rows)); i++) {
         JsonObject *row = json_array_get_object_element(rows, i);
         adw_action_row_set_subtitle(self->rows[i], json_object_get_string_member(row, "detail"));
-        gtk_widget_set_sensitive(self->buttons[i], !busy && json_object_get_boolean_member(row, "available"));
+        gtk_widget_set_sensitive(self->buttons[i], !busy && !mandatory && json_object_get_boolean_member(row, "available"));
       }
       gtk_widget_set_sensitive(self->buttons[5], !busy);
-      gtk_widget_set_sensitive(self->buttons[6], !busy);
+      gtk_widget_set_sensitive(self->buttons[6], !busy && !mandatory);
       if (json_object_get_boolean_member(state, "reboot_required") && !busy) {
         g_autofree char *with_reboot = g_strconcat(message, " · Reinicia para cargar los cambios del kernel y los servicios.", NULL);
         gtk_label_set_text(self->status, with_reboot);
@@ -81,7 +84,7 @@ static void update_clicked(GtkButton *button, CcNodalixUpdatesPage *self)
   const char *kind = g_object_get_data(G_OBJECT(button), "kind");
   if (!self->proxy) return;
   for (guint i=0;i<7;i++) gtk_widget_set_sensitive(self->buttons[i],FALSE);
-  g_dbus_proxy_call(self->proxy, kind ? "StartUpdate" : "CheckUpdates", kind ? g_variant_new("(s)",kind) : NULL,
+  g_dbus_proxy_call(self->proxy, button == GTK_BUTTON(self->restart) ? "Restart" : kind ? "StartUpdate" : "CheckUpdates", kind ? g_variant_new("(s)",kind) : NULL,
                     G_DBUS_CALL_FLAGS_NONE,2500,self->cancel,operation_ready,g_object_ref(self));
 }
 static void service_changed(GDBusProxy *proxy, const char *sender, const char *signal, GVariant *params, CcNodalixUpdatesPage *self)
@@ -138,6 +141,11 @@ static void cc_nodalix_updates_page_init(CcNodalixUpdatesPage *self)
   gtk_widget_add_css_class(self->buttons[6],"suggested-action");
   g_object_set_data(G_OBJECT(self->buttons[6]),"kind","all");
   for(guint i=5;i<7;i++) {gtk_widget_set_sensitive(self->buttons[i],FALSE);g_signal_connect(self->buttons[i],"clicked",G_CALLBACK(update_clicked),self);gtk_box_append(GTK_BOX(buttons),self->buttons[i]);}
+  self->restart=gtk_button_new_with_label("Reiniciar ahora");
+  gtk_widget_add_css_class(self->restart,"suggested-action");
+  gtk_widget_set_visible(self->restart,FALSE);
+  g_signal_connect(self->restart,"clicked",G_CALLBACK(update_clicked),self);
+  gtk_box_append(GTK_BOX(buttons),self->restart);
   self->status=GTK_LABEL(gtk_label_new("Conectando con el servicio de actualizaciones…"));
   gtk_label_set_wrap(self->status,TRUE);
   self->progress=GTK_PROGRESS_BAR(gtk_progress_bar_new());

@@ -1,6 +1,7 @@
 pkgname=nodalix-cursor-theme
-pkgver=0.2.4
+pkgver=0.3.0
 pkgrel=1
+options=("!strip")
 pkgdesc="Nodalix system cursor theme based on Bibata Modern Classic"
 arch=("any")
 url="https://github.com/danielmigueltejedor/nodalix-os"
