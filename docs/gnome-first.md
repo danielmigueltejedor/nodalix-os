@@ -161,3 +161,25 @@ de sesión normal; no se reinicia GNOME Shell ni se interrumpe la sesión activa
 La prueba en GNOME 51 aislado conservó el PID y las fuentes de los clones,
 confirmó reproducción en la comprobación a unos 151 ms tras desbloquear,
 conservó la pausa manual y detuvo el proceso al desactivar.
+
+### Fondo en la pantalla de acceso
+
+`nodalix-settings` instala una extensión específica de GDM,
+`nodalix-login-background@getnodalia.com`, compatible con GNOME 51. Añade un
+fondo no interactivo detrás de los controles de acceso, con el desenfoque de
+90 píxeles y brillo 0,65 que GNOME usa en el bloqueo. No altera la autenticación,
+los campos, el logo, las cuentas ni el tema de GNOME.
+
+El perfil dconf de GDM habilita únicamente esta extensión para el acceso,
+conservando las demás extensiones que estén configuradas en ese perfil.
+`/etc/dconf/db/gdm.d/91-nodalix-login-background` guarda las URI de la imagen.
+La colección proporciona un fotograma 4K estático del fondo animado; GDM no
+inicia el reproductor de vídeo. En el equipo se configuró el fondo actual
+Mystic Lights, accesible públicamente en `/usr/share/nodalix/wallpaper-stills`.
+Los cambios posteriores del fondo del usuario no se copian automáticamente
+al perfil de acceso, que es compartido por todas las cuentas del equipo.
+
+Se probó el modo GDM real en un compositor aislado y se comprobó visualmente
+que el fondo aparece detrás de los controles y del logo compacto. La sesión
+normal no habilita esta extensión y el servicio GDM no se reinicia: la
+configuración se ve al volver a la pantalla de acceso normalmente.

@@ -101,3 +101,23 @@ both modes, paused playback while locked, playback at the first 151 ms unlock
 check, manual-pause preservation and renderer shutdown on disable. Installed
 4K fallback frames preserve original video hashes and do not enlarge the gallery
 thumbnails. Updated extension modules/metadata require a normal new login.
+
+
+The login background is a separate Nodalix extension limited to GNOME 51's
+`gdm` session mode; it is packaged with Settings and enabled only in GDM's dconf
+profile. It creates non-reactive native BackgroundManagers behind the greeter
+controls in the lock-dialog group, with the same blur/brightness as GNOME's
+unlockDialog (90 px / 0.65). Monitor and scale signals and all background managers
+are removed on disable. No upstream theme resources or authentication methods
+are patched. A real `--mode=gdm` isolated compositor and screenshot confirmed
+visible wallpaper and compact logo with the normal user controls above them.
+Configuration preserves existing GDM extension entries and the previously
+selected login image across package upgrades. The greeter uses a public still;
+per-user wallpaper changes are not automatically synchronized to the shared
+login-screen profile. GDM 51 dynamically allocates greeter users, so public
+image readability was verified with an unprivileged account rather than a
+persistent `gdm` user. No live GDM restart/logout is used.
+Primary references:
+https://github.com/GNOME/gnome-shell/blob/51.0/js/ui/unlockDialog.js,
+https://gjs.guide/extensions/overview/anatomy.html,
+https://github.com/GNOME/gdm/blob/51.0/NEWS.

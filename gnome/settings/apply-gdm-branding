@@ -2,6 +2,9 @@
 """Preserve custom GDM profiles while adding the Nodalix branding database."""
 from pathlib import Path
 import shutil
+import ast
+import os
+import tempfile
 import subprocess
 profile = Path('/etc/dconf/profile/gdm')
 if not profile.exists():
@@ -17,4 +20,34 @@ if 'system-db:gdm' not in content.splitlines():
 config = Path('/etc/dconf/db/gdm.d/90-nodalix-branding')
 config.parent.mkdir(parents=True, exist_ok=True)
 shutil.copyfile('/usr/lib/nodalix/gdm-branding', config)
+subprocess.run(['/usr/bin/dconf', 'update'], check=True)
+
+# Read only the greeter's system databases, preserving other configured extensions.
+with tempfile.NamedTemporaryFile(mode='w') as readonly:
+    readonly.write('system-db:gdm\nfile-db:/usr/share/gdm/greeter-dconf-defaults\n')
+    readonly.flush()
+    raw = subprocess.check_output(['/usr/bin/gsettings','get','org.gnome.shell','enabled-extensions'],
+        env={**os.environ, 'DCONF_PROFILE':readonly.name}, text=True).strip()
+    enabled = ast.literal_eval(raw.removeprefix('@as '))
+uuid = 'nodalix-login-background@getnodalia.com'
+if uuid not in enabled:
+    enabled.append(uuid)
+config = Path('/etc/dconf/db/gdm.d/91-nodalix-login-background')
+# Preserve the previously selected login image on package upgrades.
+import configparser
+values = configparser.ConfigParser(interpolation=None)
+if config.exists():
+    values.read(config)
+if not values.has_section('org/gnome/shell'):
+    values.add_section('org/gnome/shell')
+values.set('org/gnome/shell','enabled-extensions',repr(enabled))
+if not values.has_section('org/gnome/desktop/background'):
+    fallback = Path('/usr/share/nodalix/wallpaper-stills/nodalix-mystic-lights-4k.jpg')
+    if fallback.is_file():
+        values.add_section('org/gnome/desktop/background')
+        for key in ('picture-uri','picture-uri-dark'):
+            values.set('org/gnome/desktop/background',key,repr(fallback.as_uri()))
+        values.set('org/gnome/desktop/background','picture-options',"'zoom'")
+with config.open('w') as output:
+    values.write(output)
 subprocess.run(['/usr/bin/dconf', 'update'], check=True)

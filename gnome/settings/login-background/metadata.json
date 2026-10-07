@@ -1,0 +1,8 @@
+{
+  "uuid": "nodalix-login-background@getnodalia.com",
+  "name": "Fondo de acceso Nodalix",
+  "description": "Fondo estático con el mismo tratamiento visual que el bloqueo de GNOME",
+  "shell-version": ["51"],
+  "session-modes": ["gdm"],
+  "version": 1
+}

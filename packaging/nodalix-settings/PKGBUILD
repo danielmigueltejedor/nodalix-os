@@ -1,6 +1,6 @@
 pkgname=nodalix-settings
 pkgver=0.2.4
-pkgrel=5
+pkgrel=6
 pkgdesc="Native Nodalix updates, animated wallpaper controls and GNOME branding"
 arch=("any")
 url="https://github.com/danielmigueltejedor/nodalix-os"
@@ -18,5 +18,7 @@ package() {
   install -Dm644 "$srcdir/docs/images/nodalix-logo.png" "$pkgdir/usr/share/pixmaps/nodalix-logo.png"
   python "$srcdir/gnome/settings/build-login-logo.py" "$srcdir/docs/images/nodalix-logo.png" "$pkgdir/usr/share/pixmaps/nodalix-login-logo.svg"
   install -Dm644 "$srcdir/gnome/settings/gdm-branding" "$pkgdir/usr/lib/nodalix/gdm-branding"
+  install -d "$pkgdir/usr/share/gnome-shell/extensions/nodalix-login-background@getnodalia.com"
+  cp -a "$srcdir/gnome/settings/login-background/." "$pkgdir/usr/share/gnome-shell/extensions/nodalix-login-background@getnodalia.com/"
   install -Dm755 "$srcdir/gnome/settings/apply-gdm-branding" "$pkgdir/usr/lib/nodalix/apply-gdm-branding"
 }
