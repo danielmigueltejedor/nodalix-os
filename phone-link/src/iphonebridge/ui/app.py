@@ -19,7 +19,7 @@ from gi.repository import Adw, Gdk, Gio, Gtk  # noqa: E402
 from iphonebridge.ui.client import DaemonClient  # noqa: E402
 from iphonebridge.ui.window import MainWindow  # noqa: E402
 
-APP_ID = "com.gabriel.iphonebridge.UI"
+APP_ID = "com.nodalix.PhoneLink"
 
 _CSS = """
 .msg-bubble { padding: 6px 10px; }

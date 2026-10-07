@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Nodalix (GNOME)
+Comment=Nodalix with GNOME Shell and Mutter
+Exec=/usr/lib/nodalix/nodalix-gnome-session
+TryExec=/usr/bin/gnome-session
+Type=Application
+DesktopNames=GNOME
+X-GDM-SessionRegisters=true
+X-GDM-CanRunHeadless=true

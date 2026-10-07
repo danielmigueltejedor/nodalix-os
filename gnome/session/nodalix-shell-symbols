@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+"""Use Adwaita control symbols while inheriting the current application icons."""
+from pathlib import Path
+import configparser
+import os
+import subprocess
+
+NAME = 'Nodalix-Adwaita-Symbols'
+CONTEXTS = ['actions', 'devices', 'status', 'categories']
+current = subprocess.check_output(['gsettings', 'get', 'org.gnome.desktop.interface', 'icon-theme'], text=True).strip().strip("'")
+theme = Path(os.environ.get('XDG_DATA_HOME', str(Path.home()/'.local/share'))) / 'icons' / NAME
+index = theme/'index.theme'
+if current == NAME and index.exists():
+    previous = configparser.ConfigParser(interpolation=None)
+    previous.read(index)
+    current = previous.get('Icon Theme', 'Inherits', fallback='Adwaita').split(',')[0]
+if current == NAME:
+    current = 'Adwaita'
+for context in CONTEXTS:
+    source = Path('/usr/share/icons/Adwaita/symbolic')/context
+    if not source.is_dir():
+        raise SystemExit(f'Adwaita symbols missing: {source}')
+theme.mkdir(parents=True, exist_ok=True)
+(theme/'symbolic').mkdir(exist_ok=True)
+for context in CONTEXTS:
+    target = theme/'symbolic'/context
+    expected = Path('/usr/share/icons/Adwaita/symbolic')/context
+    if target.is_symlink():
+        if target.resolve() != expected:
+            raise SystemExit(f'Conflicting symbolic directory: {target}')
+    elif target.exists():
+        raise SystemExit(f'Existing icon directory left untouched: {target}')
+    else:
+        target.symlink_to(expected, target_is_directory=True)
+settings = theme/'symbolic/settings'
+settings.mkdir(exist_ok=True)
+for source in Path('/usr/share/icons/hicolor/scalable/apps').glob('org.gnome.Settings-*-symbolic.svg'):
+    target = settings/source.name
+    if not target.exists() and not target.is_symlink():
+        target.symlink_to(source)
+directories = CONTEXTS + ['settings']
+lines = ['[Icon Theme]', 'Name=Nodalix Adwaita Symbols',
+         'Comment=Adwaita controls with existing application icons',
+         f'Inherits={current},hicolor',
+         'Directories='+','.join('symbolic/'+c for c in directories), '']
+for context in directories:
+    lines += [f'[symbolic/{context}]', 'Size=16', 'MinSize=8', 'MaxSize=512',
+              'Type=Scalable', f'Context={"Actions" if context == "settings" else context.title()}', '']
+index.write_text('\n'.join(lines))
+subprocess.run(['gsettings','set','org.gnome.desktop.interface','icon-theme',NAME],check=True)
+print(f'Adwaita control symbols applied; application theme inherited: {current}')

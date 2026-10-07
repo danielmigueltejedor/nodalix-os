@@ -1,0 +1,8 @@
+{
+  "uuid": "nodalix-connect@getnodalia.com",
+  "name": "Nodalix Connect",
+  "description": "Enlace móvil por D-Bus integrado en los ajustes rápidos de GNOME",
+  "shell-version": ["51"],
+  "url": "https://github.com/danielmigueltejedor/nodalix-os",
+  "version": 2
+}

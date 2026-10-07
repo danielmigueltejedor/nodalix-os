@@ -1,0 +1,8 @@
+post_install() {
+    /usr/bin/nodalix-gnome-migrate --system
+    echo 'Log out and choose Nodalix (GNOME). Run nodalix-gnome-migrate in that session.'
+}
+
+post_upgrade() {
+    post_install
+}

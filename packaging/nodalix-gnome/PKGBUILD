@@ -1,0 +1,39 @@
+pkgname=nodalix-gnome
+pkgver=0.2.4
+pkgrel=2
+pkgdesc="GNOME Shell, GDM and native desktop integration for Nodalix"
+arch=("any")
+install=nodalix-gnome.install
+url="https://github.com/danielmigueltejedor/nodalix-os"
+license=("GPL-3.0-or-later")
+depends=("gnome-shell" "mutter" "gnome-session" "gdm" "gnome-control-center" "gnome-settings-daemon" "gnome-keyring" "gnome-console" "nautilus" "nautilus-python" "zenity" "libnotify" "xdg-desktop-portal" "xdg-desktop-portal-gnome" "xdg-desktop-portal-gtk" "nodalix-integrations>=0.2.4-2")
+source=("nodalix-gnome-$pkgver.tar.zst")
+sha256sums=("SKIP")
+
+package() {
+    install -Dm755 "$srcdir/gnome/session/nodalix-gnome-session" "$pkgdir/usr/lib/nodalix/nodalix-gnome-session"
+    install -Dm755 "$srcdir/gnome/session/nodalix-gnome-migrate" "$pkgdir/usr/bin/nodalix-gnome-migrate"
+    install -Dm755 "$srcdir/gnome/session/nodalix-shell-symbols" "$pkgdir/usr/bin/nodalix-shell-symbols"
+    install -Dm644 "$srcdir/gnome/session/nodalix.desktop" "$pkgdir/usr/share/wayland-sessions/nodalix.desktop"
+    install -Dm644 "$srcdir/gnome/session/gnome-portals.conf" "$pkgdir/etc/xdg/xdg-desktop-portal/gnome-portals.conf"
+    install -Dm644 "$srcdir/gnome/session/xdg-desktop-portal-hyprland.conf" "$pkgdir/usr/lib/systemd/user/xdg-desktop-portal-hyprland.service.d/nodalix-session.conf"
+    install -Dm644 "$srcdir/gnome/session/90-nodalix.gschema.override" "$pkgdir/usr/share/glib-2.0/schemas/90-nodalix.gschema.override"
+    install -Dm644 "$srcdir/gnome/session/index.theme" "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/index.theme"
+    install -d "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/symbolic"
+    for context in actions devices status categories; do
+        ln -s "/usr/share/icons/Adwaita/symbolic/$context" "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/symbolic/$context"
+    done
+    install -d "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/symbolic/settings"
+    while IFS= read -r name; do
+        ln -s "/usr/share/icons/hicolor/scalable/apps/$name" "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/symbolic/settings/$name"
+    done < "$srcdir/gnome/session/settings-symbols.list"
+    install -Dm755 "$srcdir/gnome/lib/localsend-send.py" "$pkgdir/usr/lib/nodalix/localsend-send"
+    install -Dm644 "$srcdir/gnome/nautilus/nodalix_localsend.py" "$pkgdir/usr/share/nautilus-python/extensions/nodalix_localsend.py"
+    for uuid in nodalix-connect@getnodalia.com; do
+        install -d "$pkgdir/usr/share/gnome-shell/extensions/$uuid"
+        cp -a "$srcdir/gnome/extensions/$uuid/." "$pkgdir/usr/share/gnome-shell/extensions/$uuid/"
+    done
+    # The preserved GLocalSend sources are versioned for maintenance. Keep
+    # the installed user's extension and settings until its own fork is
+    # independently packaged; never overwrite it during the OS upgrade.
+}

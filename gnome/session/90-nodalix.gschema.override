@@ -1,0 +1,4 @@
+[org.gnome.desktop.wm.preferences]
+button-layout=':minimize,maximize,close'
+[org.gnome.desktop.interface]
+icon-theme='Nodalix-Adwaita-Symbols'

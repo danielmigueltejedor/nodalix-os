@@ -1,6 +1,6 @@
 pkgname=nodalix-phone-link
 pkgver=0.2.5
-pkgrel=1
+pkgrel=2
 pkgdesc="Nodalix Phone Link integration for iOS"
 arch=('any')
 url="https://github.com/danielmigueltejedor/nodalix-os"
