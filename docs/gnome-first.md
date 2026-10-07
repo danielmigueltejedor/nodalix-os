@@ -134,3 +134,12 @@ El estado distingue reproducción, pausa y activación pendiente del próximo
 inicio de sesión. La selección queda persistida y aplica su imagen de vista
 previa mientras se carga el reproductor. Elegir un fondo estático cancela también
 una activación pendiente. Se conserva el resto de extensiones del usuario.
+
+### Tamaño del logo en GDM
+
+El inicio de sesión usa un recurso propio de 64×64, `nodalix-login-logo.svg`,
+generado con la imagen original incrustada. GDM carga las imágenes a su tamaño
+intrínseco; el PNG original de 1254×1254 no debe configurarse directamente como
+logo del inicio de sesión. Se comprobaron las dimensiones con el cargador St de
+GNOME 51 a escala normal y doble. Actualizar la configuración dconf no exige
+reiniciar GDM ni interrumpir la sesión activa.

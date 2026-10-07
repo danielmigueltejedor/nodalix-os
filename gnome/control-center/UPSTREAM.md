@@ -77,3 +77,12 @@ Printers panel has a printing service. See https://openprinting.github.io/cups/d
 GNOME 51 does not discover a newly installed local extension in the active
 session, and ReloadExtension is unsupported; see
 https://github.com/GNOME/gnome-shell/blob/51.0/js/ui/shellDBus.js.
+
+GDM uses `/usr/share/pixmaps/nodalix-login-logo.svg`, a separate 64×64 viewport
+with the unchanged PNG artwork embedded. GNOME 51 loads the logo at its intrinsic
+size (`load_file_async` without requested dimensions), so the large About image
+must not be used directly. The package generates the self-contained SVG at build
+time; external image references are avoided because the texture loader may lack
+a base URI. The native St loader was verified at 1× and 2× scaling: 64×64 and
+128×128 respectively. No GDM service restart is used when applying the database.
+Source: https://github.com/GNOME/gnome-shell/blob/51.0/js/gdm/loginDialog.js.
