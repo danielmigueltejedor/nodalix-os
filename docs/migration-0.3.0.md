@@ -50,5 +50,8 @@ La base 0.2.4 usa sus paquetes oficiales verificando los hashes e instala
 sus dependencias reales y scripts heredados, incluido Hyprland y Quickshell. La migración candidata usa
 las dependencias reales y los scripts de instalación, comprueba propiedad de
 archivos, GDM, CUPS, identidad, conservación de datos y bloqueo por reinicio.
-Este ensayo de paquetes no sustituye el arranque de una VM, ni pruebas con
+La CI también arranca ese sistema migrado en QEMU, inicia GNOME mediante GDM,
+comprueba las siete extensiones, la migración de fondo/reloj/aplicaciones fijadas,
+el servicio LocalSend y el reproductor animado. Se construye además la ISO
+instalable como artefacto candidato, sin release. El ensayo virtual no comprueba
 impresoras o móviles físicos.

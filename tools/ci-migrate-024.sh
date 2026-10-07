@@ -31,9 +31,14 @@ pacman -U --noconfirm dist/baseline-024/*.pkg.tar.zst
 grep -qx 'VERSION_ID="0.2.4"' /etc/nodalix-release
 id migration-test >/dev/null 2>&1 || useradd -m migration-test
 mkdir -p /var/lib/AccountsService/users /home/migration-test/.config/hypr /home/migration-test/.config/localsend
+localedef -i es_ES -f UTF-8 es_ES.UTF-8
 printf '[User]\nSession=hyprland\nLanguage=es_ES.UTF-8\n' > /var/lib/AccountsService/users/migration-test
 printf 'personal Hyprland configuration\n' > /home/migration-test/.config/hypr/hyprland.conf
 printf 'personal identity fixture\n' > /home/migration-test/.config/localsend/identity.pem
+mkdir -p /home/migration-test/.local/state/nodalix
+printf '{"wallpaper":{"path":"/usr/share/backgrounds/nodalix/animated/nodalix-aurora-forest-4k.mp4","type":"video"},"bar":{"clock":{"use24h":true}}}\n' > /home/migration-test/.local/state/nodalix/settings.json
+printf '{"pinned":["org.gnome.Nautilus"]}\n' > /home/migration-test/.local/state/nodalix/pinned.json
+chown -R migration-test:migration-test /home/migration-test
 systemctl disable gdm.service >/dev/null 2>&1 || true
 systemctl enable greetd.service
 cp /etc/greetd/config.toml dist/migration-evidence/greetd.before

@@ -17,7 +17,8 @@ for unit in nodalix-shell.service nodalix-wallpaper.service nodalix-app-accent.p
     systemctl --user is-enabled "$unit" >> "$backup/unit-states" 2>/dev/null || true
 done
 systemctl --user disable --now nodalix-shell.service nodalix-app-accent.path 2>/dev/null || true
-systemctl --user mask --now --force nodalix-shell.service nodalix-wallpaper.service
+systemctl --user stop nodalix-shell.service nodalix-wallpaper.service 2>/dev/null || true
+systemctl --user mask --force nodalix-shell.service nodalix-wallpaper.service
 systemctl --user daemon-reload
 printf 'GNOME migration complete. Configuration backup: %s\n' "$backup"
 
@@ -134,6 +135,11 @@ if pins.is_file() and settings.get_user_value('favorite-apps') is None:
         desktop=value if value.endswith('.desktop') else value+'.desktop'
         if Gio.DesktopAppInfo.new(desktop):favorites.append(desktop)
     if favorites:settings.set_strv('favorite-apps',favorites)
+nautilus=Path(os.environ.get('XDG_DATA_HOME',str(Path.home()/'.local/share')))/'nautilus-python/extensions'
+for link in nautilus.glob('*.py'):
+    if link.is_symlink() and not link.exists() and '/gnome-shell/extensions/' in str(link.readlink()):
+        target=backup/'nautilus';target.mkdir(parents=True,exist_ok=True)
+        shutil.move(str(link),str(target/link.name))
 settings.set_strv('enabled-extensions',enabled)
 settings.set_strv('disabled-extensions',disabled)
 Gio.Settings.sync()

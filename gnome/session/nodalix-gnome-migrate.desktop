@@ -4,4 +4,3 @@ Name=Preparar Nodalix GNOME
 Exec=nodalix-gnome-migrate
 OnlyShowIn=GNOME;
 NoDisplay=true
-X-GNOME-Autostart-Phase=Initialization
