@@ -15,7 +15,10 @@ from typing import Iterable
 
 import gi
 
-gi.require_version("Nautilus", "4.1")
+try:
+    gi.require_version("Nautilus", "4.1")
+except ValueError:
+    gi.require_version("Nautilus", "4.0")
 from gi.repository import Gio, GLib, GObject, Nautilus  # noqa: E402
 
 
