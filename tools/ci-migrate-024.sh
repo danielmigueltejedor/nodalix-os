@@ -27,6 +27,7 @@ mkdir -p /var/lib/AccountsService/users /home/migration-test/.config/hypr /home/
 printf '[User]\nSession=hyprland\nLanguage=es_ES.UTF-8\n' > /var/lib/AccountsService/users/migration-test
 printf 'personal Hyprland configuration\n' > /home/migration-test/.config/hypr/hyprland.conf
 printf 'personal identity fixture\n' > /home/migration-test/.config/localsend/identity.pem
+systemctl disable gdm.service >/dev/null 2>&1 || true
 systemctl enable greetd.service
 cp /etc/greetd/config.toml dist/migration-evidence/greetd.before
 sha256sum /home/migration-test/.config/{hypr/hyprland.conf,localsend/identity.pem} > dist/migration-evidence/personal.before
