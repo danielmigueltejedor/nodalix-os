@@ -42,7 +42,7 @@ No se aplica un kernel distinto al elegido por el usuario: Arch actualiza los
 paquetes del kernel que ya están instalados.
 
 La CI compila todos los paquetes, valida las fuentes fijadas y hashes de los
-16 vídeos, e instala el candidato mediante el puente en un contenedor Arch.
+16 vídeos (los más grandes se recomponen de partes sin recomprimir), e instala el candidato mediante el puente en un contenedor Arch.
 La base 0.2.4 usa sus paquetes oficiales verificando los hashes; solo la preparación
 de esa base omite dependencias y scripts heredados. La migración candidata usa
 las dependencias reales y los scripts de instalación, comprueba propiedad de

@@ -42,7 +42,8 @@ also cancels pending video activation.
 
 The existing 16 videos are tracked in `gnome/settings/animated`, with their
 sizes and SHA-256 in `gnome/settings/animated-collection.json`. The builder
-checks every source and generates separate gallery thumbnails and full-resolution
+reassembles the largest originals from numbered 48 MiB parts, checks every
+source against the original size and hash, and generates separate gallery thumbnails and full-resolution
 stills. `--collection` permits an equivalent verified local collection. Compiled
 packages and source archives stay out of Git. User videos remain under
 `~/.local/share/backgrounds/nodalix/animated`.

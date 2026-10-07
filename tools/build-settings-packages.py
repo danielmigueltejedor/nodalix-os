@@ -80,6 +80,15 @@ def main():
         (stage/'collection').mkdir();(stage/'previews').mkdir();(stage/'stills').mkdir()
         for item in videos:
             video=args.collection/item['file']
+            if not video.is_file():
+                parts=sorted(args.collection.glob(item['file']+'.part[0-9][0-9][0-9]'))
+                if not parts or [p.name for p in parts] != [item['file']+f'.part{i:03d}' for i in range(len(parts))]:
+                    raise SystemExit(f'Missing collection parts: {video}')
+                source=stage/'inputs';source.mkdir(exist_ok=True)
+                video=source/item['file']
+                with video.open('wb') as dest:
+                    for part in parts:
+                        with part.open('rb') as stream:shutil.copyfileobj(stream,dest)
             if not video.is_file() or video.stat().st_size != item['size'] or hashlib.file_digest(video.open('rb'),'sha256').hexdigest() != item['sha256']:
                 raise SystemExit(f'Missing or changed collection asset: {video}')
             shutil.copy2(video,stage/'collection'/video.name)
