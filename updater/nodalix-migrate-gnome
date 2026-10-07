@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 """One-time bridge for the original 0.2.4 updater. No release is created."""
 from pathlib import Path
-import argparse,hashlib,json,os,re,subprocess,tempfile,urllib.request
+import argparse,hashlib,importlib.machinery,importlib.util,json,os,re,subprocess,tempfile,urllib.request
 REPO='danielmigueltejedor/nodalix-os'
 
 def select_bridge(manifest):
@@ -24,17 +24,48 @@ def install_bridge(manifest, assets, runner=subprocess.run, offline=False):
     if offline:command+=['--assets',str(Path(assets).resolve())]
     return runner(command,check=True)
 
+def verify_bridge_policy(raw, manifest, base=None, directory=None):
+    # Use the installed trusted client/key to honor the administrator's
+    # signature policy before replacing the updater itself.
+    client=Path('/usr/bin/nodalix-updater')
+    spec=importlib.util.spec_from_loader('installed_updater',importlib.machinery.SourceFileLoader('installed_updater',str(client)))
+    installed=importlib.util.module_from_spec(spec);spec.loader.exec_module(installed)
+    current=installed.current_version()
+    if installed.compare_versions(current,'0.2.4')<0 or installed.compare_versions(current,'0.3.0')>=0:
+        raise ValueError('Este puente está destinado a Nodalix 0.2.4')
+    assets=[]
+    signing=manifest.get('signing')
+    if signing and base:
+        name=signing.get('signature_asset','')
+        if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._+-]*',name):raise ValueError('Nombre de firma no válido')
+        assets=[{'name':name,'browser_download_url':base+name}]
+    config=installed.load_config()
+    if directory is not None and signing:
+        name=str(signing.get('signature_asset',''))
+        if signing.get('algorithm')!='minisign' or not installed.ASSET_PATTERN.fullmatch(name):
+            raise ValueError('Metadatos de firma local no válidos')
+        directory=Path(directory).resolve()
+        signature=(directory/name).resolve(strict=True)
+        if signature.parent!=directory:raise ValueError('Ruta de firma local no válida')
+        subprocess.run(['minisign','-Vm',str(directory/'nodalix-manifest.json'),'-x',str(signature),'-p',str(installed.PUBLIC_KEY_PATH)],check=True)
+    else:
+        installed.verify_manifest_signature(raw,manifest,{'assets':assets},config)
+
+
 def main():
     ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('--assets',type=Path,help='Verified CI candidate directory');args=ap.parse_args()
     if os.geteuid()!=0:raise SystemExit('Ejecuta esta migración con autenticación de administrador')
     if args.assets:
-        install_bridge(json.loads((args.assets/'nodalix-manifest.json').read_text()),args.assets,offline=True);return
+        raw=(args.assets/'nodalix-manifest.json').read_bytes();manifest=json.loads(raw)
+        verify_bridge_policy(raw,manifest,directory=args.assets)
+        install_bridge(manifest,args.assets,offline=True);return
     with tempfile.TemporaryDirectory(prefix='nodalix-gnome-') as temp:
         folder=Path(temp)
         base=f'https://github.com/{REPO}/releases/download/0.3.0/'
         try:
-            with urllib.request.urlopen(base+'nodalix-manifest.json',timeout=30) as source:manifest=json.load(source)
+            with urllib.request.urlopen(base+'nodalix-manifest.json',timeout=30) as source:raw=source.read();manifest=json.loads(raw)
         except Exception as error:raise SystemExit('0.3.0 todavía no está publicada o no se puede descargar') from error
+        verify_bridge_policy(raw,manifest,base)
         entry=select_bridge(manifest)
         with urllib.request.urlopen(base+entry['asset'],timeout=60) as source,(folder/entry['asset']).open('wb') as dest:
             while chunk:=source.read(1024*1024):dest.write(chunk)

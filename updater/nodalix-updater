@@ -203,7 +203,18 @@ def candidate_info(directory: Path, config: dict) -> dict:
     validate_manifest(manifest)
     if manifest.get("arch", "x86_64") not in ("any", platform.machine()):
         raise ManifestError("Arquitectura del candidato incompatible")
-    verify_manifest_signature(raw, manifest, {"assets": []}, config)
+    signature_bytes = None
+    assets = []
+    if manifest.get("signing"):
+        name = str(manifest["signing"].get("signature_asset", ""))
+        if not ASSET_PATTERN.fullmatch(name):
+            raise ManifestError("Nombre de firma local no válido")
+        path = (directory / name).resolve(strict=True)
+        if path.parent != directory:
+            raise ManifestError("Ruta de firma local no válida")
+        signature_bytes = path.read_bytes()
+        assets = [{"name": name}]
+    verify_manifest_signature(raw, manifest, {"assets": assets}, config, signature_bytes)
     return {"status": "update_available", "_manifest": manifest,
             "_release": {"assets": [{"name": c["asset"]} for c in manifest["components"]]}}
 
@@ -482,7 +493,7 @@ def validate_manifest(manifest: dict) -> None:
         raise ManifestError("manifest must include required nodalix-release")
 
 
-def verify_manifest_signature(raw: bytes, manifest: dict, release: dict, config: dict) -> None:
+def verify_manifest_signature(raw: bytes, manifest: dict, release: dict, config: dict, signature_bytes: bytes | None = None) -> None:
     signing = manifest.get("signing")
     if not signing:
         if config.get("require_signature"):
@@ -503,7 +514,7 @@ def verify_manifest_signature(raw: bytes, manifest: dict, release: dict, config:
     signature_path = STATE_DIR / "manifest.verify.minisig"
     try:
         manifest_path.write_bytes(raw)
-        signature_path.write_bytes(request(asset_download_url(asset), "application/octet-stream")[0])
+        signature_path.write_bytes(signature_bytes if signature_bytes is not None else request(asset_download_url(asset), "application/octet-stream")[0])
         result = subprocess.run(
             [executable, "-Vm", str(manifest_path), "-x", str(signature_path), "-p", str(PUBLIC_KEY_PATH)],
             stdout=subprocess.DEVNULL,
