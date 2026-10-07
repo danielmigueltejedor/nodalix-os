@@ -61,7 +61,7 @@ tar --zstd -C "$root" -cf "$srcdir/nodalix-integrations-$pkgver.tar.zst" \
   shell/scripts shell/systemd packaging/nodalix-shell/is-hyprland-session
 tar --zstd -C "$root" -cf "$srcdir/nodalix-gnome-$pkgver.tar.zst" \
   --exclude='*/__pycache__' --exclude='*.pyc' \
-  --exclude=gnome/extensions/glocalsend@donnybeelo.github.com --exclude=gnome/settings/animated gnome
+  --exclude=gnome/settings/animated gnome
 
 updater_dir="$workdir/nodalix-updater"
 apps_dir="$workdir/nodalix-apps"

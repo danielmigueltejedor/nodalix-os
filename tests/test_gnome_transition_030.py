@@ -189,3 +189,26 @@ class IconPreferenceTests(unittest.TestCase):
             self.assertEqual(values['Icon Theme']['Inherits'],'MyApps,hicolor')
             for panel in ('accessibility','keyboard','display','bluetooth'):
                 self.assertTrue((theme/f'symbolic/settings/org.gnome.Settings-{panel}-symbolic.svg').is_file())
+
+class RetirementTests(unittest.TestCase):
+    def test_removes_old_desktop_with_normal_dependency_checks(self):
+        results=[subprocess.CompletedProcess([],0,stdout='hyprland\nhyprutils\nquickshell\nlinux\nnautilus\n'),subprocess.CompletedProcess([],0,stdout='removed')]
+        with mock.patch.object(UPDATER.subprocess,'run',side_effect=results) as run,mock.patch.object(UPDATER,'atomic_text'):
+            UPDATER.retire_legacy_desktop()
+        self.assertEqual(run.call_args.args[0],['pacman','-Rns','--noconfirm','hyprland','hyprutils','quickshell'])
+    def test_removal_failure_does_not_claim_complete(self):
+        results=[subprocess.CompletedProcess([],0,stdout='hyprland\n'),subprocess.CompletedProcess([],1,stdout='dependency conflict')]
+        with mock.patch.object(UPDATER.subprocess,'run',side_effect=results),mock.patch.object(UPDATER,'atomic_text'):
+            with self.assertRaises(UPDATER.PackageTransactionError):UPDATER.retire_legacy_desktop()
+    def test_prelogin_archives_config_and_shadowing_extensions(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);(root/'etc').mkdir()
+            (root/'etc/passwd').write_text('migration:x:1000:1000::/home/migration:/bin/bash\n')
+            profile=root/'usr/share/nodalix/gnome-extensions.json';profile.parent.mkdir(parents=True);profile.write_text('["bundled@test"]')
+            home=root/'home/migration';config=home/'.config/hypr';config.mkdir(parents=True);(config/'hyprland.conf').write_text('personal')
+            ext=home/'.local/share/gnome-shell/extensions/bundled@test';ext.mkdir(parents=True);(ext/'extension.js').write_text('old module')
+            SYSTEM.migrate(root,mock.Mock())
+            saved=root/'var/lib/nodalix-updater/migrations/gnome-0.3.0/files'
+            self.assertFalse(config.exists());self.assertFalse(ext.exists())
+            self.assertEqual((saved/config.relative_to(root)/'hyprland.conf').read_text(),'personal')
+            self.assertEqual((saved/ext.relative_to(root)/'extension.js').read_text(),'old module')

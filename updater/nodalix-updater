@@ -958,6 +958,29 @@ def prepare_gnome_dependencies(packages: list[str], target_version: str) -> None
                                       log_path=str(STATE_DIR / "last-dependencies.log"))
 
 
+LEGACY_DESKTOP_PACKAGES = {
+    "nodalix-shell", "nodalix-greeter-theme", "nodalix-hymission", "nodalix-wallpaper-engine",
+    "hyprland", "hyprland-git", "quickshell", "quickshell-git", "greetd", "greetd-regreet",
+    "xdg-desktop-portal-hyprland", "hymission", "skwd-deck", "skwd-paper", "aquamarine",
+}
+
+
+def retire_legacy_desktop() -> None:
+    """Remove the requested former desktop with dependency checking intact."""
+    query = subprocess.run(["pacman", "-Qq"], capture_output=True, text=True, check=True)
+    packages = sorted(name for name in query.stdout.splitlines()
+                      if name in LEGACY_DESKTOP_PACKAGES or name.startswith("hypr"))
+    if not packages:
+        return
+    result = subprocess.run(["pacman", "-Rns", "--noconfirm", *packages],
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, check=False)
+    atomic_text(STATE_DIR / "last-legacy-removal.log", result.stdout or "")
+    if result.returncode:
+        raise PackageTransactionError("No se pudo retirar el escritorio Hyprland; revisa sus dependencias",
+                                      returncode=result.returncode,
+                                      log_path=str(STATE_DIR / "last-legacy-removal.log"))
+
+
 def backup_gnome_transition(packages: list[str]) -> None:
     if not any("nodalix-gnome" in package_metadata(p).get("pkgname", []) for p in packages):
         return
@@ -1363,6 +1386,7 @@ def do_update(config: dict, force: bool = False, assets_dir: Path | None = None)
         )
         if any(item["id"] == "gnome" for item in components):
             require_reboot(target_version)
+            retire_legacy_desktop()
             subprocess.run(["/usr/bin/nodalix-gnome-migrate", "--system"], check=True)
         reload_systemd_units(components)
         installed = current_version()

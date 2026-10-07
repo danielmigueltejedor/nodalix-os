@@ -42,7 +42,11 @@ class MigrationTests(unittest.TestCase):
             self.assertIn('usr/lib/systemd/user/nodalix-icloud-drive.service', package_paths[0])
             self.assertNotIn('usr/lib/systemd/user/default.target.wants/nodalix-localsend.service', package_paths[0])
             self.assertIn('usr/lib/nodalix/localsend-send', package_paths[1])
-            self.assertFalse(any('glocalsend@' in path for path in package_paths[1]))
+            profile=json.loads((ROOT/'gnome/session/extensions.json').read_text())
+            for uuid in profile:
+                if uuid.startswith('hanabi'):continue  # separate video package
+                self.assertIn(f'usr/share/gnome-shell/extensions/{uuid}/extension.js',package_paths[1])
+                self.assertIn(f'usr/share/gnome-shell/extensions/{uuid}/metadata.json',package_paths[1])
             self.assertFalse(any('/hypr/' in path or '/quickshell/' in path for paths in package_paths for path in paths))
 
 
@@ -118,3 +122,20 @@ class SenderTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class ExtensionProfileTests(unittest.TestCase):
+    def test_profile_defaults_match_packaged_schema_types(self):
+        from gi.repository import Gio,GLib
+        with tempfile.TemporaryDirectory() as scratch:
+            for row in json.loads((ROOT/'gnome/session/extension-defaults.json').read_text()):
+                directory=Path(scratch)/row['uuid'];directory.mkdir(exist_ok=True)
+                for source in (ROOT/'gnome/extensions'/row['uuid']/'schemas').glob('*.xml'):
+                    (directory/source.name).write_bytes(source.read_bytes())
+                subprocess.run(['glib-compile-schemas',str(directory)],check=True)
+                schemas=Gio.SettingsSchemaSource.new_from_directory(str(directory),Gio.SettingsSchemaSource.get_default(),False)
+                schema=schemas.lookup(row['schema'],False)
+                self.assertIsNotNone(schema)
+                for key,text in row['values'].items():
+                    value=GLib.Variant.parse(None,text,None,None)
+                    self.assertEqual(value.get_type_string(),schema.get_key(key).get_value_type().dup_string(),key)
+                    self.assertTrue(schema.get_key(key).range_check(value),key)

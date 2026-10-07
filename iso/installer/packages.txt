@@ -76,3 +76,9 @@ nodalix-colloid-icons
 nodalix-cursor-theme
 nodalix-fluent-emoji
 nodalix-wallpapers
+
+flatpak
+fwupd
+vdirsyncer
+gvfs-mtp
+gvfs-smb

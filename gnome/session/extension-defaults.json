@@ -1,0 +1,173 @@
+[
+  {
+    "uuid": "dash-to-dock@micxgx.gmail.com",
+    "schema": "org.gnome.shell.extensions.dash-to-dock",
+    "values": {
+      "transparency-mode": "'DEFAULT'",
+      "apply-custom-theme": "false",
+      "apply-glossy-effect": "false",
+      "height-fraction": "1.0",
+      "multi-monitor": "true",
+      "custom-theme-shrink": "true",
+      "show-delay": "0.12",
+      "show-trash": "false",
+      "show-apps-always-in-the-edge": "false",
+      "hide-delay": "0.14999999999999999",
+      "running-indicator-style": "'DOTS'",
+      "animation-time": "0.17999999999999999",
+      "show-mounts": "false",
+      "background-opacity": "0.80000000000000004",
+      "extend-height": "false",
+      "dock-position": "'BOTTOM'",
+      "dash-max-icon-size": "44",
+      "require-pressure-to-show": "false",
+      "intellihide-mode": "'FOCUS_APPLICATION_WINDOWS'"
+    }
+  },
+  {
+    "uuid": "blur-my-shell@aunetx",
+    "schema": "org.gnome.shell.extensions.blur-my-shell",
+    "values": {
+      "pipelines": "{'pipeline_default': {'name': <'Default'>, 'effects': <[<{'type': <'native_static_gaussian_blur'>, 'id': <'effect_000000000000'>, 'params': <{'radius': <30>, 'brightness': <0.59999999999999998>}>}>, <{'type': <'corner'>, 'id': <'effect_64574676756065'>, 'params': <{'radius': <15>}>}>]>}, 'pipeline_default_rounded': {'name': <'Default rounded'>, 'effects': <[<{'type': <'native_static_gaussian_blur'>, 'id': <'effect_17616916794128'>, 'params': <{'brightness': <0.59999999999999998>, 'unscaled_radius': <100>}>}>, <{'type': <'corner'>, 'id': <'effect_86302549292721'>, 'params': <{'radius': <15>, 'corners_bottom': <true>}>}>]>}, 'pipeline_448cd606-1687-4b91-a73a-a4ba49e855f7': {'name': <'Default rounded - duplicate'>, 'effects': <[<{'type': <'native_static_gaussian_blur'>, 'id': <'effect_d21ee4c6-45c2-4da0-a20e-41c8005a70a5'>, 'params': <{'radius': <30>, 'brightness': <0.59999999999999998>}>}>, <{'type': <'corner'>, 'id': <'effect_72150237010329'>, 'params': <{'radius': <15>}>}>]>}, 'pipeline_11f1d962-c386-43ac-b640-a102221bef8f': {'name': <'Default rounded - duplicate'>, 'effects': <[<{'type': <'native_static_gaussian_blur'>, 'id': <'effect_19bf73a4-11c6-432d-926e-ad3f24254a09'>, 'params': <{'radius': <30>, 'brightness': <0.59999999999999998>}>}>, <{'type': <'corner'>, 'id': <'effect_42291333489442'>, 'params': <@a{sv} {}>}>]>}}",
+      "settings-version": "2",
+      "rounded-blur-found": "true"
+    }
+  },
+  {
+    "uuid": "blur-my-shell@aunetx",
+    "schema": "org.gnome.shell.extensions.blur-my-shell.overview",
+    "values": {
+      "pipeline": "'pipeline_default'",
+      "brightness": "0.69999999999999996"
+    }
+  },
+  {
+    "uuid": "blur-my-shell@aunetx",
+    "schema": "org.gnome.shell.extensions.blur-my-shell.appfolder",
+    "values": {
+      "sigma": "30",
+      "brightness": "0.59999999999999998"
+    }
+  },
+  {
+    "uuid": "blur-my-shell@aunetx",
+    "schema": "org.gnome.shell.extensions.blur-my-shell.panel",
+    "values": {
+      "brightness": "0.69999999999999996",
+      "corner-radius": "0",
+      "static-blur": "false",
+      "sigma": "30",
+      "pipeline": "'pipeline_default'"
+    }
+  },
+  {
+    "uuid": "blur-my-shell@aunetx",
+    "schema": "org.gnome.shell.extensions.blur-my-shell.dash-to-dock",
+    "values": {
+      "blur": "true",
+      "style-dash-to-dock": "0",
+      "pipeline": "'pipeline_default_rounded'",
+      "sigma": "30",
+      "brightness": "0.69999999999999996",
+      "static-blur": "true"
+    }
+  },
+  {
+    "uuid": "blur-my-shell@aunetx",
+    "schema": "org.gnome.shell.extensions.blur-my-shell.applications",
+    "values": {
+      "blur": "false",
+      "pipeline": "'pipeline_default'"
+    }
+  },
+  {
+    "uuid": "blur-my-shell@aunetx",
+    "schema": "org.gnome.shell.extensions.blur-my-shell.screenshot",
+    "values": {
+      "pipeline": "'pipeline_default'"
+    }
+  },
+  {
+    "uuid": "blur-my-shell@aunetx",
+    "schema": "org.gnome.shell.extensions.blur-my-shell.lockscreen",
+    "values": {
+      "pipeline": "'pipeline_default'",
+      "brightness": "0.69999999999999996"
+    }
+  },
+  {
+    "uuid": "blur-my-shell@aunetx",
+    "schema": "org.gnome.shell.extensions.blur-my-shell.window-list",
+    "values": {
+      "sigma": "30",
+      "brightness": "0.59999999999999998"
+    }
+  },
+  {
+    "uuid": "blur-my-shell@aunetx",
+    "schema": "org.gnome.shell.extensions.blur-my-shell.coverflow-alt-tab",
+    "values": {
+      "pipeline": "'pipeline_default'"
+    }
+  },
+  {
+    "uuid": "blur-my-shell@aunetx",
+    "schema": "org.gnome.shell.extensions.blur-my-shell.popup",
+    "values": {
+      "blur": "true",
+      "pipeline": "'pipeline_default_rounded'",
+      "brightness": "0.69999999999999996",
+      "static-blur": "false"
+    }
+  },
+  {
+    "uuid": "tiling-assistant@leleat-on-github",
+    "schema": "org.gnome.shell.extensions.tiling-assistant",
+    "values": {
+      "dynamic-keybinding-behavior": "0",
+      "tile-top-half-ignore-ta": "@as []",
+      "last-version-installed": "55",
+      "screen-bottom-gap": "8",
+      "tile-topleft-quarter-ignore-ta": "@as []",
+      "activate-layout0": "@as []",
+      "tile-bottom-half-ignore-ta": "@as []",
+      "restore-window": "['<Super>Down']",
+      "screen-right-gap": "8",
+      "tile-topright-quarter": "['<Super>KP_9']",
+      "tile-maximize-horizontally": "@as []",
+      "tile-topright-quarter-ignore-ta": "@as []",
+      "activate-layout1": "@as []",
+      "auto-tile": "@as []",
+      "tile-maximize": "['<Super>Up', '<Super>KP_5']",
+      "center-window": "@as []",
+      "tile-right-half-ignore-ta": "@as []",
+      "activate-layout2": "@as []",
+      "tile-left-half": "['<Super>Left', '<Super>KP_4']",
+      "tile-bottomright-quarter": "['<Super>KP_3']",
+      "activate-layout3": "@as []",
+      "tile-top-half": "['<Super>KP_8']",
+      "tile-edit-mode": "@as []",
+      "tile-maximize-vertically": "@as []",
+      "tile-left-half-ignore-ta": "@as []",
+      "screen-top-gap": "8",
+      "tile-right-half": "['<Super>Right', '<Super>KP_6']",
+      "debugging-show-tiled-rects": "@as []",
+      "import-layout-examples": "false",
+      "screen-left-gap": "8",
+      "single-screen-gap": "8",
+      "toggle-tiling-popup": "@as []",
+      "tile-topleft-quarter": "['<Super>KP_7']",
+      "window-gap": "8",
+      "tile-bottom-half": "['<Super>KP_2']",
+      "default-move-mode": "0",
+      "toggle-always-on-top": "@as []",
+      "focus-hint": "0",
+      "debugging-free-rects": "@as []",
+      "tile-bottomright-quarter-ignore-ta": "@as []",
+      "tile-bottomleft-quarter-ignore-ta": "@as []",
+      "search-popup-layout": "@as []",
+      "tile-bottomleft-quarter": "['<Super>KP_1']",
+      "focus-hint-color": "'rgb(237,91,0)'"
+    }
+  }
+]

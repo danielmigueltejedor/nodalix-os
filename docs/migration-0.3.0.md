@@ -30,9 +30,12 @@ ajenos o sin propietario producen un error; no hay sobrescrituras generales.
 Los registros están en `/var/lib/nodalix-updater`, junto con el historial y los
 respaldos de GDM, greetd y AccountsService. No se reinicia GDM durante la operación.
 Las cuentas que usaban Hyprland pasan a Nodalix/Wayland; se conservan otras sesiones
-seleccionadas expresamente. Los datos de Hyprland, LocalSend y Enlace móvil se
-conservan. La extensión personal GLocalSend sigue siendo un componente externo:
-no se distribuye su copia sin licencia dentro de los paquetes OS.
+seleccionadas expresamente. La actualización retira Hyprland, Quickshell, greetd, su portal, Hymission y el
+motor antiguo. La configuración histórica se guarda fuera de las rutas activas,
+incluidas las copias personales de extensiones que ocultarían las nuevas versiones.
+LocalSend conserva su identidad y favoritos; Ajustes, Nautilus y los controles
+rápidos usan el mismo servicio. Se incluyen las siete extensiones del perfil GNOME
+actual y sus esquemas, sin depender de descargas durante el primer inicio.
 
 Al finalizar es obligatorio reiniciar. El servicio y Ajustes conservan el estado,
 muestran «Reiniciar ahora» y bloquean otra actualización hasta el siguiente
@@ -43,8 +46,8 @@ paquetes del kernel que ya están instalados.
 
 La CI compila todos los paquetes, valida las fuentes fijadas y hashes de los
 16 vídeos (los más grandes se recomponen de partes sin recomprimir), e instala el candidato mediante el puente en un contenedor Arch.
-La base 0.2.4 usa sus paquetes oficiales verificando los hashes; solo la preparación
-de esa base omite dependencias y scripts heredados. La migración candidata usa
+La base 0.2.4 usa sus paquetes oficiales verificando los hashes e instala
+sus dependencias reales y scripts heredados, incluido Hyprland y Quickshell. La migración candidata usa
 las dependencias reales y los scripts de instalación, comprueba propiedad de
 archivos, GDM, CUPS, identidad, conservación de datos y bloqueo por reinicio.
 Este ensayo de paquetes no sustituye el arranque de una VM, ni pruebas con

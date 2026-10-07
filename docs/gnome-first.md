@@ -17,7 +17,7 @@ Overview, espacios de trabajo, notificaciones, fondos y ajustes rápidos.
 - `nodalix-video-wallpapers`: reproductor adaptado a GNOME 51 y los 16 vídeos
   de la colección actual.
 La versión 0.3.0 reemplaza `nodalix-shell` y `nodalix-greeter-theme` en una
-transacción declarada, conservando los datos de Hyprland. Las integraciones
+transacción declarada, archivando los datos de Hyprland y retirando sus paquetes. Las integraciones
 pasan a su paquete propio. El actualizador original de 0.2.4 necesita el puente
 `nodalix-migrate-gnome`: primero instala el nuevo actualizador verificado y
 continúa la actualización completa. No usa sobrescrituras generales.
@@ -34,7 +34,7 @@ guarda los estados y la configuración de systemd, desactiva la shell/acento
 antiguos y bloquea los servicios de shell y fondos. Enlace móvil sigue en su backend.
 
 Los portales preferidos son `gnome;gtk;`. GTK sigue siendo un backend válido,
-con funciones distintas; el backend Hyprland recibe una condición de sesión.
+con funciones distintas; se retira el backend Hyprland.
 No se aplican variables Ozone/GDK globales ni reglas de ventana por aplicación.
 
 ## Iconos y aplicaciones
@@ -56,8 +56,12 @@ Nodalix Connect observa ese servicio y abre su aplicación; no implementa Blueto
 La copia mantenida en `gnome/extensions/glocalsend@donnybeelo.github.com` conserva
 español, favoritos por fingerprint, orden de favoritos, ajustes de inicio y
 compatibilidad de orientación con GNOME 51. No contiene certificados, claves ni
-configuración personal. No se instala sobre la versión del usuario desde el paquete
-OS: revisar `UPSTREAM.md` antes de preparar el fork redistribuible.
+configuración personal. Se instala desde el paquete GNOME junto a Nodalix Connect,
+Dash to Dock 109, Blur my Shell 74, Tiling Assistant 55 y Rounded Window Corners Native
+51.0. Hanabi se incluye en el paquete de fondos. Las copias de usuario se archivan
+antes del primer arranque para evitar que oculten las versiones del sistema.
+Se conservan los ajustes existentes; las cuentas nuevas reciben el aspecto del
+perfil actual, sin fijar nombres de monitores de este equipo.
 
 La copia incluye un puente D-Bus pequeño, `com.nodalix.LocalSend1`, que devuelve
 estado y dispositivos ya descubiertos. Nautilus utiliza ese puente y lanza un
@@ -93,8 +97,8 @@ Para el tema de símbolos, seleccionar de nuevo el tema de aplicaciones anterior
 Para las extensiones, restaurar su carpeta respaldada y volver a iniciar sesión;
 no restaurar toda la base dconf, porque podría sobrescribir cambios posteriores.
 
-Para volver a una sesión Hyprland explícita, restaurar sus unidades respaldadas,
-desbloquear shell/fondos y habilitar los servicios que estuvieran habilitados antes.
+Para volver a una sesión Hyprland explícita habría que reinstalar sus paquetes
+y restaurar sus configuraciones y unidades respaldadas.
 No activar Quickshell mientras se permanezca en GNOME.
 La configuración histórica de greetd/Hyprland se conserva en `iso/legacy-overlay`;
 no entra en la nueva ISO ni en una instalación oficial GNOME.

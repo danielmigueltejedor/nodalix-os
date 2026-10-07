@@ -4,7 +4,7 @@ set -euo pipefail
 [[ ${NODALIX_CI_CONTAINER:-} == 1 ]] || { echo 'Disposable CI container required'; exit 1; }
 mkdir -p dist/migration-evidence dist/baseline-024
 pacman -Syu --noconfirm
-pacman -S --needed --noconfirm python libarchive curl diffutils gnome-control-center greetd
+pacman -S --needed --noconfirm python libarchive curl diffutils
 python - <<'PY'
 import hashlib,json,urllib.request
 from pathlib import Path
@@ -17,10 +17,17 @@ for c in data['components']:
     assert hashlib.file_digest(p.open('rb'),'sha256').hexdigest()==c['sha256'],p.name
 (root/'manifest.json').write_text(json.dumps(data,indent=2))
 PY
-# Fixture installation needs --nodeps: this simulates the original installed
-# package DB without fetching an obsolete Hyprland dependency set. Only the
-# baseline uses these flags. The actual upgrade runs all dependencies/scripts.
-pacman -Udd --noconfirm --noscriptlet dist/baseline-024/*.pkg.tar.zst
+# Resolve the original package dependencies in the clean Arch root, then install
+# the unmodified official 0.2.4 packages with dependency checks and scriptlets.
+python - <<'DEPS'
+import subprocess,re
+from pathlib import Path
+rows=[subprocess.check_output(['bsdtar','-xOf',str(p),'.PKGINFO'],text=True) for p in Path('dist/baseline-024').glob('*.pkg.tar.zst')]
+provided={line.split(' = ',1)[1].split('=')[0] for row in rows for line in row.splitlines() if line.startswith(('pkgname = ','provides = '))}
+deps=sorted({line.split(' = ',1)[1] for row in rows for line in row.splitlines() if line.startswith('depend = ') and re.split('[<>=]',line.split(' = ',1)[1])[0] not in provided})
+subprocess.run(['pacman','-S','--needed','--noconfirm',*deps,'xdg-desktop-portal-hyprland'],check=True)
+DEPS
+pacman -U --noconfirm dist/baseline-024/*.pkg.tar.zst
 grep -qx 'VERSION_ID="0.2.4"' /etc/nodalix-release
 id migration-test >/dev/null 2>&1 || useradd -m migration-test
 mkdir -p /var/lib/AccountsService/users /home/migration-test/.config/hypr /home/migration-test/.config/localsend
@@ -36,10 +43,16 @@ grep -qx 'VERSION_ID="0.3.0"' /etc/nodalix-release
 [[ $(cat /run/nodalix-updater/reboot-required) == 0.3.0 ]]
 [[ $(readlink /etc/systemd/system/display-manager.service) == /usr/lib/systemd/system/gdm.service ]]
 pacman -Q nodalix-gnome nodalix-settings nodalix-control-center nodalix-integrations nodalix-video-wallpapers nodalix-ofono
-! pacman -Qq | grep -Ex 'nodalix-shell|nodalix-greeter-theme'
+! pacman -Qq | grep -E '^(hypr|quickshell|greetd|nodalix-shell$|nodalix-greeter-theme$|nodalix-hymission$|nodalix-wallpaper-engine$|xdg-desktop-portal-hyprland$)'
+! test -e /usr/share/wayland-sessions/hyprland.desktop
+! test -e /etc/xdg/quickshell
+! test -e /etc/greetd
 pacman -Qo /usr/lib/systemd/user/nodalix-icloud-drive.service | grep nodalix-integrations
 cmp dist/migration-evidence/greetd.before /var/lib/nodalix-updater/migrations/gnome-0.3.0/files/etc/greetd/config.toml
-sha256sum -c dist/migration-evidence/personal.before
+sha256sum /var/lib/nodalix-updater/migrations/gnome-0.3.0/files/home/migration-test/.config/hypr/hyprland.conf > dist/migration-evidence/hyprland.backup
+[[ $(cut -d' ' -f1 dist/migration-evidence/hyprland.backup) == $(head -1 dist/migration-evidence/personal.before | cut -d' ' -f1) ]]
+tail -1 dist/migration-evidence/personal.before | sha256sum -c
+! test -e /home/migration-test/.config/hypr
 nodalix-updater status --json > dist/migration-evidence/status.json
 python - <<'PY'
 import json
@@ -49,6 +62,8 @@ assert state['state']=='completed' and state['reboot_mandatory']
 assert 'Session = nodalix' in Path('/var/lib/AccountsService/users/migration-test').read_text()
 assert Path('/etc/systemd/system/sockets.target.wants/cups.socket').exists()
 assert len(list(Path('/usr/share/backgrounds/nodalix/Animados').glob('*.mp4')))==16
+profile=json.loads(Path('/usr/share/nodalix/gnome-extensions.json').read_text())
+for uuid in profile:assert Path('/usr/share/gnome-shell/extensions',uuid,'extension.js').is_file(),uuid
 print('0.2.4 → 0.3.0 verified; user files preserved; GDM and mandatory restart ready')
 PY
 if nodalix-updater update --assets /src/dist/packages --json > dist/migration-evidence/reboot-block.json; then

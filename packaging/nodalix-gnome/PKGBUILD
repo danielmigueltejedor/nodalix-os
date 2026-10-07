@@ -6,10 +6,10 @@ arch=("any")
 install=nodalix-gnome.install
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-depends=("cups" "cups-pk-helper" "gnome-shell" "mutter" "gnome-session" "gdm" "nodalix-control-center" "nodalix-settings" "nodalix-video-wallpapers" "gnome-settings-daemon" "gnome-keyring" "gnome-console" "nautilus" "nautilus-python" "zenity" "libnotify" "xdg-desktop-portal" "xdg-desktop-portal-gnome" "xdg-desktop-portal-gtk" "nodalix-integrations>=0.3.0")
+depends=("cups" "cups-pk-helper" "gnome-shell" "mutter" "gnome-session" "gdm" "nodalix-control-center" "nodalix-settings" "nodalix-video-wallpapers" "gnome-settings-daemon" "gnome-keyring" "gnome-console" "gnome-text-editor" "gnome-online-accounts" "gnome-calendar" "gvfs" "gvfs-mtp" "gvfs-smb" "networkmanager" "bluez" "bluez-utils" "bluez-obex" "pipewire-pulse" "wireplumber" "power-profiles-daemon" "nautilus" "nautilus-python" "libsoup3" "zenity" "libnotify" "xdg-desktop-portal" "xdg-desktop-portal-gnome" "xdg-desktop-portal-gtk" "nodalix-integrations>=0.3.0")
 provides=("nodalix-shell=$pkgver")
-conflicts=("nodalix-shell" "nodalix-greeter-theme")
-replaces=("nodalix-shell" "nodalix-greeter-theme")
+conflicts=("nodalix-shell" "nodalix-greeter-theme" "nodalix-hymission" "nodalix-wallpaper-engine")
+replaces=("nodalix-shell" "nodalix-greeter-theme" "nodalix-hymission" "nodalix-wallpaper-engine")
 source=("nodalix-gnome-$pkgver.tar.zst")
 sha256sums=("SKIP")
 
@@ -21,7 +21,6 @@ package() {
     install -Dm755 "$srcdir/gnome/session/nodalix-shell-symbols" "$pkgdir/usr/bin/nodalix-shell-symbols"
     install -Dm644 "$srcdir/gnome/session/nodalix.desktop" "$pkgdir/usr/share/wayland-sessions/nodalix.desktop"
     install -Dm644 "$srcdir/gnome/session/gnome-portals.conf" "$pkgdir/etc/xdg/xdg-desktop-portal/gnome-portals.conf"
-    install -Dm644 "$srcdir/gnome/session/xdg-desktop-portal-hyprland.conf" "$pkgdir/usr/lib/systemd/user/xdg-desktop-portal-hyprland.service.d/nodalix-session.conf"
     install -Dm644 "$srcdir/gnome/session/90-nodalix.gschema.override" "$pkgdir/usr/share/glib-2.0/schemas/90-nodalix.gschema.override"
     install -Dm644 "$srcdir/gnome/session/index.theme" "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/index.theme"
     install -d "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/symbolic"
@@ -42,11 +41,13 @@ package() {
     install -Dm644 "/usr/share/icons/Adwaita/symbolic/devices/bluetooth-symbolic.svg" "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/symbolic/settings/org.gnome.Settings-bluetooth-symbolic.svg"
     install -Dm755 "$srcdir/gnome/lib/localsend-send.py" "$pkgdir/usr/lib/nodalix/localsend-send"
     install -Dm644 "$srcdir/gnome/nautilus/nodalix_localsend.py" "$pkgdir/usr/share/nautilus-python/extensions/nodalix_localsend.py"
-    for uuid in nodalix-connect@getnodalia.com; do
+    install -Dm644 "$srcdir/gnome/session/extensions.json" "$pkgdir/usr/share/nodalix/gnome-extensions.json"
+    install -Dm644 "$srcdir/gnome/session/extension-defaults.json" "$pkgdir/usr/share/nodalix/gnome-extension-defaults.json"
+    for uuid in glocalsend@donnybeelo.github.com nodalix-connect@getnodalia.com dash-to-dock@micxgx.gmail.com blur-my-shell@aunetx tiling-assistant@leleat-on-github rounded-window-corners@ztrahmet.github.io; do
         install -d "$pkgdir/usr/share/gnome-shell/extensions/$uuid"
         cp -a "$srcdir/gnome/extensions/$uuid/." "$pkgdir/usr/share/gnome-shell/extensions/$uuid/"
     done
-    # The preserved GLocalSend sources are versioned for maintenance. Keep
-    # the installed user's extension and settings until its own fork is
-    # independently packaged; never overwrite it during the OS upgrade.
+    for schema in "$pkgdir"/usr/share/gnome-shell/extensions/*/schemas; do
+        [ ! -d "$schema" ] || glib-compile-schemas "$schema"
+    done
 }

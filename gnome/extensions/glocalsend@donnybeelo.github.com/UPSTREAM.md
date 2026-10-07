@@ -12,6 +12,6 @@ File upload from Nautilus runs in a detached worker, outside GNOME Shell.
 The upstream receive and Quick Settings transfer engine still runs inside Shell;
 moving that engine into a standalone service is a remaining migration step.
 
-This snapshot is kept for maintenance. The OS package does not overwrite the
-user-installed extension. Its upstream repository currently has no license file;
-resolve redistribution terms before including a fork in release artifacts.
+This snapshot is included in the GNOME installation at the user's explicit
+request. The upstream snapshot has no license file; no license is invented for
+those third-party files. Other bundled extensions retain their license files.

@@ -63,6 +63,17 @@ class NodalixLocalSendMenu(GObject.GObject, Nautilus.MenuProvider):
         self._cache_lock = threading.Lock()
         # Nautilus loads the provider before the first context menu. Warm the
         # cache immediately so opening the menu never waits on D-Bus I/O.
+        self._bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        self._changed_subscription = self._bus.signal_subscribe(
+            BUS_NAME, INTERFACE, 'Changed', OBJECT_PATH, None,
+            Gio.DBusSignalFlags.NONE, self._service_changed)
+        self._owner_subscription = self._bus.signal_subscribe(
+            'org.freedesktop.DBus', 'org.freedesktop.DBus', 'NameOwnerChanged',
+            '/org/freedesktop/DBus', BUS_NAME, Gio.DBusSignalFlags.NONE,
+            self._service_changed)
+        self._refresh_devices_async(force=True)
+
+    def _service_changed(self, *_args) -> None:
         self._refresh_devices_async(force=True)
 
     def _refresh_devices_async(self, force: bool = False) -> None:
@@ -75,16 +86,19 @@ class NodalixLocalSendMenu(GObject.GObject, Nautilus.MenuProvider):
         def refresh() -> None:
             devices: list[dict] | None = None
             try:
-                status = request("/status", timeout=0.8) or {}
+                status = request("/status", timeout=2) or {}
                 devices = list(status.get("devices") or []) if status.get("enabled") else []
             except (OSError, ValueError, urllib.error.URLError):
                 pass
             finally:
                 with self._cache_lock:
+                    changed = devices is not None and devices != self._devices
                     if devices is not None:
                         self._devices = devices
                         self._cache_time = time.monotonic()
                     self._refreshing = False
+                if changed:
+                    GLib.idle_add(self._items_changed)
 
         threading.Thread(
             target=refresh,
@@ -92,25 +106,16 @@ class NodalixLocalSendMenu(GObject.GObject, Nautilus.MenuProvider):
             daemon=True,
         ).start()
 
-    def _current_devices(self) -> list[dict]:
-        """Return fresh devices without ever noticeably blocking Nautilus.
+    def _items_changed(self):
+        # Nautilus must invalidate an already-open empty menu when discovery
+        # completes. Blocking Shell D-Bus on the menu thread caused timeouts.
+        self.emit_items_updated_signal()
+        return GLib.SOURCE_REMOVE
 
-        The control service is session-local and normally answers in a few
-        milliseconds.  A very small deadline avoids the empty first menu that
-        the background-only cache produced, while the cache remains a safe
-        fallback if the service is restarting.
-        """
-        try:
-            status = request("/status", timeout=0.08) or {}
-            devices = list(status.get("devices") or []) if status.get("enabled") else []
-            with self._cache_lock:
-                self._devices = devices
-                self._cache_time = time.monotonic()
-            return [device.copy() for device in devices]
-        except (OSError, ValueError, urllib.error.URLError):
-            self._refresh_devices_async(force=True)
-            with self._cache_lock:
-                return [device.copy() for device in self._devices]
+    def _current_devices(self) -> list[dict]:
+        self._refresh_devices_async()
+        with self._cache_lock:
+            return [device.copy() for device in self._devices]
 
     def get_file_items(self, files: Iterable[Nautilus.FileInfo]):
         paths: list[str] = []
@@ -131,8 +136,8 @@ class NodalixLocalSendMenu(GObject.GObject, Nautilus.MenuProvider):
         )
         submenu = Nautilus.Menu()
 
-        # Query only the cached GLocalSend service with an 80 ms hard deadline on D-Bus.
-        # This makes receivers available on the very first menu opening.
+        # Discovery signals update the cache and invalidate Nautilus menus.
+        # No compositor request blocks the Nautilus menu thread.
         devices = self._current_devices()
 
         if devices:

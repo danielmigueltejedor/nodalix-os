@@ -5,8 +5,7 @@ pkgdesc="Nodalix desktop services independent of the compositor"
 arch=("any")
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-depends=("python" "python-gobject" "evolution-data-server" "xdg-user-dirs" "rclone" "fuse3" "openssl" "fish")
-optdepends=("vdirsyncer: external calendar synchronization")
+depends=("python" "python-gobject" "evolution-data-server" "xdg-user-dirs" "rclone" "fuse3" "openssl" "fish" "vdirsyncer")
 source=("nodalix-integrations-$pkgver.tar.zst")
 sha256sums=("SKIP")
 

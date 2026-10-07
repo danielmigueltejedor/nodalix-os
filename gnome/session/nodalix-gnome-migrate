@@ -9,7 +9,38 @@ def migrate(root=Path('/'), runner=subprocess.run):
     saved=state/'files';saved.mkdir(exist_ok=True,mode=0o700)
     marker=state/'completed.json'
     if marker.exists():return json.loads(marker.read_text())
+    for relative in ('etc/hypr','etc/xdg/hypr','etc/xdg/quickshell','etc/greetd'):
+        path=root/relative
+        if path.is_dir() and not path.is_symlink():
+            target=saved/relative
+            shutil.copytree(path,target,dirs_exist_ok=True)
+            shutil.rmtree(path)
     records=[]
+    # Archive shadowing user extensions and old startup files before the first
+    # GNOME boot. Waiting for its autostart would require a second login.
+    profile=root/'usr/share/nodalix/gnome-extensions.json'
+    uuids=json.loads(profile.read_text()) if profile.is_file() else []
+    passwd=root/'etc/passwd'
+    if passwd.is_file():
+        for line in passwd.read_text().splitlines():
+            fields=line.split(':')
+            if len(fields)!=7 or not fields[2].isdigit():continue
+            if not 1000<=int(fields[2])<65534 or not fields[5].startswith('/'):continue
+            home=root/fields[5].lstrip('/')
+            if not home.is_dir() or home.is_symlink():continue
+            paths=[home/'.config/hypr',home/'.config/quickshell']
+            for name in ('nodalix-shell.service','nodalix-wallpaper.service','nodalix-app-accent.path','nodalix-app-accent.service','nodalix-localsend.service'):
+                paths.extend([home/'.config/systemd/user'/name,
+                    home/'.config/systemd/user/default.target.wants'/name])
+            paths.extend(home/'.local/share/gnome-shell/extensions'/uuid for uuid in uuids)
+            for path in paths:
+                if not path.exists() and not path.is_symlink():continue
+                target=saved/path.relative_to(root)
+                target.parent.mkdir(parents=True,exist_ok=True)
+                if not target.exists() and not target.is_symlink():
+                    shutil.move(str(path),str(target))
+                    records.append(str(path.relative_to(root)))
+
     for relative in ('etc/gdm/custom.conf','etc/greetd/config.toml','etc/systemd/system/display-manager.service'):
         path=root/relative
         if path.exists() or path.is_symlink():
@@ -44,9 +75,9 @@ def migrate(root=Path('/'), runner=subprocess.run):
         records.append(str(path.relative_to(root)))
     command=['systemctl'] if root==Path('/') else ['systemctl','--root',str(root)]
     runner([*command,'disable','greetd.service'],check=False)
-    runner([*command,'enable','gdm.service','cups.socket'],check=True)
+    runner([*command,'enable','gdm.service','cups.socket','NetworkManager.service','bluetooth.service'],check=True)
     # Enable takes effect only after the mandatory reboot. Never use --now.
-    runner([*command,'--global','disable','nodalix-shell.service','nodalix-app-accent.path'],check=False)
+    runner([*command,'--global','disable','nodalix-shell.service','nodalix-wallpaper.service','nodalix-app-accent.path','nodalix-localsend.service'],check=False)
     payload={'version':'0.3.0','backups':records,'reboot_required':True}
     marker.write_text(json.dumps(payload,indent=2)+'\n');return payload
 
