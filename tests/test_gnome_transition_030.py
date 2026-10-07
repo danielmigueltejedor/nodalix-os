@@ -140,7 +140,7 @@ class UserMigrationTests(unittest.TestCase):
             root=Path(temp);commands=root/'bin';commands.mkdir()
             home=root/'home';units=home/'.config/systemd/user';units.mkdir(parents=True)
             unit=units/'nodalix-shell.service';unit.write_text('[Service]\nExecStart=personal-shell\n')
-            for name in ('gsettings','nodalix-app-icons'):
+            for name in ('gsettings','nodalix-app-icons','nodalix-shell-symbols'):
                 p=commands/name;p.write_text('#!/bin/sh\nexit 0\n');p.chmod(0o755)
             p=commands/'systemctl';p.write_text('''#!/usr/bin/python3
 import os,sys
@@ -174,3 +174,18 @@ class CandidateSafetyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp,mock.patch.object(UPDATER,'REBOOT_REQUIRED_PATH',Path(temp)/'absent'),mock.patch.object(UPDATER.os,'geteuid',return_value=0),mock.patch.object(UPDATER,'current_version',return_value='0.3.0'),mock.patch.object(UPDATER,'update_lock',return_value=contextlib.nullcontext()),mock.patch.object(UPDATER,'set_status'),mock.patch.object(UPDATER,'release_info',return_value={'status':'up_to_date','_manifest':manifest(version='0.2.4')}),mock.patch.object(UPDATER,'prepare_gnome_dependencies') as dependencies,mock.patch.object(UPDATER,'run_pacman_transaction') as install:
             with self.assertRaises(UPDATER.ManifestError):UPDATER.do_update({},force=True)
         dependencies.assert_not_called();install.assert_not_called()
+
+class IconPreferenceTests(unittest.TestCase):
+    def test_symbol_migration_keeps_existing_application_theme(self):
+        import os,configparser
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);commands=root/'bin';commands.mkdir()
+            p=commands/'gsettings';p.write_text("#!/bin/sh\nif [ \"$1\" = get ]; then printf \"'MyApps'\\n\"; fi\n");p.chmod(0o755)
+            for name in ('gtk4-update-icon-cache','gtk-update-icon-cache'):
+                p=commands/name;p.write_text('#!/bin/sh\nexit 0\n');p.chmod(0o755)
+            env={**os.environ,'PATH':str(commands)+':'+os.environ['PATH'],'XDG_DATA_HOME':str(root/'data')}
+            subprocess.run(['/usr/bin/python3',str(ROOT/'gnome/session/nodalix-shell-symbols')],env=env,check=True,capture_output=True)
+            theme=root/'data/icons/Nodalix-Adwaita-Symbols';values=configparser.ConfigParser();values.read(theme/'index.theme')
+            self.assertEqual(values['Icon Theme']['Inherits'],'MyApps,hicolor')
+            for panel in ('accessibility','keyboard','display','bluetooth'):
+                self.assertTrue((theme/f'symbolic/settings/org.gnome.Settings-{panel}-symbolic.svg').is_file())

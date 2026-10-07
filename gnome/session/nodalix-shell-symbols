@@ -11,9 +11,10 @@ CONTEXTS = ['actions', 'devices', 'status', 'categories']
 current = subprocess.check_output(['gsettings', 'get', 'org.gnome.desktop.interface', 'icon-theme'], text=True).strip().strip("'")
 theme = Path(os.environ.get('XDG_DATA_HOME', str(Path.home()/'.local/share'))) / 'icons' / NAME
 index = theme/'index.theme'
-if current == NAME and index.exists():
+base_index = index if index.exists() else Path('/usr/share/icons')/NAME/'index.theme'
+if current == NAME and base_index.exists():
     previous = configparser.ConfigParser(interpolation=None)
-    previous.read(index)
+    previous.read(base_index)
     current = previous.get('Icon Theme', 'Inherits', fallback='Adwaita').split(',')[0]
 if current == NAME:
     current = 'Adwaita'

@@ -21,7 +21,7 @@ systemctl --user mask --now --force nodalix-shell.service nodalix-wallpaper.serv
 systemctl --user daemon-reload
 printf 'GNOME migration complete. Configuration backup: %s\n' "$backup"
 
-gsettings set org.gnome.desktop.interface icon-theme Nodalix-Adwaita-Symbols
+nodalix-shell-symbols
 nodalix-app-icons || true
 # Enable only the installed Nodalix extension; keep user selections and identities.
 python3 - <<'EXTENSIONS'
