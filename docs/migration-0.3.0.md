@@ -36,9 +36,9 @@ respaldos de GDM, greetd y AccountsService. No se reinicia GDM durante la operac
 Las cuentas que usaban Hyprland pasan a Nodalix/Wayland; se conservan otras sesiones
 seleccionadas expresamente. La actualización retira Hyprland, Quickshell, greetd, su portal, Hymission y el
 motor antiguo. La configuración histórica se guarda fuera de las rutas activas,
-incluidas las copias personales de extensiones que ocultarían las nuevas versiones.
+incluidas las copias personales incompatibles con GNOME 51 que ocultarían las nuevas versiones.
 LocalSend conserva su identidad y favoritos; Ajustes, Nautilus y los controles
-rápidos usan el mismo servicio. Se incluyen las siete extensiones del perfil GNOME
+rápidos usan el mismo servicio. Se incluyen las ocho extensiones del perfil GNOME
 actual y sus esquemas, sin depender de descargas durante el primer inicio.
 
 Al finalizar es obligatorio reiniciar. El servicio y Ajustes conservan el estado,
@@ -55,7 +55,33 @@ sus dependencias reales y scripts heredados, incluido Hyprland y Quickshell. La 
 las dependencias reales y los scripts de instalación, comprueba propiedad de
 archivos, GDM, CUPS, identidad, conservación de datos y bloqueo por reinicio.
 La CI también arranca ese sistema migrado en QEMU, inicia GNOME mediante GDM,
-comprueba las siete extensiones, la migración de fondo/reloj/aplicaciones fijadas,
+comprueba las ocho extensiones, la migración de fondo/reloj/aplicaciones fijadas,
 el servicio LocalSend y el reproductor animado. Se construye además la ISO
 instalable y se publica únicamente después de la validación de la release. El ensayo virtual no comprueba
 impresoras o móviles físicos.
+
+
+## Recuperación y preferencias
+
+El trabajador post-login escribe `~/.local/state/nodalix/migrations/user-migration.log`.
+Para reintentar un fallo, ejecutar `/usr/lib/nodalix/nodalix-gnome-user-migrate`
+desde GNOME; no borrar el respaldo. El marcador v2 solo se escribe si todos los
+pasos necesarios terminan. Las preferencias de extensiones se aplican únicamente
+si no hay valor explícito, y no se reemplazan handlers ni listas personales completas.
+
+Los respaldos de sistema y de usuario tienen una ruta fija por versión. Una
+migración repetida reutiliza esos respaldos. Se conservan hasta que el propietario
+los retire deliberadamente tras comprobar sus datos. Restaurar solo archivos
+revisados desde una TTY; no copiar árboles históricos sobre una sesión GNOME activa.
+Un rollback completo del escritorio requiere una instantánea del sistema o volver
+a instalar los paquetes anteriores, no solo restaurar dotfiles.
+
+Los componentes centrales GNOME prefieren paquetes nativos. Antes de retirar una
+copia Flatpak de Text Editor, comprobar `flatpak info org.gnome.TextEditor` y que
+el nativo abre los archivos; desinstalar solo esa app, conservando sus datos y
+restaurando asociaciones si hacía falta. El migrador no borra perfiles Flatpak
+personales silenciosamente.
+
+La CI incluye un root Arch limpio y otro con paquetes oficiales 0.2.4, y arranca
+cada candidato mediante GDM en QEMU. Los locales se verifican con la implementación
+real de glibc-locales, sin ocultar fallos de localedef en contenedores mínimos.

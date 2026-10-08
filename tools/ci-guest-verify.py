@@ -12,12 +12,12 @@ def run(*args,**kwargs):
     return result.stdout
 
 def user_script(source):
-    return run('runuser','-u','migration-test','--','env','DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus','XDG_RUNTIME_DIR=/run/user/1000','/usr/bin/python3','-c',source)
+    return run('runuser','-u','migration-test','--','env','DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus','XDG_RUNTIME_DIR=/run/user/1000','NODALIX_CI_FRESH='+os.environ.get('NODALIX_CI_FRESH','0'),'/usr/bin/python3','-c',source)
 
 try:
     deadline=time.monotonic()+360
     while time.monotonic()<deadline:
-        if Path('/home/migration-test/.local/state/nodalix/migrations/gnome-0.3.0.done').exists() and Path('/run/user/1000/bus').exists():break
+        if Path('/home/migration-test/.local/state/nodalix/migrations/gnome-0.3.0-v2.done').exists() and Path('/run/user/1000/bus').exists():break
         time.sleep(2)
     else:raise AssertionError('GNOME first-login migration did not finish')
     assert 'active'==run('systemctl','is-active','gdm').strip()
@@ -28,6 +28,7 @@ try:
     assert not Path('/home/migration-test/.config/hypr').exists()
     assert 'VERSION_ID="0.3.0"' in Path('/etc/nodalix-release').read_text()
     assert not json.loads(run('nodalix-updater','status','--json'))['reboot_mandatory']
+    fresh=os.environ.get('NODALIX_CI_FRESH')=='1'
     print(user_script('''
 import json,time
 from pathlib import Path
@@ -46,7 +47,9 @@ while time.monotonic()<deadline:
         pass
     time.sleep(1)
 else:raise AssertionError(states)
-assert Gio.Settings.new('org.gnome.shell').get_strv('favorite-apps')==['org.gnome.Nautilus.desktop']
+import os
+if os.environ.get('NODALIX_CI_FRESH')!='1':
+    assert Gio.Settings.new('org.gnome.shell').get_strv('favorite-apps')==['org.gnome.Nautilus.desktop']
 assert Gio.Settings.new('org.gnome.desktop.interface').get_string('clock-format')=='24h'
 assert Gio.Settings.new('io.github.jeffshee.hanabi-extension').get_string('video-path').endswith('nodalix-aurora-forest-4k.mp4')
 print('All seven GNOME extensions active; wallpaper, clock and pinned apps migrated')

@@ -183,17 +183,20 @@ Personal accounts, pairing information, credentials and machine-specific user se
 GNOME Shell manages windows, notifications, workspaces and Quick Settings. The
 `nodalix-gnome` package supplies the session and native integrations;
 `nodalix-integrations` owns compositor-independent iCloud, calendar and layout services.
-Hyprland and QuickShell remain optional legacy components, guarded by the active session.
+Nodalix 0.3.0 has no active Hyprland, QuickShell or greetd architecture.
+Only the versioned upgrade routines retain knowledge of the former desktop.
+GNOME Shell 51 and Mutter 51 are an explicitly bounded ABI; rounded blur is built
+from the validated pinned source, rather than the incompatible AUR recipe.
 
-Read [the migration guide](./docs/gnome-first.md) before upgrading an existing system.
+Read [the migration guide](./docs/migration-0.3.0.md) and [GNOME architecture](./docs/gnome-first.md) before upgrading an existing system.
 User settings, LocalSend favorites, certificates and phone pairing data remain in XDG directories.
 
 ## Repository layout
 
 | Path | Contents |
 |---|---|
-| `gnome/` | GNOME session, extensions and Nautilus integrations |
-| `shell/` | Optional legacy QuickShell desktop and shared service sources |
+| `gnome/` | GNOME session, extensions, versioned user migrations and native settings |
+| `integrations/` | Compositor-independent iCloud, calendar, layout and icon services |
 | `nodalix-apps/` | Application management and integration |
 | `phone-link/` | iPhone integration and Bluetooth services |
 | `updater/` | Release detection, validation and installation |

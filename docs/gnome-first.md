@@ -58,8 +58,8 @@ español, favoritos por fingerprint, orden de favoritos, ajustes de inicio y
 compatibilidad de orientación con GNOME 51. No contiene certificados, claves ni
 configuración personal. Se instala desde el paquete GNOME junto a Nodalix Connect,
 Dash to Dock 109, Blur my Shell 74, Tiling Assistant 55 y Rounded Window Corners Native
-51.0. Hanabi se incluye en el paquete de fondos. Las copias de usuario se archivan
-antes del primer arranque para evitar que oculten las versiones del sistema.
+51.0. Hanabi se incluye en el paquete de fondos. Solo las copias de usuario del perfil que no declaran GNOME 51 se archivan
+al primer login; se conservan las copias compatibles y las extensiones adicionales.
 Se conservan los ajustes existentes; las cuentas nuevas reciben el aspecto del
 perfil actual, sin fijar nombres de monitores de este equipo.
 
@@ -100,7 +100,7 @@ no restaurar toda la base dconf, porque podría sobrescribir cambios posteriores
 Para volver a una sesión Hyprland explícita habría que reinstalar sus paquetes
 y restaurar sus configuraciones y unidades respaldadas.
 No activar Quickshell mientras se permanezca en GNOME.
-La configuración histórica de greetd/Hyprland se conserva en `iso/legacy-overlay`;
+La configuración histórica del instalador se obtiene del tag `0.2.4` solo en las pruebas;
 no entra en la nueva ISO ni en una instalación oficial GNOME.
 
 ## Ajustes nativos y fondos animados
@@ -190,3 +190,117 @@ Se probó el modo GDM real en un compositor aislado y se comprobó visualmente
 que el fondo aparece detrás de los controles y del logo compacto. La sesión
 normal no habilita esta extensión y el servicio GDM no se reinicia: la
 configuración se ve al volver a la pantalla de acceso normalmente.
+
+
+## Sesión y migraciones
+
+El wrapper de sesión solo prepara el entorno y ejecuta GNOME. No ejecuta el
+migrador de usuario. El autostart de fase Applications ejecuta el trabajador
+Python después del inicio gráfico; un fallo no puede devolver el usuario a GDM.
+Un bloqueo exclusivo evita ejecuciones simultáneas, el límite es 120 segundos y
+el siguiente login reintenta los pasos incompletos. El marcador es
+`$XDG_STATE_HOME/nodalix/migrations/gnome-0.3.0-v2.done` (por defecto `~/.local/state`).
+El registro se rota al superar 1 MiB y conserva una copia anterior. Cada versión
+tiene un único directorio de respaldo; no crea copias fechadas en cada login.
+
+El migrador de sistema conserva sus comprobaciones de propiedad y hashes de los
+archivos sin propietario del instalador 0.2.4. Nunca usa una sobrescritura general
+ni elimina aplicaciones por contener `hypr` en su nombre: Hylki queda intacto.
+Las preferencias GNOME explícitas prevalecen sobre defaults. Los atajos nuevos se
+fusionan con los personales, el teclado deriva de XKB/keymap/locale y los handlers
+XDG elegidos por el usuario se mantienen. Solo el launcher ChatGPT con el Exec
+antiguo exacto se archiva; los launchers personales distintos se conservan.
+
+## Mutter, blur y extensiones
+
+`gnome-rounded-blur` procede de `kancko/gnome-rounded-blur`, commit
+`c0d67c886ac0b54fedaddf75817e85264d16322e`, con `libmutter-51`,
+`mutter-clutter-51` y `mutter-cogl-51`. Los paquetes requieren Mutter 51 y
+GNOME Shell 51 y excluyen 52. Una actualización de versión mayor exige revisar
+el código, cambiar los límites ABI y volver a ejecutar compilación y pruebas de
+Shell/GDM. Un conflicto ABI falla explícitamente, en lugar de cargar una librería
+compilada para otra versión. Blur My Shell detecta el soporte real en runtime;
+Nodalix no fuerza `rounded-blur-found=true`.
+
+Los schemas privados se cargan desde el directorio de cada extensión con
+`Gio.SettingsSchemaSource`. El Dock inferior usa autohide e intellihide,
+44 px, varios monitores y ocultación en fullscreen. No fuerza preferencias
+explícitas durante una actualización.
+
+`nodalix-secondary-bars@getnodalia.com` crea únicamente actores de barra con
+Actividades y reloj. La barra principal conserva Quick Settings, calendario,
+GLocalSend y Enlace móvil. No construye otro `Panel.Panel`, ni mueve indicadores.
+Los cambios de monitor, escala y altura reconstruyen las barras; chrome reserva
+workarea y respeta fullscreen. El blur propio usa Shell.BlurEffect. Las llamadas
+privadas a layoutManager están encapsuladas y protegidas por GNOME 51. No se
+incluye Top Bar All Monitors con metadata parcheada.
+
+La prueba `tools/test-gnome51-shell.py` arranca GNOME 51 headless en un HOME y
+bus privados, con dos monitores y ciclos repetidos de enable/disable. La única
+extensión que permite Eval es temporal, creada dentro del entorno de pruebas;
+ningún paquete habilita unsafe mode. Phone Link mantiene su backend independiente
+ANCS/oFono/HFP; Nodalix Connect solo proporciona la interfaz de Quick Settings.
+
+## Fondos, login y cursores
+
+Las rutas canónicas son `backgrounds/nodalix/static` y `animated` bajo
+`/usr/share`. `Estáticos` y `Animados` son enlaces de compatibilidad, no copias.
+El catálogo GNOME contiene los siete JPG. Hanabi conserva su upstream y usa
+VA-API (`gst-plugin-va`) sin preferir clappersink; `libva-utils` es diagnóstico.
+
+Al seleccionar vídeo, el servicio obtiene un poster por hash de identidad,
+tamaño y mtime. Los vídeos empaquetados reutilizan sus imágenes verificadas;
+los personales usan ffmpeg con tiempo limitado. Se actualizan background,
+background-dark y screensaver. El cache no regenera en cada login.
+
+La publicación en GDM envía bytes JPEG a un helper mediante polkit; root no abre
+rutas del HOME. El helper limita tamaño y tiempo, recodifica el JPEG y publica
+atómicamente en `/var/lib/nodalix/login/background.jpg`. Si la autorización no
+se concede, permanece el último fondo del sistema y la sesión continúa. El
+fallback empaquetado es `/usr/share/backgrounds/nodalix/login/nodalix-login-fallback.jpg`.
+GDM carga esa ruta explícita en todos los monitores con cover, blur y brillo
+reducido. El acceso privado al grupo del greeter está limitado a la extensión
+GNOME 51 y debe revalidarse al cambiar de versión.
+
+El cursor hereda Adwaita y hicolor y valida enlaces XCursor estándar durante el
+paquetizado. El tamaño inicial es 24. No hay overrides CSS para forzar controles
+internos de libadwaita; la disposición de botones es `:minimize,maximize,close`
+y cada aplicación puede ocultar botones según la función de su ventana.
+
+## Atajos y terminal
+
+| Atajo | Acción |
+|---|---|
+| Super+Enter | Terminal XDG (`xdg-terminal-exec`, Ghostty si no hay elección previa) |
+| Super+B / Super+M | Navegador / correo según handler XDG actual |
+| Super+Q / Super+F | Cerrar / fullscreen |
+| Super+Shift+3 / Super+Shift+4 | Captura completa / interfaz de selección GNOME |
+| Super+N | Calendario y message tray |
+
+Focus follows mouse usa sloppy y no auto-raise si el usuario no eligió otra
+opción. Ghostty recibe CSD GTK, titlebar con tabs arriba y copy performable para
+Ctrl+C: sin selección sigue enviando SIGINT. Las líneas gestionadas se deduplican
+y el resto se conserva con respaldo inicial `config.pre-gnome-030`.
+
+Super+C/V/Z requiere la función opcional keyd; no se activa globalmente desde un
+paquete ni instala IDs universales. `nodalix-keyboard-remap` detecta teclados
+físicos con las teclas de escritura necesarias, excluye ratones, ejes y dispositivos
+virtuales, y muestra una configuración concreta para keyd 2.6.0. El administrador
+puede revisarla en `/etc/keyd/` y habilitar keyd. Repetir la detección tras cambiar
+teclado/receptor; otros keyd requieren validar su algoritmo de fingerprint.
+No se usa `[ids] *` y Ctrl+C convencional permanece disponible.
+
+## Legacy aislado y retirada futura
+
+| Apariciones | Motivo y conservación |
+|---|---|
+| `updater/legacy-installer-0.2.4.json`, migradores y lista de paquetes retirados | Hashes, respaldo y transición desde versiones antiguas; retirar al cerrar el soporte de upgrades 0.2.x |
+| `gnome/migration/` y pruebas de transición | Detección y archivo de configuraciones antiguas, sin ejecutar sus programas |
+| `docs/releases/`, `docs/baseline/` | Historia y evidencia de versiones publicadas; no se empaquetan |
+| Fixture `git archive 0.2.4` de CI | Instala el overlay original para comprobar una migración real |
+| `co.hyprlab.Hylki.desktop` | Aplicación actual legítima, ajena al compositor antiguo |
+
+Se retiraron `shell/`, paquetes QuickShell/Hymission/greeter/wallpaper-engine,
+el overlay legacy y herramientas y tests exclusivos de aquella UI. iCloud,
+vdirsyncer, organización e iconos viven en `integrations/`; el antiguo receptor
+LocalSend no se empaqueta ni compite con GLocalSend.

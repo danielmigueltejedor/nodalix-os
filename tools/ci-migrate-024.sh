@@ -34,7 +34,9 @@ git config --global --add safe.directory /src
 git archive 0.2.4 iso/overlay | tar -x --strip-components=2 -C /
 id migration-test >/dev/null 2>&1 || useradd -m migration-test
 mkdir -p /var/lib/AccountsService/users /home/migration-test/.config/hypr /home/migration-test/.config/localsend
-localedef -i es_ES -f UTF-8 es_ES.UTF-8
+# The minimal Arch container excludes locale sources. glibc-locales supplies
+# compiled locales; validate the real locale instead of compiling absent sources.
+python -c 'import locale; locale.setlocale(locale.LC_ALL, "es_ES.UTF-8")'
 printf '[User]\nSession=hyprland\nLanguage=es_ES.UTF-8\n' > /var/lib/AccountsService/users/migration-test
 printf 'personal Hyprland configuration\n' > /home/migration-test/.config/hypr/hyprland.conf
 printf 'personal identity fixture\n' > /home/migration-test/.config/localsend/identity.pem
