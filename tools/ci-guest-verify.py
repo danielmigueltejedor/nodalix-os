@@ -40,7 +40,8 @@ while time.monotonic()<deadline:
     try:
         states={uuid:bus.call_sync('org.gnome.Shell','/org/gnome/Shell','org.gnome.Shell.Extensions','GetExtensionInfo',GLib.Variant('(s)',(uuid,)),None,Gio.DBusCallFlags.NONE,1500,None).unpack()[0] for uuid in profile}
         if all(info.get('state')==1 for info in states.values()):break
-        if any(info.get('state') in (3,4) for info in states.values()):raise AssertionError(states)
+        # GNOME uses ERROR with an empty error while async module imports run.
+        if any(info.get('state')==4 or info.get('error') for info in states.values()):raise AssertionError(states)
     except GLib.Error:
         pass
     time.sleep(1)
@@ -64,7 +65,8 @@ print('Animated wallpaper renderer active')
     print('NODALIX_VM_MIGRATION_PASS',flush=True)
 except Exception:
     traceback.print_exc()
-    print(run('journalctl','-b','--no-pager','-n','160','--grep=nodalix|gnome-session|gnome-shell|gdm'))
+    print(run('journalctl','-b','--no-pager','-n','100','_COMM=gnome-shell'))
+    print(run('journalctl','-b','--no-pager','-n','90','--grep=nodalix|gnome-session|gdm'))
     print('NODALIX_VM_MIGRATION_FAIL',flush=True)
 finally:
     subprocess.run(['systemctl','poweroff'],check=False)

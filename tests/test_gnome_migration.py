@@ -47,6 +47,7 @@ class MigrationTests(unittest.TestCase):
                 if uuid.startswith('hanabi'):continue  # separate video package
                 self.assertIn(f'usr/share/gnome-shell/extensions/{uuid}/extension.js',package_paths[1])
                 self.assertIn(f'usr/share/gnome-shell/extensions/{uuid}/metadata.json',package_paths[1])
+                self.assertEqual((output/f'usr/share/gnome-shell/extensions/{uuid}/metadata.json').stat().st_mode & 0o777,0o644)
             self.assertFalse(any('/hypr/' in path or '/quickshell/' in path for paths in package_paths for path in paths))
 
 

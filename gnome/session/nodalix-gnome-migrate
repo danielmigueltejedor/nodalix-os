@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 """Idempotent system migration; no active display manager/session is restarted."""
 from pathlib import Path
-import configparser,json,os,shutil,subprocess,sys,time
+import configparser,hashlib,json,os,shutil,subprocess,sys,time
 
 def migrate(root=Path('/'), runner=subprocess.run):
     state=root/'var/lib/nodalix-updater/migrations/gnome-0.3.0'
@@ -9,12 +9,25 @@ def migrate(root=Path('/'), runner=subprocess.run):
     saved=state/'files';saved.mkdir(exist_ok=True,mode=0o700)
     marker=state/'completed.json'
     if marker.exists():return json.loads(marker.read_text())
-    for relative in ('etc/hypr','etc/xdg/hypr','etc/xdg/quickshell','etc/greetd'):
+    for relative in ('etc/hypr','etc/xdg/hypr','etc/xdg/quickshell','etc/greetd','etc/skel/.config/hypr','etc/skel/.config/quickshell'):
         path=root/relative
         if path.is_dir() and not path.is_symlink():
             target=saved/relative
             shutil.copytree(path,target,dirs_exist_ok=True)
             shutil.rmtree(path)
+    legacy=root/'etc/xdg/nodalix/hyprland.lua'
+    if legacy.is_file() and not legacy.is_symlink():
+        target=saved/legacy.relative_to(root);target.parent.mkdir(parents=True,exist_ok=True)
+        if not target.exists():shutil.copy2(legacy,target)
+        legacy.unlink()
+    wrapper=root/'usr/local/bin/nodalix-session'
+    metadata=root/'usr/lib/nodalix-updater/legacy-installer-0.2.4.json'
+    if wrapper.is_file() and not wrapper.is_symlink() and metadata.is_file():
+        expected=json.loads(metadata.read_text())['usr/local/bin/nodalix-session']
+        if hashlib.sha256(wrapper.read_bytes()).hexdigest()==expected:
+            target=saved/wrapper.relative_to(root);target.parent.mkdir(parents=True,exist_ok=True)
+            if not target.exists():shutil.copy2(wrapper,target)
+            wrapper.unlink();wrapper.symlink_to('/usr/lib/nodalix/nodalix-gnome-session')
     records=[]
     # Archive shadowing user extensions and old startup files before the first
     # GNOME boot. Waiting for its autostart would require a second login.

@@ -489,6 +489,9 @@ jobs:
         run: |
           python3 tools/release_notes.py build --tag "$RELEASE_TAG" --output dist/release-notes.md
 
+      - name: Include the 0.2.4 migration bridge
+        run: cp updater/nodalix-migrate-gnome dist/release/nodalix-migrate-gnome
+
       - name: Finalize manifest and checksums
         run: |
           python3 \

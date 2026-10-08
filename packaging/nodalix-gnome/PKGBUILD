@@ -47,6 +47,10 @@ package() {
         install -d "$pkgdir/usr/share/gnome-shell/extensions/$uuid"
         cp -a "$srcdir/gnome/extensions/$uuid/." "$pkgdir/usr/share/gnome-shell/extensions/$uuid/"
     done
+    # Extension metadata downloaded into a user home may be mode 0600. System
+    # extensions must be readable by every login, regardless of source modes.
+    find "$pkgdir/usr/share/gnome-shell/extensions" -type d -exec chmod 0755 {} +
+    find "$pkgdir/usr/share/gnome-shell/extensions" -type f -exec chmod 0644 {} +
     for schema in "$pkgdir"/usr/share/gnome-shell/extensions/*/schemas; do
         [ ! -d "$schema" ] || glib-compile-schemas "$schema"
     done

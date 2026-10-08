@@ -34,6 +34,7 @@ pacman_root() {
 install_packages() {
     pacman_root \
         -Udd \
+        --ask 4 \
         --noconfirm \
         --needed \
         --noscriptlet \

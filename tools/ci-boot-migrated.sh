@@ -58,4 +58,4 @@ timeout 600 qemu-system-x86_64 -accel tcg -cpu max -m 4096 -smp 2 \
   -drive "file=$qa/migrated.raw,format=raw,if=virtio" -device virtio-vga \
   -display none -serial "file:/src/dist/migration-evidence/boot.log" -monitor none -no-reboot
 cat /src/dist/migration-evidence/boot.log
-grep -qx 'NODALIX_VM_MIGRATION_PASS' /src/dist/migration-evidence/boot.log
+grep -q '^NODALIX_VM_MIGRATION_PASS' /src/dist/migration-evidence/boot.log

@@ -212,3 +212,27 @@ class RetirementTests(unittest.TestCase):
             self.assertFalse(config.exists());self.assertFalse(ext.exists())
             self.assertEqual((saved/config.relative_to(root)/'hyprland.conf').read_text(),'personal')
             self.assertEqual((saved/ext.relative_to(root)/'extension.js').read_text(),'old module')
+
+class InstallerOverlayTests(unittest.TestCase):
+    def test_only_verified_unowned_session_is_retired(self):
+        original=subprocess.check_output(['git','show','0.2.4:iso/overlay/usr/share/wayland-sessions/nodalix.desktop'],cwd=ROOT)
+        for owned,content,removed in [(None,original,True),('custom',original,False),(None,b'custom session',False)]:
+            with self.subTest(owned=owned,content=content),tempfile.TemporaryDirectory() as temp:
+                root=Path(temp);p=root/'usr/share/wayland-sessions/nodalix.desktop';p.parent.mkdir(parents=True);p.write_bytes(content)
+                state=root/'state'
+                with mock.patch.object(UPDATER,'STATE_DIR',state),mock.patch.object(UPDATER,'package_metadata',return_value={'pkgname':['nodalix-gnome']}):
+                    UPDATER.retire_installer_session(['candidate'],root=root,owner_lookup=lambda p:owned)
+                self.assertEqual(p.exists(),not removed)
+                if removed:self.assertEqual((state/'migrations/gnome-0.3.0/files/usr/share/wayland-sessions/nodalix.desktop').read_bytes(),original)
+    def test_system_retires_installer_wrapper_and_skels(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            wrapper=root/'usr/local/bin/nodalix-session';wrapper.parent.mkdir(parents=True);wrapper.write_bytes(subprocess.check_output(['git','show','0.2.4:iso/overlay/usr/local/bin/nodalix-session'],cwd=ROOT))
+            metadata=root/'usr/lib/nodalix-updater/legacy-installer-0.2.4.json';metadata.parent.mkdir(parents=True);metadata.write_bytes((ROOT/'updater/legacy-installer-0.2.4.json').read_bytes())
+            for path in ('etc/skel/.config/hypr/hyprland.lua','etc/xdg/nodalix/hyprland.lua'):
+                p=root/path;p.parent.mkdir(parents=True,exist_ok=True);p.write_text('old configuration')
+            SYSTEM.migrate(root,mock.Mock())
+            self.assertEqual(wrapper.readlink(),Path('/usr/lib/nodalix/nodalix-gnome-session'))
+            for path in ('etc/skel/.config/hypr/hyprland.lua','etc/xdg/nodalix/hyprland.lua'):
+                self.assertFalse((root/path).exists())
+                self.assertEqual((root/'var/lib/nodalix-updater/migrations/gnome-0.3.0/files'/path).read_text(),'old configuration')

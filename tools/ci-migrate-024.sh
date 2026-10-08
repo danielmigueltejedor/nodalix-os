@@ -4,7 +4,7 @@ set -euo pipefail
 [[ ${NODALIX_CI_CONTAINER:-} == 1 ]] || { echo 'Disposable CI container required'; exit 1; }
 mkdir -p dist/migration-evidence dist/baseline-024
 pacman -Syu --noconfirm
-pacman -S --needed --noconfirm python libarchive curl diffutils
+pacman -S --needed --noconfirm python libarchive curl diffutils glibc-locales git
 python - <<'PY'
 import hashlib,json,urllib.request
 from pathlib import Path
@@ -29,6 +29,9 @@ subprocess.run(['pacman','-S','--needed','--noconfirm',*deps,'xdg-desktop-portal
 DEPS
 pacman -U --noconfirm dist/baseline-024/*.pkg.tar.zst
 grep -qx 'VERSION_ID="0.2.4"' /etc/nodalix-release
+# Include the unowned files copied by the actual 0.2.4 installer.
+git config --global --add safe.directory /src
+git archive 0.2.4 iso/overlay | tar -x --strip-components=2 -C /
 id migration-test >/dev/null 2>&1 || useradd -m migration-test
 mkdir -p /var/lib/AccountsService/users /home/migration-test/.config/hypr /home/migration-test/.config/localsend
 localedef -i es_ES -f UTF-8 es_ES.UTF-8
@@ -52,6 +55,10 @@ pacman -Q nodalix-gnome nodalix-settings nodalix-control-center nodalix-integrat
 ! test -e /usr/share/wayland-sessions/hyprland.desktop
 ! test -e /etc/xdg/quickshell
 ! test -e /etc/greetd
+! test -e /etc/xdg/nodalix/hyprland.lua
+! test -e /etc/skel/.config/hypr
+[[ $(readlink /usr/local/bin/nodalix-session) == /usr/lib/nodalix/nodalix-gnome-session ]]
+cmp /var/lib/nodalix-updater/migrations/gnome-0.3.0/files/usr/share/wayland-sessions/nodalix.desktop <(git show 0.2.4:iso/overlay/usr/share/wayland-sessions/nodalix.desktop)
 pacman -Qo /usr/lib/systemd/user/nodalix-icloud-drive.service | grep nodalix-integrations
 cmp dist/migration-evidence/greetd.before /var/lib/nodalix-updater/migrations/gnome-0.3.0/files/etc/greetd/config.toml
 sha256sum /var/lib/nodalix-updater/migrations/gnome-0.3.0/files/home/migration-test/.config/hypr/hyprland.conf > dist/migration-evidence/hyprland.backup
