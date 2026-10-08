@@ -1,7 +1,0 @@
-#!/bin/sh
-# A loaded Hyprland plugin, layer shell or wallpaper daemon must never run
-# inside Mutter. XDG_CURRENT_DESKTOP is a colon-separated list.
-case ":${XDG_CURRENT_DESKTOP:-}:" in
-    *:Hyprland:*|*:hyprland:*) exit 0 ;;
-    *) exit 1 ;;
-esac

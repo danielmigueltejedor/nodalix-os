@@ -14,13 +14,6 @@ spec.loader.exec_module(sender)
 
 
 class MigrationTests(unittest.TestCase):
-    def test_legacy_guard_checks_colon_separated_session(self):
-        guard = ROOT / 'packaging/nodalix-shell/is-hyprland-session'
-        for session, expected in [('GNOME', 1), ('GNOME:GNOME', 1), ('', 1),
-                                  ('Hyprland', 0), ('Nodalix:Hyprland', 0)]:
-            with self.subTest(session=session):
-                result = subprocess.run(['sh', str(guard)], env={**os.environ, 'XDG_CURRENT_DESKTOP': session})
-                self.assertEqual(result.returncode, expected)
 
     def test_required_release_uses_gnome(self):
         data = json.loads((ROOT / 'release/components.json').read_text())

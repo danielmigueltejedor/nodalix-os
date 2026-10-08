@@ -1,6 +1,0 @@
-[terminal]
-vt = 1
-
-[default_session]
-command = "env HOME=/var/lib/nodalix-greeter XDG_CACHE_HOME=/var/lib/nodalix-greeter/cache XDG_CONFIG_HOME=/var/lib/nodalix-greeter/config XDG_DATA_HOME=/var/lib/nodalix-greeter/data MESA_SHADER_CACHE_DIR=/var/lib/nodalix-greeter/cache/mesa_shader_cache GTK_USE_PORTAL=0 GDK_DEBUG=no-portals XCURSOR_THEME=Nodalix XCURSOR_SIZE=24 dbus-run-session /usr/lib/nodalix/nodalix-greeter-session"
-user = "greeter"
