@@ -91,7 +91,7 @@ def verified_packages(
 
         if (
             Path(name).name != name
-            or not name.startswith("nodalix-")
+            or not name.startswith(("nodalix-", "gnome-rounded-blur-"))
         ):
             raise ValueError(
                 f"Invalid package path: {name}"

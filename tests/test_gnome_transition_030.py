@@ -154,8 +154,8 @@ if 'mask' in sys.argv:
     p.unlink();p.symlink_to('/dev/null')
 ''');p.chmod(0o755)
             log=root/'commands.log'
-            env={**os.environ,'PATH':str(commands)+':'+os.environ['PATH'],'HOME':str(home),'XDG_CONFIG_HOME':str(home/'.config'),'XDG_STATE_HOME':str(root/'state'),'XDG_CURRENT_DESKTOP':'GNOME','GSETTINGS_BACKEND':'memory','COMMAND_LOG':str(log)}
-            helper=ROOT/'gnome/session/nodalix-gnome-user-migrate'
+            env={**os.environ,'PATH':str(commands)+':'+os.environ['PATH'],'HOME':str(home),'XDG_CONFIG_HOME':str(home/'.config'),'XDG_STATE_HOME':str(root/'state'),'XDG_CURRENT_DESKTOP':'GNOME','GSETTINGS_BACKEND':'memory','COMMAND_LOG':str(log),'NODALIX_PREFERENCES_DIR':str(ROOT/'gnome/migration')}
+            helper=ROOT/'gnome/migration/user-030.sh'
             subprocess.run(['sh',str(helper)],env=env,check=True,capture_output=True)
             self.assertEqual(unit.readlink(),Path('/dev/null'))
             saved=list((root/'state/nodalix/migrations').glob('gnome-first-*/user/nodalix-shell.service'))
@@ -209,9 +209,9 @@ class RetirementTests(unittest.TestCase):
             ext=home/'.local/share/gnome-shell/extensions/bundled@test';ext.mkdir(parents=True);(ext/'extension.js').write_text('old module')
             SYSTEM.migrate(root,mock.Mock())
             saved=root/'var/lib/nodalix-updater/migrations/gnome-0.3.0/files'
-            self.assertFalse(config.exists());self.assertFalse(ext.exists())
+            self.assertFalse(config.exists());self.assertTrue(ext.exists())
             self.assertEqual((saved/config.relative_to(root)/'hyprland.conf').read_text(),'personal')
-            self.assertEqual((saved/ext.relative_to(root)/'extension.js').read_text(),'old module')
+            self.assertEqual((ext/'extension.js').read_text(),'old module')
 
 class InstallerOverlayTests(unittest.TestCase):
     def test_only_verified_unowned_session_is_retired(self):

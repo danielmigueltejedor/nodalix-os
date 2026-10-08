@@ -1,9 +1,10 @@
 pkgname=nodalix-wallpapers
 pkgver=0.3.0
-pkgrel=1
+pkgrel=2
 options=("!strip")
 pkgdesc="Curated original-resolution wallpapers for Nodalix"
 arch=('any')
+makedepends=("python")
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=('custom:Unsplash')
 source=(
@@ -32,6 +33,21 @@ package() {
   for image in "$srcdir"/nodalix-*.jpg; do
     install -Dm644 "$image" "$pkgdir/usr/share/backgrounds/nodalix/static/${image##*/}"
   done
+  install -d "$pkgdir/usr/share/gnome-background-properties" "$pkgdir/usr/share/backgrounds/nodalix/login"
+  ln -s static "$pkgdir/usr/share/backgrounds/nodalix/Estáticos"
+  install -m644 "$srcdir/nodalix-abstract-wave.jpg" "$pkgdir/usr/share/backgrounds/nodalix/login/nodalix-login-fallback.jpg"
+  python - "$pkgdir" <<'PYXML'
+from pathlib import Path
+import sys,xml.etree.ElementTree as ET
+root=Path(sys.argv[1]);catalog=ET.Element('wallpapers')
+for path in sorted((root/'usr/share/backgrounds/nodalix/static').glob('*.jpg')):
+    wallpaper=ET.SubElement(catalog,'wallpaper',deleted='false')
+    ET.SubElement(wallpaper,'name').text=path.stem.replace('nodalix-','Nodalix ').replace('-',' ').title()
+    ET.SubElement(wallpaper,'filename').text='/'+str(path.relative_to(root))
+    ET.SubElement(wallpaper,'options').text='zoom'
+ET.indent(catalog)
+ET.ElementTree(catalog).write(root/'usr/share/gnome-background-properties/nodalix-wallpapers.xml',encoding='UTF-8',xml_declaration=True)
+PYXML
   install -Dm644 "$srcdir/SOURCES.md" \
     "$pkgdir/usr/share/licenses/$pkgname/SOURCES.md"
 }

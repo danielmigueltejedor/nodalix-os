@@ -1,0 +1,11 @@
+#!/usr/bin/python3
+import sys
+from gi.repository import Gio
+kind = sys.argv[1] if len(sys.argv) == 2 else ''
+mime = {'browser':'x-scheme-handler/https', 'mail':'x-scheme-handler/mailto'}.get(kind)
+if not mime:
+    raise SystemExit('Usage: nodalix-open-default browser|mail')
+app = Gio.AppInfo.get_default_for_type(mime, False)
+if not app:
+    raise SystemExit('No default application for '+mime)
+app.launch_uris(['mailto:'] if kind == 'mail' else [], None)

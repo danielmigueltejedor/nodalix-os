@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
 Name=Preparar Nodalix GNOME
-Exec=nodalix-gnome-migrate
+Exec=/usr/lib/nodalix/nodalix-gnome-user-migrate
 OnlyShowIn=GNOME;
 NoDisplay=true

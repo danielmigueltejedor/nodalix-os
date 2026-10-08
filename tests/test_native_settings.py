@@ -159,7 +159,7 @@ class WallpaperActivationTests(unittest.TestCase):
             thumbnail=Path(folder)/'thumbnail.jpg';thumbnail.write_bytes(b'small')
             still=Path(folder)/'still.jpg';still.write_bytes(b'large')
             video=MagicMock();background=MagicMock();service=settings.SettingsService()
-            with patch.object(settings,'catalog',return_value=[{'path':'/known.mp4','preview':str(thumbnail),'still':str(still)}]),patch.object(settings,'wallpaper_preferences',return_value=video),patch.object(settings,'request_wallpaper'),patch.object(settings,'extension_info',return_value={}),patch.object(settings.Gio.Settings,'new',return_value=background):
+            with patch.object(settings,'poster_for',return_value=still),patch.object(settings,'sync_login'),patch.object(settings.threading.Thread,'start'),patch.object(settings,'catalog',return_value=[{'path':'/known.mp4','preview':str(thumbnail),'still':str(still)}]),patch.object(settings,'wallpaper_preferences',return_value=video),patch.object(settings,'request_wallpaper'),patch.object(settings,'extension_info',return_value={}),patch.object(settings.Gio.Settings,'new',return_value=background):
                 service.wallpaper('/known.mp4')
                 background.set_string.assert_any_call('picture-uri',still.as_uri())
                 background.set_string.assert_any_call('picture-uri-dark',still.as_uri())
@@ -173,7 +173,7 @@ class WallpaperActivationTests(unittest.TestCase):
             poster=Path(folder)/'poster.jpg';poster.write_bytes(b'poster')
             items=[{'path':'/known.mp4','preview':str(poster)}]
             video=MagicMock();background=MagicMock();service=settings.SettingsService()
-            with patch.object(settings,'catalog',return_value=items),patch.object(settings,'wallpaper_preferences',return_value=video),patch.object(settings,'request_wallpaper') as requested,patch.object(settings,'extension_info',return_value={}),patch.object(settings.Gio.Settings,'new',return_value=background),patch.object(service,'extension') as enable:
+            with patch.object(settings,'poster_for',return_value=poster),patch.object(settings,'sync_login'),patch.object(settings.threading.Thread,'start'),patch.object(settings,'catalog',return_value=items),patch.object(settings,'wallpaper_preferences',return_value=video),patch.object(settings,'request_wallpaper') as requested,patch.object(settings,'extension_info',return_value={}),patch.object(settings.Gio.Settings,'new',return_value=background),patch.object(service,'extension') as enable:
                 service.wallpaper('/known.mp4')
                 requested.assert_called_once_with(True);enable.assert_not_called()
                 video.set_string.assert_called_once_with('video-path','/known.mp4')

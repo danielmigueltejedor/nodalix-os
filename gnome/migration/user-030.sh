@@ -1,0 +1,164 @@
+#!/bin/sh
+set -eu
+
+case ":${XDG_CURRENT_DESKTOP:-}:" in
+    *:GNOME:*|*:gnome:*) ;;
+    *) echo 'Run user migration from a GNOME session' >&2; exit 1 ;;
+esac
+marker="${XDG_STATE_HOME:-$HOME/.local/state}/nodalix/migrations/gnome-0.3.0-v2.done"
+[ ! -f "$marker" ] || exit 0
+backup="${XDG_STATE_HOME:-$HOME/.local/state}/nodalix/migrations/gnome-first-0.3.0-v2"
+mkdir -m 0700 -p "$backup"
+if [ -d "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user" ]; then
+    [ -d "$backup/user" ] || cp -a "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user" "$backup/"
+fi
+[ -f "$backup/unit-states" ] || touch "$backup/unit-states"
+for unit in nodalix-shell.service nodalix-wallpaper.service nodalix-app-accent.path; do
+    if ! grep -q "^$unit " "$backup/unit-states"; then
+        printf '%s ' "$unit" >> "$backup/unit-states"
+        systemctl --user is-enabled "$unit" >> "$backup/unit-states" 2>/dev/null || true
+    fi
+done
+systemctl --user disable --now nodalix-shell.service nodalix-app-accent.path 2>/dev/null || true
+systemctl --user stop nodalix-shell.service nodalix-wallpaper.service 2>/dev/null || true
+systemctl --user mask --force nodalix-shell.service nodalix-wallpaper.service nodalix-localsend.service nodalix-app-accent.path hypridle.service hyprpaper.service hyprlock.service
+systemctl --user daemon-reload
+printf 'GNOME migration complete. Configuration backup: %s\n' "$backup"
+
+# Retire user startup configurations after the reboot, retaining a private backup.
+config="${XDG_CONFIG_HOME:-$HOME/.config}"
+for directory in hypr quickshell uwsm; do
+    if [ -e "$config/$directory" ] || [ -L "$config/$directory" ]; then
+        mkdir -p "$backup/config"
+        mv "$config/$directory" "$backup/config/$directory"
+    fi
+done
+systemctl --user disable --now nodalix-localsend.service 2>/dev/null || true
+
+nodalix-shell-symbols || true
+nodalix-app-icons || true
+# Enable the complete installed GNOME profile; keep valid user extensions and identities.
+NODALIX_MIGRATION_BACKUP="$backup" python3 - <<'EXTENSIONS'
+from gi.repository import Gio,GLib
+from pathlib import Path
+settings=Gio.Settings.new('org.gnome.shell')
+import json,os,shutil,sys
+
+def read_state(path):
+    try:
+        value=json.loads(path.read_text())
+        return value if isinstance(value,dict) else {}
+    except (OSError,json.JSONDecodeError):
+        print('Could not read old preferences: '+path.name,file=sys.stderr)
+        return {}
+profile=Path('/usr/share/nodalix/gnome-extensions.json')
+uuids=json.loads(profile.read_text()) if profile.is_file() else ['nodalix-connect@getnodalia.com']
+enabled=list(settings.get_strv('enabled-extensions'))
+disabled=list(settings.get_strv('disabled-extensions'))
+local=Path(os.environ.get('XDG_DATA_HOME',str(Path.home()/'.local/share')))/'gnome-shell/extensions'
+enabled=[uuid for uuid in enabled if any((base/uuid/'metadata.json').is_file()
+    for base in (local,Path('/usr/share/gnome-shell/extensions')))]
+backup=Path(os.environ['NODALIX_MIGRATION_BACKUP'])/'extensions'
+for uuid in uuids:
+    if not Path('/usr/share/gnome-shell/extensions',uuid).is_dir():continue
+    # A user copy would shadow the new system extension; preserve then retire it.
+    source=local/uuid
+    if source.is_dir() and not source.is_symlink() and "51" not in json.loads((source/"metadata.json").read_text()).get("shell-version",[]):
+        backup.mkdir(parents=True,exist_ok=True)
+        shutil.move(str(source),str(backup/uuid))
+    if uuid not in enabled and uuid not in disabled:enabled.append(uuid)
+# Apply the captured desktop appearance only where the user has no preference.
+profile=Path('/usr/share/nodalix/gnome-extension-defaults.json')
+for row in json.loads(profile.read_text()) if profile.is_file() else []:
+    directory=Path('/usr/share/gnome-shell/extensions',row['uuid'],'schemas')
+    source=Gio.SettingsSchemaSource.new_from_directory(str(directory),Gio.SettingsSchemaSource.get_default(),False)
+    schema=source.lookup(row['schema'],False)
+    if not schema:raise RuntimeError('Missing extension schema: '+row['schema'])
+    prefs=Gio.Settings.new_full(schema,None,None)
+    for key,value in row['values'].items():
+        if prefs.get_user_value(key) is None:prefs.set_value(key,GLib.Variant.parse(None,value,None,None))
+# The old standalone receiver's TLS identity and favorites belong to the user.
+# Copy them without reading or printing keys; the GNOME receiver uses that identity.
+uuid='glocalsend@donnybeelo.github.com'
+directory=Path('/usr/share/gnome-shell/extensions',uuid,'schemas')
+if directory.is_dir():
+    source=Gio.SettingsSchemaSource.new_from_directory(str(directory),Gio.SettingsSchemaSource.get_default(),False)
+    prefs=Gio.Settings.new_full(source.lookup('org.gnome.shell.extensions.glocalsend',False),None,None)
+    state=Path(os.environ.get('XDG_STATE_HOME',str(Path.home()/'.local/state')))/'nodalix-localsend'
+    identity=Path(os.environ.get('XDG_DATA_HOME',str(Path.home()/'.local/share')))/'glocalsend'
+    identity.mkdir(parents=True,exist_ok=True,mode=0o700)
+    if not (identity/'cert.pem').exists() and not (identity/'key.pem').exists():
+        if (state/'identity.crt').is_file() and (state/'identity.key').is_file():
+            shutil.copy2(state/'identity.crt',identity/'cert.pem')
+            shutil.copy2(state/'identity.key',identity/'key.pem')
+            (identity/'key.pem').chmod(0o600)
+        else:
+            import subprocess
+            subprocess.run(['openssl','req','-x509','-newkey','rsa:2048','-nodes','-days','3650',
+                '-subj','/CN=LocalSend User','-keyout',str(identity/'key.pem'),'-out',str(identity/'cert.pem')],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+            (identity/'key.pem').chmod(0o600)
+    old=state/'settings.json'
+    if old.is_file():
+        data=read_state(old)
+        if prefs.get_user_value('alias') is None and data.get('alias'):prefs.set_string('alias',str(data['alias']))
+        if prefs.get_user_value('favorite-fingerprints') is None:
+            prefs.set_strv('favorite-fingerprints',list(data.get('favorites',{})))
+# Translate the old shell's portable preferences; retain its original state.
+state=Path(os.environ.get('XDG_STATE_HOME',str(Path.home()/'.local/state')))/'nodalix'
+old=state/'settings.json'
+if old.is_file():
+    data=read_state(old)
+    wallpaper=data.get('wallpaper',{})
+    path=Path(str(wallpaper.get('path') or ''))
+    if wallpaper.get('path'):
+        if not path.is_file():path=Path('/usr/share/backgrounds/nodalix/animated')/path.name
+        background=Gio.Settings.new('org.gnome.desktop.background')
+        if path.is_file() and background.get_user_value('picture-uri') is None:
+            still=path
+            if wallpaper.get('type')=='video':
+                video=Gio.Settings.new('io.github.jeffshee.hanabi-extension')
+                if video.get_user_value('video-path') is None:
+                    video.set_string('video-path',str(path));video.set_boolean('mute',True)
+                    video.set_int('pause-on-maximize-or-fullscreen',2 if wallpaper.get('pauseAnimatedFullscreen',True) else 0)
+                still=Path('/usr/share/nodalix/wallpaper-stills')/(path.stem+'.jpg')
+            if still.is_file():
+                background.set_string('picture-uri',still.as_uri())
+                background.set_string('picture-uri-dark',still.as_uri())
+                Gio.Settings.new('org.gnome.desktop.screensaver').set_string('picture-uri',still.as_uri())
+    clock=data.get('bar',{}).get('clock',{})
+    interface=Gio.Settings.new('org.gnome.desktop.interface')
+    if 'use24h' in clock and interface.get_user_value('clock-format') is None:
+        interface.set_string('clock-format','24h' if clock['use24h'] else '12h')
+pins=state/'pinned.json'
+if pins.is_file() and settings.get_user_value('favorite-apps') is None:
+    candidates=read_state(pins).get('pinned',[])
+    favorites=[]
+    for value in candidates:
+        if not isinstance(value,str):continue
+        desktop=value if value.endswith('.desktop') else value+'.desktop'
+        try:
+            if Gio.DesktopAppInfo.new(desktop):favorites.append(desktop)
+        except TypeError:pass
+    if favorites:settings.set_strv('favorite-apps',favorites)
+nautilus=Path(os.environ.get('XDG_DATA_HOME',str(Path.home()/'.local/share')))/'nautilus-python/extensions'
+for link in nautilus.glob('*.py'):
+    if link.is_symlink() and not link.exists() and '/gnome-shell/extensions/' in str(link.readlink()):
+        target=backup/'nautilus';target.mkdir(parents=True,exist_ok=True)
+        shutil.move(str(link),str(target/link.name))
+import sys
+sys.path.insert(0,os.environ.get('NODALIX_PREFERENCES_DIR','/usr/lib/nodalix'))
+from user_preferences import apply_preferences
+apply_preferences()
+hanabi_schema=Gio.SettingsSchemaSource.get_default().lookup('io.github.jeffshee.hanabi-extension',True)
+if hanabi_schema:
+    video=Gio.Settings.new_full(hanabi_schema,None,None)
+    for key,value in [('enable-va',True),('prefer-clappersink',False)]:
+        if video.get_user_value(key) is None:video.set_boolean(key,value)
+    default=Path('/usr/share/backgrounds/nodalix/animated/nodalix-aurora-forest-4k.mp4')
+    if video.get_user_value('video-path') is None and default.is_file():video.set_string('video-path',str(default))
+settings.set_strv('enabled-extensions',enabled)
+settings.set_strv('disabled-extensions',disabled)
+Gio.Settings.sync()
+EXTENSIONS
+mkdir -p "$(dirname "$marker")"
+printf '%s\n' '0.3.0' > "$marker"

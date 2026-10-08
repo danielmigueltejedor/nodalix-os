@@ -55,7 +55,7 @@ def prepare(assets: Path, work: Path) -> tuple[Path, str]:
             continue
         name = entry["asset"]
 
-        if Path(name).name != name or not name.startswith("nodalix-"):
+        if Path(name).name != name or not name.startswith(("nodalix-", "gnome-rounded-blur-")):
             raise ValueError(f"Unsafe package filename: {name}")
 
         package = assets / name
@@ -208,6 +208,12 @@ def prepare(assets: Path, work: Path) -> tuple[Path, str]:
         "nodalix-control-center",
         "nodalix-video-wallpapers",
         "nodalix-integrations",
+        "nodalix-wallpapers",
+        "nodalix-cursor-theme",
+        "nodalix-colloid-icons",
+        "nodalix-phone-link",
+        "nodalix-ofono",
+        "gnome-rounded-blur",
     ]
 
     (profile / "packages.x86_64").write_text(
@@ -303,21 +309,6 @@ printf 'user-db:user\\n system-db:local\\n' | sed 's/^ //' > /etc/dconf/profile/
 printf '[org/gnome/desktop/session]\\nidle-delay=uint32 0\\n[org/gnome/desktop/screensaver]\\nlock-enabled=false\\n' > /etc/dconf/db/local.d/00-live
 dconf update
 chown -R nodalix:nodalix /home/nodalix
-
-# Keep the live medium lean without removing anything from the installed
-# system. These heavy integrations are not needed by the installer session;
-# the wallpaper-engine package itself remains embedded in the installer
-# payload for deployment to the target system.
-for pkg in nodalix-wallpaper-engine rclone; do
-    if pacman -Q "$pkg" >/dev/null 2>&1; then
-        pacman -Qlq "$pkg" \
-            | while IFS= read -r path; do
-                if [[ -f "$path" || -L "$path" ]]; then
-                    rm -f -- "$path"
-                fi
-              done
-    fi
-done
 
 # Documentation and package caches are unnecessary on the ephemeral live
 # session and only increase the release asset size.

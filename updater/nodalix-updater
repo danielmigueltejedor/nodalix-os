@@ -962,6 +962,8 @@ LEGACY_DESKTOP_PACKAGES = {
     "nodalix-shell", "nodalix-greeter-theme", "nodalix-hymission", "nodalix-wallpaper-engine",
     "hyprland", "hyprland-git", "quickshell", "quickshell-git", "greetd", "greetd-regreet",
     "xdg-desktop-portal-hyprland", "hymission", "skwd-deck", "skwd-paper", "aquamarine",
+    "hypridle", "hyprlock", "hyprpaper", "hyprland-guiutils", "hyprutils", "uwsm",
+    "greetd-agreety", "mpvpaper",
 }
 
 
@@ -969,7 +971,7 @@ def retire_legacy_desktop() -> None:
     """Remove the requested former desktop with dependency checking intact."""
     query = subprocess.run(["pacman", "-Qq"], capture_output=True, text=True, check=True)
     packages = sorted(name for name in query.stdout.splitlines()
-                      if name in LEGACY_DESKTOP_PACKAGES or name.startswith("hypr"))
+                      if name in LEGACY_DESKTOP_PACKAGES)
     if not packages:
         return
     result = subprocess.run(["pacman", "-Rns", "--noconfirm", *packages],

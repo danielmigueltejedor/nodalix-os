@@ -11,6 +11,7 @@ die() { printf '\033[1;31mError:\033[0m %s\n' "$*" >&2; exit 1; }
 [[ "$channel" == "stable" || "$channel" == "beta" ]] || die "NODALIX_CHANNEL debe ser stable o beta."
 command -v curl >/dev/null || die "Falta curl."
 command -v python3 >/dev/null || die "Falta Python."
+command -v bsdtar >/dev/null || die "Falta bsdtar (libarchive)."
 command -v pacman >/dev/null || die "Falta pacman."
 
 if [[ $EUID -eq 0 ]]; then
@@ -86,12 +87,17 @@ while IFS=$'\t' read -r asset digest; do
 done < "$work/assets.tsv"
 
 say "Instalando dependencias oficiales…"
-"${as_root[@]}" pacman -S --needed --noconfirm \
-    gnome-shell gnome-session gdm nautilus nautilus-python cups cups-pk-helper \
-    xdg-desktop-portal xdg-desktop-portal-gnome xdg-desktop-portal-gtk \
-    python python-dbus python-gobject python-typer \
-    bluez bluez-utils bluez-obex gtk4 libadwaita zenity polkit minisign gcc gawk \
-    librsvg imagemagick
+# Resolve the checked local packages, including their split-package providers.
+# Do a full Arch upgrade; never leave GNOME/Mutter partially upgraded.
+mapfile -t official_dependencies < <(python3 - "${packages[@]}" <<'PYDEPS'
+import re,subprocess,sys
+rows=[subprocess.check_output(['bsdtar','-xOf',p,'.PKGINFO'],text=True) for p in sys.argv[1:]]
+provided={re.split('[<>=]',line.split(' = ',1)[1])[0] for row in rows for line in row.splitlines() if line.startswith(('pkgname = ','provides = '))}
+print('\n'.join(sorted({line.split(' = ',1)[1] for row in rows for line in row.splitlines() if line.startswith('depend = ') and re.split('[<>=]',line.split(' = ',1)[1])[0] not in provided})))
+PYDEPS
+)
+[[ ${#official_dependencies[@]} -gt 0 ]] || die "No se pudieron resolver las dependencias."
+"${as_root[@]}" pacman -Syu --needed --noconfirm "${official_dependencies[@]}"
 
 say "Instalando Nodalix $release_tag…"
 "${as_root[@]}" pacman -U --needed --noconfirm --ask 4 "${packages[@]}"

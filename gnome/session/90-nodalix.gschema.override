@@ -2,3 +2,13 @@
 button-layout=':minimize,maximize,close'
 [org.gnome.desktop.interface]
 icon-theme='Nodalix-Adwaita-Symbols'
+cursor-theme='Nodalix'
+cursor-size=24
+font-name='Adwaita Sans 11'
+document-font-name='Adwaita Sans 11'
+monospace-font-name='Adwaita Mono 11'
+[org.gnome.desktop.background]
+picture-uri='file:///usr/share/backgrounds/nodalix/static/nodalix-abstract-wave.jpg'
+picture-uri-dark='file:///usr/share/backgrounds/nodalix/static/nodalix-abstract-wave.jpg'
+[org.gnome.desktop.screensaver]
+picture-uri='file:///usr/share/backgrounds/nodalix/static/nodalix-abstract-wave.jpg'

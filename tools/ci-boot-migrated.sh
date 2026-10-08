@@ -28,12 +28,14 @@ AutomaticLogin=migration-test
 WaylandEnable=true
 GDM
 install -Dm755 /src/tools/ci-guest-verify.py "$guest/usr/local/bin/nodalix-guest-verify"
-cat > "$guest/etc/systemd/system/nodalix-guest-verify.service" <<'UNIT'
+cat > "$guest/etc/systemd/system/nodalix-guest-verify.service" <<UNIT
 [Unit]
 Description=Verify disposable Nodalix migration boot
+
 After=gdm.service
 [Service]
 Type=oneshot
+Environment=NODALIX_CI_FRESH=${NODALIX_CI_FRESH:-0}
 ExecStart=/usr/local/bin/nodalix-guest-verify
 StandardOutput=journal+console
 StandardError=journal+console

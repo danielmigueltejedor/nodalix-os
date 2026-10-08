@@ -115,6 +115,14 @@
       "version": "2.19.0",
       "required": true,
       "restart": "system"
+    },
+    {
+      "id": "rounded-blur",
+      "name": "Mutter 51 rounded blur library",
+      "package": "gnome-rounded-blur",
+      "version": "1.0.0",
+      "required": true,
+      "restart": "system"
     }
   ]
 }

@@ -1,6 +1,6 @@
 pkgname=nodalix-cursor-theme
 pkgver=0.3.0
-pkgrel=1
+pkgrel=2
 options=("!strip")
 pkgdesc="Nodalix system cursor theme based on Bibata Modern Classic"
 arch=("any")
@@ -23,12 +23,23 @@ package() {
     local target="$pkgdir/usr/share/nodalix/cursor-theme/Nodalix"
 
     install -d "$target"
-    cp -a "$theme/." "$target/"
+    cp -a --no-preserve=ownership "$theme/." "$target/"
     sed -i \
         -e 's/^Name=.*/Name=Nodalix/' \
+        -e 's/^Inherits=.*/Inherits=Adwaita,hicolor/' \
         -e 's/^Comment=.*/Comment=Nodalix cursor theme based on Bibata Modern Classic v2.0.7/' \
         "$target/index.theme"
 
+    # Stage only: repair standard aliases and reject broken XCursor payloads.
+    local alias original
+    for pair in default:left_ptr pointer:hand2 wait:watch text:xterm n-resize:top_side w-resize:left_side ew-resize:sb_h_double_arrow ns-resize:sb_v_double_arrow; do
+        alias=${pair%%:*}; original=${pair#*:}
+        if [ ! -e "$target/cursors/$alias" ]; then
+            test -f "$target/cursors/$original" || return 1
+            ln -sfn "$original" "$target/cursors/$alias"
+        fi
+    done
+    test -z "$(find -L "$target/cursors" -type l -print)" || return 1
     install -Dm755 migrate-cursor-theme "$pkgdir/usr/lib/nodalix/migrate-cursor-theme"
     install -Dm644 nodalix-cursor.conf "$pkgdir/etc/environment.d/90-nodalix-cursor.conf"
     install -Dm644 UPSTREAM.md "$pkgdir/usr/share/doc/nodalix-cursor-theme/UPSTREAM.md"

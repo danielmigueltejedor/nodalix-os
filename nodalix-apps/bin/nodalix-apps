@@ -129,13 +129,7 @@ def finish_batch():
         stderr=subprocess.DEVNULL,
         check=False,
     )
-    if "Hyprland" in os.environ.get("XDG_CURRENT_DESKTOP", "").split(":"):
-        subprocess.run(
-            ["systemctl", "--user", "restart", "nodalix-shell.service"],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            check=False,
-        )
+
 
 
 def run_updater(app, defer_finish=False):

@@ -5,4 +5,9 @@
 <message>Autentícate para instalar actualizaciones</message>
 <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
 <annotate key="org.freedesktop.policykit.exec.path">/usr/lib/nodalix/updates-privileged</annotate>
+</action>
+<action id="com.nodalix.settings.login-background"><description>Sincronizar el fondo de acceso</description>
+<message>Autentícate para cambiar el fondo de acceso compartido</message>
+<defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+<annotate key="org.freedesktop.policykit.exec.path">/usr/lib/nodalix/sync-login-background</annotate>
 </action></policyconfig>
