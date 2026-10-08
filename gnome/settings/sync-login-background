@@ -1,0 +1,38 @@
+#!/usr/bin/python3
+"""Authenticated, bounded image publication; no user pathname is read as root."""
+import os
+from pathlib import Path
+import stat
+import subprocess
+import sys
+import tempfile
+
+
+def publish(data, directory=Path('/var/lib/nodalix/login')):
+    if len(data) > 20*1024*1024 or not data.startswith(b'\xff\xd8\xff'):
+        raise ValueError('Expected a JPEG poster smaller than 20 MiB')
+    # Reject substituted parents and untrusted writable directories.
+    for parent in (Path('/var'), Path('/var/lib'), directory.parent, directory):
+        if not parent.exists():
+            parent.mkdir(mode=0o755)
+        info = parent.lstat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_mode & 0o022:
+            raise ValueError('Untrusted system wallpaper directory')
+    fd, temporary = tempfile.mkstemp(prefix='.background-', suffix='.jpg', dir=directory)
+    os.close(fd)
+    try:
+        subprocess.run(['ffmpeg','-nostdin','-hide_banner','-loglevel','error',
+                        '-protocol_whitelist','pipe,file','-f','image2pipe','-i','pipe:0',
+                        '-frames:v','1','-vf','scale=min(4096\\,iw):-2','-update','1',
+                        '-q:v','2','-y',temporary], input=data, check=True, timeout=20,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        os.chmod(temporary, 0o644)
+        os.replace(temporary, directory/'background.jpg')
+    finally:
+        Path(temporary).unlink(missing_ok=True)
+
+
+if __name__ == '__main__':
+    if os.geteuid() != 0:
+        raise SystemExit('Authentication required')
+    publish(sys.stdin.buffer.read(20*1024*1024+1))

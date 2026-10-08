@@ -3,7 +3,9 @@ import Clutter from 'gi://Clutter';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
-import * as Background from 'resource:///org/gnome/shell/ui/background.js';
+import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
+import * as Config from 'resource:///org/gnome/shell/misc/config.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 
 // Match GNOME 51's unlockDialog background effects.
@@ -14,7 +16,8 @@ export default class LoginBackground extends Extension {
     enable() {
         if (!Main.sessionMode.isGreeter)
             return;
-        this._managers = [];
+        if (Config.PACKAGE_VERSION.split('.')[0] !== '51')
+            throw new Error('Nodalix login background requires GNOME 51');
         this._group = new St.Widget({name: 'nodalix-login-background',
             reactive: false, layout_manager: new Clutter.FixedLayout()});
         // Keep every login control, menu and logo above the non-interactive image.
@@ -31,10 +34,10 @@ export default class LoginBackground extends Extension {
         Main.layoutManager.monitors.forEach((monitor, monitorIndex) => {
             const widget = new St.Widget({x: monitor.x, y: monitor.y,
                 width: monitor.width, height: monitor.height, reactive: false,
+                style: this._backgroundStyle(),
                 clip_to_allocation: true, effect: new Shell.BlurEffect({name: 'blur'})});
             this._group.add_child(widget);
-            this._managers.push(new Background.BackgroundManager({
-                container: widget, monitorIndex, controlPosition: false}));
+
         });
         this._updateEffects();
     }
@@ -45,10 +48,14 @@ export default class LoginBackground extends Extension {
                 radius: BLUR_RADIUS * this._themeContext.scale_factor});
     }
 
+    _backgroundStyle() {
+        const shared = '/var/lib/nodalix/login/background.jpg';
+        const fallback = '/usr/share/backgrounds/nodalix/login/nodalix-login-fallback.jpg';
+        const file = Gio.File.new_for_path(GLib.file_test(shared, GLib.FileTest.IS_REGULAR) ? shared : fallback);
+        return `background-image: url("${file.get_uri()}"); background-size: cover; background-position: center;`;
+    }
+
     _clear() {
-        for (const manager of this._managers ?? [])
-            manager.destroy();
-        this._managers = [];
         this._group?.destroy_all_children();
     }
 

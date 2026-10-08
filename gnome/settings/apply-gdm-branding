@@ -42,7 +42,7 @@ if not values.has_section('org/gnome/shell'):
     values.add_section('org/gnome/shell')
 values.set('org/gnome/shell','enabled-extensions',repr(enabled))
 if not values.has_section('org/gnome/desktop/background'):
-    fallback = Path('/usr/share/nodalix/wallpaper-stills/nodalix-mystic-lights-4k.jpg')
+    fallback = Path('/usr/share/backgrounds/nodalix/login/nodalix-login-fallback.jpg')
     if fallback.is_file():
         values.add_section('org/gnome/desktop/background')
         for key in ('picture-uri','picture-uri-dark'):

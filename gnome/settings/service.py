@@ -4,11 +4,14 @@ import json
 import os
 from pathlib import Path
 import shutil
+import sys
 import subprocess
 import threading
 import time
 
 from gi.repository import Gio, GLib
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from wallpaper_poster import poster_for, sync_login
 
 BUS = 'com.nodalix.Settings'
 PATH = '/com/nodalix/Settings'
@@ -362,7 +365,10 @@ class SettingsService:
         items={item['path']:item for item in catalog()}
         if path not in items:
             raise ValueError('El fondo no pertenece a la colección instalada')
+        preview=poster_for(Path(path))
         settings=wallpaper_preferences()
+        settings.set_boolean('enable-va',True)
+        settings.set_boolean('prefer-clappersink',False)
         settings.set_string('video-path',path)
         settings.set_boolean('mute',True)
         settings.set_boolean('show-panel-menu',False)
@@ -372,12 +378,18 @@ class SettingsService:
         settings.set_int('pause-on-maximize-or-fullscreen',1)
         settings.set_int('pause-on-battery',2)
         # Native-resolution still for the desktop; thumbnails belong to the gallery.
-        preview=Path(items[path].get('still') or items[path].get('preview',''))
         if preview.is_file():
             background=Gio.Settings.new('org.gnome.desktop.background')
             background.set_string('picture-uri',preview.as_uri())
             background.set_string('picture-uri-dark',preview.as_uri())
             background.set_enum('picture-options',5)  # zoom
+            Gio.Settings.new('org.gnome.desktop.screensaver').set_string('picture-uri',preview.as_uri())
+            # Authentication is performed asynchronously so playback never waits for it.
+            def synchronize():
+                try: sync_login(preview)
+                except (OSError,RuntimeError,subprocess.TimeoutExpired) as error:
+                    print(str(error),file=sys.stderr)
+            threading.Thread(target=synchronize,daemon=True).start()
         request_wallpaper(True)
         if extension_info():self.extension('EnableExtension')
         self.changed()

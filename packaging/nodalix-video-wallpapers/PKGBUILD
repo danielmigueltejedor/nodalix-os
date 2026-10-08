@@ -1,11 +1,11 @@
 pkgname=nodalix-video-wallpapers
 pkgver=0.3.0
-pkgrel=1
+pkgrel=2
 pkgdesc="GNOME 51 animated wallpaper player and Nodalix video collection"
 arch=("any")
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-depends=("gnome-shell>=1:51" "gnome-shell<1:52" "gjs" "gtk4" "gst-plugin-gtk4" "gst-plugins-good" "gst-libav")
+depends=("gnome-shell>=1:51" "gnome-shell<1:52" "gjs" "gtk4" "gst-plugin-gtk4" "gst-plugins-good" "gst-libav" "gst-plugin-va")
 makedepends=("nodejs" "pnpm" "meson" "ninja" "gettext")
 source=("hanabi-b18e041.tar.zst" "nodalix-video-wallpapers-$pkgver.tar.zst" "nodalix-animated-collection.tar.zst")
 sha256sums=("SKIP" "SKIP" "SKIP")
@@ -23,9 +23,10 @@ build() {
 }
 package() {
   DESTDIR="$pkgdir" meson install -C "$srcdir/build" --no-rebuild
-  install -d "$pkgdir/usr/share/backgrounds/nodalix/Animados" "$pkgdir/usr/share/nodalix/wallpaper-previews" "$pkgdir/usr/share/nodalix/wallpaper-stills"
-  cp -a "$srcdir/collection/." "$pkgdir/usr/share/backgrounds/nodalix/Animados/"
-  cp -a "$srcdir/previews/." "$pkgdir/usr/share/nodalix/wallpaper-previews/"
-  cp -a "$srcdir/stills/." "$pkgdir/usr/share/nodalix/wallpaper-stills/"
+  install -d "$pkgdir/usr/share/backgrounds/nodalix/animated" "$pkgdir/usr/share/nodalix/wallpaper-previews" "$pkgdir/usr/share/nodalix/wallpaper-stills"
+  cp -a --no-preserve=ownership "$srcdir/collection/." "$pkgdir/usr/share/backgrounds/nodalix/animated/"
+  cp -a --no-preserve=ownership "$srcdir/previews/." "$pkgdir/usr/share/nodalix/wallpaper-previews/"
+  cp -a --no-preserve=ownership "$srcdir/stills/." "$pkgdir/usr/share/nodalix/wallpaper-stills/"
+  ln -s animated "$pkgdir/usr/share/backgrounds/nodalix/Animados"
   install -Dm644 "$srcdir/gnome/settings/animated-collection.json" "$pkgdir/usr/share/nodalix/animated-collection.json"
 }
