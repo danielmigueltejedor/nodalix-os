@@ -3,7 +3,7 @@
 set -euo pipefail
 [[ ${NODALIX_CI_CONTAINER:-} == 1 ]] || { echo 'Disposable CI container required'; exit 1; }
 pacman -Syu --noconfirm
-pacman -S --needed --noconfirm base-devel git sudo meson ninja glib2-devel ffmpeg \
+pacman -S --needed --noconfirm base-devel git sudo meson ninja glib2-devel gobject-introspection ffmpeg \
   nodejs pnpm gnome-control-center gnome-shell gnome-session gdm adwaita-icon-theme \
   archiso python-gobject tar zstd gtk-update-icon-cache ell bluez python-dbus mobile-broadband-provider-info
 useradd -m builder

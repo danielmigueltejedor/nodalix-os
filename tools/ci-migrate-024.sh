@@ -87,3 +87,10 @@ fi
 # now report that the mandatory restart was fulfilled.
 rm /run/nodalix-updater/reboot-required
 nodalix-updater status --json | python -c 'import json,sys;assert not json.load(sys.stdin)["reboot_mandatory"]'
+
+# A repeated system migration cannot add backups or alter completed state.
+find /var/lib/nodalix-updater/migrations -type f -printf '%P\n' | sort > dist/migration-evidence/backups.before-repeat
+nodalix-gnome-migrate --system
+nodalix-gnome-migrate --system
+find /var/lib/nodalix-updater/migrations -type f -printf '%P\n' | sort > dist/migration-evidence/backups.after-repeat
+cmp dist/migration-evidence/backups.before-repeat dist/migration-evidence/backups.after-repeat

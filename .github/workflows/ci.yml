@@ -21,7 +21,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Install native test dependencies
-        run: sudo apt-get update && sudo apt-get install -y python3-gi gnome-shell-common gir1.2-nautilus-4.0 gir1.2-gtk-4.0 gir1.2-adw-1 nodejs libarchive-tools gjs xvfb dbus-x11 libadwaita-1-dev libjson-glib-dev ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y python3-gi gnome-shell-common gnome-settings-daemon-common gir1.2-nautilus-4.0 gir1.2-gtk-4.0 gir1.2-adw-1 nodejs libarchive-tools gjs xvfb dbus-x11 libadwaita-1-dev libjson-glib-dev ffmpeg
       - name: Require curated release notes
         run: /usr/bin/python3 tools/release_notes.py validate --version "$(cat VERSION)"
       - name: Run updater, migration and desktop integration tests
@@ -90,6 +90,11 @@ jobs:
           path: dist/packages
       - name: Build the installable GNOME ISO
         run: docker run --rm --privileged -e NODALIX_CI_CONTAINER=1 -v "$PWD":/src -w /src archlinux:latest bash tools/ci-build-iso.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nodalix-iso-boot-evidence
+          path: dist/iso-evidence/boot.log
       - uses: actions/upload-artifact@v4
         with:
           name: nodalix-0.3.0-installable-iso

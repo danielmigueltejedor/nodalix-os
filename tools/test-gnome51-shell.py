@@ -84,7 +84,31 @@ def main():
                 assert after==before,(before,after)
                 bars=evaluate("Main.extensionManager.lookup('nodalix-secondary-bars@getnodalia.com').stateObj._bars.length")
                 assert bars==1,bars
-                (args.evidence/'lifecycle.json').write_text(json.dumps({'quick_settings_before':before,'quick_settings_after':after,'secondary_bars':bars,'enable_disable_cycles':3},indent=2))
+                workareas=evaluate('Main.layoutManager.monitors.map(m => ({monitor:[m.x,m.y,m.width,m.height],work:[global.workspace_manager.get_active_workspace().get_work_area_for_monitor(m.index).x,global.workspace_manager.get_active_workspace().get_work_area_for_monitor(m.index).y,global.workspace_manager.get_active_workspace().get_work_area_for_monitor(m.index).width,global.workspace_manager.get_active_workspace().get_work_area_for_monitor(m.index).height]}))')
+                assert all(row['work'][1]>row['monitor'][1] for row in workareas),workareas
+                def display_call(method,params=None):
+                    return bus.call_sync('org.gnome.Mutter.DisplayConfig','/org/gnome/Mutter/DisplayConfig','org.gnome.Mutter.DisplayConfig',method,params,None,Gio.DBusCallFlags.NONE,5000,None).unpack()
+                current=display_call('GetCurrentState')
+                modes={monitor[0][0]:next(mode[0] for mode in monitor[1] if mode[6].get('is-current')) for monitor in current[1]}
+                original=[(row[0],row[1],row[2],row[3],row[4],[(spec[0],modes[spec[0]],{}) for spec in row[5]]) for row in current[2]]
+                def configure(layout):
+                    serial=display_call('GetCurrentState')[0]
+                    display_call('ApplyMonitorsConfig',GLib.Variant('(uua(iiduba(ssa{sv}))a{sv})',(serial,1,layout,{})))
+                    time.sleep(1)
+                primary=next(row for row in original if row[4])
+                configure([(0,0,primary[2],primary[3],True,primary[5])])
+                assert evaluate("Main.extensionManager.lookup('nodalix-secondary-bars@getnodalia.com').stateObj._bars.length")==0
+                configure(original)
+                assert evaluate("Main.extensionManager.lookup('nodalix-secondary-bars@getnodalia.com').stateObj._bars.length")==1
+                scale_test=False
+                if all(2.0 in mode[5] for monitor in current[1] for mode in monitor[1] if mode[6].get('is-current')):
+                    scaled=[];offset=0
+                    for row in original:
+                        scaled.append((offset,0,2.0,row[3],row[4],row[5]));offset+=640
+                    configure(scaled)
+                    assert evaluate("Main.extensionManager.lookup('nodalix-secondary-bars@getnodalia.com').stateObj._bars.length")==1
+                    configure(original);scale_test=True
+                (args.evidence/'lifecycle.json').write_text(json.dumps({'quick_settings_before':before,'quick_settings_after':after,'secondary_bars':bars,'enable_disable_cycles':3,'workareas':workareas,'monitor_reconfiguration':True,'scale_2_supported_and_tested':scale_test},indent=2))
                 print('Real GNOME 51: all extensions enabled; repeated lifecycle preserved Quick Settings; two-monitor bars passed')
             finally:
                 shell.set_strv('enabled-extensions',[]);Gio.Settings.sync()
