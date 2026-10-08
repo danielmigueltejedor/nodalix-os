@@ -13,7 +13,7 @@ def migrate(root=Path('/'), runner=subprocess.run):
         path=root/relative
         if path.is_dir() and not path.is_symlink():
             target=saved/relative
-            shutil.copytree(path,target,dirs_exist_ok=True)
+            shutil.copytree(path,target,dirs_exist_ok=True,symlinks=True)
             shutil.rmtree(path)
     legacy=root/'etc/xdg/nodalix/hyprland.lua'
     if legacy.is_file() and not legacy.is_symlink():
@@ -41,11 +41,11 @@ def migrate(root=Path('/'), runner=subprocess.run):
             if not 1000<=int(fields[2])<65534 or not fields[5].startswith('/'):continue
             home=root/fields[5].lstrip('/')
             if not home.is_dir() or home.is_symlink():continue
+            if (home/'.config').is_symlink():continue
             paths=[home/'.config/hypr',home/'.config/quickshell']
             for name in ('nodalix-shell.service','nodalix-wallpaper.service','nodalix-app-accent.path','nodalix-app-accent.service','nodalix-localsend.service'):
                 paths.extend([home/'.config/systemd/user'/name,
                     home/'.config/systemd/user/default.target.wants'/name])
-            paths.extend(home/'.local/share/gnome-shell/extensions'/uuid for uuid in uuids)
             for path in paths:
                 if not path.exists() and not path.is_symlink():continue
                 target=saved/path.relative_to(root)

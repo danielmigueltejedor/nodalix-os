@@ -21,7 +21,11 @@
       "dock-position": "'BOTTOM'",
       "dash-max-icon-size": "44",
       "require-pressure-to-show": "false",
-      "intellihide-mode": "'FOCUS_APPLICATION_WINDOWS'"
+      "intellihide-mode": "'FOCUS_APPLICATION_WINDOWS'",
+      "dock-fixed": "false",
+      "autohide": "true",
+      "intellihide": "true",
+      "autohide-in-fullscreen": "true"
     }
   },
   {
@@ -29,8 +33,7 @@
     "schema": "org.gnome.shell.extensions.blur-my-shell",
     "values": {
       "pipelines": "{'pipeline_default': {'name': <'Default'>, 'effects': <[<{'type': <'native_static_gaussian_blur'>, 'id': <'effect_000000000000'>, 'params': <{'radius': <30>, 'brightness': <0.59999999999999998>}>}>, <{'type': <'corner'>, 'id': <'effect_64574676756065'>, 'params': <{'radius': <15>}>}>]>}, 'pipeline_default_rounded': {'name': <'Default rounded'>, 'effects': <[<{'type': <'native_static_gaussian_blur'>, 'id': <'effect_17616916794128'>, 'params': <{'brightness': <0.59999999999999998>, 'unscaled_radius': <100>}>}>, <{'type': <'corner'>, 'id': <'effect_86302549292721'>, 'params': <{'radius': <15>, 'corners_bottom': <true>}>}>]>}, 'pipeline_448cd606-1687-4b91-a73a-a4ba49e855f7': {'name': <'Default rounded - duplicate'>, 'effects': <[<{'type': <'native_static_gaussian_blur'>, 'id': <'effect_d21ee4c6-45c2-4da0-a20e-41c8005a70a5'>, 'params': <{'radius': <30>, 'brightness': <0.59999999999999998>}>}>, <{'type': <'corner'>, 'id': <'effect_72150237010329'>, 'params': <{'radius': <15>}>}>]>}, 'pipeline_11f1d962-c386-43ac-b640-a102221bef8f': {'name': <'Default rounded - duplicate'>, 'effects': <[<{'type': <'native_static_gaussian_blur'>, 'id': <'effect_19bf73a4-11c6-432d-926e-ad3f24254a09'>, 'params': <{'radius': <30>, 'brightness': <0.59999999999999998>}>}>, <{'type': <'corner'>, 'id': <'effect_42291333489442'>, 'params': <@a{sv} {}>}>]>}}",
-      "settings-version": "2",
-      "rounded-blur-found": "true"
+      "settings-version": "2"
     }
   },
   {

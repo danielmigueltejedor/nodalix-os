@@ -1,0 +1,22 @@
+pkgname=gnome-rounded-blur
+pkgver=1.0.0
+pkgrel=2
+pkgdesc="Rounded dynamic blur built for the Nodalix Mutter 51 ABI"
+arch=("x86_64")
+url="https://github.com/kancko/gnome-rounded-blur"
+license=("GPL-3.0-or-later")
+depends=("glib2" "mutter>=51" "mutter<52")
+makedepends=("git" "meson" "ninja" "gobject-introspection")
+source=("git+https://github.com/kancko/gnome-rounded-blur.git#commit=c0d67c886ac0b54fedaddf75817e85264d16322e")
+# Git's pinned object ID is verified by makepkg; do not substitute AUR HEAD.
+sha256sums=("SKIP")
+build() {
+    for abi in libmutter-51 mutter-clutter-51 mutter-cogl-51; do
+        pkg-config --exists "$abi" || return 1
+    done
+    meson setup build "$srcdir/gnome-rounded-blur" --prefix=/usr --buildtype=release
+    meson compile -C build
+}
+package() {
+    DESTDIR="$pkgdir" meson install -C build
+}

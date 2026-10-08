@@ -1,12 +1,12 @@
 pkgname=nodalix-gnome
 pkgver=0.3.0
-pkgrel=1
+pkgrel=2
 pkgdesc="GNOME Shell, GDM and native desktop integration for Nodalix"
 arch=("any")
 install=nodalix-gnome.install
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-depends=("cups" "cups-pk-helper" "gnome-shell" "mutter" "gnome-session" "gdm" "nodalix-control-center" "nodalix-settings" "nodalix-video-wallpapers" "gnome-settings-daemon" "gnome-keyring" "gnome-console" "gnome-text-editor" "gnome-online-accounts" "gnome-calendar" "gvfs" "gvfs-mtp" "gvfs-smb" "networkmanager" "bluez" "bluez-utils" "bluez-obex" "pipewire-pulse" "wireplumber" "rtkit" "power-profiles-daemon" "nautilus" "nautilus-python" "libsoup3" "zenity" "libnotify" "xdg-desktop-portal" "xdg-desktop-portal-gnome" "xdg-desktop-portal-gtk" "nodalix-integrations>=0.3.0")
+depends=("cups" "cups-pk-helper" "gnome-shell>=1:51" "gnome-shell<1:52" "mutter>=51" "mutter<52" "gnome-rounded-blur" "xdg-terminal-exec" "gnome-session" "gdm" "nodalix-control-center" "nodalix-settings" "nodalix-video-wallpapers" "gnome-settings-daemon" "gnome-keyring" "ghostty" "adwaita-fonts" "gnome-contacts" "gnome-maps" "gnome-weather" "papers" "showtime" "snapshot" "gnome-calculator" "gnome-clocks" "baobab" "gnome-text-editor" "gnome-online-accounts" "gnome-calendar" "gvfs" "gvfs-mtp" "gvfs-smb" "networkmanager" "bluez" "bluez-utils" "bluez-obex" "pipewire-pulse" "wireplumber" "rtkit" "power-profiles-daemon" "nautilus" "nautilus-python" "libsoup3" "zenity" "libnotify" "xdg-desktop-portal" "xdg-desktop-portal-gnome" "xdg-desktop-portal-gtk" "nodalix-integrations>=0.3.0")
 provides=("nodalix-shell=$pkgver")
 conflicts=("nodalix-shell" "nodalix-greeter-theme" "nodalix-hymission" "nodalix-wallpaper-engine")
 replaces=("nodalix-shell" "nodalix-greeter-theme" "nodalix-hymission" "nodalix-wallpaper-engine")
@@ -15,9 +15,12 @@ sha256sums=("SKIP")
 
 package() {
     install -Dm755 "$srcdir/gnome/session/nodalix-gnome-session" "$pkgdir/usr/lib/nodalix/nodalix-gnome-session"
+    install -Dm755 "$srcdir/gnome/migration/user-030.sh" "$pkgdir/usr/lib/nodalix/migration/user-030.sh"
+    install -Dm644 "$srcdir/gnome/migration/user_preferences.py" "$pkgdir/usr/lib/nodalix/user_preferences.py"
     install -Dm755 "$srcdir/gnome/session/nodalix-gnome-user-migrate" "$pkgdir/usr/lib/nodalix/nodalix-gnome-user-migrate"
     install -Dm755 "$srcdir/gnome/session/nodalix-gnome-migrate" "$pkgdir/usr/bin/nodalix-gnome-migrate"
     install -Dm644 "$srcdir/gnome/session/nodalix-gnome-migrate.desktop" "$pkgdir/etc/xdg/autostart/nodalix-gnome-migrate.desktop"
+    install -Dm755 "$srcdir/gnome/session/nodalix-open-default" "$pkgdir/usr/bin/nodalix-open-default"
     install -Dm755 "$srcdir/gnome/session/nodalix-shell-symbols" "$pkgdir/usr/bin/nodalix-shell-symbols"
     install -Dm644 "$srcdir/gnome/session/nodalix.desktop" "$pkgdir/usr/share/wayland-sessions/nodalix.desktop"
     install -Dm644 "$srcdir/gnome/session/gnome-portals.conf" "$pkgdir/etc/xdg/xdg-desktop-portal/gnome-portals.conf"
@@ -43,9 +46,9 @@ package() {
     install -Dm644 "$srcdir/gnome/nautilus/nodalix_localsend.py" "$pkgdir/usr/share/nautilus-python/extensions/nodalix_localsend.py"
     install -Dm644 "$srcdir/gnome/session/extensions.json" "$pkgdir/usr/share/nodalix/gnome-extensions.json"
     install -Dm644 "$srcdir/gnome/session/extension-defaults.json" "$pkgdir/usr/share/nodalix/gnome-extension-defaults.json"
-    for uuid in glocalsend@donnybeelo.github.com nodalix-connect@getnodalia.com dash-to-dock@micxgx.gmail.com blur-my-shell@aunetx tiling-assistant@leleat-on-github rounded-window-corners@ztrahmet.github.io; do
+    for uuid in nodalix-secondary-bars@getnodalia.com glocalsend@donnybeelo.github.com nodalix-connect@getnodalia.com dash-to-dock@micxgx.gmail.com blur-my-shell@aunetx tiling-assistant@leleat-on-github rounded-window-corners@ztrahmet.github.io; do
         install -d "$pkgdir/usr/share/gnome-shell/extensions/$uuid"
-        cp -a "$srcdir/gnome/extensions/$uuid/." "$pkgdir/usr/share/gnome-shell/extensions/$uuid/"
+        cp -a --no-preserve=ownership "$srcdir/gnome/extensions/$uuid/." "$pkgdir/usr/share/gnome-shell/extensions/$uuid/"
     done
     # Extension metadata downloaded into a user home may be mode 0600. System
     # extensions must be readable by every login, regardless of source modes.
