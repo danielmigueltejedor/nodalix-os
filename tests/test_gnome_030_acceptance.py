@@ -36,16 +36,29 @@ class SessionTests(unittest.TestCase):
             self.assertNotIn('user-migrate',wrapper.read_text())
 
     def test_failed_migration_is_logged_and_retried_without_returning_failure(self):
-        with tempfile.TemporaryDirectory() as temp,mock.patch.dict(os.environ,{'XDG_STATE_HOME':temp,'XDG_CURRENT_DESKTOP':'GNOME'}),mock.patch.object(WORKER.subprocess,'run',return_value=subprocess.CompletedProcess([],1)) as run:
+        with tempfile.TemporaryDirectory() as temp,mock.patch.dict(os.environ,{'XDG_STATE_HOME':temp,'XDG_CURRENT_DESKTOP':'GNOME'}),mock.patch.object(WORKER,'run_migration',return_value=1) as run:
             self.assertEqual(WORKER.main(),0)
             self.assertEqual(WORKER.main(),0)
             self.assertEqual(run.call_count,2)
             self.assertIn('exit status: 1',(Path(temp)/'nodalix/migrations/user-migration.log').read_text())
 
     def test_migration_timeout_cannot_change_session_result(self):
-        with tempfile.TemporaryDirectory() as temp,mock.patch.dict(os.environ,{'XDG_STATE_HOME':temp,'XDG_CURRENT_DESKTOP':'GNOME'}),mock.patch.object(WORKER.subprocess,'run',side_effect=subprocess.TimeoutExpired('worker',120)):
+        with tempfile.TemporaryDirectory() as temp,mock.patch.dict(os.environ,{'XDG_STATE_HOME':temp,'XDG_CURRENT_DESKTOP':'GNOME'}),mock.patch.object(WORKER,'run_migration',side_effect=subprocess.TimeoutExpired('worker',120)):
             self.assertEqual(WORKER.main(),0)
             self.assertIn('incomplete',(Path(temp)/'nodalix/migrations/user-migration.log').read_text())
+
+    def test_timeout_kills_the_entire_migration_process_group(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path=Path(temp);helper=path/'helper'
+            helper.write_text('sleep 30 &\necho $! > "'+str(path/'child.pid')+'"\nwait\n')
+            with (path/'log').open('w') as log:
+                with self.assertRaises(subprocess.TimeoutExpired):
+                    WORKER.run_migration(helper,log,timeout=.15)
+            child=int((path/'child.pid').read_text())
+            # The kernel can retain a killed zombie until its adopter reaps it;
+            # it must never remain a running detached migration child.
+            proc=Path('/proc')/str(child)/'stat'
+            if proc.exists():self.assertEqual(proc.read_text().split()[2],'Z')
 
 
 class PreferencesTests(unittest.TestCase):

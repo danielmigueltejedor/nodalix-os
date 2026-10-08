@@ -2,9 +2,22 @@
 """Post-login migrations: serialized, retryable and isolated from gnome-session."""
 import fcntl
 import os
+import signal
 from pathlib import Path
 import subprocess
 import sys
+
+
+def run_migration(helper, output, timeout=120):
+    # A timed-out shell must not leave its Python/ffmpeg children running.
+    with subprocess.Popen(['/bin/sh', str(helper)], stdout=output, stderr=output,
+                          start_new_session=True) as process:
+        try:
+            return process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            os.killpg(process.pid, signal.SIGKILL)
+            process.wait()
+            raise
 
 
 def main():
@@ -28,8 +41,8 @@ def main():
             if not helper.is_file():
                 helper = Path('/usr/lib/nodalix/migration/user-030.sh')
             try:
-                result = subprocess.run(['/bin/sh', str(helper)], stdout=output, stderr=output, timeout=120)
-                output.write(f'Migration exit status: {result.returncode}; failed steps retry at next login\n')
+                result = run_migration(helper, output)
+                output.write(f'Migration exit status: {result}; failed steps retry at next login\n')
             except (OSError, subprocess.TimeoutExpired) as error:
                 output.write(f'Migration incomplete, retry at next login: {error}\n')
     return 0
