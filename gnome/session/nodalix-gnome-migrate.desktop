@@ -4,4 +4,3 @@ Name=Preparar Nodalix GNOME
 Exec=/usr/lib/nodalix/nodalix-gnome-user-migrate
 OnlyShowIn=GNOME;
 NoDisplay=true
-X-GNOME-Autostart-Phase=Applications

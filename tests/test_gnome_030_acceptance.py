@@ -36,6 +36,19 @@ class SessionTests(unittest.TestCase):
             self.assertIn('GNOME started: --session=gnome',result.stdout)
             self.assertNotIn('user-migrate',wrapper.read_text())
 
+    def test_systemd_generates_the_real_post_login_autostart(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);autostart=root/'config/autostart';autostart.mkdir(parents=True)
+            text=(ROOT/'gnome/session/nodalix-gnome-migrate.desktop').read_text()
+            self.assertNotIn('X-GNOME-Autostart-Phase',text)
+            # Use an executable present on both Arch and the Ubuntu CI runner.
+            text=text.replace('/usr/lib/nodalix/nodalix-gnome-user-migrate','/usr/bin/true')
+            (autostart/'nodalix-gnome-migrate.desktop').write_text(text)
+            for name in ('out','early','late','empty'):(root/name).mkdir()
+            subprocess.run(['/usr/lib/systemd/user-generators/systemd-xdg-autostart-generator',str(root/'out'),str(root/'early'),str(root/'late')],env={**os.environ,'XDG_CONFIG_HOME':str(root/'config'),'XDG_CONFIG_DIRS':str(root/'empty')},check=True,capture_output=True)
+            units=list(root.rglob('*nodalix*service'))
+            self.assertTrue(units,'systemd ignored the migration autostart')
+
     def test_failed_migration_is_logged_and_retried_without_returning_failure(self):
         with tempfile.TemporaryDirectory() as temp,mock.patch.dict(os.environ,{'XDG_STATE_HOME':temp,'XDG_CURRENT_DESKTOP':'GNOME'}),mock.patch.object(WORKER,'run_migration',return_value=1) as run:
             self.assertEqual(WORKER.main(),0)

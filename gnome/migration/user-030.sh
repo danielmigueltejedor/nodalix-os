@@ -21,13 +21,13 @@ for unit in nodalix-shell.service nodalix-wallpaper.service nodalix-app-accent.p
 done
 systemctl --user disable --now nodalix-shell.service nodalix-app-accent.path 2>/dev/null || true
 systemctl --user stop nodalix-shell.service nodalix-wallpaper.service 2>/dev/null || true
-systemctl --user mask --force nodalix-shell.service nodalix-wallpaper.service
+systemctl --user mask --force nodalix-shell.service nodalix-wallpaper.service nodalix-localsend.service nodalix-app-accent.path hypridle.service hyprpaper.service hyprlock.service
 systemctl --user daemon-reload
 printf 'GNOME migration complete. Configuration backup: %s\n' "$backup"
 
 # Retire user startup configurations after the reboot, retaining a private backup.
 config="${XDG_CONFIG_HOME:-$HOME/.config}"
-for directory in hypr quickshell; do
+for directory in hypr quickshell uwsm; do
     if [ -e "$config/$directory" ] || [ -L "$config/$directory" ]; then
         mkdir -p "$backup/config"
         mv "$config/$directory" "$backup/config/$directory"

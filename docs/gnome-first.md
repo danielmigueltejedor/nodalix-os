@@ -195,9 +195,9 @@ configuración se ve al volver a la pantalla de acceso normalmente.
 ## Sesión y migraciones
 
 El wrapper de sesión solo prepara el entorno y ejecuta GNOME. No ejecuta el
-migrador de usuario. El autostart de fase Applications ejecuta el trabajador
-Python después del inicio gráfico; un fallo no puede devolver el usuario a GDM.
-Un bloqueo exclusivo evita ejecuciones simultáneas, el límite es 120 segundos y
+migrador de usuario. El autostart XDG normal ejecuta el trabajador Python después del inicio gráfico; un fallo no puede devolver el usuario a GDM.
+No declara `X-GNOME-Autostart-Phase`: GNOME 51 delega autostart a systemd, que
+excluye entradas con esa clave. Un bloqueo exclusivo evita ejecuciones simultáneas, el límite es 120 segundos y
 el siguiente login reintenta los pasos incompletos. El marcador es
 `$XDG_STATE_HOME/nodalix/migrations/gnome-0.3.0-v2.done` (por defecto `~/.local/state`).
 El registro se rota al superar 1 MiB y conserva una copia anterior. Cada versión

@@ -9,7 +9,7 @@ def migrate(root=Path('/'), runner=subprocess.run):
     saved=state/'files';saved.mkdir(exist_ok=True,mode=0o700)
     marker=state/'completed.json'
     if marker.exists():return json.loads(marker.read_text())
-    for relative in ('etc/hypr','etc/xdg/hypr','etc/xdg/quickshell','etc/greetd','etc/skel/.config/hypr','etc/skel/.config/quickshell'):
+    for relative in ('etc/hypr','etc/xdg/hypr','etc/xdg/quickshell','etc/greetd','etc/skel/.config/hypr','etc/skel/.config/quickshell','etc/uwsm','etc/skel/.config/uwsm'):
         path=root/relative
         if path.is_dir() and not path.is_symlink():
             target=saved/relative
@@ -29,10 +29,7 @@ def migrate(root=Path('/'), runner=subprocess.run):
             if not target.exists():shutil.copy2(wrapper,target)
             wrapper.unlink();wrapper.symlink_to('/usr/lib/nodalix/nodalix-gnome-session')
     records=[]
-    # Archive shadowing user extensions and old startup files before the first
-    # GNOME boot. Waiting for its autostart would require a second login.
-    profile=root/'usr/share/nodalix/gnome-extensions.json'
-    uuids=json.loads(profile.read_text()) if profile.is_file() else []
+    # Archive old startup files; extension preference migration is user-scoped.
     passwd=root/'etc/passwd'
     if passwd.is_file():
         for line in passwd.read_text().splitlines():
@@ -42,7 +39,7 @@ def migrate(root=Path('/'), runner=subprocess.run):
             home=root/fields[5].lstrip('/')
             if not home.is_dir() or home.is_symlink():continue
             if (home/'.config').is_symlink():continue
-            paths=[home/'.config/hypr',home/'.config/quickshell']
+            paths=[home/'.config/hypr',home/'.config/quickshell',home/'.config/uwsm']
             for name in ('nodalix-shell.service','nodalix-wallpaper.service','nodalix-app-accent.path','nodalix-app-accent.service','nodalix-localsend.service'):
                 paths.extend([home/'.config/systemd/user'/name,
                     home/'.config/systemd/user/default.target.wants'/name])

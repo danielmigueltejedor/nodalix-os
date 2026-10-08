@@ -20,8 +20,7 @@ package() {
                 nodalix-icloud-sync.service nodalix-icloud-sync.timer; do
         install -Dm644 "$srcdir/integrations/systemd/$unit" "$pkgdir/usr/lib/systemd/user/$unit"
     done
-    # LocalSend's old receiver and icon rewrites are opt-in. GNOME uses
-    # GLocalSend and the selected icon theme, without competing receivers.
+    # No standalone legacy LocalSend receiver: GNOME owns discovery via GLocalSend.
     install -d "$pkgdir/usr/lib/systemd/user/default.target.wants"
     for unit in nodalix-user-layout.timer nodalix-user-layout.path nodalix-icloud-drive.service nodalix-icloud-sync.timer; do
         ln -s "../$unit" "$pkgdir/usr/lib/systemd/user/default.target.wants/$unit"
