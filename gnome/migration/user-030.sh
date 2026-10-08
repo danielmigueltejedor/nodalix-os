@@ -136,7 +136,9 @@ if pins.is_file() and settings.get_user_value('favorite-apps') is None:
     for value in candidates:
         if not isinstance(value,str):continue
         desktop=value if value.endswith('.desktop') else value+'.desktop'
-        if Gio.DesktopAppInfo.new(desktop):favorites.append(desktop)
+        try:
+            if Gio.DesktopAppInfo.new(desktop):favorites.append(desktop)
+        except TypeError:pass
     if favorites:settings.set_strv('favorite-apps',favorites)
 nautilus=Path(os.environ.get('XDG_DATA_HOME',str(Path.home()/'.local/share')))/'nautilus-python/extensions'
 for link in nautilus.glob('*.py'):

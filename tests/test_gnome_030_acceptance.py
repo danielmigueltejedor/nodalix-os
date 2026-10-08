@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+import time
 import unittest
 from unittest import mock
 import xml.etree.ElementTree as ET
@@ -58,10 +59,21 @@ class SessionTests(unittest.TestCase):
             # The kernel can retain a killed zombie until its adopter reaps it;
             # it must never remain a running detached migration child.
             proc=Path('/proc')/str(child)/'stat'
-            if proc.exists():self.assertEqual(proc.read_text().split()[2],'Z')
+            deadline=time.monotonic()+1
+            while time.monotonic()<deadline:
+                try:
+                    state=proc.read_text().split()[2]
+                except (FileNotFoundError,ProcessLookupError):break
+                if state=='Z':break
+                time.sleep(.01)
+            else:self.fail('Timed-out child process still running')
 
 
 class PreferencesTests(unittest.TestCase):
+    def test_missing_desktop_constructor_is_tolerated(self):
+        with mock.patch.object(PREFS.Gio.DesktopAppInfo,'new',side_effect=TypeError('constructor returned NULL')):
+            self.assertFalse(PREFS.desktop_available('missing.desktop'))
+
     def test_spanish_and_multilayout_system_choices(self):
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp);folder=root/'etc/X11/xorg.conf.d';folder.mkdir(parents=True)

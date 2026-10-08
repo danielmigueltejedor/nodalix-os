@@ -8,6 +8,14 @@ import subprocess
 from gi.repository import Gio, GLib
 
 
+def desktop_available(desktop):
+    # PyGObject versions differ: a missing desktop can return None or raise.
+    try:
+        return Gio.DesktopAppInfo.new(desktop) is not None
+    except TypeError:
+        return False
+
+
 def layout_from_system(root=Path('/')):
     # localed exports the selected XKB layout; locale is only a fallback.
     conf = root/'etc/X11/xorg.conf.d/00-keyboard.conf'
@@ -98,11 +106,11 @@ def apply_preferences():
     media.set_strv('custom-keybindings', bindings)
     config = Path(os.environ.get('XDG_CONFIG_HOME', str(Path.home()/'.config')))
     terminal = config/'xdg-terminals.list'
-    if not terminal.exists() and Gio.DesktopAppInfo.new('com.mitchellh.ghostty.desktop'):
+    if not terminal.exists() and desktop_available('com.mitchellh.ghostty.desktop'):
         terminal.parent.mkdir(parents=True, exist_ok=True)
         terminal.write_text('com.mitchellh.ghostty.desktop\n')
     ghostty=config/'ghostty/config'
-    if not ghostty.exists() and Gio.DesktopAppInfo.new('com.mitchellh.ghostty.desktop'):
+    if not ghostty.exists() and desktop_available('com.mitchellh.ghostty.desktop'):
         ghostty.parent.mkdir(parents=True,exist_ok=True);ghostty.touch(mode=0o600)
     clean_ghostty(ghostty)
     data = Path(os.environ.get('XDG_DATA_HOME', str(Path.home()/'.local/share')))
