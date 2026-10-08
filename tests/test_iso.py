@@ -32,3 +32,22 @@ class IsoPolicyTests(unittest.TestCase):
             text = (ROOT / 'packaging' / component['package'] / 'PKGBUILD').read_text()
             actual = re.search(r'^pkgver=(.+)$', text, re.M)[1].strip('\"\'')
             self.assertEqual(actual, to_pkgver(component['version']), component['package'])
+
+    def test_new_user_provision_without_legacy_skeleton(self):
+        import sys,types,tempfile
+        from unittest import mock
+        module=types.ModuleType('archinstall.default_profiles.profile')
+        module.DisplayServerType=types.SimpleNamespace(Wayland='wayland')
+        module.ProfileType=types.SimpleNamespace(DesktopEnv='desktop')
+        module.Profile=object
+        modules={name:types.ModuleType(name) for name in ('archinstall','archinstall.default_profiles')}
+        modules['archinstall.default_profiles.profile']=module
+        with mock.patch.dict(sys.modules,modules):
+            profile=runpy.run_path(str(ROOT/'iso/installer/nodalix_profile.py'))
+        cls=profile['NodalixProfile']
+        with tempfile.TemporaryDirectory() as temp,mock.patch('subprocess.run') as command:
+            target=Path(temp)
+            cls.provision(object.__new__(cls),types.SimpleNamespace(target=target),[types.SimpleNamespace(username='fresh')])
+            self.assertTrue((target/'home/fresh/.config').is_dir())
+            self.assertTrue((target/'home/fresh/.local').is_dir())
+            command.assert_called_once()

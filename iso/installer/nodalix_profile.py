@@ -284,6 +284,11 @@ class NodalixProfile(Profile):
                         destination,
                     )
 
+            # GNOME has no legacy Hyprland skeleton. A new user's directories
+            # must exist before ownership is assigned by arch-chroot.
+            for directory in ('.config', '.local'):
+                (home / directory).mkdir(parents=True, exist_ok=True)
+
             subprocess.run(
                 [
                     "arch-chroot",
