@@ -156,8 +156,33 @@ fi
 
 echo "=== Validating ownership of candidate payload ==="
 
+# Query bounded batches in the disposable root. Large icon themes contain
+# thousands of files; one pacman process per file makes historical coverage slow.
+validate_owners() {
+    (( ${#owned_paths[@]} > 0 )) || return 0
+    local output index
+    local -a owners
+    if ! output=$(pacman_root -Qoq "${owned_paths[@]}" 2>/dev/null); then
+        echo "Unowned candidate payload in $name" >&2
+        exit 1
+    fi
+    mapfile -t owners <<< "$output"
+    if (( ${#owners[@]} != ${#owned_paths[@]} )); then
+        echo "Incomplete ownership result for $name" >&2
+        exit 1
+    fi
+    for index in "${!owned_paths[@]}"; do
+        if [[ "${owners[$index]}" != "$name" ]]; then
+            echo "Ownership mismatch: ${owned_paths[$index]} expected $name, got ${owners[$index]}" >&2
+            exit 1
+        fi
+    done
+    owned_paths=()
+}
+
 for pkg in "${candidate[@]}"; do
     name=$(package_name "$pkg")
+    owned_paths=()
 
     while IFS= read -r rel; do
         rel=${rel#./}
@@ -166,14 +191,12 @@ for pkg in "${candidate[@]}"; do
             ""|.BUILDINFO|.INSTALL|.MTREE|.PKGINFO|*/) continue;;
         esac
 
-        path="/$rel"
-        owner=$(pacman_root -Qoq "$ROOT/$rel" 2>/dev/null || true)
-
-        if [[ "$owner" != "$name" ]]; then
-            echo "Ownership mismatch: $path expected $name, got ${owner:-UNOWNED}" >&2
-            exit 1
+        owned_paths+=("$ROOT/$rel")
+        if (( ${#owned_paths[@]} >= 128 )); then
+            validate_owners
         fi
     done < <(bsdtar -tf "$pkg")
+    validate_owners
 done
 
 echo "=== Upgrade test passed ==="
