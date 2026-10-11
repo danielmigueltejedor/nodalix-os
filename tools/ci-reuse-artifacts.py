@@ -8,7 +8,11 @@ import argparse, hashlib, json, os, subprocess, time
 from pathlib import Path
 
 QA_FILES = {'.github/workflows/ci.yml', 'tools/ci-boot-migrated.sh',
-            'tools/ci-guest-verify.py', 'tools/ci-boot-iso.py', 'tools/ci-reuse-artifacts.py'}
+            'tools/ci-guest-verify.py', 'tools/ci-boot-iso.py', 'tools/ci-reuse-artifacts.py',
+            '.github/workflows/release.yml', 'tools/release_iso.py',
+            'tools/nodalix-download-iso.py', 'tools/finalize-release.py',
+            'tests/test_release_iso_parts.py', 'docs/iso.md',
+            'docs/releases/v0.3.0.md', 'docs/migration-0.3.0.md'}
 REPO = os.environ.get('GITHUB_REPOSITORY', 'danielmigueltejedor/nodalix-os')
 
 def api(path):
@@ -65,7 +69,6 @@ def main():
             assert path.stat().st_size==row['size'] and digest(path)==row['sha256']
     else:
         path=args.output/f'nodalix-{version}-x86_64.iso'
-        assert path.stat().st_size<2147483647,'ISO exceeds GitHub release asset size limit'
         assert path.with_suffix('.iso.sha256').read_text().strip()==f'{digest(path)}  {path.name}'
     print(f'Reused verified {args.kind} from run {args.run_id}; all release sources are unchanged',flush=True)
 

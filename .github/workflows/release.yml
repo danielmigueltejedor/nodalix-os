@@ -412,14 +412,7 @@ jobs:
           test -s "$CHECKSUM"
 
           ISO_SIZE="$(stat -c%s "$ISO")"
-          MAX_GITHUB_RELEASE_ASSET_BYTES=2147483647
-
-          echo "ISO size: $ISO_SIZE bytes"
-
-          if (( ISO_SIZE > MAX_GITHUB_RELEASE_ASSET_BYTES )); then
-            echo "::error::ISO exceeds GitHub Releases 2 GiB asset limit: $ISO_SIZE bytes"
-            exit 1
-          fi
+          echo "ISO size: $ISO_SIZE bytes; large images are split after full validation"
 
           cd dist/iso
 
@@ -495,6 +488,9 @@ jobs:
       - name: Include the migration bridge for earlier releases
         run: cp updater/nodalix-migrate-gnome dist/release/nodalix-migrate-gnome
 
+      - name: Include the verified ISO downloader
+        run: cp tools/nodalix-download-iso.py dist/release/nodalix-download-iso.py
+
       - name: Finalize manifest and checksums
         run: |
           python3 \
@@ -557,9 +553,10 @@ jobs:
               --repo "$GITHUB_REPOSITORY"
           fi
 
+          mapfile -t RELEASE_ASSETS < <(python3 tools/release_iso.py --assets-dir dist/release)
           gh release upload \
             "$RELEASE_TAG" \
-            dist/release/* \
+            "${RELEASE_ASSETS[@]}" \
             --clobber \
             --repo "$GITHUB_REPOSITORY"
 

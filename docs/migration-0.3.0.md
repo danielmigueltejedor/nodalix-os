@@ -1,6 +1,6 @@
 # Migrar a Nodalix 0.3.0 desde versiones anteriores
 
-La release 0.3.0 incluye una ISO instalable, los paquetes del escritorio y el puente de migración. Guarda tu trabajo antes de actualizar; al terminar tendrás que reiniciar.
+La release 0.3.0 incluye una ISO instalable completa (en partes verificadas, que `nodalix-download-iso.py` reconstruye automáticamente), los paquetes del escritorio y el puente de migración. Guarda tu trabajo antes de actualizar; al terminar tendrás que reiniciar.
 
 Los actualizadores anteriores a 0.3.0 no pueden resolver la división de los servicios
 ni instalar el escritorio nuevo en una sola transacción. Se proporciona un

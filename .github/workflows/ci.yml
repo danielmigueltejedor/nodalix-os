@@ -11,6 +11,11 @@ on:
         type: string
         required: false
         default: ""
+      reuse_iso:
+        description: Reuse an ISO that previously passed instead of rebuilding it
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -107,10 +112,10 @@ jobs:
           name: nodalix-0.3.0-candidate
           path: dist/packages
       - name: Build the installable GNOME ISO
-        if: inputs.candidate_run == ''
+        if: inputs.candidate_run == '' || inputs.reuse_iso != true
         run: docker run --rm --privileged -e NODALIX_CI_CONTAINER=1 -v "$PWD":/src -w /src archlinux:latest bash tools/ci-build-iso.sh
       - name: Reuse verified ISO and boot it with the current guest verifier
-        if: inputs.candidate_run != ''
+        if: inputs.candidate_run != '' && inputs.reuse_iso == true
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_RUN: ${{ inputs.candidate_run }}

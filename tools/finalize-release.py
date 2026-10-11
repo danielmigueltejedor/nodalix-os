@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+from release_iso import iso_metadata
 from pathlib import Path
 
 
@@ -130,11 +131,7 @@ def attach_iso(
             "match the generated ISO"
         )
 
-    manifest["iso"] = {
-        "asset": image.name,
-        "sha256": digest,
-        "size": image.stat().st_size,
-    }
+    manifest["iso"] = iso_metadata(image)
 
 
 def regenerate_checksums(
@@ -225,7 +222,7 @@ def main() -> None:
     if "iso" in manifest:
         print(
             f"ISO: "
-            f"{manifest['iso']['asset']}"
+            f"{manifest['iso'].get('asset', manifest['iso'].get('filename'))}"
         )
 
 

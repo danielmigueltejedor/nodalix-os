@@ -56,7 +56,13 @@ def main():
                         process.stdin.write(b'root\n');process.stdin.flush();login_sent = True
                     if login_sent and not command_sent and (b'# ' in transcript or b'#\x1b' in transcript):
                         code = base64.b64encode((ROOT/'tools/ci-guest-verify.py').read_bytes()).decode()
-                        command = f"printf '%s' '{code}' | base64 -d > /run/nodalix-live-verify.py; NODALIX_CI_USER=nodalix NODALIX_CI_FRESH=1 NODALIX_CI_LIVE=1 python /run/nodalix-live-verify.py\n"
+                        # Keep every serial line below the kernel's canonical
+                        # input limit and avoid interactive zsh/readline redraws.
+                        chunks='\n'.join(code[index:index+512] for index in range(0,len(code),512))
+                        command = ("stty -echo; exec /bin/bash --noprofile --norc -s\n"
+                                   "base64 -d > /run/nodalix-live-verify.py <<'NODALIX_QA_BASE64'\n"
+                                   +chunks+"\nNODALIX_QA_BASE64\n"
+                                   "NODALIX_CI_USER=nodalix NODALIX_CI_FRESH=1 NODALIX_CI_LIVE=1 python /run/nodalix-live-verify.py\n")
                         process.stdin.write(command.encode());process.stdin.flush();command_sent = True
                     if b'NODALIX_VM_MIGRATION_PASS\r\n' in transcript or b'NODALIX_VM_MIGRATION_PASS\n' in transcript:
                         passed = True
