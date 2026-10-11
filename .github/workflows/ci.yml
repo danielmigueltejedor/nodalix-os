@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: candidate-v2-${{ github.ref }}-${{ inputs.candidate_run || 'new' }}
