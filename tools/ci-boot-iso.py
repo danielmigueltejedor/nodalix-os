@@ -41,7 +41,7 @@ def main():
     selector = selectors.DefaultSelector()
     selector.register(process.stdout, selectors.EVENT_READ)
     deadline = time.monotonic()+900
-    transcript = b''; login_sent = command_sent = passed = False
+    transcript = b''; login_sent = shell_prepared = command_sent = passed = False
     try:
         with (args.evidence/'boot.log').open('wb') as log:
             while time.monotonic() < deadline:
@@ -54,13 +54,15 @@ def main():
                     log.write(data);log.flush();transcript += data
                     if not login_sent and b'login:' in transcript:
                         process.stdin.write(b'root\n');process.stdin.flush();login_sent = True
-                    if login_sent and not command_sent and (b'# ' in transcript or b'#\x1b' in transcript):
+                    if login_sent and not shell_prepared and (b'# ' in transcript or b'#\x1b' in transcript):
+                        process.stdin.write(b"stty -echo; printf '\\nNODALIX_QA_READY\\n'; exec /bin/bash --noprofile --norc -s\n")
+                        process.stdin.flush();shell_prepared=True
+                    if shell_prepared and not command_sent and (b'\nNODALIX_QA_READY\r\n' in transcript or b'\nNODALIX_QA_READY\n' in transcript):
                         code = base64.b64encode((ROOT/'tools/ci-guest-verify.py').read_bytes()).decode()
                         # Keep every serial line below the kernel's canonical
                         # input limit and avoid interactive zsh/readline redraws.
                         chunks='\n'.join(code[index:index+512] for index in range(0,len(code),512))
-                        command = ("stty -echo; exec /bin/bash --noprofile --norc -s\n"
-                                   "base64 -d > /run/nodalix-live-verify.py <<'NODALIX_QA_BASE64'\n"
+                        command = ("base64 -d > /run/nodalix-live-verify.py <<'NODALIX_QA_BASE64'\n"
                                    +chunks+"\nNODALIX_QA_BASE64\n"
                                    "NODALIX_CI_USER=nodalix NODALIX_CI_FRESH=1 NODALIX_CI_LIVE=1 python /run/nodalix-live-verify.py\n")
                         process.stdin.write(command.encode());process.stdin.flush();command_sent = True
