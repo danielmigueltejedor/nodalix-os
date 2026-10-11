@@ -1,8 +1,8 @@
-# Migrar de Nodalix 0.2.4 a 0.3.0
+# Migrar a Nodalix 0.3.0 desde versiones anteriores
 
 La release 0.3.0 incluye una ISO instalable, los paquetes del escritorio y el puente de migración. Guarda tu trabajo antes de actualizar; al terminar tendrás que reiniciar.
 
-El actualizador original de 0.2.4 no puede resolver la división de los servicios
+Los actualizadores anteriores a 0.3.0 no pueden resolver la división de los servicios
 ni instalar el escritorio nuevo en una sola transacción. Se proporciona un
 puente pequeño que instala únicamente el actualizador 0.3.0 verificado y
 continúa automáticamente con Nodalix Updater. No cambia la identidad del sistema
@@ -16,7 +16,7 @@ y ejecutar desde una copia del repositorio:
 sudo python3 updater/nodalix-migrate-gnome --assets /ruta/al/candidato
 ```
 
-Para actualizar desde 0.2.4 con la versión publicada:
+Para actualizar desde cualquier versión anterior publicada, incluidas las betas, con la release 0.3.0:
 
 ```sh
 curl -fL https://github.com/danielmigueltejedor/nodalix-os/releases/download/0.3.0/nodalix-migrate-gnome -o nodalix-migrate-gnome
@@ -29,7 +29,7 @@ Los candidatos locales requieren administración y nunca se descubren como versi
 estables. Si el actualizador exige firmas, el candidato debe cumplir esa política.
 
 La actualización verifica hashes antes de instalar, prepara GNOME mediante una
-actualización completa de Arch y reemplaza los paquetes declarados. Los archivos originales del instalador 0.2.4 se reconocen por su hash y se respaldan antes de retirarlos. Los archivos
+actualización completa de Arch y reemplaza los paquetes declarados. Los archivos originales conocidos de los instaladores anteriores se reconocen por su hash y se respaldan antes de retirarlos. Los archivos
 ajenos o personalizados sin propietario producen un error; no hay sobrescrituras generales.
 Los registros están en `/var/lib/nodalix-updater`, junto con el historial y los
 respaldos de GDM, greetd y AccountsService. No se reinicia GDM durante la operación.
@@ -38,8 +38,7 @@ seleccionadas expresamente. La actualización retira Hyprland, Quickshell, greet
 motor antiguo. La configuración histórica se guarda fuera de las rutas activas,
 incluidas las copias personales incompatibles con GNOME 51 que ocultarían las nuevas versiones.
 LocalSend conserva su identidad y favoritos; Ajustes, Nautilus y los controles
-rápidos usan el mismo servicio. Se incluyen las ocho extensiones del perfil GNOME
-actual y sus esquemas, sin depender de descargas durante el primer inicio.
+rápidos usan el mismo servicio. Se incluyen las doce extensiones GNOME y sus esquemas; el perfil activa nueve, con alternativas de barras y mosaico disponibles, sin depender de descargas durante el primer inicio.
 
 Al finalizar es obligatorio reiniciar. El servicio y Ajustes conservan el estado,
 muestran «Reiniciar ahora» y bloquean otra actualización hasta el siguiente
@@ -48,18 +47,20 @@ por usuario, sin interrumpir la sesión desde la que se realizó la actualizaci�
 No se aplica un kernel distinto al elegido por el usuario: Arch actualiza los
 paquetes del kernel que ya están instalados.
 
-La CI compila todos los paquetes, valida las fuentes fijadas y hashes de los
+La CI comprueba transacciones con los paquetes oficiales de las 17 releases anteriores publicadas. También compila todos los paquetes, valida las fuentes fijadas y hashes de los
 16 vídeos (los más grandes se recomponen de partes sin recomprimir), e instala el candidato mediante el puente en un contenedor Arch.
 La base 0.2.4 usa sus paquetes oficiales verificando los hashes e instala
 sus dependencias reales y scripts heredados, incluido Hyprland y Quickshell. La migración candidata usa
 las dependencias reales y los scripts de instalación, comprueba propiedad de
 archivos, GDM, CUPS, identidad, conservación de datos y bloqueo por reinicio.
 La CI también arranca ese sistema migrado en QEMU, inicia GNOME mediante GDM,
-comprueba las ocho extensiones, la migración de fondo/reloj/aplicaciones fijadas,
+comprueba el perfil GNOME, la migración de fondo/reloj/aplicaciones fijadas,
 el servicio LocalSend y el reproductor animado. Se construye además la ISO
 instalable y se publica únicamente después de la validación de la release. El ensayo virtual no comprueba
 impresoras o móviles físicos.
 
+
+ArtCraft Launcher gestiona las doce apps Craft. La organización del menú reconoce las apps instaladas y conserva sus iconos oficiales. El acceso a iCloud renueva una cuenta ya configurada; la release no contiene credenciales personales.
 
 ## Recuperación y preferencias
 

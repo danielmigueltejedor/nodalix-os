@@ -392,7 +392,14 @@ class SettingsService:
                     print(str(error),file=sys.stderr)
             threading.Thread(target=synchronize,daemon=True).start()
         request_wallpaper(True)
-        if extension_info():self.extension('EnableExtension')
+        # The preference is already persisted and GNOME observes its changes.
+        # Avoid re-enabling an active renderer or reporting a failed selection
+        # when the shell is temporarily busy during first-login startup.
+        try:
+            info=extension_info()
+            if info and info.get('state')!=1:self.extension('EnableExtension')
+        except GLib.Error:
+            pass
         self.changed()
 
     def stop_wallpaper(self):

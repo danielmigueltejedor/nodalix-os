@@ -164,6 +164,30 @@ class WallpaperActivationTests(unittest.TestCase):
                 service.wallpaper(str(alias))
             prefs.set_string.assert_called_once_with('video-path',str(video))
 
+    def test_busy_shell_keeps_the_selected_wallpaper_without_a_false_failure(self):
+        from unittest.mock import MagicMock
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            poster=Path(folder)/'poster.jpg';poster.write_bytes(b'poster')
+            prefs=MagicMock();service=settings.SettingsService()
+            error=settings.GLib.Error('Shell temporarily busy')
+            with patch.object(settings,'catalog',return_value=[{'path':'/known.mp4'}]),patch.object(settings,'poster_for',return_value=poster),patch.object(settings,'wallpaper_preferences',return_value=prefs),patch.object(settings,'request_wallpaper') as requested,patch.object(settings.threading.Thread,'start'),patch.object(settings,'extension_info',side_effect=error),patch.object(settings.Gio.Settings,'new'),patch.object(service,'extension') as enable:
+                service.wallpaper('/known.mp4')
+                requested.assert_called_once_with(True)
+                prefs.set_string.assert_called_once_with('video-path','/known.mp4')
+                enable.assert_not_called()
+
+    def test_active_renderer_is_not_reenabled_when_changing_wallpaper(self):
+        from unittest.mock import MagicMock
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            poster=Path(folder)/'poster.jpg';poster.write_bytes(b'poster')
+            prefs=MagicMock();service=settings.SettingsService()
+            with patch.object(settings,'catalog',return_value=[{'path':'/known.mp4'}]),patch.object(settings,'poster_for',return_value=poster),patch.object(settings,'wallpaper_preferences',return_value=prefs),patch.object(settings,'request_wallpaper'),patch.object(settings.threading.Thread,'start'),patch.object(settings,'extension_info',return_value={'state':1}),patch.object(settings.Gio.Settings,'new'),patch.object(service,'extension') as enable:
+                service.wallpaper('/known.mp4')
+                prefs.set_string.assert_called_once_with('video-path','/known.mp4')
+                enable.assert_not_called()
+
     def test_desktop_uses_full_resolution_still_instead_of_gallery_thumbnail(self):
         from unittest.mock import MagicMock
         import tempfile
