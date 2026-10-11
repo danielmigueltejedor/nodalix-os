@@ -41,12 +41,31 @@ from pathlib import Path
 from gi.repository import Gio,GLib
 bus=Gio.bus_get_sync(Gio.BusType.SESSION,None)
 profile=json.loads(Path('/usr/share/nodalix/gnome-extensions.json').read_text())
-deadline=time.monotonic()+150
+import subprocess,os
+assert Gio.Settings.new('io.github.jeffshee.hanabi-extension').get_string('video-path').endswith('nodalix-aurora-forest-4k.mp4')
+# TCG and llvmpipe emulate the GPU on two CPU cores. Exercise the actual
+# renderer, selection and portals using a reduced sample of the verified 4K
+# collection; this guest-only file never becomes part of release packages.
+source=Path('/usr/share/backgrounds/nodalix/animated/nodalix-aurora-forest-4k.mp4')
+video=Path.home()/'.local/share/backgrounds/nodalix/animated/nodalix-qa-sample.mp4'
+video.parent.mkdir(parents=True,exist_ok=True)
+subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-y','-i',str(source),'-t','3','-vf','scale=640:-2,fps=12','-c:v','libx264','-preset','ultrafast','-an',str(video)],check=True,timeout=120)
+# Prepare the real cached poster before making the bounded UI service call.
+import sys
+sys.path.insert(0,'/usr/lib/nodalix')
+from wallpaper_poster import poster_for
+assert poster_for(video).stat().st_size
+video_preferences=Gio.Settings.new('io.github.jeffshee.hanabi-extension')
+video_preferences.set_string('video-path',str(video))
+Gio.Settings.sync()
+print('Original wallpaper preference verified; reduced guest-only playback prepared')
+deadline=time.monotonic()+240
 states={}
 while time.monotonic()<deadline:
     try:
-        states={uuid:bus.call_sync('org.gnome.Shell','/org/gnome/Shell','org.gnome.Shell.Extensions','GetExtensionInfo',GLib.Variant('(s)',(uuid,)),None,Gio.DBusCallFlags.NONE,1500,None).unpack()[0] for uuid in profile}
-        if all(info.get('state')==1 for info in states.values()):break
+        for uuid in profile:
+            states[uuid]=bus.call_sync('org.gnome.Shell','/org/gnome/Shell','org.gnome.Shell.Extensions','GetExtensionInfo',GLib.Variant('(s)',(uuid,)),None,Gio.DBusCallFlags.NONE,5000,None).unpack()[0]
+        if set(states)==set(profile) and all(info.get('state')==1 for info in states.values()):break
         # GNOME uses ERROR with an empty error while async module imports run.
         if any(info.get('state')==4 or info.get('error') for info in states.values()):raise AssertionError(states)
     except GLib.Error:
@@ -57,7 +76,6 @@ import os
 if os.environ.get('NODALIX_CI_FRESH')!='1':
     assert Gio.Settings.new('org.gnome.shell').get_strv('favorite-apps')==['org.gnome.Nautilus.desktop']
 assert Gio.Settings.new('org.gnome.desktop.interface').get_string('clock-format')=='24h'
-assert Gio.Settings.new('io.github.jeffshee.hanabi-extension').get_string('video-path').endswith('nodalix-aurora-forest-4k.mp4')
 assert Gio.Settings.new('org.gnome.desktop.input-sources').get_value('sources').unpack()
 preferences=[('org.gnome.desktop.input-sources','sources'),('org.gnome.desktop.wm.preferences','focus-mode'),('org.gnome.settings-daemon.plugins.media-keys','custom-keybindings')]
 before=[Gio.Settings.new(schema).get_value(key).unpack() for schema,key in preferences]
@@ -85,22 +103,15 @@ while time.monotonic()<deadline:
     time.sleep(.5)
 else:raise AssertionError('LocalSend did not start after its configured startup delay')
 print('LocalSend quick settings bridge available')
-# TCG and llvmpipe emulate the GPU on two CPU cores. Exercise the actual
-# renderer, selection and portals using a reduced sample of the verified 4K
-# collection; this guest-only file never becomes part of release packages.
-source=Path('/usr/share/backgrounds/nodalix/animated/nodalix-aurora-forest-4k.mp4')
-video=Path.home()/'.local/share/backgrounds/nodalix/animated/nodalix-qa-sample.mp4'
-video.parent.mkdir(parents=True,exist_ok=True)
-subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-y','-i',str(source),'-t','3','-vf','scale=640:-2,fps=12','-c:v','libx264','-preset','ultrafast','-an',str(video)],check=True,timeout=120)
-# Prepare the real cached poster before making the bounded UI service call.
-import sys
-sys.path.insert(0,'/usr/lib/nodalix')
-from wallpaper_poster import poster_for
-assert poster_for(video).stat().st_size
+import shutil
+selected=video.with_name('nodalix-qa-selected.mp4')
+shutil.copyfile(video,selected)
+assert poster_for(selected).stat().st_size
+video=selected
 bus.call_sync('com.nodalix.Settings','/com/nodalix/Settings','com.nodalix.Settings1','SetWallpaper',GLib.Variant('(s)',(str(video),)),None,Gio.DBusCallFlags.NONE,5000,None)
 for attempt in range(40):
     state=json.loads(bus.call_sync('com.nodalix.Settings','/com/nodalix/Settings','com.nodalix.Settings1','GetWallpaperState',None,None,Gio.DBusCallFlags.NONE,5000,None).unpack()[0])
-    if state.get('active'):break
+    if state.get('active') and state.get('path')==str(video):break
     time.sleep(.5)
 else:raise AssertionError(state)
 print('Animated wallpaper renderer active')

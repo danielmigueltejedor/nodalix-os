@@ -5,12 +5,18 @@ on:
     branches: [main, gnome-first]
   pull_request:
   workflow_dispatch:
+    inputs:
+      candidate_run:
+        description: Reuse verified artifacts when only disposable QA helpers changed
+        type: string
+        required: false
+        default: ""
 
 permissions:
   contents: read
 
 concurrency:
-  group: candidate-${{ github.ref }}
+  group: candidate-v2-${{ github.ref }}-${{ inputs.candidate_run || 'new' }}
   cancel-in-progress: true
 
 jobs:
@@ -34,7 +40,16 @@ jobs:
     timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reuse candidate with identical release sources
+        if: inputs.candidate_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ inputs.candidate_run }}
+        run: python3 tools/ci-reuse-artifacts.py packages "$SOURCE_RUN" dist/packages
       - name: Build all GNOME candidate packages from pinned sources
+        if: inputs.candidate_run == ''
         run: docker run --rm -e NODALIX_CI_CONTAINER=1 -v "$PWD":/src -w /src archlinux:latest bash tools/ci-build-gnome.sh
       - uses: actions/upload-artifact@v4
         with:
@@ -84,12 +99,23 @@ jobs:
     timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
           name: nodalix-0.3.0-candidate
           path: dist/packages
       - name: Build the installable GNOME ISO
+        if: inputs.candidate_run == ''
         run: docker run --rm --privileged -e NODALIX_CI_CONTAINER=1 -v "$PWD":/src -w /src archlinux:latest bash tools/ci-build-iso.sh
+      - name: Reuse verified ISO and boot it with the current guest verifier
+        if: inputs.candidate_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ inputs.candidate_run }}
+        run: |
+          python3 tools/ci-reuse-artifacts.py iso "$SOURCE_RUN" dist/iso-output
+          docker run --rm -e NODALIX_CI_CONTAINER=1 -v "$PWD":/src -w /src archlinux:latest bash -c 'pacman -Syu --noconfirm python libarchive qemu-system-x86 qemu-hw-display-virtio-gpu qemu-hw-display-virtio-vga && python tools/ci-boot-iso.py dist/iso-output/*.iso'
       - uses: actions/upload-artifact@v4
         if: always()
         with:
