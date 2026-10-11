@@ -55,7 +55,7 @@ ln -s ../nodalix-guest-verify.service "$guest/etc/systemd/system/graphical.targe
 ln -sf /usr/lib/systemd/system/graphical.target "$guest/etc/systemd/system/default.target"
 truncate -s 14G "$qa/migrated.raw"
 mkfs.ext4 -q -F -d "$guest" "$qa/migrated.raw"
-timeout 600 qemu-system-x86_64 -accel tcg -cpu max -m 4096 -smp 2 \
+timeout 900 qemu-system-x86_64 -accel tcg -cpu max -m 4096 -smp 2 \
   -kernel "$qa/vmlinuz-linux" -initrd "$qa/initramfs.img" \
   -append 'root=/dev/vda rw console=ttyS0 audit=0 loglevel=3 systemd.firstboot=no' \
   -drive "file=$qa/migrated.raw,format=raw,if=virtio" -device virtio-vga \

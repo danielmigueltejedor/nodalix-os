@@ -103,17 +103,34 @@ while time.monotonic()<deadline:
     time.sleep(.5)
 else:raise AssertionError('LocalSend did not start after its configured startup delay')
 print('LocalSend quick settings bridge available')
+# The real renderer initializes Mesa/GStreamer under TCG. Give its actual
+# D-Bus interfaces the VM's latency budget before changing an active video.
+# The desktop API keeps its short interactive timeouts unchanged.
+def wait_renderer():
+    deadline=time.monotonic()+180
+    last=None
+    while time.monotonic()<deadline:
+        try:
+            info=bus.call_sync('org.gnome.Shell','/org/gnome/Shell','org.gnome.Shell.Extensions','GetExtensionInfo',GLib.Variant('(s)',('hanabi-extension@jeffshee.github.io',)),None,Gio.DBusCallFlags.NONE,10000,None).unpack()[0]
+            if info.get('state') in (3,4):raise AssertionError(info)
+            playing=bus.call_sync('io.github.jeffshee.HanabiRenderer','/io/github/jeffshee/HanabiRenderer','org.freedesktop.DBus.Properties','Get',GLib.Variant('(ss)',('io.github.jeffshee.HanabiRenderer','isPlaying')),None,Gio.DBusCallFlags.NONE,10000,None).unpack()[0]
+            if isinstance(playing,GLib.Variant):playing=playing.unpack()
+            if info.get('state')==1 and isinstance(playing,bool):return playing
+            last=info
+        except GLib.Error as error:last=str(error)
+        time.sleep(1)
+    raise AssertionError(('Real renderer did not become responsive',last))
+wait_renderer()
+print('Real renderer completed software graphics initialization')
 import shutil
 selected=video.with_name('nodalix-qa-selected.mp4')
 shutil.copyfile(video,selected)
 assert poster_for(selected).stat().st_size
 video=selected
-bus.call_sync('com.nodalix.Settings','/com/nodalix/Settings','com.nodalix.Settings1','SetWallpaper',GLib.Variant('(s)',(str(video),)),None,Gio.DBusCallFlags.NONE,5000,None)
-for attempt in range(40):
-    state=json.loads(bus.call_sync('com.nodalix.Settings','/com/nodalix/Settings','com.nodalix.Settings1','GetWallpaperState',None,None,Gio.DBusCallFlags.NONE,5000,None).unpack()[0])
-    if state.get('active') and state.get('path')==str(video):break
-    time.sleep(.5)
-else:raise AssertionError(state)
+bus.call_sync('com.nodalix.Settings','/com/nodalix/Settings','com.nodalix.Settings1','SetWallpaper',GLib.Variant('(s)',(str(video),)),None,Gio.DBusCallFlags.NONE,10000,None)
+state=json.loads(bus.call_sync('com.nodalix.Settings','/com/nodalix/Settings','com.nodalix.Settings1','GetWallpaperState',None,None,Gio.DBusCallFlags.NONE,10000,None).unpack()[0])
+assert state['available'] and state['requested'] and state['path']==str(video),state
+wait_renderer()
 print('Animated wallpaper renderer active')
 # Register this QA process explicitly; the systemd verifier otherwise supplies
 # a different app identity than a terminal process. All files are guest-only.

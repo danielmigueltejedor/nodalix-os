@@ -8,7 +8,7 @@ import argparse, hashlib, json, os, subprocess, time
 from pathlib import Path
 
 QA_FILES = {'.github/workflows/ci.yml', 'tools/ci-boot-migrated.sh',
-            'tools/ci-guest-verify.py', 'tools/ci-reuse-artifacts.py'}
+            'tools/ci-guest-verify.py', 'tools/ci-boot-iso.py', 'tools/ci-reuse-artifacts.py'}
 REPO = os.environ.get('GITHUB_REPOSITORY', 'danielmigueltejedor/nodalix-os')
 
 def api(path):

@@ -40,7 +40,7 @@ def main():
     ], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     selector = selectors.DefaultSelector()
     selector.register(process.stdout, selectors.EVENT_READ)
-    deadline = time.monotonic()+600
+    deadline = time.monotonic()+900
     transcript = b''; login_sent = command_sent = passed = False
     try:
         with (args.evidence/'boot.log').open('wb') as log:
