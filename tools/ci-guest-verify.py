@@ -76,9 +76,12 @@ video_preferences=Gio.Settings.new('io.github.jeffshee.hanabi-extension')
 assert video_preferences.get_boolean('enable-va') and not video_preferences.get_boolean('prefer-clappersink')
 assert Path.home().joinpath('.config/xdg-terminals.list').read_text().strip()=='com.mitchellh.ghostty.desktop'
 print('GNOME profile, private schemas, rounded blur, shortcuts and repeated user migration passed')
-for attempt in range(40):
-    local=bus.call_sync('com.nodalix.LocalSend','/com/nodalix/LocalSend','com.nodalix.LocalSend1','GetStatus',None,None,Gio.DBusCallFlags.NONE,5000,None).unpack()[0]
-    if json.loads(local)['enabled']:break
+deadline=time.monotonic()+90
+while time.monotonic()<deadline:
+    try:
+        local=bus.call_sync('com.nodalix.LocalSend','/com/nodalix/LocalSend','com.nodalix.LocalSend1','GetStatus',None,None,Gio.DBusCallFlags.NONE,10000,None).unpack()[0]
+        if json.loads(local)['enabled']:break
+    except GLib.Error:pass  # Software-rendered VM startup can delay the shell bus.
     time.sleep(.5)
 else:raise AssertionError('LocalSend did not start after its configured startup delay')
 print('LocalSend quick settings bridge available')
@@ -90,8 +93,16 @@ for attempt in range(40):
     time.sleep(.5)
 else:raise AssertionError(state)
 print('Animated wallpaper renderer active')
+# Register this QA process explicitly; the systemd verifier otherwise supplies
+# a different app identity than a terminal process. All files are guest-only.
+qa_id='com.nodalix.QA'
+desktop=Path(os.environ.get('XDG_DATA_HOME',str(Path.home()/'.local/share')))/'applications'/f'{qa_id}.desktop'
+desktop.parent.mkdir(parents=True,exist_ok=True)
+desktop.write_text(chr(10).join(['[Desktop Entry]','Type=Application','Name=Nodalix QA','Exec=/usr/bin/true','']))
+time.sleep(1)
+bus.call_sync('org.freedesktop.portal.Desktop','/org/freedesktop/portal/desktop','org.freedesktop.host.portal.Registry','Register',GLib.Variant('(sa{sv})',(qa_id,{})),None,Gio.DBusCallFlags.NONE,60000,None)
 # Permission fixture belongs only to this disposable VM user's database.
-bus.call_sync('org.freedesktop.impl.portal.PermissionStore','/org/freedesktop/impl/portal/PermissionStore','org.freedesktop.impl.portal.PermissionStore','Set',GLib.Variant('(sbsa{sas}v)',('screenshot',True,'screenshot',{'':['yes']},GLib.Variant('s',''))),None,Gio.DBusCallFlags.NONE,5000,None)
+bus.call_sync('org.freedesktop.impl.portal.PermissionStore','/org/freedesktop/impl/portal/PermissionStore','org.freedesktop.impl.portal.PermissionStore','Set',GLib.Variant('(sbsa{sas}v)',('screenshot',True,'screenshot',{qa_id:['yes']},GLib.Variant('s',''))),None,Gio.DBusCallFlags.NONE,5000,None)
 loop=GLib.MainLoop();responses=[]
 def responded(connection,sender,path,interface,signal,parameters):
     responses.append(parameters.unpack());loop.quit()
@@ -100,7 +111,7 @@ request='/org/freedesktop/portal/desktop/request/'+bus.get_unique_name().lstrip(
 subscription=bus.signal_subscribe(None,'org.freedesktop.portal.Request','Response',request,None,Gio.DBusSignalFlags.NONE,responded)
 result=bus.call_sync('org.freedesktop.portal.Desktop','/org/freedesktop/portal/desktop','org.freedesktop.portal.Screenshot','Screenshot',GLib.Variant('(sa{sv})',('',{'handle_token':GLib.Variant('s',token),'interactive':GLib.Variant('b',False)})),None,Gio.DBusCallFlags.NONE,5000,None).unpack()[0]
 assert result==request
-GLib.timeout_add_seconds(25,lambda:(loop.quit(),False)[1]);loop.run()
+GLib.timeout_add_seconds(90,lambda:(loop.quit(),False)[1]);loop.run()
 bus.signal_unsubscribe(subscription)
 assert responses and responses[0][0]==0,responses
 from urllib.parse import urlparse,unquote
