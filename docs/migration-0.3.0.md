@@ -55,7 +55,7 @@ las dependencias reales y los scripts de instalación, comprueba propiedad de
 archivos, GDM, CUPS, identidad, conservación de datos y bloqueo por reinicio.
 La CI también arranca ese sistema migrado en QEMU, inicia GNOME mediante GDM,
 comprueba el perfil GNOME, la migración de fondo/reloj/aplicaciones fijadas,
-el servicio LocalSend y el reproductor animado. Se construye además la ISO
+el servicio LocalSend y el reproductor animado. En QEMU sin aceleración gráfica, la reproducción y el portal se verifican con una muestra de 640 píxeles generada dentro del huésped a partir de la colección original 4K; esa muestra no se distribuye. Se construye además la ISO
 instalable y se publica únicamente después de la validación de la release. El ensayo virtual no comprueba
 impresoras o móviles físicos.
 

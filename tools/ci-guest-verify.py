@@ -85,7 +85,13 @@ while time.monotonic()<deadline:
     time.sleep(.5)
 else:raise AssertionError('LocalSend did not start after its configured startup delay')
 print('LocalSend quick settings bridge available')
-video=next(Path('/usr/share/backgrounds/nodalix/animated').glob('*.mp4'))
+# TCG and llvmpipe emulate the GPU on two CPU cores. Exercise the actual
+# renderer, selection and portals using a reduced sample of the verified 4K
+# collection; this guest-only file never becomes part of release packages.
+source=Path('/usr/share/backgrounds/nodalix/animated/nodalix-aurora-forest-4k.mp4')
+video=Path.home()/'.local/share/backgrounds/nodalix/animated/nodalix-qa-sample.mp4'
+video.parent.mkdir(parents=True,exist_ok=True)
+subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-y','-i',str(source),'-t','1','-vf','scale=640:-2,fps=12','-c:v','libx264','-preset','ultrafast','-an',str(video)],check=True,timeout=120)
 bus.call_sync('com.nodalix.Settings','/com/nodalix/Settings','com.nodalix.Settings1','SetWallpaper',GLib.Variant('(s)',(str(video),)),None,Gio.DBusCallFlags.NONE,5000,None)
 for attempt in range(40):
     state=json.loads(bus.call_sync('com.nodalix.Settings','/com/nodalix/Settings','com.nodalix.Settings1','GetWallpaperState',None,None,Gio.DBusCallFlags.NONE,5000,None).unpack()[0])
