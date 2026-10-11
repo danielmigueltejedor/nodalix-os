@@ -160,7 +160,7 @@ class WallpaperActivationTests(unittest.TestCase):
             alias=root/'legacy.mp4';alias.symlink_to(video)
             poster=root/'poster.jpg';poster.write_bytes(b'poster')
             prefs=MagicMock();service=settings.SettingsService()
-            with patch.object(settings,'catalog',return_value=[{'path':str(video)}]),patch.object(settings,'poster_for',return_value=poster),patch.object(settings,'wallpaper_preferences',return_value=prefs),patch.object(settings,'request_wallpaper'),patch.object(settings.threading.Thread,'start'),patch.object(settings.Gio.Settings,'new'):
+            with patch.object(settings,'catalog',return_value=[{'path':str(video)}]),patch.object(settings,'poster_for',return_value=poster),patch.object(settings,'wallpaper_preferences',return_value=prefs),patch.object(settings,'request_wallpaper'),patch.object(settings.threading.Thread,'start'),patch.object(settings,'extension_info',return_value={}),patch.object(settings.Gio.Settings,'new'):
                 service.wallpaper(str(alias))
             prefs.set_string.assert_called_once_with('video-path',str(video))
 
