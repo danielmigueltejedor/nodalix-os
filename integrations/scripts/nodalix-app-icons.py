@@ -67,6 +67,25 @@ def replace_icon(text, icon):
     return ''.join(lines)
 
 
+def official_craft_icon(identifier, entry, roots):
+    """Resolve Craft's supplied icon even when the Flatpak icon cache is stale."""
+    names = {'photocraft', 'vectorcraft', 'filmcraft', 'lightcraft', 'pdfcraft',
+             'effectcraft', 'designcraft', 'wordcraft', 'gridcraft', 'deckcraft',
+             'cadcraft', 'soundcraft', 'artcraft-launcher'}
+    expected = identifier.removesuffix('.desktop')
+    if expected not in {'ai.storyteller.' + name for name in names}:
+        return None
+    if entry.get('Icon') != expected:
+        return None  # An explicit personal icon remains authoritative.
+    for root in roots:
+        for size, suffix in [('scalable', '.svg'), ('512x512', '.png'),
+                             ('256x256', '.png'), ('128x128', '.png')]:
+            icon = root / 'icons/hicolor' / size / 'apps' / (expected + suffix)
+            if icon.is_file():
+                return str(icon)
+    return None
+
+
 def synchronize(home, data_roots=None, theme_roots=None):
     data_home = Path(os.environ.get('XDG_DATA_HOME', str(home / '.local/share')))
     state_home = Path(os.environ.get('XDG_STATE_HOME', str(home / '.local/state')))
@@ -120,7 +139,8 @@ def synchronize(home, data_roots=None, theme_roots=None):
             continue
         if entry.get('Type') != 'Application' or not entry.get('Icon'):
             continue
-        icon = next((index[name] for name in candidates(identifier, entry) if name in index), None)
+        icon = official_craft_icon(identifier, entry, roots) or next(
+            (index[name] for name in candidates(identifier, entry) if name in index), None)
         if not icon:
             # Restore only our unchanged output if a theme icon disappears.
             if previous and destination.exists() and digest(destination.read_text()) == previous.get('written_hash'):

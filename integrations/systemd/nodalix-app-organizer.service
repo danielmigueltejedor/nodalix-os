@@ -1,0 +1,6 @@
+[Unit]
+Description=Organize installed applications into Nodalix folders
+After=graphical-session.target
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/nodalix-organize-apps

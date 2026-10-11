@@ -3,13 +3,14 @@
 set -euo pipefail
 [[ ${NODALIX_CI_CONTAINER:-} == 1 ]] || exit 1
 pacman -S --needed --noconfirm linux mkinitcpio qemu-system-x86 qemu-ui-opengl qemu-hw-display-virtio-gpu qemu-hw-display-virtio-vga e2fsprogs
-mkdir -p /src/dist/vm-candidate
-qa=/src/dist/vm-candidate
+qa=${NODALIX_QA_VM_DIR:-/src/dist/vm-candidate}
+[[ ! -e "$qa" ]] || { echo 'Choose a fresh disposable VM directory'; exit 1; }
+mkdir -p "$qa"
 cat > "$qa/mkinitcpio.conf" <<'CONFIG'
 MODULES=(virtio_pci virtio_blk virtio_net virtio_gpu ext4)
 BINARIES=()
 FILES=()
-HOOKS=(base systemd autodetect modconf block filesystems)
+HOOKS=(base systemd modconf block filesystems)
 CONFIG
 kernel=$(find /usr/lib/modules -name pkgbase -exec dirname {} \; | head -1)
 mkinitcpio -k "${kernel##*/}" -c "$qa/mkinitcpio.conf" -g "$qa/initramfs.img"
@@ -20,7 +21,7 @@ for dir in usr etc var home root opt boot; do [[ ! -d /$dir ]] || cp -a /"$dir" 
 for dir in dev proc sys run tmp; do mkdir -p "$guest/$dir"; done
 ln -s usr/bin "$guest/bin"; ln -s usr/bin "$guest/sbin"; ln -s usr/lib "$guest/lib"; ln -s usr/lib "$guest/lib64"
 rm -rf "$guest/var/cache/pacman/pkg" "$guest/var/log/journal"
-systemd-firstboot --root="$guest" --setup-machine-id --locale=C.UTF-8 --timezone=UTC --hostname=nodalix-migration-test --force
+systemd-firstboot --root="$guest" --setup-machine-id --locale=es_ES.UTF-8 --timezone=UTC --hostname=nodalix-migration-test --force
 cat > "$guest/etc/gdm/custom.conf" <<'GDM'
 [daemon]
 AutomaticLoginEnable=True

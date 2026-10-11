@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "minimum_version": "0.2.4",
+  "minimum_version": "0.1.1",
   "channel": "stable",
   "arch": "x86_64",
   "components": [
@@ -123,6 +123,14 @@
       "version": "1.0.0",
       "required": true,
       "restart": "system"
+    },
+    {
+      "id": "artcraft-launcher",
+      "name": "ArtCraft Launcher",
+      "package": "nodalix-artcraft-launcher",
+      "version": "0.2.1",
+      "required": true,
+      "restart": "none"
     }
   ]
 }

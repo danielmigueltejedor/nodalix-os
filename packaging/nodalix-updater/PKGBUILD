@@ -22,6 +22,7 @@ package() {
     install -Dm644 "$srcdir/updater/$unit" "$pkgdir/usr/lib/systemd/system/$unit"
   done
   install -Dm644 "$srcdir/updater/legacy-installer-0.2.4.json" "$pkgdir/usr/lib/nodalix-updater/legacy-installer-0.2.4.json"
+  install -Dm644 "$srcdir/updater/legacy-installers.json" "$pkgdir/usr/lib/nodalix-updater/legacy-installers.json"
   install -d "$pkgdir/usr/lib/nodalix-updater/migrations"
   install -m644 "$srcdir/updater/migrations/"*.py "$pkgdir/usr/lib/nodalix-updater/migrations/"
   cp -a --no-preserve=ownership "$srcdir/updater/vendor/cachyos-repo" \

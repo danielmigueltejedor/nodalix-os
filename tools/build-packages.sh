@@ -121,6 +121,10 @@ if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
   find "$root/dist/native-settings" -mindepth 2 -maxdepth 2 -type f -name "*.pkg.tar.zst" ! -name "*-debug-*" -exec cp {} "$outdir/" \;
   makepkg_one "$updater_dir"
   makepkg_one "$apps_dir"
+  craft_dir="$workdir/nodalix-artcraft-launcher"
+  mkdir -p "$craft_dir"
+  cp "$root/packaging/nodalix-artcraft-launcher/PKGBUILD" "$craft_dir/"
+  makepkg_one "$craft_dir"
   makepkg_one "$integrations_dir"
   rounded_dir="$workdir/gnome-rounded-blur"
   mkdir -p "$rounded_dir"

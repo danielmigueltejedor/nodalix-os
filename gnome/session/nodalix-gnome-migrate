@@ -21,10 +21,12 @@ def migrate(root=Path('/'), runner=subprocess.run):
         if not target.exists():shutil.copy2(legacy,target)
         legacy.unlink()
     wrapper=root/'usr/local/bin/nodalix-session'
-    metadata=root/'usr/lib/nodalix-updater/legacy-installer-0.2.4.json'
+    metadata=root/'usr/lib/nodalix-updater/legacy-installers.json'
+    if not metadata.is_file():metadata=root/'usr/lib/nodalix-updater/legacy-installer-0.2.4.json'
     if wrapper.is_file() and not wrapper.is_symlink() and metadata.is_file():
         expected=json.loads(metadata.read_text())['usr/local/bin/nodalix-session']
-        if hashlib.sha256(wrapper.read_bytes()).hexdigest()==expected:
+        expected=[expected] if isinstance(expected,str) else expected
+        if hashlib.sha256(wrapper.read_bytes()).hexdigest() in expected:
             target=saved/wrapper.relative_to(root);target.parent.mkdir(parents=True,exist_ok=True)
             if not target.exists():shutil.copy2(wrapper,target)
             wrapper.unlink();wrapper.symlink_to('/usr/lib/nodalix/nodalix-gnome-session')

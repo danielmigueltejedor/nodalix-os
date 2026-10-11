@@ -1,0 +1,1 @@
+Official iCloud touch icon from https://www.icloud.com/system/icloud.com/2636Build34/favicons/default-favicon-light-180x180.png, referenced by the iCloud.com homepage on 2026-10-11. The SVG wraps the unchanged original Apple PNG. iCloud is an Apple trademark.

@@ -1,0 +1,17 @@
+pkgname=nodalix-artcraft-launcher
+pkgver=0.2.1
+pkgrel=1
+pkgdesc="Official ArtCraft launcher for the twelve Craft applications"
+arch=("x86_64")
+url="https://github.com/storytold/craft-launcher"
+license=("MIT" "Apache-2.0")
+depends=("glibc" "gcc-libs" "libxkbcommon" "wayland" "libx11" "libxcursor" "libxrandr" "libxi" "libxcb" "mesa" "vulkan-icd-loader" "fontconfig" "freetype2" "flatpak")
+provides=("artcraft-launcher=$pkgver")
+source=("https://github.com/storytold/craft-launcher/releases/download/v$pkgver/artcraft-launcher-$pkgver-linux-x86_64.tar.gz")
+sha256sums=("56623ffe736cad86c8c18f34b4a471a70979f9c67f4ec98496f2cae1bb2c9d4b")
+package() {
+    cd "$srcdir/artcraft-launcher-$pkgver-linux-x86_64"
+    install -Dm755 bin/artcraft-launcher "$pkgdir/usr/bin/artcraft-launcher"
+    install -d "$pkgdir/usr/share"
+    cp -a --no-preserve=ownership share/. "$pkgdir/usr/share/"
+}

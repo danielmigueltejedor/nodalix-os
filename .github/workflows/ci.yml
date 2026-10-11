@@ -101,3 +101,23 @@ jobs:
           path: dist/iso-output/*
           if-no-files-found: error
           retention-days: 7
+
+  upgrade-history:
+    needs: packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: nodalix-0.3.0-candidate
+          path: dist/packages
+      - name: Upgrade every published earlier release with real pacman
+        run: docker run --rm -e NODALIX_CI_CONTAINER=1 -v "$PWD":/src -w /src archlinux:latest bash -c 'pacman -Syu --noconfirm python && python tools/ci-upgrade-history.py'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nodalix-upgrade-history-evidence
+          path: dist/history-evidence/*

@@ -5,13 +5,13 @@ pkgdesc="Nodalix desktop services independent of the compositor"
 arch=("any")
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-depends=("python" "python-gobject" "evolution-data-server" "xdg-user-dirs" "rclone" "fuse3" "openssl" "fish" "vdirsyncer")
+depends=("python" "python-gobject" "evolution-data-server" "xdg-user-dirs" "rclone" "fuse3" "openssl" "fish" "vdirsyncer" "gtk3" "desktop-file-utils")
 optdepends=("keyd: optional Super copy/paste/cut remapping")
 source=("nodalix-integrations-$pkgver.tar.zst")
 sha256sums=("SKIP")
 
 package() {
-    for helper in user-layout app-icons calendar-bridge security-status keyboard-remap; do
+    for helper in user-layout app-icons calendar-bridge security-status keyboard-remap organize-apps icloud-renovar; do
         install -Dm755 "$srcdir/integrations/scripts/nodalix-${helper}.py" "$pkgdir/usr/bin/nodalix-${helper}"
     done
     install -Dm755 "$srcdir/integrations/scripts/nodalix-icloud-apply-icon.fish" "$pkgdir/usr/bin/nodalix-icloud-apply-icon"
@@ -20,9 +20,14 @@ package() {
                 nodalix-icloud-sync.service nodalix-icloud-sync.timer; do
         install -Dm644 "$srcdir/integrations/systemd/$unit" "$pkgdir/usr/lib/systemd/user/$unit"
     done
+    install -Dm644 "$srcdir/integrations/assets/icloud-apple-official.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/icloud-apple-official.svg"
+    install -Dm644 "$srcdir/integrations/assets/com.nodalix.iCloudAccess.desktop" "$pkgdir/usr/share/applications/com.nodalix.iCloudAccess.desktop"
+    for unit in nodalix-app-organizer.service nodalix-app-organizer.path; do
+        install -Dm644 "$srcdir/integrations/systemd/$unit" "$pkgdir/usr/lib/systemd/user/$unit"
+    done
     # No standalone legacy LocalSend receiver: GNOME owns discovery via GLocalSend.
     install -d "$pkgdir/usr/lib/systemd/user/default.target.wants"
-    for unit in nodalix-user-layout.timer nodalix-user-layout.path nodalix-icloud-drive.service nodalix-icloud-sync.timer; do
+    for unit in nodalix-user-layout.timer nodalix-user-layout.path nodalix-app-organizer.path nodalix-icloud-drive.service nodalix-icloud-sync.timer; do
         ln -s "../$unit" "$pkgdir/usr/lib/systemd/user/default.target.wants/$unit"
     done
 }

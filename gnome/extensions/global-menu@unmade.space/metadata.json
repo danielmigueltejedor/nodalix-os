@@ -1,0 +1,19 @@
+{
+  "uuid": "global-menu@unmade.space",
+  "name": "Menú global",
+  "description": "Los menús de la aplicación activa aparecen en la barra superior. Traducción al español de los menús generales, las preferencias y las aplicaciones compatibles instaladas. Utiliza los menús propios de las aplicaciones, sus atajos de teclado o un menú de ventanas y sistema.",
+  "shell-version": [
+    "49",
+    "50",
+    "51"
+  ],
+  "url": "https://github.com/Unmade760/orbit-global-menu",
+  "settings-schema": "org.gnome.shell.extensions.global-menu",
+  "version-name": "1.0.0",
+  "local-compatibility": {
+    "shell": "51",
+    "upstream-commit": "466419282f589be9afe4df6a9d204470fea65ec8",
+    "verified": "GNOME Shell 51 Wayland, two virtual monitors, native menus and mirrored menu interaction",
+    "language": "es"
+  }
+}

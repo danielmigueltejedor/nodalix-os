@@ -100,27 +100,7 @@ def prepare(assets: Path, work: Path) -> tuple[Path, str]:
         dirs_exist_ok=True,
     )
 
-    # The live desktop only needs its default wallpaper. The complete
-    # wallpaper package remains in the offline installer payload and is
-    # installed into the final system.
-    live_wallpaper = (
-        ROOT
-        / "packaging/nodalix-wallpapers"
-        / "nodalix-alpine-mirror.jpg"
-    )
-    live_wallpaper_target = (
-        root
-        / "usr/share/backgrounds/nodalix/static"
-        / "nodalix-alpine-mirror.jpg"
-    )
-    live_wallpaper_target.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-    shutil.copy2(
-        live_wallpaper,
-        live_wallpaper_target,
-    )
+    # nodalix-wallpapers owns the live wallpaper; do not pre-copy it into airootfs.
 
     # The installer and Archinstall profile use this instead of hardcoded
     # version numbers.

@@ -152,6 +152,18 @@ class WallpaperActivationTests(unittest.TestCase):
             state=json.loads(settings.wallpaper_snapshot())
             self.assertFalse(state['active']);self.assertFalse(state['playing'])
 
+    def test_compatibility_video_symlink_selects_the_canonical_catalog_entry(self):
+        from unittest.mock import MagicMock
+        import tempfile
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);video=root/'canonical.mp4';video.write_bytes(b'video')
+            alias=root/'legacy.mp4';alias.symlink_to(video)
+            poster=root/'poster.jpg';poster.write_bytes(b'poster')
+            prefs=MagicMock();service=settings.SettingsService()
+            with patch.object(settings,'catalog',return_value=[{'path':str(video)}]),patch.object(settings,'poster_for',return_value=poster),patch.object(settings,'wallpaper_preferences',return_value=prefs),patch.object(settings,'request_wallpaper'),patch.object(settings.threading.Thread,'start'),patch.object(settings.Gio.Settings,'new'):
+                service.wallpaper(str(alias))
+            prefs.set_string.assert_called_once_with('video-path',str(video))
+
     def test_desktop_uses_full_resolution_still_instead_of_gallery_thumbnail(self):
         from unittest.mock import MagicMock
         import tempfile

@@ -52,7 +52,8 @@ export default class LoginBackground extends Extension {
         const shared = '/var/lib/nodalix/login/background.jpg';
         const fallback = '/usr/share/backgrounds/nodalix/login/nodalix-login-fallback.jpg';
         const file = Gio.File.new_for_path(GLib.file_test(shared, GLib.FileTest.IS_REGULAR) ? shared : fallback);
-        return `background-image: url("${file.get_uri()}"); background-size: cover; background-position: center;`;
+        // St centers an image by default; CSS center/percent positions are unsupported.
+        return `background-image: url("${file.get_uri()}"); background-size: cover;`;
     }
 
     _clear() {

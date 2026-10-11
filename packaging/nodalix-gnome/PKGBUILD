@@ -6,7 +6,7 @@ arch=("any")
 install=nodalix-gnome.install
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-depends=("cups" "cups-pk-helper" "gnome-shell>=1:51" "gnome-shell<1:52" "mutter>=51" "mutter<52" "gnome-rounded-blur" "xdg-terminal-exec" "gnome-session" "gdm" "nodalix-control-center" "nodalix-settings" "nodalix-video-wallpapers" "gnome-settings-daemon" "gnome-keyring" "ghostty" "adwaita-fonts" "gnome-contacts" "gnome-maps" "gnome-weather" "papers" "showtime" "snapshot" "gnome-calculator" "gnome-clocks" "baobab" "gnome-text-editor" "gnome-online-accounts" "gnome-calendar" "gvfs" "gvfs-mtp" "gvfs-smb" "networkmanager" "bluez" "bluez-utils" "bluez-obex" "pipewire-pulse" "wireplumber" "rtkit" "power-profiles-daemon" "nautilus" "nautilus-python" "libsoup3" "zenity" "libnotify" "xdg-desktop-portal" "xdg-desktop-portal-gnome" "xdg-desktop-portal-gtk" "nodalix-integrations>=0.3.0")
+depends=("cups" "cups-pk-helper" "python-dbus" "python-xlib" "python-gobject" "gnome-shell>=1:51" "gnome-shell<1:52" "mutter>=51" "mutter<52" "gnome-rounded-blur" "xdg-terminal-exec" "gnome-session" "gdm" "nodalix-control-center" "nodalix-settings" "nodalix-video-wallpapers" "gnome-settings-daemon" "gnome-keyring" "ghostty" "adwaita-fonts" "gnome-contacts" "gnome-maps" "gnome-weather" "papers" "showtime" "snapshot" "gnome-calculator" "gnome-clocks" "baobab" "gnome-text-editor" "gnome-online-accounts" "gnome-calendar" "gvfs" "gvfs-mtp" "gvfs-smb" "networkmanager" "bluez" "bluez-utils" "bluez-obex" "pipewire-pulse" "wireplumber" "rtkit" "power-profiles-daemon" "nautilus" "nautilus-python" "libsoup3" "zenity" "libnotify" "xdg-desktop-portal" "xdg-desktop-portal-gnome" "xdg-desktop-portal-gtk" "nodalix-integrations>=0.3.0")
 provides=("nodalix-shell=$pkgver")
 conflicts=("nodalix-shell" "nodalix-greeter-theme" "nodalix-hymission" "nodalix-wallpaper-engine")
 replaces=("nodalix-shell" "nodalix-greeter-theme" "nodalix-hymission" "nodalix-wallpaper-engine")
@@ -46,10 +46,13 @@ package() {
     install -Dm644 "$srcdir/gnome/nautilus/nodalix_localsend.py" "$pkgdir/usr/share/nautilus-python/extensions/nodalix_localsend.py"
     install -Dm644 "$srcdir/gnome/session/extensions.json" "$pkgdir/usr/share/nodalix/gnome-extensions.json"
     install -Dm644 "$srcdir/gnome/session/extension-defaults.json" "$pkgdir/usr/share/nodalix/gnome-extension-defaults.json"
-    for uuid in nodalix-secondary-bars@getnodalia.com glocalsend@donnybeelo.github.com nodalix-connect@getnodalia.com dash-to-dock@micxgx.gmail.com blur-my-shell@aunetx tiling-assistant@leleat-on-github rounded-window-corners@ztrahmet.github.io; do
+    for uuid in global-menu@unmade.space multi-monitors-bar@frederykabryan nodalix-auto-tiling@getnodalia.com nodalix-secondary-bars@getnodalia.com glocalsend@donnybeelo.github.com nodalix-connect@getnodalia.com dash-to-dock@micxgx.gmail.com blur-my-shell@aunetx tiling-assistant@leleat-on-github rounded-window-corners@ztrahmet.github.io; do
         install -d "$pkgdir/usr/share/gnome-shell/extensions/$uuid"
         cp -a --no-preserve=ownership "$srcdir/gnome/extensions/$uuid/." "$pkgdir/usr/share/gnome-shell/extensions/$uuid/"
     done
+    install -d "$pkgdir/usr/lib/nodalix/global-menu"
+    cp -a --no-preserve=ownership "$srcdir/gnome/lib/global-menu/." "$pkgdir/usr/lib/nodalix/global-menu/"
+    install -Dm755 "$srcdir/gnome/lib/global-menu-launcher" "$pkgdir/usr/bin/global-menu"
     # Extension metadata downloaded into a user home may be mode 0600. System
     # extensions must be readable by every login, regardless of source modes.
     find "$pkgdir/usr/share/gnome-shell/extensions" -type d -exec chmod 0755 {} +

@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-"""One-time bridge for the original 0.2.4 updater. No release is created."""
+"""One-time bridge from earlier Nodalix releases to GNOME 0.3.0."""
 from pathlib import Path
 import argparse,hashlib,importlib.machinery,importlib.util,json,os,re,subprocess,tempfile,urllib.request
 REPO='danielmigueltejedor/nodalix-os'
@@ -32,8 +32,8 @@ def verify_bridge_policy(raw, manifest, base=None, directory=None):
     installed=importlib.util.module_from_spec(spec);spec.loader.exec_module(installed)
     installed.validate_manifest(manifest)
     current=installed.current_version()
-    if installed.compare_versions(current,'0.2.4')<0 or installed.compare_versions(current,'0.3.0')>=0:
-        raise ValueError('Este puente está destinado a Nodalix 0.2.4')
+    if installed.compare_versions(current,'0.1.1')<0 or installed.compare_versions(current,'0.3.0')>=0:
+        raise ValueError('Este puente actualiza Nodalix 0.1.1 y las versiones anteriores a 0.3.0')
     assets=[]
     signing=manifest.get('signing')
     if signing and base:

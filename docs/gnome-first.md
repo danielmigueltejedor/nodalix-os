@@ -18,7 +18,7 @@ Overview, espacios de trabajo, notificaciones, fondos y ajustes rápidos.
   de la colección actual.
 La versión 0.3.0 reemplaza `nodalix-shell` y `nodalix-greeter-theme` en una
 transacción declarada, archivando los datos de Hyprland y retirando sus paquetes. Las integraciones
-pasan a su paquete propio. El actualizador original de 0.2.4 necesita el puente
+pasan a su paquete propio. Los actualizadores originales de las versiones anteriores a 0.3.0 necesitan el puente
 `nodalix-migrate-gnome`: primero instala el nuevo actualizador verificado y
 continúa la actualización completa. No usa sobrescrituras generales.
 
@@ -204,7 +204,7 @@ El registro se rota al superar 1 MiB y conserva una copia anterior. Cada versió
 tiene un único directorio de respaldo; no crea copias fechadas en cada login.
 
 El migrador de sistema conserva sus comprobaciones de propiedad y hashes de los
-archivos sin propietario del instalador 0.2.4. Nunca usa una sobrescritura general
+archivos sin propietario conocidos de los instaladores anteriores. Nunca usa una sobrescritura general
 ni elimina aplicaciones por contener `hypr` en su nombre: Hylki queda intacto.
 Las preferencias GNOME explícitas prevalecen sobre defaults. Los atajos nuevos se
 fusionan con los personales, el teclado deriva de XKB/keymap/locale y los handlers
@@ -294,7 +294,7 @@ No se usa `[ids] *` y Ctrl+C convencional permanece disponible.
 
 | Apariciones | Motivo y conservación |
 |---|---|
-| `updater/legacy-installer-0.2.4.json`, migradores y lista de paquetes retirados | Hashes, respaldo y transición desde versiones antiguas; retirar al cerrar el soporte de upgrades 0.2.x |
+| `updater/legacy-installers.json`, migradores y lista de paquetes retirados | Hashes, respaldo y transición desde versiones antiguas; retirar al cerrar el soporte de upgrades 0.2.x |
 | `gnome/migration/` y pruebas de transición | Detección y archivo de configuraciones antiguas, sin ejecutar sus programas |
 | `docs/releases/`, `docs/baseline/` | Historia y evidencia de versiones publicadas; no se empaquetan |
 | Fixture `git archive 0.2.4` de CI | Instala el overlay original para comprobar una migración real |

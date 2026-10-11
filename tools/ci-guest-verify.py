@@ -76,10 +76,13 @@ video_preferences=Gio.Settings.new('io.github.jeffshee.hanabi-extension')
 assert video_preferences.get_boolean('enable-va') and not video_preferences.get_boolean('prefer-clappersink')
 assert Path.home().joinpath('.config/xdg-terminals.list').read_text().strip()=='com.mitchellh.ghostty.desktop'
 print('GNOME profile, private schemas, rounded blur, shortcuts and repeated user migration passed')
-local=bus.call_sync('com.nodalix.LocalSend','/com/nodalix/LocalSend','com.nodalix.LocalSend1','GetStatus',None,None,Gio.DBusCallFlags.NONE,5000,None).unpack()[0]
-assert json.loads(local)['enabled']
+for attempt in range(40):
+    local=bus.call_sync('com.nodalix.LocalSend','/com/nodalix/LocalSend','com.nodalix.LocalSend1','GetStatus',None,None,Gio.DBusCallFlags.NONE,5000,None).unpack()[0]
+    if json.loads(local)['enabled']:break
+    time.sleep(.5)
+else:raise AssertionError('LocalSend did not start after its configured startup delay')
 print('LocalSend quick settings bridge available')
-video=next(Path('/usr/share/backgrounds/nodalix/Animados').glob('*.mp4'))
+video=next(Path('/usr/share/backgrounds/nodalix/animated').glob('*.mp4'))
 bus.call_sync('com.nodalix.Settings','/com/nodalix/Settings','com.nodalix.Settings1','SetWallpaper',GLib.Variant('(s)',(str(video),)),None,Gio.DBusCallFlags.NONE,5000,None)
 for attempt in range(40):
     state=json.loads(bus.call_sync('com.nodalix.Settings','/com/nodalix/Settings','com.nodalix.Settings1','GetWallpaperState',None,None,Gio.DBusCallFlags.NONE,5000,None).unpack()[0])
@@ -87,6 +90,23 @@ for attempt in range(40):
     time.sleep(.5)
 else:raise AssertionError(state)
 print('Animated wallpaper renderer active')
+# Permission fixture belongs only to this disposable VM user's database.
+bus.call_sync('org.freedesktop.impl.portal.PermissionStore','/org/freedesktop/impl/portal/PermissionStore','org.freedesktop.impl.portal.PermissionStore','Set',GLib.Variant('(sbsa{sas}v)',('screenshots',True,'screenshot',{'':['yes']},GLib.Variant('s',''))),None,Gio.DBusCallFlags.NONE,5000,None)
+loop=GLib.MainLoop();responses=[]
+def responded(connection,sender,path,interface,signal,parameters):
+    responses.append(parameters.unpack());loop.quit()
+token='nodalixqa'
+request='/org/freedesktop/portal/desktop/request/'+bus.get_unique_name().lstrip(':').replace('.','_')+'/'+token
+subscription=bus.signal_subscribe(None,'org.freedesktop.portal.Request','Response',request,None,Gio.DBusSignalFlags.NONE,responded)
+result=bus.call_sync('org.freedesktop.portal.Desktop','/org/freedesktop/portal/desktop','org.freedesktop.portal.Screenshot','Screenshot',GLib.Variant('(sa{sv})',('',{'handle_token':GLib.Variant('s',token),'interactive':GLib.Variant('b',False)})),None,Gio.DBusCallFlags.NONE,5000,None).unpack()[0]
+assert result==request
+GLib.timeout_add_seconds(25,lambda:(loop.quit(),False)[1]);loop.run()
+bus.signal_unsubscribe(subscription)
+assert responses and responses[0][0]==0,responses
+from urllib.parse import urlparse,unquote
+screenshot=Path(unquote(urlparse(responses[0][1]['uri']).path))
+assert screenshot.read_bytes().startswith(bytes([137,80,78,71]))
+print('Real GNOME screenshot portal produced a PNG')
 '''))
     assert {'xdg-desktop-portal','xdg-desktop-portal-gnome','xdg-desktop-portal-gtk'}.issubset(installed)
     print(user_script("print(__import__('subprocess').check_output(['systemctl','--user','is-active','xdg-desktop-portal.service','xdg-desktop-portal-gnome.service'],text=True))"))

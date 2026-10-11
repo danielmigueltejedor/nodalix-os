@@ -1,0 +1,29 @@
+{
+  "shell-version": [
+    "45",
+    "46",
+    "47",
+    "48",
+    "49",
+    "50",
+    "51"
+  ],
+  "uuid": "multi-monitors-bar@frederykabryan",
+  "name": "Multi Monitor Bar",
+  "settings-schema": "org.gnome.shell.extensions.multi-monitors-bar",
+  "gettext-domain": "multi-monitors-bar",
+  "description": "Fork of spin83's Multi Monitors. Pleaseeeee donate to support this extension :). Don't forget to star the original repository! , rate and comment",
+  "copied_from_url": "https://github.com/spin83/multi-monitors-add-on.git",
+  "url": "https://github.com/FrederykAbryan/multi-monitors-bar_fapv2",
+  "version": 56,
+  "donations": {
+    "paypal": "multimonitorbar",
+    "kofi": "frederykabryan"
+  },
+  "author": "Frederyk Abryan",
+  "local-compatibility": {
+    "shell": "51",
+    "upstream-commit": "589f9c9939ccaf9102052185359eb4392c269e39",
+    "verified": "GNOME Shell 51 Wayland, two virtual monitors, native menus and mirrored menu interaction"
+  }
+}

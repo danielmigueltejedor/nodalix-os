@@ -37,6 +37,7 @@ systemctl --user disable --now nodalix-localsend.service 2>/dev/null || true
 
 nodalix-shell-symbols || true
 nodalix-app-icons || true
+nodalix-organize-apps || true
 # Enable the complete installed GNOME profile; keep valid user extensions and identities.
 NODALIX_MIGRATION_BACKUP="$backup" python3 - <<'EXTENSIONS'
 from gi.repository import Gio,GLib
@@ -59,7 +60,12 @@ local=Path(os.environ.get('XDG_DATA_HOME',str(Path.home()/'.local/share')))/'gno
 enabled=[uuid for uuid in enabled if any((base/uuid/'metadata.json').is_file()
     for base in (local,Path('/usr/share/gnome-shell/extensions')))]
 backup=Path(os.environ['NODALIX_MIGRATION_BACKUP'])/'extensions'
+alternatives={
+    'nodalix-secondary-bars@getnodalia.com':'multi-monitors-bar@frederykabryan',
+    'nodalix-auto-tiling@getnodalia.com':'tiling-assistant@leleat-on-github',
+}
 for uuid in uuids:
+    if alternatives.get(uuid) in enabled:continue
     if not Path('/usr/share/gnome-shell/extensions',uuid).is_dir():continue
     # A user copy would shadow the new system extension; preserve then retire it.
     source=local/uuid

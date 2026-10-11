@@ -102,7 +102,7 @@ jobs:
           python3 tools/release_notes.py validate --version "$RELEASE_TAG"
 
       - name: Install native test dependencies
-        run: sudo apt-get update && sudo apt-get install -y python3-gi gnome-shell-common gir1.2-nautilus-4.0 gir1.2-gtk-4.0 gir1.2-adw-1 nodejs libarchive-tools gjs xvfb dbus-x11 libadwaita-1-dev libjson-glib-dev
+        run: sudo apt-get update && sudo apt-get install -y python3-gi gnome-shell-common gnome-settings-daemon-common gsettings-desktop-schemas gir1.2-nautilus-4.0 gir1.2-gtk-4.0 gir1.2-adw-1 nodejs libarchive-tools gjs xvfb dbus-x11 libadwaita-1-dev libjson-glib-dev ffmpeg
 
       - name: Run updater tests
         run: |
@@ -206,6 +206,9 @@ jobs:
 
       - name: Validate 0.2.4 to GNOME through the updater bridge
         run: docker run --rm -e NODALIX_CI_CONTAINER=1 -v "$PWD":/src -w /src archlinux:latest bash -c "bash tools/ci-migrate-024.sh && bash tools/ci-boot-migrated.sh"
+
+      - name: Validate every earlier published version including betas
+        run: docker run --rm -e NODALIX_CI_CONTAINER=1 -v "$PWD":/src -w /src archlinux:latest bash -c 'pacman -Syu --noconfirm python && python tools/ci-upgrade-history.py'
 
       - name: Resolve previous stable releases
         env:
@@ -489,7 +492,7 @@ jobs:
         run: |
           python3 tools/release_notes.py build --tag "$RELEASE_TAG" --output dist/release-notes.md
 
-      - name: Include the 0.2.4 migration bridge
+      - name: Include the migration bridge for earlier releases
         run: cp updater/nodalix-migrate-gnome dist/release/nodalix-migrate-gnome
 
       - name: Finalize manifest and checksums

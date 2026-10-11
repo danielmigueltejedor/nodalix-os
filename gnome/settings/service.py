@@ -362,6 +362,7 @@ class SettingsService:
             raise ValueError('El reproductor necesita volver a iniciar sesión para cargarse')
 
     def wallpaper(self, path):
+        path=str(Path(path).resolve())
         items={item['path']:item for item in catalog()}
         if path not in items:
             raise ValueError('El fondo no pertenece a la colección instalada')

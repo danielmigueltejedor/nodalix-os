@@ -984,10 +984,12 @@ def retire_legacy_desktop() -> None:
 
 
 def retire_installer_session(packages: list[str], *, root: Path = Path("/"), owner_lookup=None) -> None:
-    """Retire only the hash-pinned unowned 0.2.4 installer session before preflight."""
+    """Retire only hash-pinned unowned session files from official older installers."""
     if not any("nodalix-gnome" in package_metadata(p).get("pkgname", []) for p in packages):
         return
-    metadata = Path('/usr/lib/nodalix-updater/legacy-installer-0.2.4.json')
+    metadata = Path('/usr/lib/nodalix-updater/legacy-installers.json')
+    if not metadata.is_file():
+        metadata = Path(__file__).resolve().parent / 'legacy-installers.json'
     if not metadata.is_file():
         metadata = Path(__file__).resolve().parent / 'legacy-installer-0.2.4.json'
     relative = 'usr/share/wayland-sessions/nodalix.desktop'
@@ -995,7 +997,9 @@ def retire_installer_session(packages: list[str], *, root: Path = Path("/"), own
     if not source.is_file() or source.is_symlink():
         return
     lookup = owner_lookup or installed_path_owner
-    if lookup(source) is not None or sha256_file(source) != json.loads(metadata.read_text())[relative]:
+    expected = json.loads(metadata.read_text()).get(relative, [])
+    expected = [expected] if isinstance(expected, str) else expected
+    if lookup(source) is not None or sha256_file(source) not in expected:
         return  # custom files remain subject to the normal ownership preflight
     backup = STATE_DIR / 'migrations/gnome-0.3.0/files'
     backup.mkdir(parents=True, exist_ok=True, mode=0o700)

@@ -131,7 +131,7 @@ class BridgePolicyTests(unittest.TestCase):
         import types
         client=types.SimpleNamespace(validate_manifest=mock.Mock(),current_version=lambda:'0.4.0',compare_versions=UPDATER.compare_versions)
         with mock.patch.object(BRIDGE.importlib.util,'spec_from_loader',return_value=types.SimpleNamespace(loader=mock.Mock())),mock.patch.object(BRIDGE.importlib.util,'module_from_spec',return_value=client):
-            with self.assertRaisesRegex(ValueError,'0.2.4'):BRIDGE.verify_bridge_policy(b'{}',{})
+            with self.assertRaisesRegex(ValueError,'0.3.0'):BRIDGE.verify_bridge_policy(b'{}',{})
 
 class UserMigrationTests(unittest.TestCase):
     def test_regular_user_overrides_backed_up_before_mask_and_migration_runs_once(self):
