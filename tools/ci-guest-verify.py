@@ -91,7 +91,7 @@ for attempt in range(40):
 else:raise AssertionError(state)
 print('Animated wallpaper renderer active')
 # Permission fixture belongs only to this disposable VM user's database.
-bus.call_sync('org.freedesktop.impl.portal.PermissionStore','/org/freedesktop/impl/portal/PermissionStore','org.freedesktop.impl.portal.PermissionStore','Set',GLib.Variant('(sbsa{sas}v)',('screenshots',True,'screenshot',{'':['yes']},GLib.Variant('s',''))),None,Gio.DBusCallFlags.NONE,5000,None)
+bus.call_sync('org.freedesktop.impl.portal.PermissionStore','/org/freedesktop/impl/portal/PermissionStore','org.freedesktop.impl.portal.PermissionStore','Set',GLib.Variant('(sbsa{sas}v)',('screenshot',True,'screenshot',{'':['yes']},GLib.Variant('s',''))),None,Gio.DBusCallFlags.NONE,5000,None)
 loop=GLib.MainLoop();responses=[]
 def responded(connection,sender,path,interface,signal,parameters):
     responses.append(parameters.unpack());loop.quit()

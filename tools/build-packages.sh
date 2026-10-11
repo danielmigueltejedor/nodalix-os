@@ -129,6 +129,9 @@ if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
   rounded_dir="$workdir/gnome-rounded-blur"
   mkdir -p "$rounded_dir"
   cp "$root/packaging/gnome-rounded-blur/PKGBUILD" "$rounded_dir/"
+  tar --zstd -C "$root/gnome/lib" --transform='s,^rounded-blur,gnome-rounded-blur,' \
+    -cf "$rounded_dir/gnome-rounded-blur-1.0.0.tar.zst" rounded-blur
+  inject_sha256 "$rounded_dir/PKGBUILD" "$rounded_dir/gnome-rounded-blur-1.0.0.tar.zst"
   makepkg_one "$rounded_dir"
   makepkg_one "$gnome_dir"
   makepkg_one "$phone_link_dir"
