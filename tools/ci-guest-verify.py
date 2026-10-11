@@ -91,7 +91,12 @@ print('LocalSend quick settings bridge available')
 source=Path('/usr/share/backgrounds/nodalix/animated/nodalix-aurora-forest-4k.mp4')
 video=Path.home()/'.local/share/backgrounds/nodalix/animated/nodalix-qa-sample.mp4'
 video.parent.mkdir(parents=True,exist_ok=True)
-subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-y','-i',str(source),'-t','1','-vf','scale=640:-2,fps=12','-c:v','libx264','-preset','ultrafast','-an',str(video)],check=True,timeout=120)
+subprocess.run(['ffmpeg','-hide_banner','-loglevel','error','-y','-i',str(source),'-t','3','-vf','scale=640:-2,fps=12','-c:v','libx264','-preset','ultrafast','-an',str(video)],check=True,timeout=120)
+# Prepare the real cached poster before making the bounded UI service call.
+import sys
+sys.path.insert(0,'/usr/lib/nodalix')
+from wallpaper_poster import poster_for
+assert poster_for(video).stat().st_size
 bus.call_sync('com.nodalix.Settings','/com/nodalix/Settings','com.nodalix.Settings1','SetWallpaper',GLib.Variant('(s)',(str(video),)),None,Gio.DBusCallFlags.NONE,5000,None)
 for attempt in range(40):
     state=json.loads(bus.call_sync('com.nodalix.Settings','/com/nodalix/Settings','com.nodalix.Settings1','GetWallpaperState',None,None,Gio.DBusCallFlags.NONE,5000,None).unpack()[0])
