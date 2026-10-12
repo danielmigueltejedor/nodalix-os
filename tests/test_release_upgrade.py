@@ -28,9 +28,10 @@ class ReleaseUpgradePolicyTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
 
         self.assertIn(
-            'pacman_root -Qoq "$ROOT/$rel"',
+            'owned_paths+=("$ROOT/$rel")',
             script,
         )
+        self.assertIn('pacman_root -Qoq "${owned_paths[@]}"', script)
         self.assertNotIn(
             'pacman_root -Qoq "$path"',
             script,

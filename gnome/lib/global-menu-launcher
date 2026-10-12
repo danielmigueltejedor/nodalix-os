@@ -1,0 +1,5 @@
+#!/usr/bin/python3
+import sys
+sys.path.insert(0,"/usr/lib/nodalix/global-menu")
+from globalmenu.run import main
+main()

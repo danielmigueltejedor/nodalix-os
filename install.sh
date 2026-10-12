@@ -11,6 +11,7 @@ die() { printf '\033[1;31mError:\033[0m %s\n' "$*" >&2; exit 1; }
 [[ "$channel" == "stable" || "$channel" == "beta" ]] || die "NODALIX_CHANNEL debe ser stable o beta."
 command -v curl >/dev/null || die "Falta curl."
 command -v python3 >/dev/null || die "Falta Python."
+command -v bsdtar >/dev/null || die "Falta bsdtar (libarchive)."
 command -v pacman >/dev/null || die "Falta pacman."
 
 if [[ $EUID -eq 0 ]]; then
@@ -52,7 +53,7 @@ say "Descargando Nodalix $release_tag…"
 curl -fsSL "$manifest_url" -o "$work/nodalix-manifest.json"
 
 python3 - "$work/nodalix-manifest.json" "$work/assets.tsv" <<'PY'
-import json, pathlib, platform, re, sys
+import json, pathlib, platform, re, subprocess, sys
 
 manifest = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
 if manifest.get("schema") != 1 or manifest.get("schema_version") != 1:
@@ -61,7 +62,10 @@ if manifest.get("arch", "x86_64") not in ("any", platform.machine()):
     raise SystemExit("The release architecture does not match this computer")
 lines = []
 for item in manifest.get("components", []):
-    if not item.get("required"):
+    if not item.get("required") and subprocess.run(
+        ["pacman", "-Q", str(item.get("package", ""))],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    ).returncode != 0:
         continue
     asset = str(item.get("asset", ""))
     digest = str(item.get("sha256", "")).lower()
@@ -83,16 +87,24 @@ while IFS=$'\t' read -r asset digest; do
 done < "$work/assets.tsv"
 
 say "Instalando dependencias oficiales…"
-"${as_root[@]}" pacman -S --needed --noconfirm \
-    quickshell qt6-declarative python python-dbus python-gobject python-typer \
-    bluez bluez-utils bluez-obex gtk4 libadwaita zenity polkit minisign gcc gawk \
-    librsvg imagemagick
+# Resolve the checked local packages, including their split-package providers.
+# Do a full Arch upgrade; never leave GNOME/Mutter partially upgraded.
+mapfile -t official_dependencies < <(python3 - "${packages[@]}" <<'PYDEPS'
+import re,subprocess,sys
+rows=[subprocess.check_output(['bsdtar','-xOf',p,'.PKGINFO'],text=True) for p in sys.argv[1:]]
+provided={re.split('[<>=]',line.split(' = ',1)[1])[0] for row in rows for line in row.splitlines() if line.startswith(('pkgname = ','provides = '))}
+print('\n'.join(sorted({line.split(' = ',1)[1] for row in rows for line in row.splitlines() if line.startswith('depend = ') and re.split('[<>=]',line.split(' = ',1)[1])[0] not in provided})))
+PYDEPS
+)
+[[ ${#official_dependencies[@]} -gt 0 ]] || die "No se pudieron resolver las dependencias."
+"${as_root[@]}" pacman -Syu --needed --noconfirm "${official_dependencies[@]}"
 
 say "Instalando Nodalix $release_tag…"
-"${as_root[@]}" pacman -U --needed --noconfirm "${packages[@]}"
+"${as_root[@]}" pacman -U --needed --noconfirm --ask 4 "${packages[@]}"
 "${as_root[@]}" systemctl enable --now nodalix-update-check.timer
 systemctl --user daemon-reload || true
-systemctl --user enable nodalix-shell.service nodalix-app-accent.path nodalix-phone-link.service nodalix-localsend.service || true
+"${as_root[@]}" nodalix-gnome-migrate --system
+systemctl --user enable nodalix-phone-link.service || true
 
 if [[ -x /usr/lib/nodalix-phone-link/migrate-user ]]; then
     /usr/lib/nodalix-phone-link/migrate-user || true
@@ -100,10 +112,9 @@ elif [[ -f "$HOME/.config/iphonebridge/local.env" ]]; then
     systemctl --user start nodalix-phone-link.service || true
 fi
 
-systemctl --user start nodalix-app-accent.path nodalix-localsend.service || true
-if [[ -n ${WAYLAND_DISPLAY:-} ]]; then
-    systemctl --user restart nodalix-shell.service || true
-fi
+case ":${XDG_CURRENT_DESKTOP:-}:" in
+    *:GNOME:*|*:gnome:*) nodalix-gnome-migrate ;;
+esac
 
 if [[ ${NODALIX_SKIP_HARDWARE_PROFILE:-0} != 1 ]]; then
     say "Seleccionando repositorios y kernel según el hardware…"

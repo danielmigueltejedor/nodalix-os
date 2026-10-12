@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Acceso a iCloud
+Name[en]=iCloud Access
+Comment=Renovar la conexión con iCloud
+Exec=/usr/bin/nodalix-icloud-renovar
+Icon=icloud-apple-official
+Terminal=false
+Categories=Utility;
+StartupNotify=true

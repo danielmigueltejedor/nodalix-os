@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="com.nodalix.shell.extensions.autotiling" path="/com/nodalix/shell/extensions/autotiling/">
+    <key name="enabled" type="b">
+      <default>false</default>
+      <summary>Enable automatic tiling</summary>
+    </key>
+    <key name="gap" type="i">
+      <range min="0" max="64"/>
+      <default>8</default>
+      <summary>Gap in logical pixels</summary>
+    </key>
+    <key name="max-windows" type="i">
+      <range min="0" max="64"/>
+      <default>0</default>
+      <summary>Maximum tiled windows per workspace and monitor (0 means unlimited)</summary>
+    </key>
+    <key name="close-window" type="as">
+      <default>["&lt;Super&gt;q"]</default>
+      <summary>Close the focused window</summary>
+    </key>
+    <key name="toggle-floating" type="as">
+      <default>["&lt;Super&gt;&lt;Shift&gt;space"]</default>
+      <summary>Toggle focused window floating</summary>
+    </key>
+
+    <key name="toggle-launcher" type="as">
+      <default>["&lt;Super&gt;space"]</default>
+      <summary>Toggle Nodalix application launcher</summary>
+    </key>
+  </schema>
+</schemalist>

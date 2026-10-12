@@ -85,11 +85,13 @@ def verified_packages(
     packages: list[Path] = []
 
     for item in manifest["components"]:
+        if not item.get("required", False):
+            continue
         name = item["asset"]
 
         if (
             Path(name).name != name
-            or not name.startswith("nodalix-")
+            or not name.startswith(("nodalix-", "gnome-rounded-blur-"))
         ):
             raise ValueError(
                 f"Invalid package path: {name}"
@@ -149,7 +151,7 @@ class NodalixProfile(Profile):
         return [
             "NetworkManager",
             "bluetooth",
-            "greetd",
+            "gdm",
             "power-profiles-daemon",
         ]
 
@@ -215,21 +217,7 @@ class NodalixProfile(Profile):
             dirs_exist_ok=True,
         )
 
-        subprocess.run(
-            [
-                "arch-chroot",
-                str(target),
-                "install",
-                "-d",
-                "-o",
-                "greeter",
-                "-g",
-                "greeter",
-                "/var/lib/nodalix-greeter",
-                "/var/lib/nodalix-greeter/cache",
-            ],
-            check=True,
-        )
+        subprocess.run(["arch-chroot", str(target), "nodalix-gnome-migrate", "--system"], check=True)
 
         install_session.enable_service(
             self.services
@@ -295,6 +283,11 @@ class NodalixProfile(Profile):
                         source,
                         destination,
                     )
+
+            # GNOME has no legacy Hyprland skeleton. A new user's directories
+            # must exist before ownership is assigned by arch-chroot.
+            for directory in ('.config', '.local'):
+                (home / directory).mkdir(parents=True, exist_ok=True)
 
             subprocess.run(
                 [

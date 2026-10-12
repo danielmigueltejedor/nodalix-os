@@ -1,0 +1,16 @@
+#!/usr/bin/python3
+"""Fixed privileged operations for Nodalix Settings; never execute arbitrary commands."""
+import os
+import subprocess
+import sys
+COMMANDS = {'nodalix': [['/usr/bin/nodalix-updater','update','--json']],
+            'system': [['/usr/bin/pacman','-Syu','--noconfirm']],
+            'firmware': [['/usr/bin/fwupdmgr','refresh','--force'],['/usr/bin/fwupdmgr','update','-y']]}
+if len(sys.argv)!=2 or sys.argv[1] not in COMMANDS:
+    raise SystemExit('Operación no admitida')
+if os.geteuid()!=0:
+    raise SystemExit('Se requiere autenticación de administrador')
+for command in COMMANDS[sys.argv[1]]:
+    result=subprocess.run(command)
+    if result.returncode and not (sys.argv[1]=='firmware' and result.returncode==2):
+        raise SystemExit(result.returncode)

@@ -2,31 +2,154 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [main, gnome-first]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      candidate_run:
+        description: Reuse verified artifacts when only disposable QA helpers changed
+        type: string
+        required: false
+        default: ""
+      reuse_iso:
+        description: Reuse an ISO that previously passed instead of rebuilding it
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
+  actions: read
+
+concurrency:
+  group: candidate-v2-${{ github.ref }}-${{ inputs.candidate_run || 'new' }}
+  cancel-in-progress: true
 
 jobs:
   validate:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
+      - name: Install native test dependencies
+        run: sudo apt-get update && sudo apt-get install -y python3-gi gnome-shell-common gnome-settings-daemon-common gsettings-desktop-schemas gir1.2-nautilus-4.0 gir1.2-gtk-4.0 gir1.2-adw-1 nodejs libarchive-tools gjs xvfb dbus-x11 libadwaita-1-dev libjson-glib-dev ffmpeg
       - name: Require curated release notes
+        run: /usr/bin/python3 tools/release_notes.py validate --version "$(cat VERSION)"
+      - name: Run updater, migration and desktop integration tests
+        run: /usr/bin/python3 -m unittest discover -s tests -v
+      - name: Verify mandatory restart in the native Settings page
+        run: bash tools/test-native-restart.sh
+  packages:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reuse candidate with identical release sources
+        if: inputs.candidate_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ inputs.candidate_run }}
+        run: python3 tools/ci-reuse-artifacts.py packages "$SOURCE_RUN" dist/packages
+      - name: Build all GNOME candidate packages from pinned sources
+        if: inputs.candidate_run == ''
+        run: docker run --rm -e NODALIX_CI_CONTAINER=1 -v "$PWD":/src -w /src archlinux:latest bash tools/ci-build-gnome.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nodalix-0.3.0-candidate
+          path: dist/packages/*
+          if-no-files-found: error
+          retention-days: 14
+  migrate-024:
+    needs: packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: nodalix-0.3.0-candidate
+          path: dist/packages
+      - name: Test original 0.2.4 to GNOME upgrade with real pacman
+        run: docker run --rm -e NODALIX_CI_CONTAINER=1 -v "$PWD":/src -w /src archlinux:latest bash -c "bash tools/ci-migrate-024.sh && bash tools/ci-boot-migrated.sh"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nodalix-migration-evidence
+          path: dist/migration-evidence/*
+  clean-install:
+    needs: packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: nodalix-0.3.0-candidate
+          path: dist/packages
+      - name: Clean install and real GDM boot
+        run: docker run --rm -e NODALIX_CI_CONTAINER=1 -e NODALIX_CI_FRESH=1 -v "$PWD":/src -w /src archlinux:latest bash -c "bash tools/ci-clean-install.sh && bash tools/ci-boot-migrated.sh"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nodalix-clean-install-evidence
+          path: dist/migration-evidence/*
+  iso:
+    needs: packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: nodalix-0.3.0-candidate
+          path: dist/packages
+      - name: Build the installable GNOME ISO
+        if: inputs.candidate_run == '' || inputs.reuse_iso != true
+        run: docker run --rm --privileged -e NODALIX_CI_CONTAINER=1 -v "$PWD":/src -w /src archlinux:latest bash tools/ci-build-iso.sh
+      - name: Reuse verified ISO and boot it with the current guest verifier
+        if: inputs.candidate_run != '' && inputs.reuse_iso == true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN: ${{ inputs.candidate_run }}
         run: |
-          VERSION="$(tr -d '[:space:]' < VERSION)"
-          python3 tools/release_notes.py validate \
-            --version "$VERSION"
+          python3 tools/ci-reuse-artifacts.py iso "$SOURCE_RUN" dist/iso-output
+          docker run --rm -e NODALIX_CI_CONTAINER=1 -v "$PWD":/src -w /src archlinux:latest bash -c 'pacman -Syu --noconfirm python libarchive qemu-system-x86 qemu-hw-display-virtio-gpu qemu-hw-display-virtio-vga && python tools/ci-boot-iso.py dist/iso-output/*.iso'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nodalix-iso-boot-evidence
+          path: dist/iso-evidence/boot.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nodalix-0.3.0-installable-iso
+          path: dist/iso-output/*
+          if-no-files-found: error
+          retention-days: 7
 
-      - name: Run updater and release tests
-        run: python -m unittest discover -s tests -v
+  upgrade-history:
+    needs: packages
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: nodalix-0.3.0-candidate
+          path: dist/packages
+      - name: Upgrade every published earlier release with real pacman
+        run: docker run --rm -e NODALIX_CI_CONTAINER=1 -v "$PWD":/src -w /src archlinux:latest bash -c 'pacman -Syu --noconfirm python && python tools/ci-upgrade-history.py'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nodalix-upgrade-history-evidence
+          path: dist/history-evidence/*

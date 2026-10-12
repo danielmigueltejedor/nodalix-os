@@ -1,0 +1,4 @@
+post_install() {
+  /usr/lib/nodalix/apply-gdm-branding
+}
+post_upgrade() { post_install; }

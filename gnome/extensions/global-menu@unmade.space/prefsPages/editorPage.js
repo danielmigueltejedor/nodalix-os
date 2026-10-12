@@ -1,0 +1,308 @@
+import {translateLabel} from '../translations.js';
+// Edits one shortcut-menu mapping. Name and identifiers get form rows; the
+// menu tree gets one ExpanderRow per top-level menu and one EntryRow per
+// item, with the same shortcut capture GNOME Settings uses.
+//
+// Fully editable item shapes: {label, shortcut}, {label} on its own, and
+// {separator: true}. Anything else, such as a real submenu, is shown
+// read-only and written back untouched rather than dropped for want of a
+// widget to edit it with.
+
+import Adw from 'gi://Adw';
+import Gio from 'gi://Gio';
+import Gtk from 'gi://Gtk';
+
+import {validateMapping} from '../shortcutStore.js';
+import {parseAccelerator} from '../keySynth.js';
+import {captureShortcut} from './shortcutCapture.js';
+
+const MODIFIER_LABELS = {
+	0xffe3: 'Ctrl',
+	0xffe1: 'Shift',
+	0xffe9: 'Alt',
+	0xffeb: 'Super',
+};
+
+function prettyAccel(shortcut) {
+	const chords = parseAccelerator(shortcut);
+	if (!chords)
+		return shortcut;
+	// A chord sequence such as Emacs' C-x s reads as its chords, spaced
+	return chords.map(chord => {
+		const parts = chord.modifiers.map(m => MODIFIER_LABELS[m] ?? '?');
+		const keyLabel = Gtk.accelerator_get_label(chord.keyval, 0) ||
+			String.fromCharCode(chord.keyval).toUpperCase();
+		parts.push(keyLabel);
+		return parts.join('+');
+	}).join(' ');
+}
+
+function isSimpleLeaf(item) {
+	return !item.separator && !item.items && !item.gsettings;
+}
+
+export class EditorPage {
+	/**
+	 * @param {object} opts
+	 * @param {Adw.PreferencesWindow} opts.window - parent window (for pushing/popping and dialog presentation)
+	 * @param {string} opts.appId - filename stem; immutable once created
+	 * @param {object|null} opts.mapping - current effective mapping, or a draft for a brand-new app
+	 * @param {boolean} opts.hasBuiltin - a built-in with this id exists
+	 * @param {boolean} opts.hasUserFile - a user override/mapping file already exists on disk
+	 * @param {Gio.File} opts.userAppsDir - ~/.config/global-menu/shortcuts/apps
+	 * @param {() => void} opts.bumpRevision
+	 * @param {() => void} opts.onChanged - called after a successful save or delete
+	 */
+	constructor({window, appId, mapping, hasBuiltin, hasUserFile, userAppsDir, bumpRevision, onChanged}) {
+		this._window = window;
+		this._appId = appId;
+		this._hasBuiltin = hasBuiltin;
+		this._userAppsDir = userAppsDir;
+		this._bumpRevision = bumpRevision;
+		this._onChanged = onChanged;
+		// Deep-clone so edits never mutate the live store's data until Save
+		this._menus = JSON.parse(JSON.stringify(mapping?.menus ?? []));
+		this._menuRows = [];
+
+		this._toastOverlay = new Adw.ToastOverlay();
+		const prefsPage = new Adw.PreferencesPage();
+		this._toastOverlay.set_child(prefsPage);
+
+		this.page = new Adw.NavigationPage({
+			title: mapping?.name ?? appId,
+			tag: `editor-${appId}`,
+			child: this._toastOverlay,
+		});
+
+		const actionsGroup = new Adw.PreferencesGroup();
+		prefsPage.add(actionsGroup);
+
+		const saveRow = new Adw.ButtonRow({title: translateLabel('Save')});
+		saveRow.add_css_class('suggested-action');
+		saveRow.connect('activated', () => this._save());
+		actionsGroup.add(saveRow);
+
+		if (hasUserFile) {
+			const dangerRow = new Adw.ButtonRow({
+				title: hasBuiltin ? translateLabel('Reset to Built-in Default') : translateLabel('Delete This Mapping'),
+			});
+			dangerRow.add_css_class('destructive-action');
+			dangerRow.connect('activated', () => this._deleteUserFile());
+			actionsGroup.add(dangerRow);
+		}
+
+		const metaGroup = new Adw.PreferencesGroup({title: translateLabel('Application')});
+		prefsPage.add(metaGroup);
+
+		this._nameRow = new Adw.EntryRow({title: translateLabel('Display Name')});
+		this._nameRow.set_text(mapping?.name ?? appId);
+		metaGroup.add(this._nameRow);
+
+		const idRow = new Adw.EntryRow({title: translateLabel('App ID (file name, fixed)')});
+		idRow.set_text(appId);
+		idRow.set_sensitive(false);
+		metaGroup.add(idRow);
+
+		this._identifiersRow = new Adw.EntryRow({title: translateLabel('Identifiers (comma-separated)')});
+		this._identifiersRow.set_text((mapping?.identifiers ?? []).join(', '));
+		metaGroup.add(this._identifiersRow);
+
+		if (hasBuiltin && !hasUserFile) {
+			metaGroup.set_description(
+				'This is a built-in mapping. Saving creates a user override in ' +
+				'~/.config/global-menu/shortcuts/apps. The built-in file itself is never modified.');
+		}
+
+		this._menusGroup = new Adw.PreferencesGroup({
+			title: translateLabel('Menus'),
+			description: 'Click the shortcut button on an item to set it, exactly like GNOME Settings\' ' +
+				'Keyboard Shortcuts panel.',
+		});
+		prefsPage.add(this._menusGroup);
+
+		this._rebuildMenusUI();
+	}
+
+	_rebuildMenusUI() {
+		for (const row of this._menuRows)
+			this._menusGroup.remove(row);
+		this._menuRows = [];
+
+		this._menus.forEach((menu, menuIndex) => {
+			const expander = new Adw.ExpanderRow({title: translateLabel(menu.label || '(menú sin título)'), expanded: true});
+
+			const renameButton = new Gtk.Button({icon_name: 'document-edit-symbolic', valign: Gtk.Align.CENTER, css_classes: ['flat']});
+			renameButton.connect('clicked', () => this._renameMenu(menu, expander));
+			expander.add_suffix(renameButton);
+
+			const deleteButton = new Gtk.Button({icon_name: 'user-trash-symbolic', valign: Gtk.Align.CENTER, css_classes: ['flat']});
+			deleteButton.connect('clicked', () => {
+				this._menus.splice(menuIndex, 1);
+				this._rebuildMenusUI();
+			});
+			expander.add_suffix(deleteButton);
+
+			menu.items.forEach((item, itemIndex) => {
+				expander.add_row(this._buildItemRow(menu, item, itemIndex));
+			});
+
+			const addItemRow = new Adw.ButtonRow({title: translateLabel('Add Item')});
+			addItemRow.connect('activated', () => {
+				menu.items.push({label: translateLabel('New Item')});
+				this._rebuildMenusUI();
+			});
+			expander.add_row(addItemRow);
+
+			const addSeparatorRow = new Adw.ButtonRow({title: translateLabel('Add Separator')});
+			addSeparatorRow.connect('activated', () => {
+				menu.items.push({separator: true});
+				this._rebuildMenusUI();
+			});
+			expander.add_row(addSeparatorRow);
+
+			this._menusGroup.add(expander);
+			this._menuRows.push(expander);
+		});
+
+		const addMenuRow = new Adw.ButtonRow({title: translateLabel('Add Menu…')});
+		addMenuRow.connect('activated', () => {
+			this._menus.push({label: translateLabel('New Menu'), items: []});
+			this._rebuildMenusUI();
+		});
+		this._menusGroup.add(addMenuRow);
+		this._menuRows.push(addMenuRow);
+	}
+
+	_buildItemRow(menu, item, itemIndex) {
+		if (item.separator) {
+			const row = new Adw.ActionRow({title: translateLabel('── Separator ──')});
+			row.add_suffix(this._buildRemoveButton(() => {
+				menu.items.splice(itemIndex, 1);
+				this._rebuildMenusUI();
+			}));
+			return row;
+		}
+
+		if (!isSimpleLeaf(item)) {
+			const row = new Adw.ActionRow({
+				title: translateLabel(item.label ?? '(complex item)'),
+				subtitle: translateLabel('Submenu or advanced item. Not editable here, kept as it is on save.'),
+			});
+			row.add_suffix(this._buildRemoveButton(() => {
+				menu.items.splice(itemIndex, 1);
+				this._rebuildMenusUI();
+			}));
+			return row;
+		}
+
+		const row = new Adw.EntryRow({title: translateLabel('Label')});
+		row.set_text(translateLabel(item.label ?? ''));
+		row.connect('changed', () => {
+			item.label = row.get_text();
+		});
+
+		const shortcutButton = new Gtk.Button({valign: Gtk.Align.CENTER, css_classes: ['flat']});
+		const refreshShortcutButton = () => {
+			const content = new Gtk.Box({spacing: 6});
+			content.append(new Gtk.Label({label: item.shortcut ? prettyAccel(item.shortcut) : translateLabel('Disabled')}));
+			content.append(new Gtk.Image({icon_name: 'document-edit-symbolic'}));
+			shortcutButton.set_child(content);
+		};
+		refreshShortcutButton();
+		shortcutButton.connect('clicked', () => {
+			captureShortcut({
+				parentWindow: this._window,
+				itemLabel: item.label || translateLabel('(unnamed item)'),
+				onCaptured: result => {
+					if (result === undefined)
+						return; // cancelled, so no change
+					if (result === null)
+						delete item.shortcut; // Backspace, so it becomes a placeholder
+					else
+						item.shortcut = result;
+					refreshShortcutButton();
+				},
+			});
+		});
+		row.add_suffix(shortcutButton);
+
+		row.add_suffix(this._buildRemoveButton(() => {
+			menu.items.splice(itemIndex, 1);
+			this._rebuildMenusUI();
+		}));
+
+		return row;
+	}
+
+	_buildRemoveButton(onClick) {
+		const button = new Gtk.Button({icon_name: 'user-trash-symbolic', valign: Gtk.Align.CENTER, css_classes: ['flat']});
+		button.connect('clicked', onClick);
+		return button;
+	}
+
+	_renameMenu(menu, expander) {
+		const dialog = new Adw.AlertDialog({heading: translateLabel('Rename Menu')});
+		const entry = new Gtk.Entry({text: menu.label});
+		dialog.set_extra_child(entry);
+		dialog.add_response('cancel', translateLabel('Cancel'));
+		dialog.add_response('rename', translateLabel('Rename'));
+		dialog.set_response_appearance('rename', Adw.ResponseAppearance.SUGGESTED);
+		dialog.set_default_response('rename');
+		dialog.connect('response', (_d, response) => {
+			if (response === 'rename') {
+				menu.label = entry.get_text().trim() || menu.label;
+				expander.set_title(translateLabel(menu.label));
+			}
+		});
+		dialog.present(this._window);
+	}
+
+	_toast(title) {
+		this._toastOverlay.add_toast(new Adw.Toast({title, timeout: 5}));
+	}
+
+	_save() {
+		const name = this._nameRow.get_text().trim() || this._appId;
+		const identifiers = this._identifiersRow.get_text()
+			.split(',').map(s => s.trim()).filter(s => s !== '');
+
+		const raw = {format: 1, app: this._appId, name, identifiers, menus: this._menus};
+
+		// Validated with the same logic the running extension loads with, but
+		// only to surface warnings. Saving is never refused: the menu tree
+		// comes from live widgets, so it cannot be malformed JSON.
+		const warnings = [];
+		validateMapping(raw, this._appId, warnings);
+
+		try {
+			this._userAppsDir.make_directory_with_parents(null);
+		} catch (e) {
+			if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.EXISTS))
+				throw e;
+		}
+		const file = this._userAppsDir.get_child(`${this._appId}.json`);
+		const bytes = new TextEncoder().encode(JSON.stringify(raw, null, 2));
+		file.replace_contents(bytes, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
+
+		this._bumpRevision();
+		this._onChanged?.();
+
+		if (warnings.length > 0)
+			this._toast(`Guardado, pero ${warnings.length} opción(es) presentan problemas: ${warnings[0].message}`);
+		else
+			this._toast(translateLabel('Saved'));
+	}
+
+	_deleteUserFile() {
+		const file = this._userAppsDir.get_child(`${this._appId}.json`);
+		try {
+			file.delete(null);
+		} catch (e) {
+			this._toast(`No se pudo eliminar: ${e.message}`);
+			return;
+		}
+		this._bumpRevision();
+		this._onChanged?.();
+		this._window.pop_subpage();
+	}
+}

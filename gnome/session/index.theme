@@ -1,0 +1,39 @@
+[Icon Theme]
+Name=Nodalix Adwaita Symbols
+Comment=Adwaita controls with existing application icons
+Inherits=Colloid-Teal,hicolor
+Directories=symbolic/actions,symbolic/devices,symbolic/status,symbolic/categories,symbolic/settings
+
+[symbolic/actions]
+Size=16
+MinSize=8
+MaxSize=512
+Type=Scalable
+Context=Actions
+
+[symbolic/devices]
+Size=16
+MinSize=8
+MaxSize=512
+Type=Scalable
+Context=Devices
+
+[symbolic/status]
+Size=16
+MinSize=8
+MaxSize=512
+Type=Scalable
+Context=Status
+
+[symbolic/categories]
+Size=16
+MinSize=8
+MaxSize=512
+Type=Scalable
+Context=Categories
+[symbolic/settings]
+Size=16
+MinSize=8
+MaxSize=512
+Type=Scalable
+Context=Actions

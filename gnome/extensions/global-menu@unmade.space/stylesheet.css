@@ -1,0 +1,15 @@
+/* Every selector here is scoped to a global-menu-* class that only this
+ * extension's own actors carry, so nothing can match unrelated shell UI.
+ * Spacing, radius and translucency are inline styles set by appearance.js;
+ * this file only holds the on/off classes. */
+
+/* Menus drop straight down from the bar instead of pointing at the button */
+.global-menu-no-arrow {
+	-arrow-rise: 0px;
+}
+
+/* Without this a submenu paints the theme's opaque block, punching a solid
+ * rectangle into a translucent popup */
+.global-menu-popup .popup-sub-menu {
+	background-color: rgba(0, 0, 0, 0.2);
+}

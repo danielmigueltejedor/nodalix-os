@@ -1,0 +1,101 @@
+#!/usr/bin/python3
+"""Idempotent system migration; no active display manager/session is restarted."""
+from pathlib import Path
+import configparser,hashlib,json,os,shutil,subprocess,sys,time
+
+def migrate(root=Path('/'), runner=subprocess.run):
+    state=root/'var/lib/nodalix-updater/migrations/gnome-0.3.0'
+    state.mkdir(parents=True,exist_ok=True,mode=0o700);state.chmod(0o700)
+    saved=state/'files';saved.mkdir(exist_ok=True,mode=0o700)
+    marker=state/'completed.json'
+    if marker.exists():return json.loads(marker.read_text())
+    for relative in ('etc/hypr','etc/xdg/hypr','etc/xdg/quickshell','etc/greetd','etc/skel/.config/hypr','etc/skel/.config/quickshell','etc/uwsm','etc/skel/.config/uwsm'):
+        path=root/relative
+        if path.is_dir() and not path.is_symlink():
+            target=saved/relative
+            shutil.copytree(path,target,dirs_exist_ok=True,symlinks=True)
+            shutil.rmtree(path)
+    legacy=root/'etc/xdg/nodalix/hyprland.lua'
+    if legacy.is_file() and not legacy.is_symlink():
+        target=saved/legacy.relative_to(root);target.parent.mkdir(parents=True,exist_ok=True)
+        if not target.exists():shutil.copy2(legacy,target)
+        legacy.unlink()
+    wrapper=root/'usr/local/bin/nodalix-session'
+    metadata=root/'usr/lib/nodalix-updater/legacy-installers.json'
+    if not metadata.is_file():metadata=root/'usr/lib/nodalix-updater/legacy-installer-0.2.4.json'
+    if wrapper.is_file() and not wrapper.is_symlink() and metadata.is_file():
+        expected=json.loads(metadata.read_text())['usr/local/bin/nodalix-session']
+        expected=[expected] if isinstance(expected,str) else expected
+        if hashlib.sha256(wrapper.read_bytes()).hexdigest() in expected:
+            target=saved/wrapper.relative_to(root);target.parent.mkdir(parents=True,exist_ok=True)
+            if not target.exists():shutil.copy2(wrapper,target)
+            wrapper.unlink();wrapper.symlink_to('/usr/lib/nodalix/nodalix-gnome-session')
+    records=[]
+    # Archive old startup files; extension preference migration is user-scoped.
+    passwd=root/'etc/passwd'
+    if passwd.is_file():
+        for line in passwd.read_text().splitlines():
+            fields=line.split(':')
+            if len(fields)!=7 or not fields[2].isdigit():continue
+            if not 1000<=int(fields[2])<65534 or not fields[5].startswith('/'):continue
+            home=root/fields[5].lstrip('/')
+            if not home.is_dir() or home.is_symlink():continue
+            if (home/'.config').is_symlink():continue
+            paths=[home/'.config/hypr',home/'.config/quickshell',home/'.config/uwsm']
+            for name in ('nodalix-shell.service','nodalix-wallpaper.service','nodalix-app-accent.path','nodalix-app-accent.service','nodalix-localsend.service'):
+                paths.extend([home/'.config/systemd/user'/name,
+                    home/'.config/systemd/user/default.target.wants'/name])
+            for path in paths:
+                if not path.exists() and not path.is_symlink():continue
+                target=saved/path.relative_to(root)
+                target.parent.mkdir(parents=True,exist_ok=True)
+                if not target.exists() and not target.is_symlink():
+                    shutil.move(str(path),str(target))
+                    records.append(str(path.relative_to(root)))
+
+    for relative in ('etc/gdm/custom.conf','etc/greetd/config.toml','etc/systemd/system/display-manager.service'):
+        path=root/relative
+        if path.exists() or path.is_symlink():
+            target=saved/relative;target.parent.mkdir(parents=True,exist_ok=True)
+            if not target.exists() and not target.is_symlink():
+                if path.is_symlink():target.symlink_to(os.readlink(path))
+                else:shutil.copy2(path,target)
+            records.append(relative)
+    accounts=root/'var/lib/AccountsService/users'
+    accounts.mkdir(parents=True, exist_ok=True)
+    passwd = root/'etc/passwd'
+    if passwd.is_file():
+        for line in passwd.read_text().splitlines():
+            fields = line.split(':')
+            if len(fields) != 7 or not fields[2].isdigit():continue
+            name,uid,shell = fields[0],int(fields[2]),fields[6]
+            if uid < 1000 or uid >= 65534 or shell.endswith(('nologin','false')):continue
+            path=accounts/name
+            if not path.exists() and not path.is_symlink():
+                path.write_text('[User]\nSession=nodalix\nXSession=nodalix\nSessionType=wayland\n')
+                path.chmod(0o600)
+    for path in sorted(accounts.glob('*')):
+        if not path.is_file() or path.is_symlink():continue
+        values=configparser.ConfigParser(interpolation=None);values.optionxform=str;values.read(path)
+        if not values.has_section('User'):continue
+        session=values.get('User','Session',fallback=values.get('User','XSession',fallback='')).lower()
+        if session and 'hyprland' not in session and session!='nodalix':continue
+        backup=saved/path.relative_to(root);backup.parent.mkdir(parents=True,exist_ok=True)
+        if not backup.exists():shutil.copy2(path,backup)
+        values.set('User','Session','nodalix');values.set('User','XSession','nodalix');values.set('User','SessionType','wayland')
+        with path.open('w') as stream:values.write(stream)
+        records.append(str(path.relative_to(root)))
+    command=['systemctl'] if root==Path('/') else ['systemctl','--root',str(root)]
+    runner([*command,'disable','greetd.service'],check=False)
+    runner([*command,'enable','gdm.service','cups.socket','NetworkManager.service','bluetooth.service'],check=True)
+    # Enable takes effect only after the mandatory reboot. Never use --now.
+    runner([*command,'--global','disable','nodalix-shell.service','nodalix-wallpaper.service','nodalix-app-accent.path','nodalix-localsend.service'],check=False)
+    payload={'version':'0.3.0','backups':records,'reboot_required':True}
+    marker.write_text(json.dumps(payload,indent=2)+'\n');return payload
+
+if __name__=='__main__':
+    if len(sys.argv)>1 and sys.argv[1]=='--system':
+        if os.geteuid()!=0:raise SystemExit('Run --system as root')
+        migrate(Path(os.environ.get('NODALIX_ROOT','/')))
+    else:
+        os.execv('/usr/lib/nodalix/nodalix-gnome-user-migrate',['nodalix-gnome-user-migrate',*sys.argv[1:]])

@@ -1,0 +1,56 @@
+#!/usr/bin/python3
+"""Post-login migrations: serialized, retryable and isolated from gnome-session."""
+import fcntl
+import os
+import signal
+from pathlib import Path
+import subprocess
+import sys
+
+
+def run_migration(helper, output, timeout=120):
+    # A timed-out shell must not leave its Python/ffmpeg children running.
+    with subprocess.Popen(['/bin/sh', str(helper)], stdout=output, stderr=output,
+                          start_new_session=True) as process:
+        try:
+            return process.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            os.killpg(process.pid, signal.SIGKILL)
+            process.wait()
+            raise
+
+
+def main():
+    if 'gnome' not in os.environ.get('XDG_CURRENT_DESKTOP', '').lower().split(':'):
+        return 0
+    state = Path(os.environ.get('XDG_STATE_HOME', str(Path.home()/'.local/state')))/'nodalix/migrations'
+    state.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with (state/'user-migration.lock').open('a') as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return 0
+        log = state/'user-migration.log'
+        # Bound diagnostic logs; migration backups are one fixed directory per version.
+        if log.exists() and log.stat().st_size > 1024*1024:
+            log.replace(state/'user-migration.previous.log')
+        with log.open('a') as output:
+            output.write('Starting GNOME migration 0.3.0-v2 after graphical login\n')
+            output.flush()
+            helper = Path(__file__).resolve().parents[1]/'migration/user-030.sh'
+            if not helper.is_file():
+                helper = Path('/usr/lib/nodalix/migration/user-030.sh')
+            try:
+                result = run_migration(helper, output)
+                output.write(f'Migration exit status: {result}; failed steps retry at next login\n')
+            except (OSError, subprocess.TimeoutExpired) as error:
+                output.write(f'Migration incomplete, retry at next login: {error}\n')
+    return 0
+
+
+if __name__ == '__main__':
+    try:
+        sys.exit(main())
+    except Exception as error:
+        print(f'Nodalix migration deferred: {error}', file=sys.stderr)
+        sys.exit(0)

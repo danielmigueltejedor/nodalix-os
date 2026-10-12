@@ -1,6 +1,7 @@
 pkgname=nodalix-colloid-icons
-pkgver=0.2.4
+pkgver=0.3.0
 pkgrel=1
+options=("!strip")
 pkgdesc='Colloid-Teal GTK icon theme for Nodalix'
 arch=('any')
 url='https://github.com/vinceliuice/Colloid-icon-theme'

@@ -10,3 +10,5 @@ Terminal=false
 Categories=Utility;
 Keywords=phone;iphone;bluetooth;notifications;calls;teléfono;llamadas;
 StartupNotify=true
+StartupWMClass=com.nodalix.PhoneLink
+X-GNOME-UsesNotifications=true

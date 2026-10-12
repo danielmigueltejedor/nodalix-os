@@ -8,7 +8,5 @@ __pycache__/
 *.iso
 *.sig
 packaging/*/*.tar.zst
-shell/blobs-plugin/build/
-shell/Caelestia/
 packaging/*/src/
 packaging/*/pkg/

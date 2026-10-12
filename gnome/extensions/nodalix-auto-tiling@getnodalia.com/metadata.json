@@ -1,0 +1,8 @@
+{
+  "uuid": "nodalix-auto-tiling@getnodalia.com",
+  "name": "Nodalix Auto Tiling",
+  "description": "Dynamic automatic tiling for Nodalix on GNOME 51",
+  "shell-version": ["51"],
+  "settings-schema": "com.nodalix.shell.extensions.autotiling",
+  "version": 1
+}

@@ -1,6 +1,0 @@
-[Desktop Entry]
-Name=Nodalix
-Comment=Nodalix desktop
-Exec=/usr/local/bin/nodalix-session
-Type=Application
-DesktopNames=Hyprland

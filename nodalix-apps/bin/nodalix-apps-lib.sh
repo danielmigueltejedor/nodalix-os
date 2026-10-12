@@ -158,9 +158,7 @@ nodalix_finish_update() {
         "$HOME/.local/share/applications" \
         >/dev/null 2>&1 || true
 
-    systemctl --user restart \
-        nodalix-shell.service \
-        >/dev/null 2>&1 || true
+
 }
 
 # --- Nodalix overlay reconciliation ---

@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+export XDG_CURRENT_DESKTOP=GNOME
+export XDG_SESSION_DESKTOP=gnome
+export XDG_SESSION_TYPE=wayland
+if [ -S "${XDG_RUNTIME_DIR:-}/bus" ]; then
+    export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=$XDG_RUNTIME_DIR/bus}"
+fi
+exec /usr/bin/gnome-session --session=gnome "$@"

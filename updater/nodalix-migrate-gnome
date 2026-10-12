@@ -1,0 +1,77 @@
+#!/usr/bin/python3
+"""One-time bridge from earlier Nodalix releases to GNOME 0.3.0."""
+from pathlib import Path
+import argparse,hashlib,importlib.machinery,importlib.util,json,os,re,subprocess,tempfile,urllib.request
+REPO='danielmigueltejedor/nodalix-os'
+
+def select_bridge(manifest):
+    if manifest.get('schema_version')!=1 or manifest.get('version')!='0.3.0':raise ValueError('Se necesita el manifiesto publicado de 0.3.0')
+    entries=[c for c in manifest.get('components',[]) if c.get('package')=='nodalix-updater']
+    if len(entries)!=1:raise ValueError('No se encuentra un actualizador único')
+    entry=entries[0]
+    if entry.get('version')!='0.3.0' or not re.fullmatch(r'nodalix-updater-0\.3\.0-\d+-any\.pkg\.tar\.zst',entry.get('asset','')) or not re.fullmatch(r'[0-9a-f]{64}',entry.get('sha256','')):raise ValueError('Metadatos del puente no válidos')
+    return entry
+
+def install_bridge(manifest, assets, runner=subprocess.run, offline=False):
+    entry=select_bridge(manifest)
+    path=Path(assets)/entry['asset']
+    if hashlib.file_digest(path.open('rb'),'sha256').hexdigest()!=entry['sha256']:raise ValueError('SHA-256 incorrecto del actualizador')
+    info=runner(['bsdtar','-xOf',str(path),'.PKGINFO'],capture_output=True,text=True,check=True).stdout
+    fields=dict(line.split(' = ',1) for line in info.splitlines() if ' = ' in line)
+    if fields.get('pkgname')!='nodalix-updater' or not fields.get('pkgver','').startswith('0.3.0-'):raise ValueError('El paquete no es el puente esperado')
+    runner(['pacman','-U','--needed','--noconfirm',str(path)],check=True)
+    command=['/usr/bin/nodalix-updater','update','--json']
+    if offline:command+=['--assets',str(Path(assets).resolve())]
+    return runner(command,check=True)
+
+def verify_bridge_policy(raw, manifest, base=None, directory=None):
+    # Use the installed trusted client/key to honor the administrator's
+    # signature policy before replacing the updater itself.
+    client=Path('/usr/bin/nodalix-updater')
+    spec=importlib.util.spec_from_loader('installed_updater',importlib.machinery.SourceFileLoader('installed_updater',str(client)))
+    installed=importlib.util.module_from_spec(spec);spec.loader.exec_module(installed)
+    installed.validate_manifest(manifest)
+    current=installed.current_version()
+    if installed.compare_versions(current,'0.1.1')<0 or installed.compare_versions(current,'0.3.0')>=0:
+        raise ValueError('Este puente actualiza Nodalix 0.1.1 y las versiones anteriores a 0.3.0')
+    assets=[]
+    signing=manifest.get('signing')
+    if signing and base:
+        name=signing.get('signature_asset','')
+        if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._+-]*',name):raise ValueError('Nombre de firma no válido')
+        assets=[{'name':name,'browser_download_url':base+name}]
+    config=installed.load_config()
+    if directory is not None and signing:
+        name=str(signing.get('signature_asset',''))
+        if signing.get('algorithm')!='minisign' or not installed.ASSET_PATTERN.fullmatch(name):
+            raise ValueError('Metadatos de firma local no válidos')
+        directory=Path(directory).resolve()
+        signature=(directory/name).resolve(strict=True)
+        if signature.parent!=directory:raise ValueError('Ruta de firma local no válida')
+        subprocess.run(['minisign','-Vm',str(directory/'nodalix-manifest.json'),'-x',str(signature),'-p',str(installed.PUBLIC_KEY_PATH)],check=True)
+    else:
+        installed.verify_manifest_signature(raw,manifest,{'assets':assets},config)
+
+
+def main():
+    ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('--assets',type=Path,help='Verified CI candidate directory');args=ap.parse_args()
+    if os.geteuid()!=0:raise SystemExit('Ejecuta esta migración con autenticación de administrador')
+    if args.assets:
+        raw=(args.assets/'nodalix-manifest.json').read_bytes();manifest=json.loads(raw)
+        verify_bridge_policy(raw,manifest,directory=args.assets)
+        install_bridge(manifest,args.assets,offline=True);return
+    with tempfile.TemporaryDirectory(prefix='nodalix-gnome-') as temp:
+        folder=Path(temp)
+        base=f'https://github.com/{REPO}/releases/download/0.3.0/'
+        try:
+            with urllib.request.urlopen(base+'nodalix-manifest.json',timeout=30) as source:raw=source.read();manifest=json.loads(raw)
+        except Exception as error:raise SystemExit('0.3.0 todavía no está publicada o no se puede descargar') from error
+        verify_bridge_policy(raw,manifest,base)
+        entry=select_bridge(manifest)
+        with urllib.request.urlopen(base+entry['asset'],timeout=60) as source,(folder/entry['asset']).open('wb') as dest:
+            while chunk:=source.read(1024*1024):dest.write(chunk)
+        install_bridge(manifest,folder)
+
+if __name__=='__main__':
+    try:main()
+    except Exception as error:raise SystemExit(f'Migración detenida: {error}') from None

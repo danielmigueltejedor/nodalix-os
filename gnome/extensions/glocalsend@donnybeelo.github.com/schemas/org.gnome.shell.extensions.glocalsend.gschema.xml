@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.glocalsend" path="/org/gnome/shell/extensions/glocalsend/">
+    <key name="alias" type="s">
+      <default>''</default>
+      <summary>Device name</summary>
+      <description>Name advertised to other LocalSend devices.</description>
+    </key>
+    <key name="fingerprint" type="s">
+      <default>''</default>
+      <summary>Fingerprint</summary>
+      <description>Random identifier used to avoid self-discovery.</description>
+    </key>
+    <key name="port" type="i">
+      <default>53317</default>
+      <summary>Port</summary>
+      <description>HTTP and multicast port used by the LocalSend service.</description>
+    </key>
+    <key name="download-folder" type="s">
+      <default>''</default>
+      <summary>Download folder</summary>
+      <description>Directory used to store accepted incoming files.</description>
+    </key>
+    <key name="auto-accept" type="b">
+      <default>false</default>
+      <summary>Auto accept incoming transfers</summary>
+      <description>Accept transfer requests without asking first.</description>
+    </key>
+    <key name="auto-disable-enabled" type="b">
+      <default>true</default>
+      <summary>Auto disable LocalSend</summary>
+      <description>Automatically turn LocalSend off after it has been enabled for a while.</description>
+    </key>
+    <key name="auto-disable-minutes" type="i">
+      <default>10</default>
+      <summary>Auto disable timeout</summary>
+      <description>Number of minutes before LocalSend is turned off automatically.</description>
+    </key>
+      <key name="favorite-fingerprints" type="as">
+      <default>[]</default>
+      <summary>Favorite devices</summary>
+      <description>LocalSend device fingerprints marked as favorites.</description>
+    </key>
+      <key name="start-on-login" type="b">
+      <default>true</default>
+      <summary>Start LocalSend on login</summary>
+      <description>Automatically enable LocalSend when the GNOME session starts.</description>
+    </key>
+  </schema>
+</schemalist>

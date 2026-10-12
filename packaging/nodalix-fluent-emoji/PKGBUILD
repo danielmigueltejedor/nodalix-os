@@ -1,6 +1,7 @@
 pkgname=nodalix-fluent-emoji
 pkgver=0.8.5
 pkgrel=1
+options=("!strip")
 pkgdesc="Microsoft Fluent Emoji color font for Nodalix"
 arch=('any')
 url="https://github.com/tetunori/fluent-emoji-webfont"

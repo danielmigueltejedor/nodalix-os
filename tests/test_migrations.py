@@ -13,7 +13,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tests"))
 sys.path.insert(0, str(ROOT / "updater"))
 
-from overlay_stack import OverlayStack  # noqa: E402
 
 SPEC = importlib.util.spec_from_loader(
     "nodalix_updater",
@@ -27,58 +26,6 @@ from migrations.registry import remove_unowned_legacy_files, run_migrations  # n
 from migrations.to_0_2_0 import LEGACY_UNOWNED_FILES, applies_0_1_1_to_0_2_0, has_unowned_legacy_files  # noqa: E402
 
 
-class OverlayStackTests(unittest.TestCase):
-    def setUp(self) -> None:
-        self.stack = OverlayStack()
-
-    def test_open_a_then_b(self) -> None:
-        self.stack.open("A", "DP-1")
-        self.assertEqual(self.stack.stack("DP-1"), ["A"])
-        self.stack.open("B", "DP-1")
-        self.assertEqual(self.stack.stack("DP-1"), ["A", "B"])
-        self.assertEqual(self.stack.active("DP-1"), "B")
-
-    def test_reopen_a_moves_to_front(self) -> None:
-        self.stack.open("A", "DP-1")
-        self.stack.open("B", "DP-1")
-        self.assertEqual(self.stack.open("A", "DP-1"), "raised")
-        self.assertEqual(self.stack.stack("DP-1"), ["B", "A"])
-        self.assertEqual(self.stack.active("DP-1"), "A")
-        self.assertEqual(self.stack.z_index("A", "DP-1"), 2)
-        self.assertEqual(self.stack.z_index("B", "DP-1"), 1)
-
-    def test_close_top_then_lower(self) -> None:
-        self.stack.open("A", "DP-1")
-        self.stack.open("B", "DP-1")
-        self.stack.close("A", "DP-1")
-        self.assertEqual(self.stack.stack("DP-1"), ["B"])
-        self.stack.close("B", "DP-1")
-        self.assertEqual(self.stack.stack("DP-1"), [])
-        self.assertEqual(self.stack.active("DP-1"), "")
-
-    def test_monitors_are_isolated(self) -> None:
-        self.stack.open("A", "DP-1")
-        self.stack.open("B", "DP-1")
-        self.stack.open("C", "DP-2")
-        self.assertEqual(self.stack.stack("DP-1"), ["A", "B"])
-        self.assertEqual(self.stack.stack("DP-2"), ["C"])
-        self.stack.close_top("DP-1")
-        self.assertEqual(self.stack.stack("DP-1"), ["A"])
-        self.assertEqual(self.stack.stack("DP-2"), ["C"])
-
-    def test_toggle_closes_only_when_active(self) -> None:
-        self.stack.open("launcher", "DP-1")
-        self.stack.open("settings", "DP-1")
-        self.assertEqual(self.stack.toggle("launcher", "DP-1"), "raised")
-        self.assertEqual(self.stack.active("DP-1"), "launcher")
-        self.assertEqual(self.stack.toggle("launcher", "DP-1"), "closed")
-        self.assertEqual(self.stack.active("DP-1"), "settings")
-
-    def test_aliases_wifi_and_notifications(self) -> None:
-        self.stack.open("wifi", "DP-1")
-        self.assertTrue(self.stack.is_open("network", "DP-1"))
-        self.stack.open("notifications", "DP-1")
-        self.assertEqual(self.stack.stack("DP-1"), ["notif"])
 
 
 class LegacyMigrationTests(unittest.TestCase):

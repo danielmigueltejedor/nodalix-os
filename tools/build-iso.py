@@ -51,9 +51,11 @@ def prepare(assets: Path, work: Path) -> tuple[Path, str]:
     packages: list[Path] = []
 
     for entry in manifest["components"]:
+        if not entry.get("required", False):
+            continue
         name = entry["asset"]
 
-        if Path(name).name != name or not name.startswith("nodalix-"):
+        if Path(name).name != name or not name.startswith(("nodalix-", "gnome-rounded-blur-")):
             raise ValueError(f"Unsafe package filename: {name}")
 
         package = assets / name
@@ -98,27 +100,7 @@ def prepare(assets: Path, work: Path) -> tuple[Path, str]:
         dirs_exist_ok=True,
     )
 
-    # The live desktop only needs its default wallpaper. The complete
-    # wallpaper package remains in the offline installer payload and is
-    # installed into the final system.
-    live_wallpaper = (
-        ROOT
-        / "packaging/nodalix-wallpapers"
-        / "nodalix-alpine-mirror.jpg"
-    )
-    live_wallpaper_target = (
-        root
-        / "usr/share/backgrounds/nodalix/static"
-        / "nodalix-alpine-mirror.jpg"
-    )
-    live_wallpaper_target.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-    shutil.copy2(
-        live_wallpaper,
-        live_wallpaper_target,
-    )
+    # nodalix-wallpapers owns the live wallpaper; do not pre-copy it into airootfs.
 
     # The installer and Archinstall profile use this instead of hardcoded
     # version numbers.
@@ -179,7 +161,7 @@ def prepare(assets: Path, work: Path) -> tuple[Path, str]:
     desktop = [
         package
         for package in desktop
-        if package not in {
+        if (not package.startswith("nodalix-") or package in {"nodalix-control-center", "nodalix-settings", "nodalix-video-wallpapers"}) and package not in {
             "noto-fonts",
             "noto-fonts-cjk",
             "noto-fonts-emoji",
@@ -201,9 +183,17 @@ def prepare(assets: Path, work: Path) -> tuple[Path, str]:
     # live root as well duplicates large assets such as wallpapers and
     # emoji fonts and can push the ISO over GitHub Releases 2 GiB limit.
     live_nodalix_packages = [
-        "nodalix-shell",
-        "nodalix-greeter-theme",
-        "nodalix-hymission",
+        "nodalix-gnome",
+        "nodalix-settings",
+        "nodalix-control-center",
+        "nodalix-video-wallpapers",
+        "nodalix-integrations",
+        "nodalix-wallpapers",
+        "nodalix-cursor-theme",
+        "nodalix-colloid-icons",
+        "nodalix-phone-link",
+        "nodalix-ofono",
+        "gnome-rounded-blur",
     ]
 
     (profile / "packages.x86_64").write_text(
@@ -293,24 +283,12 @@ set -euo pipefail
 useradd -m -G wheel,audio,video -s /bin/bash nodalix
 passwd -d nodalix
 
-python3 -c 'import json,pathlib;p=pathlib.Path("/home/nodalix/.local/state/nodalix/settings.json");d=json.loads(p.read_text());d["security"]={"autoLock":{"enabled":False}};p.write_text(json.dumps(d))'
 
+install -d /etc/dconf/db/local.d /etc/dconf/profile
+printf 'user-db:user\\n system-db:local\\n' | sed 's/^ //' > /etc/dconf/profile/user
+printf '[org/gnome/desktop/session]\\nidle-delay=uint32 0\\n[org/gnome/desktop/screensaver]\\nlock-enabled=false\\n' > /etc/dconf/db/local.d/00-live
+dconf update
 chown -R nodalix:nodalix /home/nodalix
-
-# Keep the live medium lean without removing anything from the installed
-# system. These heavy integrations are not needed by the installer session;
-# the wallpaper-engine package itself remains embedded in the installer
-# payload for deployment to the target system.
-for pkg in nodalix-wallpaper-engine rclone; do
-    if pacman -Q "$pkg" >/dev/null 2>&1; then
-        pacman -Qlq "$pkg" \
-            | while IFS= read -r path; do
-                if [[ -f "$path" || -L "$path" ]]; then
-                    rm -f -- "$path"
-                fi
-              done
-    fi
-done
 
 # Documentation and package caches are unnecessary on the ephemeral live
 # session and only increase the release asset size.
@@ -320,14 +298,10 @@ rm -rf \
     /usr/share/info/* \
     /var/cache/pacman/pkg/*
 
-install -d -o greeter -g greeter \
-    /var/lib/nodalix-greeter \
-    /var/lib/nodalix-greeter/cache
-
 systemctl enable \
     NetworkManager \
     bluetooth \
-    greetd \
+    gdm \
     power-profiles-daemon
 
 systemctl disable \
@@ -356,15 +330,9 @@ printf 'LANG=en_US.UTF-8\\n' > /etc/locale.conf
         encoding="utf-8",
     )
 
-    greetd_config = root / "etc/greetd/config.toml"
-
-    with greetd_config.open("a", encoding="utf-8") as stream:
-        stream.write(
-            "\n"
-            "[initial_session]\n"
-            'command = "/usr/local/bin/nodalix-session"\n'
-            'user = "nodalix"\n'
-        )
+    gdm_config = root / "etc/gdm/custom.conf"
+    gdm_config.parent.mkdir(parents=True, exist_ok=True)
+    gdm_config.write_text("[daemon]\nWaylandEnable=true\nAutomaticLoginEnable=true\nAutomaticLogin=nodalix\n", encoding="utf-8")
 
     applications = root / "usr/share/applications"
     applications.mkdir(
@@ -377,7 +345,7 @@ printf 'LANG=en_US.UTF-8\\n' > /etc/locale.conf
         "Type=Application\n"
         "Name=Install Nodalix\n"
         "Name[es]=Instalar Nodalix\n"
-        "Exec=foot --title=Install-Nodalix sudo /usr/local/bin/nodalix-install\n"
+        "Exec=kgx --title=Install-Nodalix -- sudo /usr/local/bin/nodalix-install\n"
         "Icon=system-software-install\n"
         "Categories=System;\n",
         encoding="utf-8",
