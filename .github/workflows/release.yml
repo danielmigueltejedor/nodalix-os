@@ -106,6 +106,8 @@ jobs:
 
       - name: Run updater tests
         run: |
+          # Migration subprocesses need Ubuntu's GI bindings as well.
+          export PATH="/usr/bin:/bin:$PATH"
           /usr/bin/python3 -m unittest discover -s tests -v
 
       - name: Compile release tooling
