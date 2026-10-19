@@ -1,15 +1,16 @@
 #!/usr/bin/python3
-"""One-time bridge from earlier Nodalix releases to GNOME 0.3.0."""
+"""One-time bridge from earlier Nodalix releases to the GNOME 0.3 series."""
 from pathlib import Path
 import argparse,hashlib,importlib.machinery,importlib.util,json,os,re,subprocess,tempfile,urllib.request
 REPO='danielmigueltejedor/nodalix-os'
 
 def select_bridge(manifest):
-    if manifest.get('schema_version')!=1 or manifest.get('version')!='0.3.0':raise ValueError('Se necesita el manifiesto publicado de 0.3.0')
+    version=manifest.get('version','')
+    if manifest.get('schema_version')!=1 or not isinstance(version,str) or not re.fullmatch(r'0\.3\.\d+',version):raise ValueError('Se necesita un manifiesto GNOME de 0.3.0 o posterior')
     entries=[c for c in manifest.get('components',[]) if c.get('package')=='nodalix-updater']
     if len(entries)!=1:raise ValueError('No se encuentra un actualizador único')
     entry=entries[0]
-    if entry.get('version')!='0.3.0' or not re.fullmatch(r'nodalix-updater-0\.3\.0-\d+-any\.pkg\.tar\.zst',entry.get('asset','')) or not re.fullmatch(r'[0-9a-f]{64}',entry.get('sha256','')):raise ValueError('Metadatos del puente no válidos')
+    if entry.get('version')!=version or not re.fullmatch(r'nodalix-updater-'+re.escape(version)+r'-\d+-any\.pkg\.tar\.zst',entry.get('asset','')) or not re.fullmatch(r'[0-9a-f]{64}',entry.get('sha256','')):raise ValueError('Metadatos del puente no válidos')
     return entry
 
 def install_bridge(manifest, assets, runner=subprocess.run, offline=False):
@@ -18,7 +19,7 @@ def install_bridge(manifest, assets, runner=subprocess.run, offline=False):
     if hashlib.file_digest(path.open('rb'),'sha256').hexdigest()!=entry['sha256']:raise ValueError('SHA-256 incorrecto del actualizador')
     info=runner(['bsdtar','-xOf',str(path),'.PKGINFO'],capture_output=True,text=True,check=True).stdout
     fields=dict(line.split(' = ',1) for line in info.splitlines() if ' = ' in line)
-    if fields.get('pkgname')!='nodalix-updater' or not fields.get('pkgver','').startswith('0.3.0-'):raise ValueError('El paquete no es el puente esperado')
+    if fields.get('pkgname')!='nodalix-updater' or not fields.get('pkgver','').startswith(manifest['version']+'-'):raise ValueError('El paquete no es el puente esperado')
     runner(['pacman','-U','--needed','--noconfirm',str(path)],check=True)
     command=['/usr/bin/nodalix-updater','update','--json']
     if offline:command+=['--assets',str(Path(assets).resolve())]
@@ -62,10 +63,12 @@ def main():
         install_bridge(manifest,args.assets,offline=True);return
     with tempfile.TemporaryDirectory(prefix='nodalix-gnome-') as temp:
         folder=Path(temp)
-        base=f'https://github.com/{REPO}/releases/download/0.3.0/'
+        version_path=Path(__file__).resolve().parents[1]/'VERSION'
+        version=version_path.read_text().strip() if version_path.is_file() else '0.3.1'
+        base=f'https://github.com/{REPO}/releases/download/{version}/'
         try:
             with urllib.request.urlopen(base+'nodalix-manifest.json',timeout=30) as source:raw=source.read();manifest=json.loads(raw)
-        except Exception as error:raise SystemExit('0.3.0 todavía no está publicada o no se puede descargar') from error
+        except Exception as error:raise SystemExit('La versión GNOME todavía no está publicada o no se puede descargar') from error
         verify_bridge_policy(raw,manifest,base)
         entry=select_bridge(manifest)
         with urllib.request.urlopen(base+entry['asset'],timeout=60) as source,(folder/entry['asset']).open('wb') as dest:

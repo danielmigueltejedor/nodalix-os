@@ -1,0 +1,11 @@
+[Unit]
+Description=Keep Steam game names and icons associated with desktop windows
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/bin/steam-desktop-sync
+Nice=10
+TimeoutStartSec=45
+

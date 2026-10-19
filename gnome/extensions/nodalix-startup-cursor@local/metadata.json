@@ -1,0 +1,7 @@
+{
+  "uuid": "nodalix-startup-cursor@local",
+  "name": "Nodalix — fin del cursor de apertura",
+  "description": "Termina los avisos de apertura pendientes cuando la aplicación ya muestra una ventana.",
+  "shell-version": ["51"],
+  "version": 1
+}

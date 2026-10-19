@@ -54,7 +54,8 @@ def main():
     run=api(f'actions/runs/{args.run_id}')
     verify_source(run)
     require_job(args.run_id,'packages' if args.kind=='packages' else 'iso',wait=args.kind=='iso')
-    name='nodalix-0.3.0-candidate' if args.kind=='packages' else 'nodalix-0.3.0-installable-iso'
+    version=Path('VERSION').read_text().strip()
+    name=f'nodalix-{version}-candidate' if args.kind=='packages' else f'nodalix-{version}-installable-iso'
     args.output.mkdir(parents=True,exist_ok=True)
     subprocess.run(['gh','run','download',args.run_id,'--repo',REPO,'--name',name,'--dir',str(args.output)],check=True)
     version=Path('VERSION').read_text().strip()

@@ -49,8 +49,9 @@ systemctl enable greetd.service
 cp /etc/greetd/config.toml dist/migration-evidence/greetd.before
 sha256sum /home/migration-test/.config/{hypr/hyprland.conf,localsend/identity.pem} > dist/migration-evidence/personal.before
 python /src/updater/nodalix-migrate-gnome --assets /src/dist/packages 2>&1 | tee dist/migration-evidence/upgrade.log
-grep -qx 'VERSION_ID="0.3.0"' /etc/nodalix-release
-[[ $(cat /run/nodalix-updater/reboot-required) == 0.3.0 ]]
+version=$(tr -d '[:space:]' < /src/VERSION)
+grep -qx "VERSION_ID=\"$version\"" /etc/nodalix-release
+[[ $(cat /run/nodalix-updater/reboot-required) == "$version" ]]
 [[ $(readlink /etc/systemd/system/display-manager.service) == /usr/lib/systemd/system/gdm.service ]]
 pacman -Q nodalix-gnome nodalix-settings nodalix-control-center nodalix-integrations nodalix-video-wallpapers nodalix-ofono
 ! pacman -Qq | grep -E '^(hypr|quickshell|greetd|nodalix-shell$|nodalix-greeter-theme$|nodalix-hymission$|nodalix-wallpaper-engine$|xdg-desktop-portal-hyprland$)'

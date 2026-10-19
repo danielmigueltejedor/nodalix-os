@@ -10,7 +10,8 @@ import sys
 
 def run_migration(helper, output, timeout=120):
     # A timed-out shell must not leave its Python/ffmpeg children running.
-    with subprocess.Popen(['/bin/sh', str(helper)], stdout=output, stderr=output,
+    interpreter = '/usr/bin/python3' if helper.suffix == '.py' else '/bin/sh'
+    with subprocess.Popen([interpreter, str(helper)], stdout=output, stderr=output,
                           start_new_session=True) as process:
         try:
             return process.wait(timeout=timeout)
@@ -43,6 +44,11 @@ def main():
             try:
                 result = run_migration(helper, output)
                 output.write(f'Migration exit status: {result}; failed steps retry at next login\n')
+                if result == 0:
+                    followup = helper.with_name('user-031.py')
+                    if followup.is_file():
+                        result = run_migration(followup, output)
+                        output.write(f'0.3.1 migration exit status: {result}\n')
             except (OSError, subprocess.TimeoutExpired) as error:
                 output.write(f'Migration incomplete, retry at next login: {error}\n')
     return 0

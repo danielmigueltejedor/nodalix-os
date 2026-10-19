@@ -1,0 +1,12 @@
+[Unit]
+Description=Maintain launchers for current and newly installed Steam games
+PartOf=graphical-session.target
+
+[Timer]
+OnStartupSec=15
+OnUnitInactiveSec=30
+AccuracySec=3
+Unit=steam-desktop-sync.service
+
+[Install]
+WantedBy=graphical-session.target

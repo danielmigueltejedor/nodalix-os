@@ -22,7 +22,7 @@ def user_script(source):
 try:
     deadline=time.monotonic()+360
     while time.monotonic()<deadline:
-        if (GUEST_HOME/'.local/state/nodalix/migrations/gnome-0.3.0-v2.done').exists() and Path('/run/user/'+GUEST_UID+'/bus').exists():break
+        if (GUEST_HOME/'.local/state/nodalix/migrations/gnome-0.3.1.done').exists() and Path('/run/user/'+GUEST_UID+'/bus').exists():break
         time.sleep(2)
     else:raise AssertionError('GNOME first-login migration did not finish')
     assert 'active'==run('systemctl','is-active','gdm').strip()
@@ -32,7 +32,8 @@ try:
     assert not installed.intersection({'hyprland','hypridle','hyprlock','hyprpaper','hyprutils','quickshell','greetd','greetd-regreet','uwsm','aquamarine','mpvpaper','xdg-desktop-portal-hyprland'})
     assert not (GUEST_HOME/'.config/hypr').exists()
     if not LIVE:
-        assert 'VERSION_ID="0.3.0"' in Path('/etc/nodalix-release').read_text()
+        expected_version=os.environ['NODALIX_CI_VERSION']
+        assert f'VERSION_ID="{expected_version}"' in Path('/etc/nodalix-release').read_text()
         assert not json.loads(run('nodalix-updater','status','--json'))['reboot_mandatory']
     fresh=os.environ.get('NODALIX_CI_FRESH')=='1'
     print(user_script('''
