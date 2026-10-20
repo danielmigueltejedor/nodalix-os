@@ -3,7 +3,22 @@
 from pathlib import Path
 import configparser,hashlib,json,os,shutil,subprocess,sys,time
 
+def retire_legacy_update_override(root):
+    # Run independently of the already completed 0.3.0 migration. This global
+    # user unit otherwise overrides the packaged GNOME updater for every login.
+    path=root/'etc/systemd/user/nodalix-update-apps.service'
+    packaged=root/'usr/lib/systemd/user/nodalix-update-apps.service'
+    if not path.is_file() or path.is_symlink() or not packaged.is_file():return
+    if 'ExecStart=%h/.config/quickshell/scripts/update/nodalix-update-apps.sh' not in path.read_text():return
+    target=root/'var/lib/nodalix-updater/migrations/gnome-0.3.1/files/etc/systemd/user/nodalix-update-apps.service'
+    target.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
+    if target.exists():
+        if target.read_bytes()!=path.read_bytes():raise RuntimeError('Legacy update override changed after backup')
+        path.unlink()
+    else:shutil.move(str(path),str(target))
+
 def migrate(root=Path('/'), runner=subprocess.run):
+    retire_legacy_update_override(root)
     state=root/'var/lib/nodalix-updater/migrations/gnome-0.3.0'
     state.mkdir(parents=True,exist_ok=True,mode=0o700);state.chmod(0o700)
     saved=state/'files';saved.mkdir(exist_ok=True,mode=0o700)

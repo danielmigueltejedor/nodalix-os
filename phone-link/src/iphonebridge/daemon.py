@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import logging
 import signal
-import threading
 import time
 
 import dbus
@@ -573,44 +572,23 @@ class Daemon:
 
         self._reconnect_in_flight = True
 
-        def connect() -> None:
-            error_text = ""
+        # Keep shared dbus-python proxies and GLib sources on the main thread.
+        # Connect is asynchronous, so reconnecting cannot block the desktop or
+        # race the main loop's native D-Bus watch/source lifetime.
+        def failed(error):
+            message = (error.get_dbus_message() if isinstance(
+                error, dbus.exceptions.DBusException) else str(error))
+            self._finish_reconnect(message or str(error))
 
-            try:
-                if connect_le_only:
-                    log.info("connecting iPhone LE bearer")
-                    bluez(
-                        device_path,
-                        "org.bluez.Bearer.LE1",
-                    ).Connect(timeout=12)
-                else:
-                    log.info(
-                        "iPhone is nearby but disconnected; "
-                        "reconnecting"
-                    )
-                    bluez(
-                        device_path,
-                        "org.bluez.Device1",
-                    ).Connect(timeout=12)
-
-            except dbus.exceptions.DBusException as error:
-                error_text = (
-                    error.get_dbus_message()
-                    or str(error)
-                )
-            except Exception as error:
-                error_text = str(error)
-
-            GLib.idle_add(
-                self._finish_reconnect,
-                error_text,
+        try:
+            interface = "org.bluez.Bearer.LE1" if connect_le_only else "org.bluez.Device1"
+            bluez(device_path, interface).Connect(
+                reply_handler=lambda *_: self._finish_reconnect(""),
+                error_handler=failed,
+                timeout=12,
             )
-
-        threading.Thread(
-            target=connect,
-            name="nodalix-phone-reconnect",
-            daemon=True,
-        ).start()
+        except Exception as error:
+            failed(error)
 
         return True
 

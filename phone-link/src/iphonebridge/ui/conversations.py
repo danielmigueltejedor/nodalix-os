@@ -15,7 +15,7 @@ _ELLIPSIZE_END = Pango.EllipsizeMode.END
 
 def _thread_key(ev: dict) -> str:
     return (ev.get("contact_name") or ev.get("sender_phone")
-            or ev.get("sender_phone_norm") or "(unknown)")
+            or ev.get("sender_phone_norm") or "Contacto desconocido")
 
 
 class ConversationsPage(Gtk.Box):
@@ -42,7 +42,7 @@ class ConversationsPage(Gtk.Box):
         self._msg_scroll = Gtk.ScrolledWindow(
             vexpand=True, child=self._msg_list)
         self._placeholder = Gtk.Label(
-            label="Select a conversation", css_classes=["dim-label", "title-2"],
+            label="Selecciona una conversación", css_classes=["dim-label", "title-2"],
             vexpand=True)
         self._stack = Gtk.Stack()
         self._stack.add_named(self._placeholder, "empty")
@@ -53,11 +53,11 @@ class ConversationsPage(Gtk.Box):
                           margin_top=6, margin_bottom=6,
                           margin_start=6, margin_end=6)
         self._entry = Gtk.Entry(
-            placeholder_text="Message", hexpand=True, sensitive=False)
+            placeholder_text="Escribe un mensaje", hexpand=True, sensitive=False)
         self._entry.connect("activate", self._on_send)
         self._send_btn = Gtk.Button(
             icon_name="document-send-symbolic", sensitive=False,
-            css_classes=["suggested-action"], tooltip_text="Send")
+            css_classes=["suggested-action"], tooltip_text="Enviar")
         self._send_btn.connect("clicked", self._on_send)
         compose.append(self._entry)
         compose.append(self._send_btn)
@@ -186,7 +186,7 @@ class ConversationsPage(Gtk.Box):
         def failed(text: str) -> None:
             self._entry.set_sensitive(True)
             self._send_btn.set_sensitive(True)
-            self._toast(f"Send failed: {text}")
+            self._toast(f"No se ha podido enviar el mensaje: {text}")
 
         self._client.send_message(thread["phone"], body, done, failed)
 

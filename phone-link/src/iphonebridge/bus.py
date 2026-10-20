@@ -15,6 +15,7 @@ import dbus.mainloop.glib
 from gi.repository import GLib
 
 # Install the GLib mainloop integration exactly once, at import time.
+dbus.mainloop.glib.threads_init()
 dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
 
 system_bus: dbus.SystemBus = dbus.SystemBus()

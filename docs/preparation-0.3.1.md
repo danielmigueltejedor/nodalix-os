@@ -55,3 +55,35 @@ scale-2 path was unavailable on this machine. The standalone native Settings
 restart harness could not run locally because `xvfb-run` is absent; CI installs
 that dependency. Full candidate package builds, upgrade guests and ISO boot
 remain CI validation work, not a locally verified publication claim.
+
+## Audit follow-up, 2026-10-20
+
+The installed desktop exposed a legacy global application-update unit pointing
+at a removed QuickShell helper. The system migration now archives that override
+even when 0.3.0 migration was already completed. The local user service uses the
+packaged updater, stale iCloud unit links were replaced and the competing Tiling
+Assistant was disabled while Nodalix Auto Tiling remains active.
+
+Tiling Assistant's saved-session reader took the etag instead of the byte buffer
+from promisified GIO, causing an error after session lock. The buffer selection
+and corrupt-JSON handling are corrected and tested with real GJS/GIO.
+
+Four historical Phone Link daemon aborts coincided with reconnect workers using
+shared D-Bus/GLib state. Reconnect now uses D-Bus asynchronous callbacks on the
+main loop, and D-Bus threading is initialised before creating connections, as
+required by the [dbus-python documentation](https://dbus.freedesktop.org/doc/dbus-python/dbus.mainloop.html).
+This removes the observed cross-thread path; a sustained live check is still
+needed before claiming the native heap aborts cannot recur. The installed UI
+launcher, plain-text rows and Spanish labels are included in the package source.
+
+CI's first package build failed when GNOME GitLab returned HTTP 503 while cloning
+the pinned volume-control subproject. Source fetching now retries three times in
+temporary directories and verifies the commit before publishing a checkout.
+Integration archives also exclude Python runtime caches.
+
+The local AIDE alert reports 456 added, 41 removed and 1350 changed entries since
+its old baseline. It is retained for review rather than automatically accepted
+as a new trusted baseline. The automatic system update failed immediately after
+resume when DNS was unavailable; DNS currently resolves again. Neither event is
+silenced by disabling its service. Package checks found no readable installed
+payload missing; protected system paths require administrator validation.

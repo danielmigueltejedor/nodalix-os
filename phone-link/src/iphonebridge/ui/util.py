@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 
 
-def format_ts(value: str | None, *, fmt: str = "%b %-d · %H:%M") -> str:
+def format_ts(value: str | None, *, fmt: str = "%d/%m · %H:%M") -> str:
     """Format an ISO timestamp from an event dict, in local time."""
     if not value:
         return ""
@@ -16,8 +16,8 @@ def format_ts(value: str | None, *, fmt: str = "%b %-d · %H:%M") -> str:
         dt = dt.astimezone()
     try:
         return dt.strftime(fmt)
-    except ValueError:  # %-d is glibc-only; fall back if unsupported
-        return dt.strftime("%b %d · %H:%M")
+    except ValueError:
+        return dt.strftime("%d/%m · %H:%M")
 
 
 def event_ts(ev: dict) -> str:

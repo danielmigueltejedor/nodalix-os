@@ -279,7 +279,7 @@
     "version": 55,
     "files": {
       "COPYING": "aaf135472f81c5b4a0dca9367e5bb5e9750032b5bebe5442b36e4c0a47430df3",
-      "extension.js": "8ff3adb460df4e7df31bad9d41063708f6851a051476842e729a99cbc86e9516",
+      "extension.js": "a9e68da5082c3b2b67c9a633ac5eb3a5eea19b12834ec074cda74ad4d4291113",
       "locale/cs/LC_MESSAGES/tiling-assistant@leleat-on-github.mo": "d29a84e1b2f4658b8fec00c53fa4a9804e63bdcaa2504dcc7f391d6281585fda",
       "locale/de_CH/LC_MESSAGES/tiling-assistant@leleat-on-github.mo": "9c2b72c9d2f775967141012ccc8efbf1a6d524b8f345c387bba32fcd075adb7f",
       "locale/de_DE/LC_MESSAGES/tiling-assistant@leleat-on-github.mo": "b7475f6bc2830aacc7da603f7a2ac72ad94d0b46607e95d7117480b757ffe023",

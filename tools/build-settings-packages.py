@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import tarfile
 import tempfile
+import time
 
 ROOT = Path(__file__).resolve().parents[1]
 CC_REV = '6ae712c0454f2586f00821c3486150c1e8feb3e7'
@@ -25,7 +26,29 @@ def run(args, **kwargs):
 def checkout(source, cache, name, url, revision):
     target = Path(source).resolve() if source else cache/name
     if not (target/'.git').exists():
-        run(['git','clone',url,target])
+        # A transient upstream 503 must not leave a half-cloned source tree.
+        # Publish the checkout only once the pinned commit has been verified.
+        target.parent.mkdir(parents=True, exist_ok=True)
+        for attempt in range(3):
+            try:
+                with tempfile.TemporaryDirectory(prefix='.'+name+'-', dir=target.parent) as temp:
+                    candidate = Path(temp)/'source'
+                    run(['git','clone',url,candidate])
+                    run(['git','checkout',revision],cwd=candidate)
+                    actual = subprocess.check_output(['git','rev-parse','HEAD'],cwd=candidate,text=True).strip()
+                    if actual != revision:
+                        raise ValueError(f'{name}: unexpected source revision {actual}')
+                    if target.exists():
+                        if any(target.iterdir()):
+                            raise ValueError(f'{name}: refusing to replace nonempty source directory')
+                        target.rmdir()
+                    candidate.rename(target)
+                break
+            except subprocess.CalledProcessError:
+                if attempt == 2:
+                    raise
+                print(f'{name}: source download failed; retrying ({attempt+2}/3)', flush=True)
+                time.sleep(5 * (attempt + 1))
         run(['git','checkout',revision],cwd=target)
     actual = subprocess.check_output(['git','rev-parse','HEAD'],cwd=target,text=True).strip()
     if actual != revision:
