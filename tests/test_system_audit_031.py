@@ -67,6 +67,32 @@ class LegacyUnitTests(unittest.TestCase):
             self.assertEqual(saved.read_text(), text)
 
 
+class AutomaticUpdateTests(unittest.TestCase):
+    def test_missing_dns_defers_without_running_pacman(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for name, text in {'id': 'echo 0', 'getent': 'exit 2',
+                               'pacman': 'echo unexpected > "'+str(root/'pacman-ran')+'"'}.items():
+                helper = root/name
+                helper.write_text('#!/bin/sh\n'+text+'\n')
+                helper.chmod(0o755)
+            result = subprocess.run(['/bin/sh', str(ROOT/'updater/nodalix-system-update'),
+                                     'privileged-system'], capture_output=True, text=True,
+                                    env={**os.environ, 'PATH': str(root)})
+            self.assertEqual(result.returncode, 75)
+            self.assertFalse((root/'pacman-ran').exists())
+
+    def test_package_failures_are_not_treated_as_network_deferrals(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for name, text in {'id': 'echo 0', 'getent': 'exit 0', 'pacman': 'exit 1'}.items():
+                helper = root/name;helper.write_text('#!/bin/sh\n'+text+'\n');helper.chmod(0o755)
+            result = subprocess.run(['/bin/sh', str(ROOT/'updater/nodalix-system-update'),
+                                     'privileged-system'], capture_output=True,
+                                    env={**os.environ, 'PATH': str(root)})
+            self.assertEqual(result.returncode, 1)
+
+
 class PhoneReconnectTests(unittest.TestCase):
     def manager(self):
         props, proxy = mock.Mock(), mock.Mock()

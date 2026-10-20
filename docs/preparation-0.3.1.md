@@ -81,9 +81,31 @@ the pinned volume-control subproject. Source fetching now retries three times in
 temporary directories and verifies the commit before publishing a checkout.
 Integration archives also exclude Python runtime caches.
 
+The unattended system updater now returns a distinct temporary-failure status
+when DNS is not ready, and its service retries that condition after two minutes
+with a bounded restart rate. Package-manager failures retain their original
+failure status and are not retried as network deferrals. Both paths are tested.
+
+Follow-up validation: 226 tests pass. GNOME, integrations, Phone Link and updater
+packages were rebuilt, inspected and installed locally. Their packaged payloads
+verify without altered files. The user migration adopted the packaged Craft and
+Steam units, and Phone Link was restarted with the asynchronous reconnect path.
+The real private GNOME test also passes the alternative panel and Tiling
+Assistant lifecycle. System identity remains 0.3.0 while 0.3.1 is unpublished;
+this is a local candidate component installation, not a completed public release.
+
 The local AIDE alert reports 456 added, 41 removed and 1350 changed entries since
 its old baseline. It is retained for review rather than automatically accepted
 as a new trusted baseline. The automatic system update failed immediately after
 resume when DNS was unavailable; DNS currently resolves again. Neither event is
 silenced by disabling its service. Package checks found no readable installed
 payload missing; protected system paths require administrator validation.
+
+Administrator checks subsequently verified systemd, libc, sudo, polkit, GDM,
+GNOME Shell, Mutter, the CachyOS kernel and AMD microcode payloads. No changed
+critical executable was found. The journal directory had an incorrect group;
+the standard tmpfiles rule restores it. The microcode permission warnings are
+explained by the deliberately private FAT boot mount; the file hashes match.
+Local locale and sudo configuration changes remain configuration differences,
+not unreviewed replacements of package executables. AIDE's historical baseline
+still needs a separate review and is preserved.
