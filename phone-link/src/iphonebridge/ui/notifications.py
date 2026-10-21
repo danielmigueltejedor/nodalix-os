@@ -18,9 +18,9 @@ class NotificationsPage(Gtk.Box):
         scroll = Gtk.ScrolledWindow(child=self._list, vexpand=True)
         self._empty = Adw.StatusPage(
             icon_name="preferences-system-notifications-symbolic",
-            title="No notifications yet",
-            description="Per-app notifications from your iPhone — Slack, Mail, "
-                        "WhatsApp and the rest — show up here as they arrive.")
+            title="Todavía no hay notificaciones",
+            description="Aquí aparecerán las notificaciones de las aplicaciones "
+                        "de tu iPhone, como Slack, Mail o WhatsApp, a medida que lleguen.")
         self._stack = Gtk.Stack(vexpand=True)
         self._stack.add_named(scroll, "list")
         self._stack.add_named(self._empty, "empty")
@@ -39,12 +39,14 @@ class NotificationsPage(Gtk.Box):
         self._update_stack()
 
     def _prepend(self, ev: dict) -> None:
-        app = ev.get("app_name") or ev.get("app_id") or "Notification"
+        app = ev.get("app_name") or ev.get("app_id") or "Notificación"
         title = (ev.get("title") or "").strip()
         body = (ev.get("body") or "").strip()
-        subtitle = " — ".join(p for p in (title, body) if p) or "(no preview)"
+        subtitle = " — ".join(p for p in (title, body) if p) or "Sin vista previa"
 
-        row = Adw.ActionRow(title=app, subtitle=subtitle)
+        row = Adw.ActionRow(use_markup=False)
+        row.set_title(app)
+        row.set_subtitle(subtitle)
         row.set_subtitle_lines(2)
         ts = format_ts(event_ts(ev), fmt="%H:%M")
         if ts:

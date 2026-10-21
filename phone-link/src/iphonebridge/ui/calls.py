@@ -22,20 +22,20 @@ class CallsPage(Gtk.Box):
         self.append(page)
 
         dial_group = Adw.PreferencesGroup(
-            title="Place a call",
-            description="Call audio routes through this computer's mic and "
-                        "speakers.")
-        self._entry = Adw.EntryRow(title="Number or contact name")
+            title="Realizar una llamada",
+            description="El audio de las llamadas utiliza el micrófono y "
+                        "los altavoces de este ordenador.")
+        self._entry = Adw.EntryRow(title="Número o nombre del contacto")
         self._entry.connect("entry-activated", self._on_dial)
         call_btn = Gtk.Button(
             icon_name="call-start-symbolic", valign=Gtk.Align.CENTER,
-            css_classes=["suggested-action"], tooltip_text="Call")
+            css_classes=["suggested-action"], tooltip_text="Llamar")
         call_btn.connect("clicked", self._on_dial)
         self._entry.add_suffix(call_btn)
         dial_group.add(self._entry)
         page.add(dial_group)
 
-        self._calls_group = Adw.PreferencesGroup(title="Active calls")
+        self._calls_group = Adw.PreferencesGroup(title="Llamadas activas")
         page.add(self._calls_group)
         self._refresh_calls()
 
@@ -49,19 +49,19 @@ class CallsPage(Gtk.Box):
             return
         number = self._resolve(raw)
         if number is None:
-            self._toast(f"No contact matches '{raw}'")
+            self._toast(f"No se ha encontrado ningún contacto que coincida con «{raw}»")
             return
         self._entry.set_sensitive(False)
 
         def ok(_path: str) -> None:
             self._entry.set_sensitive(True)
             self._entry.set_text("")
-            self._toast(f"Calling {raw}…")
+            self._toast(f"Llamando a {raw}…")
             self._refresh_calls()
 
         def err(text: str) -> None:
             self._entry.set_sensitive(True)
-            self._toast(f"Call failed: {text}")
+            self._toast(f"No se ha podido realizar la llamada: {text}")
 
         self._client.dial(number, ok, err)
 
@@ -85,7 +85,7 @@ class CallsPage(Gtk.Box):
         self._call_rows = []
         calls = self._client.list_calls()
         if not calls:
-            row = Adw.ActionRow(title="No active calls",
+            row = Adw.ActionRow(title="No hay llamadas activas",
                                 css_classes=["dim-label"])
             self._calls_group.add(row)
             self._call_rows.append(row)
@@ -96,20 +96,36 @@ class CallsPage(Gtk.Box):
             self._call_rows.append(row)
 
     def _make_call_row(self, c: dict) -> Adw.ActionRow:
-        peer = c.get("contact_name") or c.get("peer_phone") or "(unknown)"
+        peer = c.get("contact_name") or c.get("peer_phone") or "Contacto desconocido"
         state = c.get("state", "?")
         direction = c.get("direction", "")
-        row = Adw.ActionRow(title=peer, subtitle=f"{direction} · {state}")
+        state_label = {
+            "active": "En curso",
+            "held": "En espera",
+            "dialing": "Marcando",
+            "alerting": "Sonando",
+            "incoming": "Entrante",
+            "waiting": "En espera",
+            "disconnected": "Finalizada",
+        }.get(state, "Estado desconocido")
+        direction_label = {
+            "incoming": "Entrante",
+            "outgoing": "Saliente",
+        }.get(direction, "")
+        subtitle = " · ".join(part for part in (direction_label, state_label) if part)
+        row = Adw.ActionRow(use_markup=False)
+        row.set_title(peer)
+        row.set_subtitle(subtitle)
         path = c.get("call_path", "")
         if state in ("incoming", "waiting"):
             answer = Gtk.Button(
                 icon_name="call-start-symbolic", valign=Gtk.Align.CENTER,
-                css_classes=["suggested-action"], tooltip_text="Answer")
+                css_classes=["suggested-action"], tooltip_text="Responder")
             answer.connect("clicked", lambda _b, p=path: self._answer(p))
             row.add_suffix(answer)
         hang = Gtk.Button(
             icon_name="call-stop-symbolic", valign=Gtk.Align.CENTER,
-            css_classes=["destructive-action"], tooltip_text="Hang up")
+            css_classes=["destructive-action"], tooltip_text="Colgar")
         hang.connect("clicked", lambda _b, p=path: self._hangup(p))
         row.add_suffix(hang)
         return row
@@ -117,9 +133,9 @@ class CallsPage(Gtk.Box):
     def _answer(self, path: str) -> None:
         err = self._client.answer_call(path)
         if err:
-            self._toast(f"Answer failed: {err}")
+            self._toast(f"No se ha podido responder a la llamada: {err}")
 
     def _hangup(self, path: str) -> None:
         err = self._client.hangup_call(path)
         if err:
-            self._toast(f"Hang up failed: {err}")
+            self._toast(f"No se ha podido finalizar la llamada: {err}")

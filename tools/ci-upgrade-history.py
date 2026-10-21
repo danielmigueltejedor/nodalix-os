@@ -1,10 +1,11 @@
 #!/usr/bin/python3
-"""Validate every published pre-0.3.0 package set in a disposable Arch container."""
+"""Validate every earlier published package set in a disposable Arch container."""
 import hashlib, json, os, shutil, subprocess, urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 REPOSITORY = 'danielmigueltejedor/nodalix-os'
+from versioning import compare_versions
 
 def fetch(url):
     request = urllib.request.Request(url, headers={'User-Agent':'Nodalix-upgrade-tests'})
@@ -21,9 +22,10 @@ def main():
     evidence = ROOT/'dist/history-evidence'
     evidence.mkdir(parents=True, exist_ok=True)
     results = []
+    version = (ROOT/'VERSION').read_text().strip()
     for release in reversed(releases):
         tag = release['tag_name']
-        if release.get('draft') or not tag.removeprefix('v').startswith('0.2.'):
+        if release.get('draft') or compare_versions(tag.removeprefix('v'), '0.1.1') < 0 or compare_versions(tag.removeprefix('v'), version) >= 0:
             continue
         asset = next((a for a in release['assets'] if a['name']=='nodalix-manifest.json'), None)
         if asset is None:
@@ -43,10 +45,10 @@ def main():
                 raise ValueError('Baseline checksum mismatch: '+tag+'/'+name)
         log = evidence/(tag+'.log')
         with log.open('w') as output:
-            subprocess.run(['bash',str(ROOT/'tools/test-package-upgrade.sh'),str(folder),str(candidates),'0.3.0'], stdout=output, stderr=subprocess.STDOUT, check=True)
-        results.append({'from':tag,'to':'0.3.0','result':'passed'})
+            subprocess.run(['bash',str(ROOT/'tools/test-package-upgrade.sh'),str(folder),str(candidates),version], stdout=output, stderr=subprocess.STDOUT, check=True)
+        results.append({'from':tag,'to':version,'result':'passed'})
         (evidence/'results.json').write_text(json.dumps(results,indent=2)+'\n')
-        print(tag+' -> 0.3.0 passed', flush=True)
+        print(tag+' -> '+version+' passed', flush=True)
         shutil.rmtree(folder)
     if not results:
         raise RuntimeError('No published historical release was tested')

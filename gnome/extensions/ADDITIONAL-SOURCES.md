@@ -7,3 +7,12 @@ These are the working source snapshots from the GNOME 51 desktop, including loca
 - Nodalix Auto Tiling: Nodalix GNOME 51 source, GPL-3.0-or-later. The older Tiling Assistant remains available as an alternative.
 
 The login background, Hanabi, rounded corners, Blur my Shell, Dash to Dock, GLocalSend and Nodalix Connect are included by their existing package recipes.
+
+## 0.3.1 local desktop snapshot
+
+Dash to Dock is updated to the installed version 110, including the local
+overview sizing and startup animation changes. Its GPL source and translations
+remain in the existing extension directory; `snapshots.json` records the imported
+bytes. Nodalix Startup Cursor (`nodalix-startup-cursor@local`) is Nodalix source,
+GPL-3.0-or-later, and completes pending startup sequences only after a normal
+application window is mapped and visible for 750 ms.

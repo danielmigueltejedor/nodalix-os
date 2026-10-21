@@ -20,13 +20,13 @@ class MainWindow(Adw.ApplicationWindow):
 
         for widget, name, title, icon in (
             (ConversationsPage(client, self.toast), "conversations",
-             "Messages", "mail-unread-symbolic"),
+             "Mensajes", "mail-unread-symbolic"),
             (NotificationsPage(client, self.toast), "notifications",
-             "Notifications", "preferences-system-notifications-symbolic"),
+             "Notificaciones", "preferences-system-notifications-symbolic"),
             (CallsPage(client, self.toast), "calls",
-             "Calls", "call-start-symbolic"),
+             "Llamadas", "call-start-symbolic"),
             (StatusPage(client, self.toast), "status",
-             "Setup", "emblem-system-symbolic"),
+             "Ajustes", "emblem-system-symbolic"),
         ):
             self._stack.add_titled_with_icon(widget, name, title, icon)
 
@@ -35,8 +35,8 @@ class MainWindow(Adw.ApplicationWindow):
         header = Adw.HeaderBar(title_widget=switcher)
 
         self._banner = Adw.Banner(
-            title="Daemon not reachable — run: "
-                  "systemctl --user start iphonebridge")
+            title="El servicio de Enlace móvil no está disponible. "
+                  "Comprueba la conexión en Ajustes.")
 
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         content.append(self._banner)
@@ -60,7 +60,7 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _on_call(self, _client, ev: dict) -> None:
         if ev.get("kind") == "call_incoming":
-            peer = ev.get("contact_name") or ev.get("peer_phone") or "someone"
+            peer = ev.get("contact_name") or ev.get("peer_phone") or "un contacto desconocido"
             self._stack.set_visible_child_name("calls")
-            self.toast(f"Incoming call from {peer}")
+            self.toast(f"Llamada entrante de {peer}")
             self.present()

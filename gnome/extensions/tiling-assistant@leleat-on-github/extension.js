@@ -335,7 +335,7 @@ export default class TilingAssistantExtension extends Extension {
 
         let contents;
         try {
-            [, contents] = await file.load_contents_async(cancellable);
+            [contents] = await file.load_contents_async(cancellable);
         } catch (e) {
             if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
                 logError(e);
@@ -345,7 +345,15 @@ export default class TilingAssistantExtension extends Extension {
         if (!contents.length)
             return;
 
-        const states = JSON.parse(new TextDecoder().decode(contents));
+        let states;
+        try {
+            states = JSON.parse(new TextDecoder().decode(contents));
+        } catch (error) {
+            logError(error);
+            return;
+        }
+        if (!states?.tileGroups || !states?.windows)
+            return;
         const keysAsNumbers = entries => entries.map(([key, value]) => [parseInt(key), value]);
         const tileGroups = new Map(keysAsNumbers(Object.entries(states.tileGroups)));
         const tileStates = new Map(keysAsNumbers(Object.entries(states.windows)));

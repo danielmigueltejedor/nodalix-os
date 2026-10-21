@@ -54,6 +54,7 @@ tar --zstd -C "$root" -cf "$srcdir/nodalix-phone-link-$phone_pkgver.tar.zst" \
   phone-link
 
 tar --zstd -C "$root" -cf "$srcdir/nodalix-integrations-$pkgver.tar.zst" \
+  --exclude='*/__pycache__' --exclude='*.pyc' \
   integrations
 tar --zstd -C "$root" -cf "$srcdir/nodalix-gnome-$pkgver.tar.zst" \
   --exclude='*/__pycache__' --exclude='*.pyc' \

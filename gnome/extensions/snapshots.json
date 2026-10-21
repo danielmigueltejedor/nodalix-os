@@ -25,16 +25,16 @@
   },
   {
     "uuid": "dash-to-dock@micxgx.gmail.com",
-    "version": 109,
+    "version": 110,
     "files": {
       "COPYING": "8177f97513213526df2cf6184d8ff986c675afb514d4e68a404010521b880643",
       "README.md": "00c04c4bd45ca2653c5ec4913f707f0bccebce9990cf68fe3b8aa9dca06ce12d",
-      "Settings.ui": "983d278907e1d7914dac5b13d33039a8e20a6bc5353a3b0f07ff06ba545eca61",
-      "appIconIndicators.js": "d00fe1f2631d7afd15095b4a9093e49b00116e53128b5910a80888a8d1b858fe",
-      "appIcons.js": "12b8d252d608afb61e39e417c5e164a14489e301f863195859f80cd266efa45f",
+      "Settings.ui": "38664bea64ab7d81decaaa3a264767db89a8a455808f8d62db5d9efddd30a503",
+      "appIconIndicators.js": "a3e5635a2cb326f03264259cc810f90c615ac1630cc70089941ca4b41d5e36b5",
+      "appIcons.js": "c0e39573fd80131fdac71c75fc8f9d4d147b7e3c73c13cdc94e62ff136f890c0",
       "appIconsDecorator.js": "c3ab2bc16ed9d8511503845c8841d9b3345730c389bc3176dd446ba80f293dcb",
       "appSpread.js": "e8fe4023662e552aa69f42224c3ba6e05030e8d644f9e2248fceabd25b11f880",
-      "dash.js": "449e19521e3abe6d7677e27e12f03b744e476ed11beb932e22ccae0ae54671c7",
+      "dash.js": "b87d8109842751cceb2423395885a09033a44879b1c17ed60a68f2254d1351a2",
       "dbusmenuUtils.js": "62c188007488c7fe4dfdb78e6d5eaf192914b5e1dd784eb9cbf17ba35c9d0400",
       "dependencies/gi.js": "5a2f65c214d8ef3e597f4bd99b10a609499413296f19669068d85499fb199c74",
       "dependencies/shell/extensions/extension.js": "158d35274cd8a4fe9631e378f14a60daa42c2e021a2a72da3e1a32694bb0be17",
@@ -42,16 +42,16 @@
       "dependencies/shell/ui.js": "359175c7371e3720219406284be5da1fb3093bd46e19160065c354443d0b2836",
       "desktopIconsIntegration.js": "6bb32089139c0bd989cd08ffd082b48b3af03fd7b4192b6c74299d4eda8d32b3",
       "dockStruts.js": "c82afebe39a166845113c3b119e643154cb46f6ae45e615a680c5524548140bb",
-      "docking.js": "0d0fa248def4c73ba4686403d2c35db7ade8cedac13af96f30b963fd1edc18dd",
+      "docking.js": "f5635609a0597867c9c9c5481b857d3f827dfde747feecbcda8bb92b457903ba",
       "extension.js": "e6afbc7e16440c107687165886112d55c68143f039fc5b17adadccb48194a612",
       "fileManager1API.js": "e8c3e57dd6c8a9625f15f08f011c9a6adc44677864427dada5f5d6bcc6fbacdc",
       "imports.js": "45e7f3727273c38644882800c1a10488fc948224543d8c7f6240965b79676264",
-      "intellihide.js": "f1df023f3ee0300db3551f923df1fcdb34913c86ad726c5d09ed42c0ed9a9fa4",
+      "intellihide.js": "b1094e5dccbd01bbeae86b2679d957591f5163a2d8f15dfd3529eaf35ccf7b68",
       "launcherAPI.js": "fa69e6c95b82beccba87220f2a6551fe3daf0588654584ba543d05f24407c59e",
       "locale/ar/LC_MESSAGES/dashtodock.mo": "9540a80fcc480d115baa41467c89d22243491e69daec9c99b8d522980d1f65ab",
       "locale/be/LC_MESSAGES/dashtodock.mo": "1b81f2eb844a3dbf9b17079ef6b43fa464a15c92687198785a496100d657c1be",
       "locale/bg/LC_MESSAGES/dashtodock.mo": "72c57c7741406e26abf8da255178d16de5236f1f2f45a135296f94121e19e5bf",
-      "locale/cs/LC_MESSAGES/dashtodock.mo": "259b05ccf0664b6966acc8d09ee839787af170a06db1573584e19849e9bd42c3",
+      "locale/cs/LC_MESSAGES/dashtodock.mo": "a5798370ad96aa85a6f2389c50e0947b2286e85c1aeebc072057e2a37fed5f33",
       "locale/de/LC_MESSAGES/dashtodock.mo": "e003e24b8703e6accce3d46141336cc50e9ae350ee41d50bab3c59aecf3356ac",
       "locale/el/LC_MESSAGES/dashtodock.mo": "af696427142b203cecf204f2c5e1a97603bb1d43f0fa932ae86056ed6862ae59",
       "locale/es/LC_MESSAGES/dashtodock.mo": "0053bc52889881711228db216c583b84d3bb930d21f08956b26a211d58cb91fb",
@@ -68,7 +68,7 @@
       "locale/lv/LC_MESSAGES/dashtodock.mo": "8ef18ba9de3e2cee7cc4fd1734df73c12679d44e8ae87628d74de8715a6ad255",
       "locale/nb/LC_MESSAGES/dashtodock.mo": "29be8ee9b264fd6ef359cbf5e1be3121ffbefdd610df045a228f328c7b08db13",
       "locale/nl/LC_MESSAGES/dashtodock.mo": "ba7e144e0ee6edcb4f84f5ffbd0727eb3104c1b1bd2c1e520cc3af49affd5d39",
-      "locale/pl/LC_MESSAGES/dashtodock.mo": "c7cd68f9b9f5ed376bfb615c93d04bfbd26f77c459c34a14da22565673fa710b",
+      "locale/pl/LC_MESSAGES/dashtodock.mo": "fba71d7aae8c8ab3dbb3c95bb449191729b6456dfdf4139fae6bf5a6f9770792",
       "locale/pt/LC_MESSAGES/dashtodock.mo": "1cc23b94854efab5ed71a700b363085f38b921162c5eb8141fc415798e7b60a7",
       "locale/pt_BR/LC_MESSAGES/dashtodock.mo": "1ba90b31675a32a8ed3c4489eaea43af610676f353796cd99ec8efd6f0b79e3e",
       "locale/ro/LC_MESSAGES/dashtodock.mo": "3c44204f5671296cb522d7ee5769b18e0506870f8a413f79a23983ebc04bd3fe",
@@ -88,14 +88,14 @@
       "media/highlight_stacked_bg.svg": "a0a8709c37ef059411b488f6c304bd03bf7cbf53adf26a1283486b79e248acd0",
       "media/highlight_stacked_bg_h.svg": "20e08e04646379c0f2ede04aa4e12ce8700470e24a48563a814cc82824f19c72",
       "media/logo.svg": "859981d4b9a14b8b2b3345fbf6020f3bf81cf4a017089a1018ea1a01200cbbec",
-      "metadata.json": "a8fb90e62e01650058945cf8b7f2f6a70724155320f519d24434e3a3451af61d",
+      "metadata.json": "17fb225b208d8289c0023387f854e1c296fdc05087f5b75563f333a01dd5fbe7",
       "notificationsMonitor.js": "665e0fb4cb49a2b6bed30a0e83fc23294d2818a35b25e809b5a5c9039a04d9d8",
-      "prefs.js": "825f5dee36ed66c4add2bd4e515d4c75c94e4326cac0bf6d00fa495adc34f5ed",
+      "prefs.js": "6d458c5e18cb680c48a05b17b32ab69fd2a22e63cde6d290cf26f4b359e89d6f",
       "schemas/org.gnome.shell.extensions.dash-to-dock.gschema.xml": "4f6b05c5dbb9793e3492266c31d00c429eb163eae4b2deb30b00ee5fb954bda9",
       "stylesheet.css": "b79cee3259d020182186d9d2d9f23f3fe1b12be07f5a64fdc114a51881915e66",
       "theming.js": "d5ea7f7d5fc8793c9a8ce8b0fbafdcac6737f3976b04f7356354bc551e28ed92",
-      "utils.js": "43c75de740fa2350f5b075c7e6400da1b531305336fbbad4ab06b6723e6a9197",
-      "windowPreview.js": "82a02de346bd33dba57de51a6ac63f2ce0b0e19fb0dd354b00f695a0be023e5d"
+      "utils.js": "c3513cff331e6fb674070ef93ccc43de36e7114dd6d6ad50ed9c334552fa4bb4",
+      "windowPreview.js": "4a5eb2b7f1554adc99df76787722586cb32317b5da7b1d383e526185196d1aa2"
     }
   },
   {
@@ -279,7 +279,7 @@
     "version": 55,
     "files": {
       "COPYING": "aaf135472f81c5b4a0dca9367e5bb5e9750032b5bebe5442b36e4c0a47430df3",
-      "extension.js": "8ff3adb460df4e7df31bad9d41063708f6851a051476842e729a99cbc86e9516",
+      "extension.js": "a9e68da5082c3b2b67c9a633ac5eb3a5eea19b12834ec074cda74ad4d4291113",
       "locale/cs/LC_MESSAGES/tiling-assistant@leleat-on-github.mo": "d29a84e1b2f4658b8fec00c53fa4a9804e63bdcaa2504dcc7f391d6281585fda",
       "locale/de_CH/LC_MESSAGES/tiling-assistant@leleat-on-github.mo": "9c2b72c9d2f775967141012ccc8efbf1a6d524b8f345c387bba32fcd075adb7f",
       "locale/de_DE/LC_MESSAGES/tiling-assistant@leleat-on-github.mo": "b7475f6bc2830aacc7da603f7a2ac72ad94d0b46607e95d7117480b757ffe023",
@@ -365,6 +365,14 @@
       "metadata.json": "3ae13e97b103f6f934a660af9d4f5c6b1531d98392ce59f3008db23c51a1bd0a",
       "shaders/rounded.frag": "9c83119e87a7b38bd04a5b99f092dd35f717d39fc479c83aa516d2d022d936b4",
       "tools/adw-probe.js": "9ddd310aa8d38547fdbb5ee734158ed2fb5f64f8a861eac7932583a922c0ecf3"
+    }
+  },
+  {
+    "uuid": "nodalix-startup-cursor@local",
+    "version": 1,
+    "files": {
+      "extension.js": "b442db9b5e84f2d522197980a00b4c24b68423c479e67071d710cc8c5a19cef3",
+      "metadata.json": "2008c663f62080c1b5db79fb9653f4c22623d24af169bef55bc5b4be563e6327"
     }
   }
 ]

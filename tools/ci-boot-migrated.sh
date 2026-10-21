@@ -36,6 +36,7 @@ Description=Verify disposable Nodalix migration boot
 After=gdm.service
 [Service]
 Type=oneshot
+Environment=NODALIX_CI_VERSION=$(tr -d '[:space:]' < /src/VERSION)
 Environment=NODALIX_CI_FRESH=${NODALIX_CI_FRESH:-0}
 ExecStart=/usr/local/bin/nodalix-guest-verify
 StandardOutput=journal+console

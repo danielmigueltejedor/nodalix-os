@@ -3,6 +3,15 @@ set -eu
 
 mode=${1:-}
 
+require_network() {
+    # Timers can fire immediately after resume, before the resolver is ready.
+    # EX_TEMPFAIL lets systemd retry only this temporary condition.
+    if ! getent ahosts archlinux.org >/dev/null 2>&1; then
+        printf '%s\n' 'Network name resolution is not ready; deferring the system update.' >&2
+        exit 75
+    fi
+}
+
 update_firmware() {
     if command -v fwupdmgr >/dev/null 2>&1; then
         fwupdmgr refresh --force
@@ -16,6 +25,7 @@ case "$mode" in
             printf '%s\n' "privileged-system requires root" >&2
             exit 77
         }
+        require_network
         pacman -Syu --noconfirm
         ;;
     privileged-firmware)

@@ -1,0 +1,15 @@
+[Unit]
+Description=Controles nativos de GNOME para las apps Craft
+PartOf=graphical-session.target
+After=graphical-session-pre.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/lib/nodalix/craft_gnome.py --daemon
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+UMask=0077
+
+[Install]
+WantedBy=graphical-session.target

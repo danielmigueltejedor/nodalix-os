@@ -1,0 +1,15 @@
+[Unit]
+Description=Automatically enable GameMode for Steam games
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+ExecCondition=/usr/bin/test -e /usr/lib/libgamemode.so.0
+Type=simple
+ExecStart=/usr/bin/steam-auto-gamemode
+Restart=on-failure
+RestartSec=10
+Nice=5
+
+[Install]
+WantedBy=graphical-session.target
