@@ -25,6 +25,15 @@ try:
         if (GUEST_HOME/'.local/state/nodalix/migrations/gnome-0.3.1.done').exists() and Path('/run/user/'+GUEST_UID+'/bus').exists():break
         time.sleep(2)
     else:raise AssertionError('GNOME first-login migration did not finish')
+    # Only the disposable QEMU guest: keep the *user* session active while
+    # software-emulated GNOME, Hanabi and video decoding run for many minutes.
+    # Otherwise GNOME locks the screen and disables extensions restricted to
+    # sessionModes=['user'], yielding false negatives with state=2.
+    if not LIVE:
+        user_script("""from gi.repository import Gio
+Gio.Settings.new('org.gnome.desktop.session').set_uint('idle-delay', 0)
+Gio.Settings.new('org.gnome.desktop.screensaver').set_boolean('lock-enabled', False)
+""")
     assert 'active'==run('systemctl','is-active','gdm').strip()
     assert 'active'==run('systemctl','is-active','cups.socket').strip()
     assert not Path('/run/nodalix-updater/reboot-required').exists()
