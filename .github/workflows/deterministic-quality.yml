@@ -1,0 +1,32 @@
+name: Deterministic Quality Gates
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  quality:
+    name: quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Patch integrity
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            git diff --check "${{ github.event.pull_request.base.sha }}" HEAD
+          else
+            git show --format= --check HEAD
+          fi
+      - name: Install native test dependencies
+        run: sudo apt-get update && sudo apt-get install -y python3-gi gnome-shell-common gnome-settings-daemon-common gsettings-desktop-schemas gir1.2-nautilus-4.0 gir1.2-gtk-4.0 gir1.2-adw-1 nodejs libarchive-tools gjs xvfb dbus-x11 libadwaita-1-dev libjson-glib-dev ffmpeg
+      - name: Release notes and OS regression suite
+        run: |
+          /usr/bin/python3 tools/release_notes.py validate --version "$(cat VERSION)"
+          /usr/bin/python3 -m unittest discover -s tests -v
+          bash tools/test-native-restart.sh

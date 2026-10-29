@@ -6,6 +6,10 @@ After=network.target
 Type=oneshot
 ExecStart=/usr/bin/sh -c '/usr/bin/install -d -m755 /var/cache/nodalix-updater; /usr/bin/nodalix-updater check --json > /var/cache/nodalix-updater/check.json.tmp && /usr/bin/mv /var/cache/nodalix-updater/check.json.tmp /var/cache/nodalix-updater/check.json'
 TimeoutStartSec=90
+# systemd creates both directories before setting up the strict mount namespace.
+# ReadWritePaths by itself does not create a missing path on a clean install.
+CacheDirectory=nodalix-updater
+StateDirectory=nodalix-updater
 
 # Read-only network checker: it only needs its state/cache directories.
 NoNewPrivileges=yes
