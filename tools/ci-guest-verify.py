@@ -142,6 +142,35 @@ state=json.loads(bus.call_sync('com.nodalix.Settings','/com/nodalix/Settings','c
 assert state['available'] and state['requested'] and state['path']==str(video),state
 wait_renderer()
 print('Animated wallpaper renderer active')
+# The serial systemd verifier is not launched from the graphical session.
+# Make the real Wayland session available to portal backends in this disposable
+# guest before testing screenshots; do not bypass the screenshot assertion.
+os.environ.setdefault('WAYLAND_DISPLAY','wayland-0')
+os.environ.setdefault('XDG_SESSION_TYPE','wayland')
+subprocess.run(['dbus-update-activation-environment','--systemd',
+                'XDG_CURRENT_DESKTOP','XDG_SESSION_TYPE','WAYLAND_DISPLAY'],
+               check=True,timeout=20)
+# Request a fresh backend after the real GNOME login finished. Otherwise the
+# portal may have started before WAYLAND_DISPLAY was exported, exposing no
+# Screenshot interface and returning UnknownMethod in a healthy GNOME session.
+subprocess.run(['systemctl','--user','restart','xdg-desktop-portal-gnome.service'],
+               check=True,timeout=30)
+subprocess.run(['systemctl','--user','restart','xdg-desktop-portal.service'],
+               check=True,timeout=30)
+deadline=time.monotonic()+90
+while time.monotonic()<deadline:
+    try:
+        interfaces=bus.call_sync('org.freedesktop.portal.Desktop',
+            '/org/freedesktop/portal/desktop',
+            'org.freedesktop.DBus.Introspectable','Introspect',None,
+            GLib.VariantType('(s)'),Gio.DBusCallFlags.NONE,10000,None).unpack()[0]
+        if 'org.freedesktop.portal.Screenshot' in interfaces:
+            break
+    except GLib.Error:
+        pass
+    time.sleep(2)
+else:
+    raise AssertionError('Screenshot portal interface absent after backend restart')
 # Register this QA process explicitly; the systemd verifier otherwise supplies
 # a different app identity than a terminal process. All files are guest-only.
 qa_id='com.nodalix.QA'
