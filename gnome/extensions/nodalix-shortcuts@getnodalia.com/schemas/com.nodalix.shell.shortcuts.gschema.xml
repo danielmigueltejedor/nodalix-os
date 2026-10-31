@@ -1,0 +1,7 @@
+<schemalist>
+  <schema id="com.nodalix.shell.shortcuts" path="/com/nodalix/shell/shortcuts/">
+    <key name="enabled" type="b"><default>true</default><summary>Enable Super editing shortcuts</summary></key>
+    <key name="nodalix-copy" type="as"><default>['&lt;Super&gt;c']</default><summary>Copy in the focused application</summary></key>
+    <key name="nodalix-paste" type="as"><default>['&lt;Super&gt;v']</default><summary>Paste in the focused application</summary></key>
+  </schema>
+</schemalist>

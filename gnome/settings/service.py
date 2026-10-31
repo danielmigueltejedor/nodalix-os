@@ -13,6 +13,7 @@ from gi.repository import Gio, GLib
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from wallpaper_poster import poster_for, sync_login
 import update_state
+import automatic_updates
 
 BUS = 'com.nodalix.Settings'
 PATH = '/com/nodalix/Settings'
@@ -22,6 +23,8 @@ XML = '''<node><interface name="com.nodalix.Settings1">
 <method name="CheckUpdates"/>
 <method name="Restart"/>
 <method name="StartUpdate"><arg type="s" direction="in"/></method>
+<method name="SetAutomaticUpdate"><arg type="s" direction="in"/><arg type="b" direction="in"/></method>
+<method name="RefreshAutomaticUpdates"/>
 <method name="GetWallpapers"><arg type="s" direction="out"/></method>
 <method name="GetWallpaperState"><arg type="s" direction="out"/></method>
 <method name="SetWallpaper"><arg type="s" direction="in"/></method>
@@ -233,6 +236,59 @@ class SettingsService:
         self.state_path = Path(os.environ.get('XDG_STATE_HOME',str(Path.home()/'.local/state')))/'nodalix/updates/last-operation.json'
         self.state.update(phase='idle', reboot_reason='')
         self.state.update(update_state.restore(self.state_path, self.boot_id))
+        self.state.update(automatic={}, automatic_busy=False, automatic_error='')
+        self._automatic_refreshing = False
+
+    def refresh_automatic(self):
+        with self.lock:
+            if self._automatic_refreshing or self.state['automatic_busy']:return
+            self._automatic_refreshing=True
+        def refresh():
+            try:
+                data=automatic_updates.snapshot()
+                with self.lock:self.state.update(automatic=data,automatic_error='')
+            except (OSError,ValueError,subprocess.SubprocessError) as error:
+                with self.lock:self.state['automatic_error']='No se pudo consultar la programación: '+update_state.sanitize(str(error))
+            finally:
+                with self.lock:self._automatic_refreshing=False
+                self.changed()
+        threading.Thread(target=refresh,daemon=True).start()
+
+    def set_automatic(self,kind,enabled,invocation):
+        if kind not in automatic_updates.KINDS or type(enabled) is not bool:
+            raise ValueError('Preferencia de actualización automática inválida')
+        with self.lock:
+            if self._automatic_refreshing or self.state['automatic_busy'] or self.state['busy'] or self.state['checking']:
+                raise ValueError('Espera a que termine la operación actual')
+            self.state.update(automatic_busy=True,automatic_error='')
+        self.changed()
+        def configure():
+            error=None
+            try:
+                helper='/usr/lib/nodalix/automatic-updates-'+('enable' if enabled else 'disable')
+                only_legacy=kind=='flatpak' and not enabled and not self.state['automatic'].get('flatpak',{}).get('system_enabled',True)
+                if not only_legacy:
+                    result=subprocess.run(['/usr/bin/pkexec',helper,kind],capture_output=True,text=True,timeout=180)
+                    if result.returncode:
+                        raise ValueError(result.stderr.strip() or 'Se canceló la autorización; la preferencia no se ha aplicado.')
+                if kind=='flatpak':
+                    subprocess.run(['/usr/bin/systemctl','--user','disable','--now','nodalix-update-apps.timer'],
+                                   capture_output=True,text=True,timeout=30,check=True)
+            except (OSError,ValueError,subprocess.SubprocessError) as failure:
+                error=update_state.sanitize(str(failure))[:1500]
+            try:
+                data=automatic_updates.snapshot()
+                with self.lock:self.state['automatic']=data
+            except (OSError,ValueError,subprocess.SubprocessError) as failure:
+                error=error or 'No se pudo verificar la programación: '+update_state.sanitize(str(failure))
+            with self.lock:self.state.update(automatic_busy=False,automatic_error=error or '')
+            self.changed()
+            def reply():
+                if error:invocation.return_dbus_error(INTERFACE+'.Error',error)
+                else:invocation.return_value(None)
+                return GLib.SOURCE_REMOVE
+            GLib.idle_add(reply)
+        threading.Thread(target=configure,daemon=True).start()
 
     def available(self, kind):
         return bool(program({'nodalix':'nodalix-updater', 'system':'pacman', 'apps':'nodalix-apps',
@@ -253,6 +309,10 @@ class SettingsService:
     def snapshot(self):
         with self.lock:
             self.state['identity'] = update_state.identity_label()
+            recommended=Path('/run/nodalix-updater/reboot-recommended')
+            if recommended.exists():
+                self.state['reboot_required']=True
+                self.state['reboot_boot_id']=self.boot_id
             pending = Path('/run/nodalix-updater/reboot-required').exists()
             self.state['reboot_mandatory'] = pending
             if pending:
@@ -292,7 +352,7 @@ class SettingsService:
         with self.lock:
             if Path('/run/nodalix-updater/reboot-required').exists():
                 raise ValueError('Reinicia ahora para terminar la migración a GNOME')
-            if self.state['busy'] or self.state['checking']:
+            if self.state['busy'] or self.state['checking'] or self.state['automatic_busy']:
                 raise ValueError('Ya hay una operación en curso')
             tasks = [k for k in KINDS if self.available(k)] if target == 'all' else [target]
             # Validate the entire plan before launching or requesting authentication.
@@ -345,7 +405,7 @@ class SettingsService:
 
     def check(self):
         with self.lock:
-            if self.state['busy'] or self.state['checking']:
+            if self.state['busy'] or self.state['checking'] or self.state['automatic_busy']:
                 raise ValueError('Ya hay una operación en curso')
             self.state.update(checking=True, phase='checking', message='Buscando actualizaciones')
         self.changed()
@@ -463,6 +523,13 @@ class SettingsService:
             if method == 'GetUpdates':
                 invocation.return_value(GLib.Variant('(s)',(self.snapshot(),)))
                 return
+            if method == 'SetAutomaticUpdate':
+                self.set_automatic(*parameters.unpack(),invocation)
+                return
+            if method == 'RefreshAutomaticUpdates':
+                self.refresh_automatic()
+                invocation.return_value(None)
+                return
             if method == 'GetWallpapers':
                 invocation.return_value(GLib.Variant('(s)',(json.dumps(catalog(),ensure_ascii=False),)))
                 return
@@ -512,6 +579,7 @@ def main():
         service.connection = connection
         node = Gio.DBusNodeInfo.new_for_xml(XML)
         connection.register_object(PATH,node.interfaces[0],service.method_call,None,None)
+        service.refresh_automatic()
     Gio.bus_own_name(Gio.BusType.SESSION,BUS,Gio.BusNameOwnerFlags.NONE,acquired,None,
                      lambda connection,name:loop.quit())
     loop.run()

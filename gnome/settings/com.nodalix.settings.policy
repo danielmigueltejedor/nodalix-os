@@ -10,4 +10,14 @@
 <message>Autentícate para cambiar el fondo de acceso compartido</message>
 <defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
 <annotate key="org.freedesktop.policykit.exec.path">/usr/lib/nodalix/sync-login-background</annotate>
+</action>
+<action id="com.nodalix.settings.automatic.enable"><description>Activar actualizaciones automáticas</description>
+<message>Autentícate para permitir las actualizaciones automáticas de Nodalix</message>
+<defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>auth_admin_keep</allow_active></defaults>
+<annotate key="org.freedesktop.policykit.exec.path">/usr/lib/nodalix/automatic-updates-enable</annotate>
+</action>
+<action id="com.nodalix.settings.automatic.disable"><description>Desactivar las actualizaciones automáticas autorizadas por este usuario</description>
+<message>Desactivar las actualizaciones automáticas autorizadas</message>
+<defaults><allow_any>no</allow_any><allow_inactive>no</allow_inactive><allow_active>yes</allow_active></defaults>
+<annotate key="org.freedesktop.policykit.exec.path">/usr/lib/nodalix/automatic-updates-disable</annotate>
 </action></policyconfig>

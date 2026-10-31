@@ -1,1 +1,10 @@
-{"restart_action": true, "mandatory_restart_disables_updates": true, "display": "private-wayland"}
+{
+  "restart_action": true,
+  "mandatory_restart_disables_updates": true,
+  "automatic_cancel_restores_switch": true,
+  "automatic_enable": true,
+  "automatic_survives_page_recreation": true,
+  "automatic_disable": true,
+  "backend": "simulated; no host update or reboot",
+  "display": "private-wayland"
+}

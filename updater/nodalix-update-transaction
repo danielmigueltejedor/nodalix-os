@@ -1,0 +1,83 @@
+#!/usr/bin/python3
+"""Fixed update transactions shared by Settings and scheduled system services."""
+import fcntl
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+
+def critical_versions():
+    try:result=subprocess.run(['/usr/bin/pacman','-Q'],capture_output=True,text=True,timeout=15)
+    except (OSError,subprocess.SubprocessError):return None
+    if result.returncode:return None
+    names={'systemd','glibc','gnome-shell','mutter','linux','linux-lts','linux-zen','linux-hardened'}
+    for path in Path('/usr/lib/modules').glob('*/pkgbase'):
+        try:names.add(path.read_text().strip())
+        except OSError:pass
+    return {row.split()[0]:row.split()[1] for row in result.stdout.splitlines()
+            if len(row.split())==2 and row.split()[0] in names}
+
+
+def recommend_reboot(before,after,path=Path('/run/nodalix-updater/reboot-recommended')):
+    if before is None or after is None:return
+    changed=sorted(name for name in before.keys()|after.keys() if before.get(name)!=after.get(name))
+    if changed:
+        path.parent.mkdir(parents=True,exist_ok=True)
+        path.write_text(json.dumps({'packages':changed}))
+COMMANDS = {'nodalix': [['/usr/bin/nodalix-updater','update','--json']],
+            'system': [['/usr/bin/pacman','-Syu','--noconfirm']],
+            'firmware': [['/usr/bin/fwupdmgr','refresh','--force'],['/usr/bin/fwupdmgr','update','-y','--no-reboot-check']],
+            'flatpak': [['/usr/bin/flatpak','update','--system','--noninteractive','-y']]}
+def preflight(kind):
+    if kind in ('nodalix','system'):
+        if Path('/var/lib/pacman/db.lck').exists():
+            raise RuntimeError('El gestor de paquetes tiene un bloqueo activo (db.lck). Espera y reintenta.')
+        if shutil.disk_usage('/').free < 512*1024**2:
+            raise RuntimeError('No hay espacio libre suficiente para iniciar una actualización.')
+    for battery in Path('/sys/class/power_supply').glob('*'):
+        try:
+            if (battery/'type').read_text().strip()=='Battery' and (battery/'status').read_text().strip()=='Discharging' and int((battery/'capacity').read_text())<10:
+                raise RuntimeError('Conecta el equipo a la corriente antes de actualizar: batería inferior al 10 %.')
+        except (OSError,ValueError): pass
+
+
+def main():
+    if len(sys.argv) not in (2,3) or sys.argv[1] not in COMMANDS or (len(sys.argv)==3 and sys.argv[2]!='--automatic'):
+        raise SystemExit('Operación no admitida')
+    if os.geteuid()!=0:
+        raise SystemExit('Se requiere autenticación de administrador')
+    kind=sys.argv[1]
+    automatic=len(sys.argv)==3
+    try:
+        with open('/run/nodalix-settings-update.lock','w') as lock:
+            fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            if Path('/run/nodalix-updater/reboot-required').exists():
+                raise RuntimeError('Reinicia para terminar la actualización anterior antes de continuar.')
+            if automatic and kind in ('system','nodalix'):
+                if subprocess.run(['/usr/bin/getent','ahosts','archlinux.org'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL).returncode:
+                    return 75
+            preflight(kind)
+            if kind=='system':
+                subprocess.run(['/usr/bin/nodalix-recovery','pre-update'],check=True)
+            before=critical_versions() if kind=='system' else None
+            try:
+                for command in COMMANDS[kind]:
+                    result=subprocess.run(command)
+                    if result.returncode and not (kind=='firmware' and result.returncode==2):
+                        return result.returncode
+            finally:
+                if kind=='system':recommend_reboot(before,critical_versions())
+            if kind=='system':
+                print('Verificando la base de datos de paquetes…',flush=True)
+                return subprocess.run(['/usr/bin/pacman','-Dk']).returncode
+        return 0
+    except BlockingIOError:
+        print('Ya hay una actualización en curso; se reintentará más tarde.',file=sys.stderr)
+        return 75
+    except (OSError,RuntimeError,subprocess.SubprocessError) as error:
+        raise SystemExit(str(error))
+
+
+if __name__=='__main__':raise SystemExit(main())

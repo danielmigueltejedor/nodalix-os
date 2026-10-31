@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 """Exercise extensions in a real headless GNOME 51 on a private session bus/home."""
 import argparse
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -49,6 +50,12 @@ def main():
         (qa/'metadata.json').write_text(json.dumps({'uuid':qa.name,'name':'Isolated QA','description':'Temporary test harness only','shell-version':['51'],'session-modes':['gdm'] if args.greeter else ['user']}))
         (qa/'extension.js').write_text("import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js'; export default class QA extends Extension { enable() {global.context.unsafe_mode=true;} disable() {global.context.unsafe_mode=false;} }")
         os.environ.update(HOME=str(home),XDG_RUNTIME_DIR=str(runtime),XDG_CONFIG_HOME=str(home/'config'),XDG_DATA_HOME=str(data),XDG_STATE_HOME=str(home/'state'),XDG_CACHE_HOME=str(home/'cache'),XDG_CURRENT_DESKTOP='GNOME')
+        schemas=home/'schemas';schemas.mkdir()
+        for source in Path('/usr/share/glib-2.0/schemas').glob('*.xml'):
+            (schemas/source.name).symlink_to(source)
+        shutil.copy2(ROOT/'gnome/session/90-nodalix.gschema.override',schemas/'90-nodalix.gschema.override')
+        subprocess.run(['glib-compile-schemas','--strict',str(schemas)],check=True)
+        os.environ['GSETTINGS_SCHEMA_DIR']=str(schemas)
         if not args.greeter:
             binaries=home/'bin';binaries.mkdir()
             daemon=binaries/'global-menu'
@@ -56,6 +63,10 @@ def main():
             daemon.chmod(0o755)
             os.environ['PATH']=str(binaries)+':'+os.environ['PATH']
         shell=Gio.Settings.new('org.gnome.shell')
+        # Only the disposable session: a host suspend must not lock its QA windows.
+        Gio.Settings.new('org.gnome.desktop.screensaver').set_boolean('lock-enabled',False)
+        Gio.Settings.new('org.gnome.desktop.session').set_uint('idle-delay',0)
+        Gio.Settings.new('org.gnome.desktop.interface').set_boolean('enable-hot-corners',False)
         profile=[path.name for path in extensions.iterdir() if path.name not in ('multi-monitors-bar@frederykabryan','tiling-assistant@leleat-on-github')]
         if args.alternatives and not args.greeter:
             profile=[uuid for uuid in profile if uuid not in ('nodalix-secondary-bars@getnodalia.com','nodalix-auto-tiling@getnodalia.com')]
@@ -216,6 +227,125 @@ def activate(app):
 app.connect('activate',activate);app.run()
 """
                 env={**os.environ,'GDK_BACKEND':'wayland','WAYLAND_DISPLAY':next(path.name for path in runtime.glob('wayland-*') if path.is_socket())}
+                # A real GTK text entry receives physical-style Super key events.
+                entry_fixture="""import gi
+gi.require_version('Gtk','4.0')
+from gi.repository import Gtk,Gio
+app=Gtk.Application(application_id='com.nodalix.EntryQA')
+def activate(app):
+    win=Gtk.ApplicationWindow(application=app,title='Nodalix Entry QA',default_width=400,default_height=200)
+    entry=Gtk.Entry();win.set_child(entry)
+    entry.connect('changed',lambda *args:win.set_title('Nodalix Entry QA: '+entry.get_text()))
+    def prepare(action,param):
+        entry.set_text('Nodalix copy QA' if action.get_name()=='prepare-copy' else '')
+        entry.grab_focus();entry.select_region(0,-1);win.present()
+    for name in ('prepare-copy','prepare-paste'):
+        action=Gio.SimpleAction.new(name,None);action.connect('activate',prepare);app.add_action(action)
+    win.present();entry.grab_focus()
+app.connect('activate',activate);app.run()
+"""
+                entry=subprocess.Popen([sys.executable,'-c',entry_fixture],env=env,stdout=log,stderr=log)
+                def action(name):
+                    bus.call_sync('com.nodalix.EntryQA','/com/nodalix/EntryQA','org.gtk.Actions','Activate',
+                        GLib.Variant('(sava{sv})',(name,[],{})),None,Gio.DBusCallFlags.NONE,2000,None)
+                def keys(key,modifiers=(0xffeb,)):
+                    codes={ord('a'):30,ord('c'):46,ord('v'):47,ord('q'):16,ord('3'):4,ord('4'):5,0xff0d:28,0xff08:14}
+                    mods=[{0xffeb:125,0xffe1:42,0xffe3:29}[value] for value in modifiers]
+                    evaluate(f"(() => {{ const d=Main.extensionManager.lookup('nodalix-shortcuts@getnodalia.com').stateObj._keyboard;let t=imports.gi.GLib.get_monotonic_time();for(const k of {json.dumps(mods)})d.notify_key(t+=10,k,1);d.notify_key(t+=10,{codes[key]},1);d.notify_key(t+=10,{codes[key]},0);for(const k of {json.dumps(list(reversed(mods)))})d.notify_key(t+=10,k,0);return true;}})()")
+                try:
+                    for attempt in range(60):
+                        if evaluate("global.get_window_actors().some(a=>a.meta_window.get_title()?.startsWith('Nodalix Entry QA'))"):break
+                        time.sleep(.05)
+                    else:raise AssertionError('GTK clipboard fixture did not map')
+                    evaluate('Main.overview.hide(); true')
+                    action('prepare-copy');time.sleep(.3);keys(ord('c'));time.sleep(.3)
+                    action('prepare-paste');time.sleep(.3);keys(ord('v'));time.sleep(.4)
+                    assert evaluate("global.get_window_actors().some(a=>a.meta_window.get_title()==='Nodalix Entry QA: Nodalix copy QA')")
+                    focus=evaluate("new imports.gi.Gio.Settings({schema_id:'org.gnome.desktop.wm.preferences'}).get_string('focus-mode')")
+                    assert focus=='sloppy',focus
+                    terminal_program=home/'terminal-fixture.py'
+                    terminal_program.write_text("import signal,sys\nfrom pathlib import Path\np=Path("+repr(str(home))+ ")\nsignal.signal(signal.SIGINT,lambda *_:(p/'interrupt-received').write_text('yes'))\nprint('Nodalix terminal QA ready',flush=True)\nfor line in sys.stdin:\n (p/'terminal-input').write_text(line)\n")
+                    terminal=subprocess.Popen(['ghostty','--confirm-close-surface=false','--title=Nodalix Terminal QA',
+                        '-e',sys.executable,'-u',str(terminal_program)],env=env,stdout=log,stderr=log)
+                    try:
+                        for attempt in range(100):
+                            if evaluate("global.get_window_actors().some(a=>a.meta_window.get_title()==='Nodalix Terminal QA')"):break
+                            time.sleep(.05)
+                        else:raise AssertionError('Real Ghostty did not map in the private Wayland session')
+                        gtk=evaluate("(() => {const w=global.get_window_actors().find(a=>a.meta_window.get_title()==='Nodalix Terminal QA').meta_window;return [w.get_gtk_unique_bus_name(),w.get_gtk_window_object_path(),w.get_gtk_application_object_path()];})()")
+                        actions={}
+                        for label,path in zip(('window','application'),gtk[1:]):
+                            result=bus.call_sync(gtk[0],path,'org.gtk.Actions','DescribeAll',None,None,Gio.DBusCallFlags.NONE,2000,None).unpack()[0]
+                            actions[label]={name:value[0] for name,value in result.items()}
+                        (args.evidence/'ghostty-actions.json').write_text(json.dumps(actions,indent=2))
+                        time.sleep(.3);keys(ord('c'));time.sleep(.4)
+                        assert not (home/'interrupt-received').exists(),'Super+C sent SIGINT to Ghostty'
+                        action('prepare-copy');time.sleep(.3);keys(ord('c'));time.sleep(.3)
+                        evaluate("global.get_window_actors().find(a=>a.meta_window.get_title()==='Nodalix Terminal QA').meta_window.activate(global.get_current_time()); true")
+                        time.sleep(.3);keys(ord('v'));time.sleep(1);keys(0xff0d,());time.sleep(.4)
+                        received=(home/'terminal-input').read_text()
+                        assert received.strip()=='Nodalix copy QA',repr(received)
+                        keys(ord('c'),(0xffe3,));time.sleep(.4)
+                        assert (home/'interrupt-received').exists(),'Ctrl+C stopped sending SIGINT'
+                        # A tab inside the focused window must not turn Super+Q into close-tab.
+                        bus.call_sync(gtk[0],gtk[1],'org.gtk.Actions','Activate',
+                            GLib.Variant('(sava{sv})',('new-tab',[],{})),None,Gio.DBusCallFlags.NONE,2000,None)
+                        time.sleep(.4)
+                        evaluate("(() => {const t=Main.extensionManager.lookup('nodalix-auto-tiling@getnodalia.com').stateObj;global._qaCloseCalls=[];const original=t._closeWindow.bind(t);t._closeWindow=(w,time)=>{global._qaCloseCalls.push(w?.get_title());original(w,time);};return true;})()")
+                        keys(ord('q'))
+                        for attempt in range(40):
+                            if not evaluate("global.get_window_actors().some(a=>a.meta_window.get_gtk_unique_bus_name()==="+json.dumps(gtk[0])+")"):break
+                            time.sleep(.05)
+                        else:raise AssertionError(evaluate("({focus:global.display.focus_window?.get_title(),mode:Main.actionMode,action:global.display.get_keybinding_action(24,64),calls:global._qaCloseCalls,windows:global.get_window_actors().map(a=>({title:a.meta_window.get_title(),bus:a.meta_window.get_gtk_unique_bus_name()}))})"))
+                    finally:
+                        terminal.terminate();terminal.wait(timeout=5)
+                    action('prepare-copy');time.sleep(.3)
+                    evaluate("global._qaAreaRequested=false; global._qaKeyboardEvents=[]; global._qaKeyTrace=global.stage.connect('captured-event',(_s,e)=>{if(e.type()===imports.gi.Clutter.EventType.KEY_PRESS)global._qaKeyboardEvents.push([e.get_key_symbol(),e.get_key_code(),e.get_state()]);return imports.gi.Clutter.EVENT_PROPAGATE;}); global._qaScreenshotOpen=Main.screenshotUI.open; Main.screenshotUI.open=function(...args){global._qaAreaRequested=true; return global._qaScreenshotOpen.apply(this,args);}; true")
+                    keys(ord('4'),(0xffeb,0xffe1))
+                    for attempt in range(40):
+                        if evaluate('Main.screenshotUI.visible && Main.screenshotUI._selectionButton.checked'):break
+                        time.sleep(.1)
+                    else:raise AssertionError(evaluate("({requested:global._qaAreaRequested,events:global._qaKeyboardEvents,action:global.display.get_keybinding_action(13,65),mode:Main.actionMode,visible:Main.screenshotUI.visible,area:Main.screenshotUI._selectionButton.checked,opening:Main.screenshotUI._openingCoroutineInProgress,keys:new imports.gi.Gio.Settings({schema_id:'org.gnome.shell.keybindings'}).get_strv('show-screenshot-ui')})"))
+                    evaluate('Main.screenshotUI.open=global._qaScreenshotOpen; true')
+                    evaluate('global.stage.disconnect(global._qaKeyTrace); true')
+                    evaluate('Main.screenshotUI.close(true); true');time.sleep(.3)
+                    keys(ord('3'),(0xffeb,0xffe1));time.sleep(.8)
+                    # Capture storage is in the private home, never the user's Pictures.
+                    captures=list(home.rglob('Screenshot*.png'))+list(home.rglob('Captura*.png'))
+                    assert captures,'Native full-screen shortcut did not save a capture'
+                    (args.evidence/'shortcuts.json').write_text(json.dumps({'real_gtk_super_copy_paste':True,
+                        'real_ghostty_super_paste':True,'super_copy_preserves_terminal_process':True,'ctrl_c_still_sends_sigint':True,
+                        'ghostty_super_q_closes_window_with_two_tabs':True,
+                        'focus_mode':focus,'area_capture_ui':True,'full_screen_capture_saved':True},indent=2))
+                finally:
+                    entry.terminate();entry.wait(timeout=5)
+                if importlib.util.find_spec('PySide6'):
+                    qt_fixture="""from PySide6.QtWidgets import QApplication,QWidget,QLineEdit,QVBoxLayout
+app=QApplication([])
+win=QWidget();win.setWindowTitle('Nodalix Qt QA');win.resize(400,200)
+entry=QLineEdit('Nodalix Qt clipboard QA');layout=QVBoxLayout(win);layout.addWidget(entry)
+entry.textChanged.connect(lambda text:win.setWindowTitle('Nodalix Qt QA: '+text))
+win.show();entry.setFocus();entry.selectAll();app.exec()
+"""
+                    qt=subprocess.Popen([sys.executable,'-c',qt_fixture],env={**env,'QT_QPA_PLATFORM':'wayland','QT_QPA_PLATFORMTHEME':''},stdout=log,stderr=log)
+                    try:
+                        for attempt in range(60):
+                            if evaluate("global.get_window_actors().some(a=>a.meta_window.get_title()?.startsWith('Nodalix Qt QA'))"):break
+                            time.sleep(.05)
+                        else:raise AssertionError('Qt clipboard fixture did not map')
+                        evaluate("Main.overview.hide();global.get_window_actors().find(a=>a.meta_window.get_title()?.startsWith('Nodalix Qt QA')).meta_window.activate(global.get_current_time()); true")
+                        time.sleep(.3);keys(ord('c'));time.sleep(.3)
+                        keys(ord('a'),(0xffe3,));time.sleep(.1);keys(0xff08,());time.sleep(.2)
+                        keys(ord('v'));time.sleep(.4)
+                        assert evaluate("global.get_window_actors().some(a=>a.meta_window.get_title()==='Nodalix Qt QA: Nodalix Qt clipboard QA')")
+                        keys(ord('q'))
+                        for attempt in range(40):
+                            if not evaluate("global.get_window_actors().some(a=>a.meta_window.get_title()?.startsWith('Nodalix Qt QA'))"):break
+                            time.sleep(.05)
+                        else:raise AssertionError(evaluate("({focus:global.display.focus_window?.get_title(),mode:Main.actionMode,action:global.display.get_keybinding_action(24,64),close:new imports.gi.Gio.Settings({schema_id:'org.gnome.desktop.wm.keybindings'}).get_strv('close')})"))
+                        (args.evidence/'qt-shortcuts.json').write_text(json.dumps({'super_copy_paste':True,'super_q_closes_window':True}))
+                    finally:
+                        qt.terminate();qt.wait(timeout=5)
                 native=os.environ.get('NODALIX_QA_NATIVE_BINARY')
                 if native:
                     fake=subprocess.Popen([sys.executable,str(ROOT/'tests/native-restart-service.py')],env=env,stdout=log,stderr=log)
@@ -229,7 +359,7 @@ app.connect('activate',activate);app.run()
                         else:raise AssertionError('Fake Settings service did not acquire its private bus name')
                         subprocess.run([native],env={**env,'GTK_A11Y':'none','GSK_RENDERER':'cairo'},
                                        stdout=log,stderr=log,timeout=15,check=True)
-                        (args.evidence/'native-settings.json').write_text(json.dumps({'restart_action':True,'mandatory_restart_disables_updates':True,'display':'private-wayland'}))
+                        (args.evidence/'native-settings.json').write_text(json.dumps({'restart_action':True,'mandatory_restart_disables_updates':True,'automatic_cancel_restores_switch':True,'automatic_enable':True,'automatic_survives_page_recreation':True,'automatic_disable':True,'backend':'simulated; no host update or reboot','display':'private-wayland'},indent=2))
                     finally:
                         fake.terminate();fake.wait(timeout=5)
                 tiling_fixture="""import gi
@@ -266,6 +396,15 @@ app.connect('activate',activate);app.run()
                         result=evaluate(f"(() => {{const t={tiler};return {tile_windows}.map(w=>{{const g=t._windowGroups.get(w.get_stable_sequence()),r=w.get_frame_rect(),expected=g?.rects.get(w.get_stable_sequence());return {{actual:[r.x,r.y,r.width,r.height],expected:expected?[expected.x,expected.y,expected.width,expected.height]:null}};}});}})()")
                         assert all(row['actual']==row['expected'] for row in result),result
                         counts.append({'windows':count,'rectangles':result})
+                    evaluate('global._qaPointer=global.stage.get_context().get_backend().get_default_seat().create_virtual_device(imports.gi.Clutter.InputDeviceType.POINTER_DEVICE); true')
+                    time.sleep(.3)
+                    evaluate('Main.overview.hide(); true');time.sleep(.5)
+                    for index in (0,1):
+                        evaluate(f"(() => {{const r={tile_windows}[{index}].get_frame_rect();global._qaPointerTarget=[r.x+r.width/2,r.y+r.height/2];global._qaPointer.notify_absolute_motion(imports.gi.GLib.get_monotonic_time(),...global._qaPointerTarget);return true;}})()")
+                        time.sleep(.2)
+                        evaluate('global._qaPointer.notify_absolute_motion(imports.gi.GLib.get_monotonic_time(),global._qaPointerTarget[0],global._qaPointerTarget[1]); true')
+                        time.sleep(.4)
+                        assert evaluate(f'global.display.focus_window==={tile_windows}[{index}]'),evaluate(f"({{pointer:global.get_pointer(),requested:global._qaPointerTarget,nativeFocus:imports.gi.Meta.prefs_get_focus_mode(),actual:global.display.focus_window?.get_title(),target:{tile_windows}[{index}].get_title(),mode:Main.actionMode}})")
                     evaluate(f'{tile_windows}[0].minimize(); true');time.sleep(.4)
                     assert evaluate(f'{tile_windows}.filter(w=>!w.minimized).every(w=>{tiler}._windowGroups.has(w.get_stable_sequence()))')
                     evaluate(f'{tile_windows}[0].unminimize(); true');time.sleep(.4)
@@ -273,7 +412,10 @@ app.connect('activate',activate);app.run()
                     time.sleep(.4)
                     assert evaluate(f'new Set({tile_windows}.map(w=>{tiler}._windowGroups.get(w.get_stable_sequence()).monitor)).size')==2
                     evaluate(f"{tiler}._settings.set_boolean('enabled',false); true")
-                    (args.evidence/'tiling.json').write_text(json.dumps({'layouts':counts,'minimize_restore':True,'two_monitor_groups':True,'disable_without_logout':True},indent=2))
+                    evaluate(f'{tile_windows}[0].activate(global.get_current_time()); true');time.sleep(.2)
+                    keys(ord('q'));time.sleep(.5)
+                    assert evaluate(f'{tile_windows}.length')==3,'Super+Q did not close exactly one focused window'
+                    (args.evidence/'tiling.json').write_text(json.dumps({'layouts':counts,'minimize_restore':True,'two_monitor_groups':True,'disable_without_logout':True,'hover_focus_without_click':True,'super_q_closes_one_window':True},indent=2))
                 finally:
                     tiles.terminate();tiles.wait(timeout=5)
                     evaluate(f"{tiler}._settings.set_boolean('enabled',false); true")

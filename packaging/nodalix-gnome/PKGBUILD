@@ -1,6 +1,6 @@
 pkgname=nodalix-gnome
 pkgver=0.4.0
-pkgrel=1
+pkgrel=2
 pkgdesc="GNOME Shell, GDM and native desktop integration for Nodalix"
 arch=("any")
 install=nodalix-gnome.install
@@ -50,7 +50,7 @@ package() {
     install -Dm644 "$srcdir/gnome/session/extension-defaults.json" "$pkgdir/usr/share/nodalix/gnome-extension-defaults.json"
     install -Dm644 "$srcdir/gnome/session/extension-prototypes.json" "$pkgdir/usr/share/nodalix/gnome-extension-prototypes.json"
     install -Dm644 "$srcdir/gnome/session/extension-prototypes-040.json" "$pkgdir/usr/share/nodalix/gnome-extension-prototypes-040.json"
-    for uuid in nodalix-startup-cursor@local global-menu@unmade.space multi-monitors-bar@frederykabryan nodalix-auto-tiling@getnodalia.com nodalix-secondary-bars@getnodalia.com glocalsend@donnybeelo.github.com nodalix-connect@getnodalia.com dash-to-dock@micxgx.gmail.com blur-my-shell@aunetx tiling-assistant@leleat-on-github rounded-window-corners@ztrahmet.github.io; do
+    for uuid in nodalix-shortcuts@getnodalia.com nodalix-startup-cursor@local global-menu@unmade.space multi-monitors-bar@frederykabryan nodalix-auto-tiling@getnodalia.com nodalix-secondary-bars@getnodalia.com glocalsend@donnybeelo.github.com nodalix-connect@getnodalia.com dash-to-dock@micxgx.gmail.com blur-my-shell@aunetx tiling-assistant@leleat-on-github rounded-window-corners@ztrahmet.github.io; do
         install -d "$pkgdir/usr/share/gnome-shell/extensions/$uuid"
         cp -a --no-preserve=ownership "$srcdir/gnome/extensions/$uuid/." "$pkgdir/usr/share/gnome-shell/extensions/$uuid/"
     done

@@ -1,51 +1,10 @@
 #!/usr/bin/python3
-"""Fixed privileged operations for Nodalix Settings; never execute arbitrary commands."""
-import fcntl
+"""Authenticated entry point for the shared fixed update transaction."""
 import os
-from pathlib import Path
-import shutil
 import subprocess
 import sys
-COMMANDS = {'nodalix': [['/usr/bin/nodalix-updater','update','--json']],
-            'system': [['/usr/bin/pacman','-Syu','--noconfirm']],
-            'firmware': [['/usr/bin/fwupdmgr','refresh','--force'],['/usr/bin/fwupdmgr','update','-y']]}
-def preflight(kind):
-    if kind in ('nodalix','system'):
-        if Path('/var/lib/pacman/db.lck').exists():
-            raise RuntimeError('El gestor de paquetes tiene un bloqueo activo (db.lck). Espera y reintenta.')
-        if shutil.disk_usage('/').free < 512*1024**2:
-            raise RuntimeError('No hay espacio libre suficiente para iniciar una actualización.')
-    for battery in Path('/sys/class/power_supply').glob('*'):
-        try:
-            if (battery/'type').read_text().strip()=='Battery' and (battery/'status').read_text().strip()=='Discharging' and int((battery/'capacity').read_text())<10:
-                raise RuntimeError('Conecta el equipo a la corriente antes de actualizar: batería inferior al 10 %.')
-        except (OSError,ValueError): pass
-
-
-def main():
-    if len(sys.argv)!=2 or sys.argv[1] not in COMMANDS:
-        raise SystemExit('Operación no admitida')
-    if os.geteuid()!=0:
-        raise SystemExit('Se requiere autenticación de administrador')
-    kind=sys.argv[1]
-    try:
-        with open('/run/nodalix-settings-update.lock','w') as lock:
-            fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-            preflight(kind)
-            if kind=='system':
-                subprocess.run(['/usr/bin/nodalix-recovery','pre-update'],check=True)
-            for command in COMMANDS[kind]:
-                result=subprocess.run(command)
-                if result.returncode and not (kind=='firmware' and result.returncode==2):
-                    return result.returncode
-            if kind=='system':
-                print('Verificando la base de datos de paquetes…',flush=True)
-                return subprocess.run(['/usr/bin/pacman','-Dk']).returncode
-        return 0
-    except BlockingIOError:
-        raise SystemExit('Ya hay una actualización de Nodalix Settings en curso.')
-    except (OSError,RuntimeError,subprocess.SubprocessError) as error:
-        raise SystemExit(str(error))
-
-
-if __name__=='__main__':raise SystemExit(main())
+if len(sys.argv)!=2 or sys.argv[1] not in ('nodalix','system','firmware'):
+    raise SystemExit('Operación no admitida')
+if os.geteuid()!=0:
+    raise SystemExit('Se requiere autenticación de administrador')
+raise SystemExit(subprocess.run(['/usr/lib/nodalix-updater/update-transaction',sys.argv[1]]).returncode)

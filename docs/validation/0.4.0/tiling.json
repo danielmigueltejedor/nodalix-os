@@ -163,5 +163,7 @@
   ],
   "minimize_restore": true,
   "two_monitor_groups": true,
-  "disable_without_logout": true
+  "disable_without_logout": true,
+  "hover_focus_without_click": true,
+  "super_q_closes_one_window": true
 }

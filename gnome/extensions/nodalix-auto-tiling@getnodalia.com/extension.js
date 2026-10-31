@@ -266,7 +266,8 @@ Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
             return;
         }
 
-        // GTK exports an action on each window. Use the focused window's
+        // Ghostty ignores the compositor delete request in some configurations.
+        // GTK exports a close-window action distinct from close-tab. Use the focused window's
         // unique bus name and object path, never the application-wide quit action.
         const busName = win.get_gtk_unique_bus_name();
         const windowPath = win.get_gtk_window_object_path();

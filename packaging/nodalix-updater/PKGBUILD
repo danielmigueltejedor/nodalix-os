@@ -1,6 +1,6 @@
 pkgname=nodalix-updater
 pkgver=0.4.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Nodalix GitHub Releases update service"
 arch=('any')
 url="https://github.com/danielmigueltejedor/nodalix-os"
@@ -12,6 +12,10 @@ source=("nodalix-updater-$pkgver.tar.zst")
 sha256sums=('SKIP')
 
 package() {
+  install -Dm755 "$srcdir/updater/nodalix-update-transaction" "$pkgdir/usr/lib/nodalix-updater/update-transaction"
+  for unit in nodalix-update-flatpak.timer nodalix-update-flatpak.service nodalix-update-flatpak-user@.timer nodalix-update-flatpak-user@.service; do
+    install -Dm644 "$srcdir/updater/$unit" "$pkgdir/usr/lib/systemd/system/$unit"
+  done
   install -Dm755 "$srcdir/updater/nodalix-migrate-gnome" "$pkgdir/usr/bin/nodalix-migrate-gnome"
   install -Dm755 "$srcdir/updater/nodalix-updater" "$pkgdir/usr/bin/nodalix-updater"
   install -Dm755 "$srcdir/updater/nodalix-system-update" "$pkgdir/usr/bin/nodalix-system-update"

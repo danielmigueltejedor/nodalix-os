@@ -1,0 +1,8 @@
+{
+  "uuid": "nodalix-shortcuts@getnodalia.com",
+  "name": "Atajos de Nodalix",
+  "description": "Copiar y pegar con Super en Wayland, respetando los terminales y los atajos personalizados.",
+  "shell-version": ["51"],
+  "settings-schema": "com.nodalix.shell.shortcuts",
+  "version": 1
+}

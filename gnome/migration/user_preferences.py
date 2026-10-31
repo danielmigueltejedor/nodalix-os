@@ -43,6 +43,30 @@ def set_unset(schema, values):
             prefs.set_value(key, GLib.Variant.parse(None, value, None, None))
 
 
+def reserve_default_shortcuts():
+    source=Gio.SettingsSchemaSource.get_default()
+    schema=source.lookup('org.gnome.shell.extensions.dash-to-dock',True)
+    if not schema:
+        for root in (Path(os.environ.get('XDG_DATA_HOME',str(Path.home()/'.local/share'))),Path('/usr/share')):
+            folder=root/'gnome-shell/extensions/dash-to-dock@micxgx.gmail.com/schemas'
+            if (folder/'gschemas.compiled').is_file():
+                local=Gio.SettingsSchemaSource.new_from_directory(str(folder),source,False)
+                schema=local.lookup('org.gnome.shell.extensions.dash-to-dock',False)
+                if schema:break
+    if not schema:return
+    settings=Gio.Settings.new_full(schema,None,None)
+    if settings.get_string('shortcut-text')=='<Super>q':settings.set_string('shortcut-text','')
+    previous=settings.get_strv('shortcut')
+    remaining=[value for value in previous if value!='<Super>q']
+    if remaining!=previous:settings.set_strv('shortcut',remaining)
+    for number in (3,4):
+        key=f'app-shift-hotkey-{number}'
+        previous=settings.get_strv(key)
+        factory={f'<Shift><Super>{number}',f'<Super><Shift>{number}'}
+        remaining=[value for value in previous if value not in factory]
+        if remaining!=previous:settings.set_strv(key,remaining)
+
+
 def clean_ghostty(path):
     if not path.is_file() or path.is_symlink():
         return
@@ -77,6 +101,7 @@ def retire_chatgpt(path, backup):
 
 
 def apply_preferences():
+    reserve_default_shortcuts()
     prefs = Gio.Settings.new('org.gnome.desktop.input-sources')
     if prefs.get_user_value('sources') is None:
         prefs.set_value('sources', GLib.Variant('a(ss)', layout_from_system()))
