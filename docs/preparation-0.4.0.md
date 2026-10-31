@@ -47,6 +47,7 @@ This also agrees with the existing [technical investigation on #15](https://gith
 ## Local validation
 
 - 237 unit/integration tests passed on the actual PC, including real GJS/GIO tests and the upstream ZRAM generator fixtures.
+- CI/release native validation is pinned to Ubuntu 26.04 with Nautilus GIR 4.1. The previous `ubuntu-latest` setup requested the removed GIR 4.0 package and failed before executing tests. The existing Nautilus bridge supports both API versions; this PC validates its real 4.1 typelib.
 - Five changed packages built locally: `nodalix-updater`, `nodalix-gnome`, `nodalix-integrations`, `nodalix-settings` 0.4.0-1 and `nodalix-control-center` 51.0.0-7. The last package compiles the complete pinned Control Center and its native additions.
 - A private GNOME Shell 51.1 Wayland session tests two virtual 1280×720 monitors. It has a separate bus, home, configuration and runtime directory, and does not replace the user's desktop.
 - Native notifications: a live call remains first after 18 other sources, including a critical notification; Clear all preserves it; dismissal is hidden; native action signals and backend replacement/closure are exercised.

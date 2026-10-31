@@ -29,7 +29,7 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
 
     outputs:
       release_tag: ${{ steps.metadata.outputs.release_tag }}
@@ -102,7 +102,7 @@ jobs:
           python3 tools/release_notes.py validate --version "$RELEASE_TAG"
 
       - name: Install native test dependencies
-        run: sudo apt-get update && sudo apt-get install -y python3-gi gnome-shell-common gnome-settings-daemon-common gsettings-desktop-schemas gir1.2-nautilus-4.0 gir1.2-gtk-4.0 gir1.2-adw-1 nodejs libarchive-tools gjs xvfb dbus-x11 libadwaita-1-dev libjson-glib-dev ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y python3-gi gnome-shell-common gnome-settings-daemon-common gsettings-desktop-schemas gir1.2-nautilus-4.1 gir1.2-gtk-4.0 gir1.2-adw-1 nodejs libarchive-tools gjs xvfb dbus-x11 libadwaita-1-dev libjson-glib-dev ffmpeg
 
       - name: Run updater tests
         run: |
