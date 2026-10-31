@@ -72,7 +72,9 @@ class MenuBar {
 
 		this._notifyFocusWinId = global.display.connect('notify::focus-window',
 			() => this.refresh());
-		this._onTreeReceived = items => {
+		this._onTreeReceived = (items, windowKey) => {
+			if (!windowKey || windowKey !== this._targetKey)
+				return;
 			this._cache.storeForLastQuery(items);
 			this.setMenuTree(items);
 		};
@@ -107,6 +109,7 @@ class MenuBar {
 
 		const focusApp = this._winTracker.focus_app;
 		const win = global.display.focus_window;
+		this._targetKey = win && focusApp ? `${focusApp.get_id()}:${win.get_id()}` : null;
 		this._targetWindow = win;
 		if (!win || !focusApp) {
 			this._showNothing();
@@ -121,7 +124,7 @@ class MenuBar {
 				`matched ${this._shortcutMapping?.app ?? 'nothing'}`);
 		}
 
-		const appId = `${focusApp.get_id()}:${win.get_id()}`;
+		const appId = this._targetKey;
 		const cached = this._cache.get(appId);
 		if (cached) {
 			// The buttons are not torn down first: NativeMenu.setItems is a
@@ -139,7 +142,7 @@ class MenuBar {
 			this._showNothing();
 		}
 
-		this._proxy.WindowSwitched(this._windowData(win));
+		this._proxy.WindowSwitched({...this._windowData(win), nodalix_window_id: appId});
 	}
 
 	destroy() {
@@ -300,13 +303,18 @@ class DaemonProxy {
 
 	_onSendMenuTree(proxy, nameOwner, args) {
 		let items = [];
+		let windowKey = null;
 		try {
-			items = JSON.parse(args[0]);
+			const payload = JSON.parse(args[0]);
+			if (!Array.isArray(payload.items) || typeof payload.window !== 'string')
+				return;
+			items = payload.items;
+			windowKey = payload.window;
 		} catch (e) {
 			console.warn(`[global-menu] daemon sent an unreadable menu tree: ${e.message}`);
 		}
 		for (const callback of this.listeners['SendMenuTree'])
-			callback(items);
+			callback(items, windowKey);
 	}
 
 	_onRequestWindowActions() {

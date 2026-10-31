@@ -266,7 +266,8 @@ Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
             return;
         }
 
-        // GTK exports an action on each window. Use the focused window's
+        // Ghostty ignores the compositor delete request in some configurations.
+        // GTK exports a close-window action distinct from close-tab. Use the focused window's
         // unique bus name and object path, never the application-wide quit action.
         const busName = win.get_gtk_unique_bus_name();
         const windowPath = win.get_gtk_window_object_path();
@@ -490,7 +491,13 @@ Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
         const current = Layout.ids(group.tree);
         const preferred = current.includes(focus) ? focus : current.at(-1);
         const rects = Layout.rectangles(group.tree, group.area, group.gap, group.sizes).leaves;
-        for (const target of [preferred, ...current.filter(item => item !== preferred)]) {
+        // Split the largest region first: 1, 2, 3 and 4 windows naturally form
+        // a full area, halves, a half plus quarters, and four quarters.
+        const candidates = [...current].sort((a, b) => {
+            const ra = rects.get(a), rb = rects.get(b);
+            return rb.width * rb.height - ra.width * ra.height || (a === preferred ? -1 : b === preferred ? 1 : 0);
+        });
+        for (const target of candidates) {
             const rect = rects.get(target);
             const side = rect.width >= rect.height ? 'right' : 'bottom';
             for (const direction of [side, side === 'right' ? 'bottom' : 'right']) {

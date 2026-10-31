@@ -1,0 +1,34 @@
+{
+  "built_and_payload_checked": [
+    {
+      "name": "nodalix-updater",
+      "version": "0.4.0-2",
+      "file": "nodalix-updater-0.4.0-2-any.pkg.tar.zst",
+      "sha256": "135bb893485edf8524ca0c420cc20f4264e4e65156845273c8f3ebf1039fe01a"
+    },
+    {
+      "name": "nodalix-gnome",
+      "version": "0.4.0-2",
+      "file": "nodalix-gnome-0.4.0-2-any.pkg.tar.zst",
+      "sha256": "f64b52b09e8cb3838313f324fc01b189d7b2444c4dec0d0651c6415357357ebe"
+    },
+    {
+      "name": "nodalix-integrations",
+      "version": "0.4.0-1",
+      "file": "nodalix-integrations-0.4.0-1-any.pkg.tar.zst",
+      "sha256": "940f6a2eabdec1c2976a14197a3d882d141ebaeaeefb7a451d246e74e1522cb7"
+    },
+    {
+      "name": "nodalix-settings",
+      "version": "0.4.0-2",
+      "file": "nodalix-settings-0.4.0-2-any.pkg.tar.zst",
+      "sha256": "41cd78b707ef6ad2720736c11bbfc59860e1b37c84358c95141e915759e41c06"
+    },
+    {
+      "name": "nodalix-control-center",
+      "version": "51.0.0-8",
+      "file": "nodalix-control-center-51.0.0-8-x86_64.pkg.tar.zst",
+      "sha256": "c656890dab1180853a9640d1caf761eb7053cede8e8b0e731ec143d248dae7a2"
+    }
+  ]
+}

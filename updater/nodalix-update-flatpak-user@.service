@@ -1,0 +1,14 @@
+[Unit]
+Description=Automatic user Flatpak updates for user %i
+After=network-online.target
+Wants=network-online.target
+[Service]
+Type=oneshot
+User=%i
+ExecStart=/usr/bin/flatpak update --user --noninteractive -y
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+LockPersonality=yes

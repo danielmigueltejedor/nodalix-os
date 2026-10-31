@@ -11,17 +11,25 @@ struct _CcNodalixUpdatesPage {
   GDBusProxy *proxy;
   GCancellable *cancel;
   GtkLabel *status;
-  GtkProgressBar *progress;
+  GtkLabel *identity;
+  GtkSpinner *progress;
   GtkTextBuffer *log;
+  GtkTextBuffer *packages;
   AdwActionRow *rows[5];
   GtkWidget *buttons[7];
   GtkWidget *restart;
+  AdwSwitchRow *automatic[4];
+  GtkLabel *automatic_status;
+  gboolean syncing_automatic;
+  gboolean refresh_pending;
   guint timer;
   gboolean fetching;
 };
 G_DEFINE_TYPE(CcNodalixUpdatesPage, cc_nodalix_updates_page, ADW_TYPE_NAVIGATION_PAGE)
 static const char *kinds[] = {"nodalix", "system", "apps", "flatpak", "firmware"};
 static const char *titles[] = {"Nodalix", "Programas y kernel", "Aplicaciones Nodalix", "Aplicaciones Flatpak", "Firmware"};
+static const char *automatic_kinds[] = {"nodalix", "system", "flatpak", "firmware"};
+static const char *automatic_titles[] = {"Nodalix OS", "Programas y kernel", "Aplicaciones Flatpak", "Firmware"};
 
 static void fetch_updates(CcNodalixUpdatesPage *self);
 static void state_ready(GObject *source, GAsyncResult *result, gpointer data)
@@ -36,20 +44,50 @@ static void state_ready(GObject *source, GAsyncResult *result, gpointer data)
     g_autoptr(JsonParser) parser = json_parser_new();
     if (json_parser_load_from_data(parser, text, -1, &error)) {
       JsonObject *state = json_node_get_object(json_parser_get_root(parser));
+      if (json_object_has_member(state, "identity"))
+        gtk_label_set_text(self->identity, json_object_get_string_member(state, "identity"));
       gboolean busy = json_object_get_boolean_member(state, "busy") || json_object_get_boolean_member(state, "checking");
       gboolean mandatory = json_object_get_boolean_member(state, "reboot_mandatory");
+      gboolean automatic_busy = json_object_has_member(state,"automatic_busy") && json_object_get_boolean_member(state,"automatic_busy");
+      if (json_object_has_member(state,"automatic")) {
+        JsonObject *automatic=json_object_get_object_member(state,"automatic");
+        self->syncing_automatic=TRUE;
+        for(guint i=0;i<4;i++) {
+          if (!json_object_has_member(automatic,automatic_kinds[i])) continue;
+          JsonObject *row=json_object_get_object_member(automatic,automatic_kinds[i]);
+          gboolean enabled=json_object_get_boolean_member(row,"enabled");
+          gboolean partial=json_object_get_boolean_member(row,"partial");
+          gboolean owned=json_object_get_boolean_member(row,"owned");
+          adw_switch_row_set_active(self->automatic[i],enabled || partial);
+          gtk_widget_set_sensitive(GTK_WIDGET(self->automatic[i]),!busy && !automatic_busy && json_object_get_boolean_member(row,"available") && (owned || (!enabled && !partial)));
+          adw_action_row_set_subtitle(ADW_ACTION_ROW(self->automatic[i]),!owned && (enabled || partial) ? "Autorizadas por otro usuario" : partial ? "Programación parcial: desactiva y vuelve a activar para repararla" : enabled && !json_object_get_boolean_member(row,"active") ? "Activadas, pero el temporizador no está en ejecución" : i==3 ? "Semanalmente · sin reinicios automáticos" : "Diariamente · sin reinicios automáticos");
+        }
+        self->syncing_automatic=FALSE;
+      }
+      gtk_label_set_text(self->automatic_status,automatic_busy ? "Guardando la preferencia…" : json_object_has_member(state,"automatic_error") ? json_object_get_string_member(state,"automatic_error") : "");
+      busy=busy || automatic_busy;
       gtk_widget_set_visible(self->restart, !busy && json_object_get_boolean_member(state, "reboot_required"));
       const char *message = json_object_get_string_member(state, "message");
       gtk_label_set_text(self->status, message);
       gtk_widget_set_visible(GTK_WIDGET(self->progress), busy);
-      if (busy) gtk_progress_bar_pulse(self->progress);
+      gtk_spinner_set_spinning(self->progress, busy);
       gtk_text_buffer_set_text(self->log, json_object_get_string_member(state, "log"), -1);
       JsonArray *rows = json_object_get_array_member(state, "sources");
+      g_autoptr(GString) packages = g_string_new(NULL);
       for (guint i = 0; i < MIN(5, json_array_get_length(rows)); i++) {
         JsonObject *row = json_array_get_object_element(rows, i);
         adw_action_row_set_subtitle(self->rows[i], json_object_get_string_member(row, "detail"));
         gtk_widget_set_sensitive(self->buttons[i], !busy && !mandatory && json_object_get_boolean_member(row, "available"));
+        if (json_object_has_member(row,"packages")) {
+          JsonArray *items=json_object_get_array_member(row,"packages");
+          for(guint j=0;j<json_array_get_length(items);j++) {
+            JsonObject *item=json_array_get_object_element(items,j);
+            g_string_append_printf(packages,"%s  %s → %s\n",json_object_get_string_member(item,"name"),
+              json_object_get_string_member(item,"installed"),json_object_get_string_member(item,"available"));
+          }
+        }
       }
+      gtk_text_buffer_set_text(self->packages, packages->len ? packages->str : "Busca actualizaciones para consultar los paquetes disponibles.",-1);
       gtk_widget_set_sensitive(self->buttons[5], !busy);
       gtk_widget_set_sensitive(self->buttons[6], !busy && !mandatory);
       if (json_object_get_boolean_member(state, "reboot_required") && !busy) {
@@ -60,16 +98,35 @@ static void state_ready(GObject *source, GAsyncResult *result, gpointer data)
   } else if (!g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED)) {
     gtk_label_set_text(self->status, error->message);
   }
+  if (self->refresh_pending) {self->refresh_pending=FALSE;fetch_updates(self);}
   g_object_unref(self);
 }
 static void fetch_updates(CcNodalixUpdatesPage *self)
 {
-  if (!self->proxy || self->fetching) return;
+  if (!self->proxy) return;
+  if (self->fetching) {self->refresh_pending=TRUE;return;}
   self->fetching = TRUE;
   g_dbus_proxy_call(self->proxy, "GetUpdates", NULL, G_DBUS_CALL_FLAGS_NONE, 2500,
                     self->cancel, state_ready, g_object_ref(self));
 }
-static gboolean poll_updates(gpointer data) { fetch_updates(data); return G_SOURCE_CONTINUE; }
+static void automatic_ready(GObject *source,GAsyncResult *result,gpointer data)
+{
+  CcNodalixUpdatesPage *self=data;
+  g_autoptr(GError) error=NULL;
+  g_autoptr(GVariant) value=g_dbus_proxy_call_finish(G_DBUS_PROXY(source),result,&error);
+  if (!value && !g_error_matches(error,G_IO_ERROR,G_IO_ERROR_CANCELLED))
+    gtk_label_set_text(self->automatic_status,error->message);
+  fetch_updates(self);
+  g_object_unref(self);
+}
+static void automatic_changed(AdwSwitchRow *row,GParamSpec *pspec,CcNodalixUpdatesPage *self)
+{
+  if (self->syncing_automatic || !self->proxy) return;
+  const char *kind=g_object_get_data(G_OBJECT(row),"kind");
+  for(guint i=0;i<4;i++)gtk_widget_set_sensitive(GTK_WIDGET(self->automatic[i]),FALSE);
+  g_dbus_proxy_call(self->proxy,"SetAutomaticUpdate",g_variant_new("(sb)",kind,adw_switch_row_get_active(row)),
+      G_DBUS_CALL_FLAGS_NONE,190000,self->cancel,automatic_ready,g_object_ref(self));
+}
 static void operation_ready(GObject *source, GAsyncResult *result, gpointer data)
 {
   CcNodalixUpdatesPage *self = data;
@@ -97,6 +154,8 @@ static void proxy_ready(GObject *source,GAsyncResult *result,gpointer data)
   if (self->proxy) {
     g_signal_connect_object(self->proxy,"g-signal",G_CALLBACK(service_changed),self,0);
     fetch_updates(self);
+    g_dbus_proxy_call(self->proxy,"RefreshAutomaticUpdates",NULL,G_DBUS_CALL_FLAGS_NONE,2500,
+                     self->cancel,NULL,NULL);
   } else if (!g_error_matches(error,G_IO_ERROR,G_IO_ERROR_CANCELLED)) gtk_label_set_text(self->status,error->message);
   g_object_unref(self);
 }
@@ -120,6 +179,9 @@ static void cc_nodalix_updates_page_init(CcNodalixUpdatesPage *self)
   AdwPreferencesGroup *group=ADW_PREFERENCES_GROUP(adw_preferences_group_new());
   adw_preferences_group_set_title(group,"Actualizaciones de Nodalix");
   adw_preferences_group_set_description(group,"Mantén al día el escritorio, las aplicaciones, los programas y el kernel.");
+  self->identity=GTK_LABEL(gtk_label_new("Consultando la versión instalada…"));
+  gtk_label_set_wrap(self->identity,TRUE);
+  adw_preferences_group_add(group,GTK_WIDGET(self->identity));
   for (guint i=0;i<5;i++) {
     self->rows[i]=ADW_ACTION_ROW(adw_action_row_new());
     adw_preferences_row_set_title(ADW_PREFERENCES_ROW(self->rows[i]),titles[i]);
@@ -132,6 +194,22 @@ static void cc_nodalix_updates_page_init(CcNodalixUpdatesPage *self)
     adw_preferences_group_add(group,GTK_WIDGET(self->rows[i]));
   }
   adw_preferences_page_add(ADW_PREFERENCES_PAGE(page),group);
+  AdwPreferencesGroup *automatic=ADW_PREFERENCES_GROUP(adw_preferences_group_new());
+  adw_preferences_group_set_title(automatic,"Actualizaciones automáticas");
+  adw_preferences_group_set_description(automatic,"Autoriza al activar. Después se actualiza sin volver a pedir la contraseña, incluso tras reiniciar. No se reinicia el equipo automáticamente. Las aplicaciones AUR requieren revisión manual.");
+  for(guint i=0;i<4;i++) {
+    self->automatic[i]=ADW_SWITCH_ROW(adw_switch_row_new());
+    adw_preferences_row_set_title(ADW_PREFERENCES_ROW(self->automatic[i]),automatic_titles[i]);
+    adw_action_row_set_subtitle(ADW_ACTION_ROW(self->automatic[i]),"Consultando la programación…");
+    gtk_widget_set_sensitive(GTK_WIDGET(self->automatic[i]),FALSE);
+    g_object_set_data(G_OBJECT(self->automatic[i]),"kind",(gpointer)automatic_kinds[i]);
+    g_signal_connect(self->automatic[i],"notify::active",G_CALLBACK(automatic_changed),self);
+    adw_preferences_group_add(automatic,GTK_WIDGET(self->automatic[i]));
+  }
+  self->automatic_status=GTK_LABEL(gtk_label_new(""));
+  gtk_label_set_wrap(self->automatic_status,TRUE);
+  adw_preferences_group_add(automatic,GTK_WIDGET(self->automatic_status));
+  adw_preferences_page_add(ADW_PREFERENCES_PAGE(page),automatic);
   AdwPreferencesGroup *actions=ADW_PREFERENCES_GROUP(adw_preferences_group_new());
   GtkWidget *box=gtk_box_new(GTK_ORIENTATION_VERTICAL,12);
   GtkWidget *buttons=gtk_box_new(GTK_ORIENTATION_HORIZONTAL,12);
@@ -148,11 +226,24 @@ static void cc_nodalix_updates_page_init(CcNodalixUpdatesPage *self)
   gtk_box_append(GTK_BOX(buttons),self->restart);
   self->status=GTK_LABEL(gtk_label_new("Conectando con el servicio de actualizaciones…"));
   gtk_label_set_wrap(self->status,TRUE);
-  self->progress=GTK_PROGRESS_BAR(gtk_progress_bar_new());
+  self->progress=GTK_SPINNER(gtk_spinner_new());
   gtk_widget_set_visible(GTK_WIDGET(self->progress),FALSE);
   gtk_box_append(GTK_BOX(box),buttons);gtk_box_append(GTK_BOX(box),GTK_WIDGET(self->status));gtk_box_append(GTK_BOX(box),GTK_WIDGET(self->progress));
   adw_preferences_group_add(actions,box);adw_preferences_page_add(ADW_PREFERENCES_PAGE(page),actions);
   AdwPreferencesGroup *details=ADW_PREFERENCES_GROUP(adw_preferences_group_new());
+  GtkWidget *package_expander=adw_expander_row_new();
+  adw_preferences_row_set_title(ADW_PREFERENCES_ROW(package_expander),"Paquetes disponibles");
+  GtkWidget *package_scroll=gtk_scrolled_window_new();
+  gtk_scrolled_window_set_min_content_height(GTK_SCROLLED_WINDOW(package_scroll),100);
+  gtk_scrolled_window_set_max_content_height(GTK_SCROLLED_WINDOW(package_scroll),260);
+  gtk_scrolled_window_set_propagate_natural_height(GTK_SCROLLED_WINDOW(package_scroll),TRUE);
+  GtkWidget *package_text=gtk_text_view_new();
+  gtk_text_view_set_editable(GTK_TEXT_VIEW(package_text),FALSE);
+  gtk_text_view_set_wrap_mode(GTK_TEXT_VIEW(package_text),GTK_WRAP_WORD_CHAR);
+  self->packages=gtk_text_view_get_buffer(GTK_TEXT_VIEW(package_text));
+  gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(package_scroll),package_text);
+  adw_expander_row_add_row(ADW_EXPANDER_ROW(package_expander),package_scroll);
+  adw_preferences_group_add(details,package_expander);
   GtkWidget *expander=adw_expander_row_new();
   adw_preferences_row_set_title(ADW_PREFERENCES_ROW(expander),"Detalles de la operación");
   GtkWidget *scroller=gtk_scrolled_window_new();
@@ -162,6 +253,5 @@ static void cc_nodalix_updates_page_init(CcNodalixUpdatesPage *self)
   gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scroller),text);
   adw_expander_row_add_row(ADW_EXPANDER_ROW(expander),scroller);adw_preferences_group_add(details,expander);adw_preferences_page_add(ADW_PREFERENCES_PAGE(page),details);
   adw_toolbar_view_set_content(ADW_TOOLBAR_VIEW(toolbar),page);adw_navigation_page_set_child(ADW_NAVIGATION_PAGE(self),toolbar);
-  self->timer=g_timeout_add_seconds(3,poll_updates,self);
   g_dbus_proxy_new_for_bus(G_BUS_TYPE_SESSION,G_DBUS_PROXY_FLAGS_NONE,NULL,BUS,OBJECT,IFACE,self->cancel,proxy_ready,g_object_ref(self));
 }

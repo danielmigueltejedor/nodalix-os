@@ -1,0 +1,17 @@
+{
+  "live_call_first_after_18_notifications": true,
+  "critical_notification_below_call": true,
+  "clear_preserves_call_only": true,
+  "close_control_hidden": true,
+  "answer_decline_hangup_signals": true,
+  "replacement_and_end": true,
+  "empty_list_shrinks": true,
+  "scroll_geometry": {
+    "height": 447,
+    "content": 2276,
+    "page": 447,
+    "monitor": 720,
+    "controls": 536
+  },
+  "keyboard_scroll_to_last": true
+}

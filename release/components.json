@@ -8,7 +8,7 @@
       "id": "nodalix-release",
       "name": "Nodalix system identity",
       "package": "nodalix-release",
-      "version": "0.3.1",
+      "version": "0.4.0",
       "required": true,
       "restart": "none"
     },
@@ -16,7 +16,7 @@
       "id": "updater",
       "name": "Nodalix Updater",
       "package": "nodalix-updater",
-      "version": "0.3.1",
+      "version": "0.4.0",
       "required": true,
       "restart": "none"
     },
@@ -24,7 +24,7 @@
       "id": "apps",
       "name": "Nodalix Apps",
       "package": "nodalix-apps",
-      "version": "0.3.1",
+      "version": "0.4.0",
       "required": true,
       "restart": "none"
     },
@@ -32,7 +32,7 @@
       "id": "colloid-icons",
       "name": "Colloid-Teal icon theme",
       "package": "nodalix-colloid-icons",
-      "version": "0.3.1",
+      "version": "0.4.0",
       "required": true,
       "restart": "none"
     },
@@ -56,7 +56,7 @@
       "id": "wallpapers",
       "name": "Nodalix wallpaper collection",
       "package": "nodalix-wallpapers",
-      "version": "0.3.1",
+      "version": "0.4.0",
       "required": true,
       "restart": "none"
     },
@@ -64,7 +64,7 @@
       "id": "cursor-theme",
       "name": "Nodalix cursor theme",
       "package": "nodalix-cursor-theme",
-      "version": "0.3.1",
+      "version": "0.4.0",
       "required": true,
       "restart": "system"
     },
@@ -72,7 +72,7 @@
       "id": "integrations",
       "name": "Nodalix Integrations",
       "package": "nodalix-integrations",
-      "version": "0.3.1",
+      "version": "0.4.0",
       "required": true,
       "restart": "none"
     },
@@ -80,7 +80,7 @@
       "id": "gnome",
       "name": "Nodalix GNOME Shell",
       "package": "nodalix-gnome",
-      "version": "0.3.1",
+      "version": "0.4.0",
       "required": true,
       "restart": "system"
     },
@@ -88,7 +88,7 @@
       "id": "settings",
       "name": "Nodalix Settings service",
       "package": "nodalix-settings",
-      "version": "0.3.1",
+      "version": "0.4.0",
       "required": true,
       "restart": "none"
     },
@@ -104,7 +104,7 @@
       "id": "video-wallpapers",
       "name": "Nodalix animated wallpaper collection",
       "package": "nodalix-video-wallpapers",
-      "version": "0.3.1",
+      "version": "0.4.0",
       "required": true,
       "restart": "system"
     },

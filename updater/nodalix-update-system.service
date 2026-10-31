@@ -7,7 +7,7 @@ StartLimitBurst=5
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/nodalix-system-update privileged-system
+ExecStart=/usr/lib/nodalix-updater/update-transaction system --automatic
 RestartForceExitStatus=75
 RestartSec=2min
 

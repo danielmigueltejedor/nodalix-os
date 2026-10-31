@@ -3,6 +3,26 @@
 from pathlib import Path
 import configparser,hashlib,json,os,shutil,subprocess,sys,time
 
+def retire_legacy_keyboard_remap(root,runner=subprocess.run):
+    path=root/'etc/keyd/default.conf'
+    if not path.is_file() or path.is_symlink():return False
+    parser=configparser.ConfigParser(interpolation=None,allow_no_value=True,delimiters=('=',))
+    try:parser.read_string(path.read_text())
+    except (configparser.Error,UnicodeError):return False
+    expected={'c':'C-c','v':'C-v','z':'C-x','q':'C-w'}
+    if set(parser.sections())!={'ids','meta'}:return False
+    values=dict(parser.items('meta'))
+    if not {'c','v','z'}<=set(values) or any(expected.get(key)!=value for key,value in values.items()):return False
+    target=root/'var/lib/nodalix-updater/migrations/gnome-0.4.0/files/etc/keyd/default.conf'
+    target.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
+    if target.exists():
+        if target.read_bytes()!=path.read_bytes():raise RuntimeError('Keyboard remap changed after backup')
+        path.unlink()
+    else:shutil.move(str(path),str(target))
+    if root==Path('/') and runner(['systemctl','is-active','--quiet','keyd.service'],check=False).returncode==0:
+        runner(['/usr/bin/keyd','reload'],check=True)
+    return True
+
 def retire_legacy_update_override(root):
     # Run independently of the already completed 0.3.0 migration. This global
     # user unit otherwise overrides the packaged GNOME updater for every login.
@@ -19,6 +39,7 @@ def retire_legacy_update_override(root):
 
 def migrate(root=Path('/'), runner=subprocess.run):
     retire_legacy_update_override(root)
+    retire_legacy_keyboard_remap(root,runner)
     state=root/'var/lib/nodalix-updater/migrations/gnome-0.3.0'
     state.mkdir(parents=True,exist_ok=True,mode=0o700);state.chmod(0o700)
     saved=state/'files';saved.mkdir(exist_ok=True,mode=0o700)

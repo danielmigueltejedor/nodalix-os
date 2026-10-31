@@ -1,16 +1,21 @@
 pkgname=nodalix-settings
-pkgver=0.3.1
-pkgrel=1
+pkgver=0.4.0
+pkgrel=2
 pkgdesc="Native Nodalix updates, animated wallpaper controls and GNOME branding"
 arch=("any")
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-depends=("python" "python-gobject" "polkit" "pacman-contrib" "nodalix-updater" "nodalix-apps" "flatpak" "fwupd" "ffmpeg")
+depends=("python" "python-gobject" "polkit" "pacman-contrib" "nodalix-updater>=0.4.0-2" "nodalix-apps" "flatpak" "fwupd" "ffmpeg")
 install=nodalix-settings.install
 source=("nodalix-settings-$pkgver.tar.zst")
 sha256sums=("SKIP")
 package() {
   install -Dm644 "$srcdir/gnome/settings/wallpaper_poster.py" "$pkgdir/usr/lib/nodalix/wallpaper_poster.py"
+  install -Dm644 "$srcdir/gnome/settings/update_state.py" "$pkgdir/usr/lib/nodalix/update_state.py"
+  install -Dm644 "$srcdir/gnome/settings/automatic_updates.py" "$pkgdir/usr/lib/nodalix/automatic_updates.py"
+  for helper in automatic-updates-enable automatic-updates-disable; do
+    install -Dm755 "$srcdir/gnome/settings/$helper" "$pkgdir/usr/lib/nodalix/$helper"
+  done
   install -Dm755 "$srcdir/gnome/settings/sync-login-background" "$pkgdir/usr/lib/nodalix/sync-login-background"
   install -Dm755 "$srcdir/gnome/settings/service.py" "$pkgdir/usr/lib/nodalix/settings-service"
   install -Dm755 "$srcdir/gnome/settings/updates-privileged" "$pkgdir/usr/lib/nodalix/updates-privileged"

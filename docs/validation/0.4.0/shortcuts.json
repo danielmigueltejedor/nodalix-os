@@ -1,0 +1,10 @@
+{
+  "real_gtk_super_copy_paste": true,
+  "real_ghostty_super_paste": true,
+  "super_copy_preserves_terminal_process": true,
+  "ctrl_c_still_sends_sigint": true,
+  "ghostty_super_q_closes_window_with_two_tabs": true,
+  "focus_mode": "sloppy",
+  "area_capture_ui": true,
+  "full_screen_capture_saved": true
+}

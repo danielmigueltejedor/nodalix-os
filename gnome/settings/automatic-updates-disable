@@ -1,0 +1,3 @@
+#!/usr/bin/python3
+from automatic_updates import privileged_main
+raise SystemExit(privileged_main(False))

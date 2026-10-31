@@ -4,6 +4,7 @@ import GObject from 'gi://GObject';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as QuickSettings from 'resource:///org/gnome/shell/ui/quickSettings.js';
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
+import {NativeNotifications} from './notifications.js';
 
 const PhoneToggle = GObject.registerClass({GTypeName: 'NodalixConnectPhoneToggle'},
 class PhoneToggle extends QuickSettings.QuickToggle {
@@ -21,6 +22,8 @@ class PhoneToggle extends QuickSettings.QuickToggle {
 
 export default class NodalixConnectExtension extends Extension {
     enable() {
+        this._notifications = new NativeNotifications();
+        this._notifications.enable();
         this._indicator = new QuickSettings.SystemIndicator();
         this._toggle = new PhoneToggle();
         this._indicator.quickSettingsItems.push(this._toggle);
@@ -35,6 +38,8 @@ export default class NodalixConnectExtension extends Extension {
     }
 
     disable() {
+        this._notifications?.disable();
+        this._notifications = null;
         if (this._watchId) {
             Gio.bus_unwatch_name(this._watchId);
             this._watchId = 0;

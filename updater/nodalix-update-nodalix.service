@@ -2,10 +2,14 @@
 Description=Automatic Nodalix OS update
 After=network-online.target
 Wants=network-online.target
+StartLimitIntervalSec=15min
+StartLimitBurst=5
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/nodalix-updater update
+ExecStart=/usr/lib/nodalix-updater/update-transaction nodalix --automatic
+RestartForceExitStatus=75
+RestartSec=2min
 
 # Nodalix package installation intentionally writes /usr, /etc and /var, so
 # ProtectSystem/RestrictSUIDSGID are deliberately not used here.

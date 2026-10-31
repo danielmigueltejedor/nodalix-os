@@ -1,5 +1,5 @@
 pkgname=nodalix-video-wallpapers
-pkgver=0.3.1
+pkgver=0.4.0
 pkgrel=1
 pkgdesc="GNOME 51 animated wallpaper player and Nodalix video collection"
 arch=("any")

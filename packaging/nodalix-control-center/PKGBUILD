@@ -1,13 +1,13 @@
 pkgname=nodalix-control-center
 pkgver=51.0.0
-pkgrel=6
+pkgrel=8
 pkgdesc="GNOME Settings with native Nodalix updates and animated backgrounds"
 arch=("x86_64")
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-2.0-or-later" "GPL-3.0-or-later")
 provides=("gnome-control-center=51.0")
 conflicts=("gnome-control-center")
-depends=("nodalix-settings" "accountsservice" "bolt" "cairo" "colord-gtk4" "cups-pk-helper" "dconf" "fontconfig" "gcr-4" "gdk-pixbuf2" "glib2" "glibc" "gnome-bluetooth-3.0" "gnome-color-manager" "gnome-desktop-4" "gnome-online-accounts" "gnome-settings-daemon" "gnome-shell" "gnutls" "graphene" "gsettings-desktop-schemas" "gsound" "gst-plugins-good" "gtk4" "hicolor-icon-theme" "json-glib" "krb5" "libadwaita" "libcolord" "libcups" "libepoxy" "libgcc" "libgoa" "libgtop" "libgudev" "libibus" "libmalcontent" "libmm-glib" "libnm" "libnma-gtk4" "libpulse" "libpwquality" "libsecret" "libsoup3" "libwacom" "libx11" "libxi" "libxml2" "pango" "polkit" "smbclient" "sound-theme-freedesktop" "tecla" "udisks2" "upower" "wayland" "gnome-keybindings")
+depends=("nodalix-settings>=0.4.0-2" "accountsservice" "bolt" "cairo" "colord-gtk4" "cups-pk-helper" "dconf" "fontconfig" "gcr-4" "gdk-pixbuf2" "glib2" "glibc" "gnome-bluetooth-3.0" "gnome-color-manager" "gnome-desktop-4" "gnome-online-accounts" "gnome-settings-daemon" "gnome-shell" "gnutls" "graphene" "gsettings-desktop-schemas" "gsound" "gst-plugins-good" "gtk4" "hicolor-icon-theme" "json-glib" "krb5" "libadwaita" "libcolord" "libcups" "libepoxy" "libgcc" "libgoa" "libgtop" "libgudev" "libibus" "libmalcontent" "libmm-glib" "libnm" "libnma-gtk4" "libpulse" "libpwquality" "libsecret" "libsoup3" "libwacom" "libx11" "libxi" "libxml2" "pango" "polkit" "smbclient" "sound-theme-freedesktop" "tecla" "udisks2" "upower" "wayland" "gnome-keybindings")
 makedepends=("meson" "ninja" "glib2-devel" "git")
 # Prepared by tools/build-settings-packages.py from pinned upstream sources.
 source=("control-center-51.0.tar.zst" "nodalix-control-center-$pkgver.tar.zst")
