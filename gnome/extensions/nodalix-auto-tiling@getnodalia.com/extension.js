@@ -490,7 +490,13 @@ Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
         const current = Layout.ids(group.tree);
         const preferred = current.includes(focus) ? focus : current.at(-1);
         const rects = Layout.rectangles(group.tree, group.area, group.gap, group.sizes).leaves;
-        for (const target of [preferred, ...current.filter(item => item !== preferred)]) {
+        // Split the largest region first: 1, 2, 3 and 4 windows naturally form
+        // a full area, halves, a half plus quarters, and four quarters.
+        const candidates = [...current].sort((a, b) => {
+            const ra = rects.get(a), rb = rects.get(b);
+            return rb.width * rb.height - ra.width * ra.height || (a === preferred ? -1 : b === preferred ? 1 : 0);
+        });
+        for (const target of candidates) {
             const rect = rects.get(target);
             const side = rect.width >= rect.height ? 'right' : 'bottom';
             for (const direction of [side, side === 'right' ? 'bottom' : 'right']) {

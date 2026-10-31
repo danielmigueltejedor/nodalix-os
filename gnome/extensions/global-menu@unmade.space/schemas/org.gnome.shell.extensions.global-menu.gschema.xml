@@ -1,11 +1,11 @@
 <schemalist gettext-domain="gnome-shell-extensions">
 	<schema id="org.gnome.shell.extensions.global-menu" path="/org/gnome/shell/extensions/global-menu/">
 		<key type="b" name="enable-fallback-menu">
-			<default>true</default>
+			<default>false</default>
 			<summary>Show a generic fallback menu for apps without a native menu</summary>
 		</key>
 		<key type="b" name="shortcut-menus-enabled">
-			<default>true</default>
+			<default>false</default>
 			<summary>Show curated shortcut-based menus for supported apps without a native menu</summary>
 		</key>
 		<key type="as" name="shortcut-disabled-apps">

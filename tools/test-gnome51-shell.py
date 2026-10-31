@@ -94,6 +94,72 @@ def main():
                     print('GNOME 51 greeter: own background actors enabled on both monitors')
                     return 0
                 before=evaluate('Main.panel.statusArea.quickSettings.menu._grid.get_children().length')
+                # Real freedesktop notifications, in this private bus only.
+                def notification(app, title, hints=None, actions=None, replace=0):
+                    return bus.call_sync('org.freedesktop.Notifications', '/org/freedesktop/Notifications',
+                        'org.freedesktop.Notifications', 'Notify',
+                        GLib.Variant('(susssasa{sv}i)', (app, replace, 'phone-symbolic', title,
+                            'Isolated Nodalix QA', actions or [], hints or {}, 0)),
+                        None, Gio.DBusCallFlags.NONE, 5000, None).unpack()[0]
+                if not args.alternatives:
+                    call_id=notification('Nodalix QA call', 'Test call',
+                        {'x-nodalix-phone-call':GLib.Variant('b',True), 'resident':GLib.Variant('b',True),
+                         'urgency':GLib.Variant('y',2)}, ['answer','Answer','decline','Decline'])
+                    for index in range(18):
+                        notification('Nodalix QA '+str(index), 'Notification '+str(index),
+                                     {'urgency':GLib.Variant('y',2 if index==17 else 1)})
+                    time.sleep(.8)
+                    view='Main.panel.statusArea.dateMenu._messageList._messageView'
+                    assert evaluate(f'{view}.messages[0]._notificationToMessage.has(Main.notificationDaemon._fdoNotificationDaemon._notifications.get({call_id}))')
+                    assert evaluate(f'!{view}.messages[0].canClose()')
+                    assert evaluate(f'![...{view}.messages[0]._notificationToMessage.values()][0]._header.closeButton.visible')
+                    evaluate('Main.overview.hide(); Main.panel.statusArea.dateMenu.menu.open(); true')
+                    time.sleep(.5)
+                    geometry=evaluate("(() => {const d=Main.panel.statusArea.dateMenu,l=d._messageList,s=l._scrollView,m=Main.layoutManager.primaryMonitor; return {height:s.height,content:s.vadjustment.upper,page:s.vadjustment.page_size,monitor:m.height,controls:l._clearButton.get_transformed_position()[1]+l._clearButton.height};})()")
+                    assert 0<geometry['height']<geometry['monitor']*.8,geometry
+                    assert geometry['content']>geometry['page'],geometry
+                    assert geometry['controls']<=geometry['monitor'],geometry
+                    evaluate(f'[...{view}.messages.at(-1)._notificationToMessage.values()][0].grab_key_focus(); true')
+                    time.sleep(.3)
+                    assert evaluate('Main.panel.statusArea.dateMenu._messageList._scrollView.vadjustment.value')>0
+                    evaluate(f'{view}.clear(); true')
+                    time.sleep(1)
+                    assert evaluate(f'Main.notificationDaemon._fdoNotificationDaemon._notifications.has({call_id})')
+                    remaining=evaluate('Main.notificationDaemon._fdoNotificationDaemon._notifications.size')
+                    assert remaining==1,remaining
+                    received=[]
+                    sub=bus.signal_subscribe(None,'org.freedesktop.Notifications','ActionInvoked',
+                        '/org/freedesktop/Notifications',None,Gio.DBusSignalFlags.NONE,
+                        lambda *args:received.append(args[5].unpack()))
+                    evaluate(f'Main.notificationDaemon._fdoNotificationDaemon._notifications.get({call_id}).actions[0].activate(); true')
+                    deadline=time.monotonic()+2
+                    while time.monotonic()<deadline and not received:
+                        while GLib.MainContext.default().pending():GLib.MainContext.default().iteration(False)
+                        time.sleep(.02)
+                    assert (call_id,'answer') in received,received
+                    evaluate(f'Main.notificationDaemon._fdoNotificationDaemon._notifications.get({call_id}).actions[1].activate(); true')
+                    notification('Nodalix QA call','Active call',
+                        {'x-nodalix-phone-call':GLib.Variant('b',True),'resident':GLib.Variant('b',True)},
+                        ['hangup','Hang up'],replace=call_id)
+                    evaluate(f'Main.notificationDaemon._fdoNotificationDaemon._notifications.get({call_id}).actions[0].activate(); true')
+                    deadline=time.monotonic()+2
+                    while time.monotonic()<deadline and (call_id,'hangup') not in received:
+                        while GLib.MainContext.default().pending():GLib.MainContext.default().iteration(False)
+                        time.sleep(.02)
+                    bus.signal_unsubscribe(sub)
+                    assert all((call_id,action) in received for action in ('answer','decline','hangup')),received
+                    bus.call_sync('org.freedesktop.Notifications','/org/freedesktop/Notifications',
+                        'org.freedesktop.Notifications','CloseNotification',GLib.Variant('(u)',(call_id,)),
+                        None,Gio.DBusCallFlags.NONE,3000,None)
+                    time.sleep(.5)
+                    assert evaluate(f'!Main.notificationDaemon._fdoNotificationDaemon._notifications.has({call_id})')
+                    assert evaluate('Main.panel.statusArea.dateMenu._messageList._scrollView.height')<geometry['height']
+                    evaluate('Main.panel.statusArea.dateMenu.menu.close(); true')
+                    (args.evidence/'notifications.json').write_text(json.dumps({
+                        'live_call_first_after_18_notifications':True,'critical_notification_below_call':True,
+                        'clear_preserves_call_only':True,'close_control_hidden':True,
+                        'answer_decline_hangup_signals':True,'replacement_and_end':True,'empty_list_shrinks':True,
+                        'scroll_geometry':geometry,'keyboard_scroll_to_last':True},indent=2))
                 if args.alternatives:
                     for uuid in ('multi-monitors-bar@frederykabryan','tiling-assistant@leleat-on-github','global-menu@unmade.space'):
                         for attempt in range(3):
@@ -150,6 +216,104 @@ def activate(app):
 app.connect('activate',activate);app.run()
 """
                 env={**os.environ,'GDK_BACKEND':'wayland','WAYLAND_DISPLAY':next(path.name for path in runtime.glob('wayland-*') if path.is_socket())}
+                native=os.environ.get('NODALIX_QA_NATIVE_BINARY')
+                if native:
+                    fake=subprocess.Popen([sys.executable,str(ROOT/'tests/native-restart-service.py')],env=env,stdout=log,stderr=log)
+                    try:
+                        for attempt in range(40):
+                            owned=bus.call_sync('org.freedesktop.DBus','/org/freedesktop/DBus','org.freedesktop.DBus',
+                                'NameHasOwner',GLib.Variant('(s)',('com.nodalix.Settings',)),None,
+                                Gio.DBusCallFlags.NONE,1000,None).unpack()[0]
+                            if owned:break
+                            time.sleep(.05)
+                        else:raise AssertionError('Fake Settings service did not acquire its private bus name')
+                        subprocess.run([native],env={**env,'GTK_A11Y':'none','GSK_RENDERER':'cairo'},
+                                       stdout=log,stderr=log,timeout=15,check=True)
+                        (args.evidence/'native-settings.json').write_text(json.dumps({'restart_action':True,'mandatory_restart_disables_updates':True,'display':'private-wayland'}))
+                    finally:
+                        fake.terminate();fake.wait(timeout=5)
+                tiling_fixture="""import gi
+gi.require_version('Gtk','4.0')
+from gi.repository import Gtk,Gio
+app=Gtk.Application(application_id='com.nodalix.TilingQA')
+count=0
+def add(*args):
+    global count
+    count+=1
+    win=Gtk.ApplicationWindow(application=app,title='Nodalix Tile QA '+str(count),default_width=200,default_height=120)
+    win.present()
+def activate(app):
+    action=Gio.SimpleAction.new('add-window',None)
+    action.connect('activate',add);app.add_action(action);add()
+app.connect('activate',activate);app.run()
+"""
+                tiler="Main.extensionManager.lookup('nodalix-auto-tiling@getnodalia.com').stateObj"
+                tile_windows="global.get_window_actors().map(a=>a.meta_window).filter(w=>w.get_title()?.startsWith('Nodalix Tile QA '))"
+                evaluate(f"{tiler}._settings.set_boolean('enabled',true); true")
+                tiles=subprocess.Popen([sys.executable,'-c',tiling_fixture],env=env,stdout=log,stderr=log)
+                try:
+                    counts=[]
+                    for count in range(1,5):
+                        if count>1:
+                            bus.call_sync('com.nodalix.TilingQA','/com/nodalix/TilingQA','org.gtk.Actions',
+                                'Activate',GLib.Variant('(sava{sv})',('add-window',[],{})),None,
+                                Gio.DBusCallFlags.NONE,2000,None)
+                        for attempt in range(40):
+                            if evaluate(f'{tile_windows}.length')==count:break
+                            time.sleep(.05)
+                        else:raise AssertionError('Tiling fixture did not map '+str(count)+' windows')
+                        time.sleep(.4)
+                        result=evaluate(f"(() => {{const t={tiler};return {tile_windows}.map(w=>{{const g=t._windowGroups.get(w.get_stable_sequence()),r=w.get_frame_rect(),expected=g?.rects.get(w.get_stable_sequence());return {{actual:[r.x,r.y,r.width,r.height],expected:expected?[expected.x,expected.y,expected.width,expected.height]:null}};}});}})()")
+                        assert all(row['actual']==row['expected'] for row in result),result
+                        counts.append({'windows':count,'rectangles':result})
+                    evaluate(f'{tile_windows}[0].minimize(); true');time.sleep(.4)
+                    assert evaluate(f'{tile_windows}.filter(w=>!w.minimized).every(w=>{tiler}._windowGroups.has(w.get_stable_sequence()))')
+                    evaluate(f'{tile_windows}[0].unminimize(); true');time.sleep(.4)
+                    evaluate(f'{tile_windows}[0].move_to_monitor(Main.layoutManager.monitors.find(m=>m.index!==Main.layoutManager.primaryIndex).index); true')
+                    time.sleep(.4)
+                    assert evaluate(f'new Set({tile_windows}.map(w=>{tiler}._windowGroups.get(w.get_stable_sequence()).monitor)).size')==2
+                    evaluate(f"{tiler}._settings.set_boolean('enabled',false); true")
+                    (args.evidence/'tiling.json').write_text(json.dumps({'layouts':counts,'minimize_restore':True,'two_monitor_groups':True,'disable_without_logout':True},indent=2))
+                finally:
+                    tiles.terminate();tiles.wait(timeout=5)
+                    evaluate(f"{tiler}._settings.set_boolean('enabled',false); true")
+                menu_fixture="""import gi
+gi.require_version('Gtk','3.0')
+from gi.repository import Gtk,Gio
+app=Gtk.Application(application_id='com.nodalix.MenuQA')
+def activate(app):
+    win=Gtk.ApplicationWindow(application=app,title='Nodalix Menu QA',default_width=300,default_height=200)
+    action=Gio.SimpleAction.new('qa-command',None)
+    action.connect('activate',lambda *args:win.set_title('Nodalix Menu QA activated'))
+    app.add_action(action)
+    disabled=Gio.SimpleAction.new('qa-disabled',None);disabled.set_enabled(False);app.add_action(disabled)
+    items=Gio.Menu();items.append('QA command','app.qa-command');items.append('QA disabled','app.qa-disabled')
+    menu=Gio.Menu();menu.append_submenu('QA',items);app.set_menubar(menu)
+    win.show_all();win.present()
+app.connect('activate',activate);app.run()
+"""
+                menus=subprocess.Popen([sys.executable,'-c',menu_fixture],env=env,stdout=log,stderr=log)
+                menubar="Main.extensionManager.lookup('global-menu@unmade.space').stateObj._menubar"
+                try:
+                    for attempt in range(100):
+                        if evaluate(f'{menubar}._native.hasMenus()'):break
+                        time.sleep(.1)
+                    else:raise AssertionError('Real GTK menu was not exported to the global bar')
+                    tree=evaluate(f'{menubar}._cache._entries.get({menubar}._targetKey)')
+                    assert any(item.get('label')=='QA' for item in tree),tree
+                    evaluate(f"{menubar}._onTreeReceived([{{label:'Stale reply'}}],'not-the-focused-window'); true")
+                    assert evaluate(f'{menubar}._native.hasMenus()')
+                    action=evaluate(f"(() => {{const b={menubar},tree=b._cache._entries.get(b._targetKey);return tree.flatMap(n=>n.children??[]).find(n=>n.label==='QA command')?.key;}})()")
+                    assert action,tree
+                    assert any(item.get('label')=='QA disabled' and item.get('enabled') is False for top in tree for item in top.get('children',[])),tree
+                    evaluate(f'{menubar}._proxy.ActivateMenuItem({json.dumps(action)}); true')
+                    for attempt in range(40):
+                        if evaluate("global.get_window_actors().some(a=>a.meta_window.get_title()==='Nodalix Menu QA activated')"):break
+                        time.sleep(.05)
+                    else:raise AssertionError('Global menu did not invoke the real GTK action')
+                    (args.evidence/'global-menu.json').write_text(json.dumps({'gtk3_native_export':True,'real_action_invoked':True,'disabled_state_preserved':True,'stale_window_reply_ignored':True},indent=2))
+                finally:
+                    menus.terminate();menus.wait(timeout=5)
                 app=subprocess.Popen([sys.executable,'-c',fixture],env=env,stdout=log,stderr=log)
                 try:
                     for attempt in range(30):

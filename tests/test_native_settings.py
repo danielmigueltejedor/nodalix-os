@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import subprocess
 import unittest
+import tempfile
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -12,6 +13,12 @@ settings = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(settings)
 
 class NativeSettingsTests(unittest.TestCase):
+    def setUp(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        state = patch.dict(settings.os.environ, {'XDG_STATE_HOME':folder.name})
+        state.start()
+        self.addCleanup(state.stop)
     def test_invalid_operation_never_launches_worker(self):
         service = settings.SettingsService()
         with patch.object(settings.threading, 'Thread') as worker:
@@ -43,7 +50,7 @@ class NativeSettingsTests(unittest.TestCase):
             def __enter__(self): return self
             def __exit__(self,*args): pass
             def wait(self): return 1 if self.command == ['failure'] else 0
-        with patch.object(settings.subprocess,'Popen',side_effect=Process):
+        with patch.object(settings.subprocess,'Popen',side_effect=Process), patch.object(service,'critical_versions',side_effect=[{'linux':'1'}, {'linux':'2'}]):
             service._run([('apps',[['failure']]),('system',[['success']])])
         state=json.loads(service.snapshot())
         self.assertFalse(state['busy'])

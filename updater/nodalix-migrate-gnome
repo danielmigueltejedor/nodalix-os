@@ -6,7 +6,7 @@ REPO='danielmigueltejedor/nodalix-os'
 
 def select_bridge(manifest):
     version=manifest.get('version','')
-    if manifest.get('schema_version')!=1 or not isinstance(version,str) or not re.fullmatch(r'0\.3\.\d+',version):raise ValueError('Se necesita un manifiesto GNOME de 0.3.0 o posterior')
+    if manifest.get('schema_version')!=1 or not isinstance(version,str) or not re.fullmatch(r'0\.[34]\.\d+',version):raise ValueError('Se necesita un manifiesto GNOME de la serie 0.3 o 0.4')
     entries=[c for c in manifest.get('components',[]) if c.get('package')=='nodalix-updater']
     if len(entries)!=1:raise ValueError('No se encuentra un actualizador único')
     entry=entries[0]
@@ -64,7 +64,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix='nodalix-gnome-') as temp:
         folder=Path(temp)
         version_path=Path(__file__).resolve().parents[1]/'VERSION'
-        version=version_path.read_text().strip() if version_path.is_file() else '0.3.1'
+        version=version_path.read_text().strip() if version_path.is_file() else '0.4.0'
         base=f'https://github.com/{REPO}/releases/download/{version}/'
         try:
             with urllib.request.urlopen(base+'nodalix-manifest.json',timeout=30) as source:raw=source.read();manifest=json.loads(raw)

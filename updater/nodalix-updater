@@ -92,6 +92,11 @@ class BusyError(UpdaterError):
     status = "update_busy"
 
 
+class IdentityError(UpdaterError):
+    code = "identity_invalid"
+    status = "identity_invalid"
+
+
 class MigrationFailedError(UpdaterError):
     code = "migration_failed"
     status = "migration_failed"
@@ -279,7 +284,17 @@ def release_data() -> dict[str, str]:
 
 
 def current_version() -> str:
-    return release_data().get("VERSION_ID", "0.0.0")
+    try:
+        version = release_data().get("VERSION_ID", "")
+        if not VERSION_PATTERN.fullmatch(version) or version == "0.0.0":
+            raise ValueError("missing or invalid VERSION_ID")
+        return version
+    except (OSError, UnicodeError, ValueError) as error:
+        raise IdentityError(
+            "No se puede verificar la versión instalada de Nodalix. "
+            "Revisa /etc/nodalix-release y el paquete nodalix-release; "
+            "reinstala ese paquete desde una fuente verificada antes de actualizar."
+        ) from error
 
 
 def canonical_version(value: str) -> str:
@@ -1349,6 +1364,10 @@ def do_update(config: dict, force: bool = False, assets_dir: Path | None = None)
                 destination.unlink(missing_ok=True)
                 raise IntegrityError(f"SHA-256 incorrecto para {component['asset']}")
             packages.append(str(destination))
+        # The opt-in recovery policy is shared with native system updates.
+        # Take protection before dependencies or migrations can change the system.
+        if Path('/var/lib/nodalix-recovery/automatic').exists():
+            subprocess.run(['/usr/bin/nodalix-recovery', 'pre-update'], check=True)
         prepare_gnome_dependencies(packages, target_version)
         set_status(
             "migrating",
@@ -1566,8 +1585,9 @@ def main() -> int:
     channel.add_argument("name", nargs="?", choices=VALID_CHANNELS)
     channel.add_argument("--json", action="store_true")
     args = parser.parse_args()
-    current = current_version()
+    current = None
     try:
+        current = current_version()
         config = load_config()
         if args.command == "info":
             emit(

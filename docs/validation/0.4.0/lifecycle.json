@@ -1,0 +1,39 @@
+{
+  "quick_settings_before": 22,
+  "quick_settings_after": 22,
+  "secondary_bars": 1,
+  "enable_disable_cycles": 3,
+  "workareas": [
+    {
+      "monitor": [
+        0,
+        0,
+        1280,
+        720
+      ],
+      "work": [
+        0,
+        32,
+        1280,
+        688
+      ]
+    },
+    {
+      "monitor": [
+        1280,
+        0,
+        1280,
+        720
+      ],
+      "work": [
+        1280,
+        32,
+        1280,
+        688
+      ]
+    }
+  ],
+  "monitor_reconfiguration": true,
+  "fullscreen_hide_restore": true,
+  "scale_2_supported_and_tested": false
+}

@@ -1,5 +1,5 @@
 pkgname=nodalix-settings
-pkgver=0.3.1
+pkgver=0.4.0
 pkgrel=1
 pkgdesc="Native Nodalix updates, animated wallpaper controls and GNOME branding"
 arch=("any")
@@ -11,6 +11,7 @@ source=("nodalix-settings-$pkgver.tar.zst")
 sha256sums=("SKIP")
 package() {
   install -Dm644 "$srcdir/gnome/settings/wallpaper_poster.py" "$pkgdir/usr/lib/nodalix/wallpaper_poster.py"
+  install -Dm644 "$srcdir/gnome/settings/update_state.py" "$pkgdir/usr/lib/nodalix/update_state.py"
   install -Dm755 "$srcdir/gnome/settings/sync-login-background" "$pkgdir/usr/lib/nodalix/sync-login-background"
   install -Dm755 "$srcdir/gnome/settings/service.py" "$pkgdir/usr/lib/nodalix/settings-service"
   install -Dm755 "$srcdir/gnome/settings/updates-privileged" "$pkgdir/usr/lib/nodalix/updates-privileged"

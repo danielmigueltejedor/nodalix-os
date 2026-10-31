@@ -12,7 +12,7 @@
     </key>
     <key name="max-windows" type="i">
       <range min="0" max="64"/>
-      <default>0</default>
+      <default>4</default>
       <summary>Maximum tiled windows per workspace and monitor (0 means unlimited)</summary>
     </key>
     <key name="close-window" type="as">

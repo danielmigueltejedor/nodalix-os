@@ -6,7 +6,7 @@ import sys
 root=Path(sys.argv[1]);source=Path(__file__).resolve().parent
 if 'cc_nodalix_updates_page' in (root/'panels/system/cc-system-panel.c').read_text():
     raise SystemExit('Already patched')
-for name in ['cc-nodalix-pages.h','cc-nodalix-pages.c','cc-nodalix-localsend.c']:
+for name in ['cc-nodalix-pages.h','cc-nodalix-pages.c','cc-nodalix-localsend.c','cc-nodalix-diagnostics.c']:
     shutil.copy2(source/name,root/'panels/system'/name)
 p=root/'panels/system/meson.build';t=p.read_text().replace("  'cc-system-panel.c',","  'cc-system-panel.c',\n  'cc-nodalix-pages.c',\n  'cc-nodalix-localsend.c',");t=t.replace("deps = common_deps + [", "deps = common_deps + [\n  dependency('json-glib-1.0'),");p.write_text(t)
 p=root/'panels/system/cc-system-panel.c';t=p.read_text().replace('#include "cc-system-panel.h"','#include "cc-system-panel.h"\n#include "cc-nodalix-pages.h"')
@@ -14,6 +14,9 @@ t=t.replace('    g_type_ensure (CC_TYPE_ABOUT_PAGE);','    g_type_ensure (CC_TYP
 t=t.replace('    cc_panel_add_static_subpage (CC_PANEL (self), "about", CC_TYPE_ABOUT_PAGE);','    cc_panel_add_static_subpage (CC_PANEL (self), "updates", CC_TYPE_NODALIX_UPDATES_PAGE);\n    cc_panel_add_static_subpage (CC_PANEL (self), "about", CC_TYPE_ABOUT_PAGE);')
 t=t.replace('show_software_updates_group (self));','FALSE);')
 p.write_text(t)
+p=root/'panels/system/meson.build';p.write_text(p.read_text().replace("  'cc-nodalix-pages.c',", "  'cc-nodalix-pages.c',\n  'cc-nodalix-diagnostics.c',"))
+p=root/'panels/system/cc-system-panel.c';t=p.read_text().replace('    g_type_ensure (CC_TYPE_NODALIX_UPDATES_PAGE);','    g_type_ensure (CC_TYPE_NODALIX_UPDATES_PAGE);\n    g_type_ensure (CC_TYPE_NODALIX_DIAGNOSTICS_PAGE);')
+t=t.replace('    cc_panel_add_static_subpage (CC_PANEL (self), "updates", CC_TYPE_NODALIX_UPDATES_PAGE);','    cc_panel_add_static_subpage (CC_PANEL (self), "diagnostics", CC_TYPE_NODALIX_DIAGNOSTICS_PAGE);\n    cc_panel_add_static_subpage (CC_PANEL (self), "updates", CC_TYPE_NODALIX_UPDATES_PAGE);');p.write_text(t)
 p=root/'panels/system/cc-system-panel.blp';t=p.read_text().replace('        $CcListRow about_row {','''        $CcListRow {
           title: "Actualizaciones";
           subtitle: "Nodalix, aplicaciones, programas y kernel";
@@ -24,6 +27,15 @@ p=root/'panels/system/cc-system-panel.blp';t=p.read_text().replace('        $CcL
         }
 
         $CcListRow about_row {''');p.write_text(t)
+p.write_text(p.read_text().replace('        $CcListRow about_row {','''        $CcListRow {
+          title: "Diagnóstico del sistema";
+          subtitle: "Versiones, pantallas, memoria y servicios";
+          icon-name: "dialog-information-symbolic";
+          show-arrow: true;
+          action-name: "navigation.push";
+          action-target: "'diagnostics'";
+        }
+        $CcListRow about_row {'''))
 for name in ['cc-nodalix-background.c','cc-nodalix-background.h']:
     shutil.copy2(source/name,root/'panels/background'/name)
 p=root/'panels/background/meson.build';t=p.read_text().replace("  'cc-background-chooser.c',","  'cc-background-chooser.c',\n  'cc-nodalix-background.c',")

@@ -1,0 +1,9 @@
+{
+  "unit_integration_tests": 237,
+  "result": "passed",
+  "date": "2026-10-31",
+  "native_shell": "GNOME Shell 51.1",
+  "session": "private Wayland, two virtual 1280x720 monitors",
+  "full_os_upgrade_vm": "not yet run for 0.4.0",
+  "iso": "not built or published for 0.4.0"
+}

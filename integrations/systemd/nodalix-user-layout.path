@@ -2,6 +2,10 @@
 Description=Follow system locale changes
 [Path]
 PathChanged=/etc/locale.conf
+PathChanged=%h/.config/user-dirs.dirs
+PathChanged=%h
+PathChanged=%h/Documentos
+PathChanged=%h/Documents
 Unit=nodalix-user-layout.service
 [Install]
 WantedBy=default.target

@@ -120,6 +120,8 @@ def status(info):
 
 def execute(args):
     info = root_info()
+    if args.action == 'pre-update' and (not supported(info) or not (STATE / 'automatic').exists()):
+        return {'snapshot_created':False, 'reason':'unsupported-filesystem' if not supported(info) else 'protection-not-enabled'}
     if args.action == 'refresh':
         return status(info)
     current = json.loads(CONFIG.read_text()) if CONFIG.exists() else {}
@@ -147,18 +149,19 @@ def execute(args):
             if automatic and time.time() - automatic[0]['created'] < 86400:
                 return status(info)
     atomic_json(CONFIG, configuration, 0o600)
-    if args.action in ('create', 'scheduled'):
+    if args.action in ('create', 'scheduled', 'pre-update'):
         enough_space()
         preserve_boot()
         run('timeshift', '--create', '--btrfs', '--comments',
-            'Nodalix automatic' if args.action == 'scheduled' else 'Nodalix manual',
+            'Nodalix pre-update' if args.action == 'pre-update' else 'Nodalix automatic' if args.action == 'scheduled' else 'Nodalix manual',
             '--tags', 'O', '--scripted')
         updated = status(info)
         if not any(s['name'] not in {old['name'] for old in existing} for s in updated['snapshots']):
             raise RuntimeError('Timeshift did not produce a new snapshot.')
         # Only prune Nodalix automatic snapshots, after a successful replacement.
-        if args.action == 'scheduled':
-            automatic = [s for s in updated['snapshots'] if s['description'] == 'Nodalix automatic']
+        if args.action in ('scheduled', 'pre-update'):
+            description = 'Nodalix pre-update' if args.action == 'pre-update' else 'Nodalix automatic'
+            automatic = [s for s in updated['snapshots'] if s['description'] == description]
             for old in automatic[3:]:
                 run('timeshift', '--delete', '--snapshot', old['name'], '--scripted', '--yes')
     elif args.action == 'delete':
@@ -187,7 +190,7 @@ def execute(args):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=['status', 'refresh', 'create', 'delete', 'restore', 'schedule', 'scheduled'])
+    parser.add_argument('action', choices=['status', 'refresh', 'create', 'delete', 'restore', 'schedule', 'scheduled', 'pre-update'])
     parser.add_argument('value', nargs='?', default='')
     parser.add_argument('--confirm', action='store_true')
     args = parser.parse_args()

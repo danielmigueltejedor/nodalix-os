@@ -1,16 +1,17 @@
 pkgname=nodalix-integrations
-pkgver=0.3.1
+pkgver=0.4.0
 pkgrel=1
 pkgdesc="Nodalix desktop services independent of the compositor"
 arch=("any")
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-depends=("python" "python-gobject" "evolution-data-server" "xdg-user-dirs" "rclone" "fuse3" "openssl" "fish" "vdirsyncer" "gtk3" "desktop-file-utils")
+depends=("python" "python-gobject" "evolution-data-server" "xdg-user-dirs" "rclone" "fuse3" "openssl" "fish" "vdirsyncer" "gtk3" "desktop-file-utils" "zram-generator")
 optdepends=("keyd: optional Super copy/paste/cut remapping" "gamemode: automatic performance requests for Steam games" "xorg-xprop: native Steam window association" "python-xlib: native GNOME frames for Craft applications" "openlogi: optional Logitech device agent")
 source=("nodalix-integrations-$pkgver.tar.zst")
 sha256sums=("SKIP")
 
 package() {
+    install -Dm644 "$srcdir/integrations/assets/zram-generator.conf" "$pkgdir/usr/lib/systemd/zram-generator.conf"
     for helper in steam-auto-gamemode steam-desktop-sync; do
         install -Dm755 "$srcdir/integrations/scripts/$helper.py" "$pkgdir/usr/bin/$helper"
     done
@@ -23,7 +24,7 @@ package() {
     for unit in steam-auto-gamemode.service steam-desktop-sync.timer nodalix-craft-gnome.service; do
         ln -s "../$unit" "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants/$unit"
     done
-    for helper in user-layout app-icons calendar-bridge security-status keyboard-remap organize-apps icloud-renovar; do
+    for helper in user-layout app-icons calendar-bridge security-status keyboard-remap organize-apps icloud-renovar icloud-configured diagnostics; do
         install -Dm755 "$srcdir/integrations/scripts/nodalix-${helper}.py" "$pkgdir/usr/bin/nodalix-${helper}"
     done
     install -Dm755 "$srcdir/integrations/scripts/nodalix-icloud-apply-icon.fish" "$pkgdir/usr/bin/nodalix-icloud-apply-icon"

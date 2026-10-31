@@ -19,8 +19,9 @@
     "uuid": "nodalix-connect@getnodalia.com",
     "version": 2,
     "files": {
-      "extension.js": "64a2d3d4b8ca3f11b65b06c91180c11adf36f63994027a134b83286d2e89c010",
-      "metadata.json": "d9715b7326e4b2f1afb2d69f59ee76eb698d2586c5fc44b266e5508ed61581e5"
+      "extension.js": "9eeda62501d30469074617b8905fe5e7ae242c3bee5c3a63cd013642c6530233",
+      "metadata.json": "d9715b7326e4b2f1afb2d69f59ee76eb698d2586c5fc44b266e5508ed61581e5",
+      "notifications.js": "e7956ab258c7677a8dd77790013b4b89894e827fdb2c3a136c47229606390150"
     }
   },
   {

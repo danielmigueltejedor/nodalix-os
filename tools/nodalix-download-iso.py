@@ -52,7 +52,7 @@ def download_iso(manifest,base_url,output=None):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--version',default='0.3.1')
+    parser.add_argument('--version',default='0.4.0')
     parser.add_argument('--output',type=Path)
     args=parser.parse_args()
     if not re.fullmatch(r'[0-9]+\.[0-9]+\.[0-9]+(?:-(?:beta|rc)\.[0-9.]+)?',args.version):raise ValueError('Versión no válida')

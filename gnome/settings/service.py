@@ -12,6 +12,7 @@ import time
 from gi.repository import Gio, GLib
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from wallpaper_poster import poster_for, sync_login
+import update_state
 
 BUS = 'com.nodalix.Settings'
 PATH = '/com/nodalix/Settings'
@@ -226,21 +227,32 @@ class SettingsService:
                       'log': '', 'checked_at': '', 'reboot_required': False,
                       'sources': [{'kind': k, 'title': TITLES[k], 'detail': '' if self.available(k) else 'No instalado', 'available': self.available(k)} for k in KINDS]}
         self.connection = None
+        self._pending_emit = False
+        self._last_persist = 0
+        self.boot_id = Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+        self.state_path = Path(os.environ.get('XDG_STATE_HOME',str(Path.home()/'.local/state')))/'nodalix/updates/last-operation.json'
+        self.state.update(phase='idle', reboot_reason='')
+        self.state.update(update_state.restore(self.state_path, self.boot_id))
 
     def available(self, kind):
         return bool(program({'nodalix':'nodalix-updater', 'system':'pacman', 'apps':'nodalix-apps',
                              'flatpak':'flatpak', 'firmware':'fwupdmgr'}[kind]))
 
     def changed(self):
-        if self.connection:
-            GLib.idle_add(self._emit)
+        with self.lock:
+            if self.connection and not self._pending_emit:
+                self._pending_emit = True
+                GLib.timeout_add(100, self._emit)
 
     def _emit(self):
+        with self.lock:
+            self._pending_emit = False
         self.connection.emit_signal(None, PATH, INTERFACE, 'Changed', None)
         return GLib.SOURCE_REMOVE
 
     def snapshot(self):
         with self.lock:
+            self.state['identity'] = update_state.identity_label()
             pending = Path('/run/nodalix-updater/reboot-required').exists()
             self.state['reboot_mandatory'] = pending
             if pending:
@@ -251,8 +263,28 @@ class SettingsService:
 
     def append_log(self, text):
         with self.lock:
-            self.state['log'] = (self.state['log'] + text)[-24000:]
+            self.state['log'] = (self.state['log'] + update_state.sanitize(text))[-24000:]
+            if time.monotonic() - self._last_persist >= 1:
+                self.persist()
         self.changed()
+
+    def persist(self):
+        with self.lock:
+            try: update_state.save(self.state_path, self.state)
+            except OSError as error: print('No se pudo guardar el registro: '+str(error), file=sys.stderr)
+            self._last_persist = time.monotonic()
+
+    def critical_versions(self):
+        try:
+            result = subprocess.run(['/usr/bin/pacman','-Q'],capture_output=True,text=True,timeout=15)
+            if result.returncode: return None
+            critical = {'systemd','glibc','gnome-shell','mutter','linux','linux-lts','linux-zen','linux-hardened'}
+            for pkgbase in Path('/usr/lib/modules').glob('*/pkgbase'):
+                try: critical.add(pkgbase.read_text().strip())
+                except OSError: pass
+            return {row.split()[0]:row.split()[1] for row in result.stdout.splitlines()
+                    if len(row.split())==2 and row.split()[0] in critical}
+        except (OSError,subprocess.SubprocessError): return None
 
     def start(self, target):
         if target not in KINDS and target != 'all':
@@ -265,7 +297,8 @@ class SettingsService:
             tasks = [k for k in KINDS if self.available(k)] if target == 'all' else [target]
             # Validate the entire plan before launching or requesting authentication.
             plans = [(k, update_commands(k)) for k in tasks]
-            self.state.update(busy=True, log='', message='Preparando actualización')
+            self.state.update(busy=True, log='', phase='installing', message='Preparando actualización')
+        self.persist()
         self.changed()
         threading.Thread(target=self._run, args=(plans,), daemon=True).start()
 
@@ -273,6 +306,7 @@ class SettingsService:
         errors = []
         try:
             for kind, commands in plans:
+                before = self.critical_versions() if kind=='system' else {}
                 with self.lock:
                     self.state['message'] = 'Actualizando '+TITLES[kind]
                 self.append_log('\n'+self.state['message']+'\n')
@@ -289,27 +323,36 @@ class SettingsService:
                             raise RuntimeError(f'La operación terminó con código {code}')
                     except (OSError, RuntimeError) as error:
                         self.append_log(str(error)+'\n')
-                        errors.append(TITLES[kind])
+                        errors.append(TITLES[kind]+': '+update_state.failure_hint(self.state['log']))
                         successful = False
                         break
-                if successful and kind == 'system':
+                after = self.critical_versions() if kind=='system' else {}
+                changed = [name for name in before.keys() | after.keys() if before.get(name)!=after.get(name)] if before is not None and after is not None else []
+                if kind=='system' and (before is None or after is None):
+                    self.append_log('No se pudo verificar qué paquetes críticos cambiaron. Comprueba si necesitas reiniciar.\n')
+                if changed:
                     with self.lock:
                         self.state['reboot_required'] = True
+                        self.state['reboot_boot_id'] = self.boot_id
+                        self.state['reboot_reason'] = 'Paquetes del sistema cambiados: '+', '.join(sorted(changed))
         finally:
             with self.lock:
                 self.state['busy'] = False
+                self.state['phase'] = 'failed' if errors else 'reboot-required' if self.state['reboot_required'] else 'completed'
                 self.state['message'] = ('No se completó: '+', '.join(errors)) if errors else 'Actualizaciones completadas'
+            self.persist()
             self.changed()
 
     def check(self):
         with self.lock:
             if self.state['busy'] or self.state['checking']:
                 raise ValueError('Ya hay una operación en curso')
-            self.state.update(checking=True, message='Buscando actualizaciones')
+            self.state.update(checking=True, phase='checking', message='Buscando actualizaciones')
         self.changed()
         threading.Thread(target=self._check, daemon=True).start()
 
     def _check(self):
+        errors = []
         try:
             for row in self.state['sources']:
                 kind = row['kind']
@@ -320,6 +363,8 @@ class SettingsService:
                         if kind == 'nodalix':
                             result = subprocess.run([program('nodalix-updater'),'check','--json'],capture_output=True,text=True,timeout=90)
                             data = json.loads(result.stdout)
+                            if result.returncode:
+                                raise ValueError(data.get('message') or data.get('error') or 'No se pudo comprobar Nodalix')
                             detail = data.get('message') or data.get('status', 'Comprobado')
                             if data.get('update_available'):
                                 detail = 'Nueva versión: '+str(data.get('latest_version') or data.get('version'))
@@ -329,6 +374,7 @@ class SettingsService:
                             if result.returncode not in (0,2):
                                 raise ValueError(result.stderr.strip() or 'No se pudieron consultar los repositorios')
                             count = len(result.stdout.splitlines())
+                            row['packages'] = update_state.package_updates(result.stdout)
                             detail = f'{count} paquetes disponibles' + ('' if checker else ' (base de datos local)')
                         elif kind == 'flatpak':
                             result = subprocess.run([program('flatpak'),'remote-ls','--updates','--columns=application'],capture_output=True,text=True,timeout=60)
@@ -337,20 +383,25 @@ class SettingsService:
                             detail = f'{len(result.stdout.splitlines())} aplicaciones disponibles'
                         elif kind == 'firmware':
                             result = subprocess.run([program('fwupdmgr'),'get-updates','--json'],capture_output=True,text=True,timeout=45)
-                            detail = 'Consulta completada' if result.returncode == 0 else 'Sin actualizaciones disponibles' if result.returncode == 2 else 'No se pudo consultar el firmware'
+                            if result.returncode not in (0,2):raise ValueError('No se pudo consultar el firmware')
+                            detail = 'Consulta completada' if result.returncode == 0 else 'Sin actualizaciones disponibles'
                         else:
                             detail = 'Actualiza las aplicaciones gestionadas por Nodalix Apps'
                     except (OSError, ValueError, subprocess.SubprocessError) as error:
                         detail = 'No se pudo comprobar: '+str(error)[:220]
+                        errors.append(TITLES[kind])
+                        row.pop('packages',None)
                 with self.lock:
                     row['detail'] = detail
                 self.changed()
             with self.lock:
                 self.state['checked_at'] = time.strftime('%H:%M')
-                self.state['message'] = 'Comprobación terminada · '+self.state['checked_at']
+                self.state['message'] = ('No se pudo comprobar: '+', '.join(errors) if errors else 'Comprobación terminada')+' · '+self.state['checked_at']
         finally:
             with self.lock:
                 self.state['checking'] = False
+                self.state['phase'] = 'failed' if errors else 'idle'
+            self.persist()
             self.changed()
 
     def extension(self, method):
