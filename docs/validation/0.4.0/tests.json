@@ -25,5 +25,17 @@
   "application_folder_integration": true,
   "calendar_agenda_cap": "12em",
   "default_appearance": "Native GNOME with Blur My Shell; added Global Menu/window effects disabled",
-  "three_monitor_native_menus": true
+  "three_monitor_native_menus": true,
+  "calendar_limit_uses_native_viewport": true,
+  "calendar_agenda_events": [
+    36,
+    72
+  ],
+  "calendar_agenda_pixels": 175,
+  "calendar_popup_pixels": 600,
+  "official_blur_my_shell": 77,
+  "upstream_source_unmodified": true,
+  "legacy_corner_effects_removed_by_upstream_migration": true,
+  "test_with_actual_blur_preferences": true,
+  "secondary_panel_destroyed_notification_handlers_fixed": true
 }

@@ -3,14 +3,14 @@
     "width": 362,
     "height": 62,
     "clip": [
-      458,
-      653,
-      364,
-      64
+      459,
+      654,
+      362,
+      62
     ],
     "origin": [
-      1281,
-      0.421875
+      1280,
+      0
     ],
     "target": [
       1739,
@@ -31,11 +31,11 @@
   "independent_background_allocation": {
     "width": 181,
     "clip": [
-      458,
-      653,
-      183,
-      60
+      459,
+      654,
+      181,
+      58
     ]
   },
-  "restored_clip_width": 364
+  "restored_clip_width": 362
 }

@@ -65,6 +65,15 @@ def main():
                 prefs=Gio.Settings.new_full(local.lookup(row['schema'],False),None,None)
                 for key,value in row['values'].items():prefs.set_value(key,GLib.Variant.parse(None,value,None,None))
                 if row['uuid']=='dash-to-dock@micxgx.gmail.com':dock=prefs
+        blur_preferences=os.environ.get('NODALIX_QA_BLUR_SETTINGS')
+        if blur_preferences and not args.greeter:
+            source=Gio.SettingsSchemaSource.new_from_directory(str(extensions/'blur-my-shell@aunetx/schemas'),Gio.SettingsSchemaSource.get_default(),False)
+            for name,values in json.loads(Path(blur_preferences).read_text()).items():
+                schema=source.lookup(name,False)
+                if not schema:continue
+                prefs=Gio.Settings.new_full(schema,None,None)
+                for key,value in values.items():
+                    if schema.has_key(key):prefs.set_value(key,GLib.Variant.parse(None,value,None,None))
         if not args.greeter:
             binaries=home/'bin';binaries.mkdir()
             daemon=binaries/'global-menu'
@@ -117,6 +126,9 @@ def main():
                     print('GNOME 51 greeter: own background actors enabled on both monitors')
                     return 0
                 before=evaluate('Main.panel.statusArea.quickSettings.menu._grid.get_children().length')
+                blur_pipelines=evaluate('Object.fromEntries(Object.entries(global.blur_my_shell._pipelines_manager.pipelines).map(([key,p])=>[key,p.effects.map(e=>e.type)]))')
+                assert all('corner' not in types for types in blur_pipelines.values()),blur_pipelines
+                (args.evidence/'official-blur-pipelines.json').write_text(json.dumps(blur_pipelines,indent=2))
                 if not args.alternatives:
                     # Inspect the very first desktop appearance, before any
                     # hide/show cycle can repair a stale startup blur clip.
@@ -126,29 +138,29 @@ def main():
                     else:raise AssertionError('Native startup animation did not finish')
                     evaluate('Main.overview.hide();true')
                     for _ in range(100):
-                        if evaluate('global.blur_my_shell._dash_to_dock_blur.dashes.every(d=>d.dash.opacity===255&&d.dash.translation_x===0&&d.dash.translation_y===0&&d.dash_container._slider.slide_x===1)'):break
+                        if evaluate('global.blur_my_shell._dash_to_dock_blur.dashes.filter(d=>d.dash_container._slider).every(d=>d.dash.opacity===255&&d.dash.translation_x===0&&d.dash.translation_y===0&&d.dash_container._slider.slide_x===1)'):break
                         time.sleep(.05)
                     else:raise AssertionError('Native dock did not finish its initial appearance')
                     time.sleep(.6)  # Native icon-size transitions finish after the slide.
-                    cold_dock=evaluate("global.blur_my_shell._dash_to_dock_blur.dashes.map(d=>({width:d.dash_background.width,height:d.dash_background.height,clip:d.background.has_clip?d.background.get_clip():null,origin:d.background.get_transformed_position(),target:d.dash_background.get_transformed_position(),static:d.dash_blur.is_static,configured:d.settings.dash_to_dock.STATIC_BLUR,container:[d.dash_container.x,d.dash_container.y,d.dash_container.width,d.dash_container.height,d.dash_container.translation_x,d.dash_container.translation_y],tracked:!!d.dash_background_allocation_id}))")
+                    cold_dock=evaluate("global.blur_my_shell._dash_to_dock_blur.dashes.filter(d=>d.dash_container._slider).map(d=>({width:d.dash_background.width,height:d.dash_background.height,clip:d.background.has_clip?d.background.get_clip():null,origin:d.background.get_transformed_position(),target:d.dash_background.get_transformed_position(),static:d.dash_blur.is_static??d.settings.dash_to_dock.STATIC_BLUR,configured:d.settings.dash_to_dock.STATIC_BLUR,container:[d.dash_container.x,d.dash_container.y,d.dash_container.width,d.dash_container.height,d.dash_container.translation_x,d.dash_container.translation_y],tracked:!!d.connections}))")
                     assert len(cold_dock)==args.monitors,cold_dock
                     assert all(d['tracked'] and d['clip'] and d['width']>0 and d['height']>0 and d['clip'][2]>=d['width']-.5 and d['clip'][3]>=d['height']-.5 for d in cold_dock),cold_dock
-                    assert all(abs(d['origin'][1]+d['clip'][1]-d['target'][1]+1)<1 for d in cold_dock),cold_dock
+                    assert all(abs(d['origin'][1]+d['clip'][1]-d['target'][1])<1 for d in cold_dock),cold_dock
                     (args.evidence/'dock-first-frame.json').write_text(json.dumps(cold_dock,indent=2))
-                    evaluate("(() => {const d=global.blur_my_shell._dash_to_dock_blur.dashes[0];global._qaDockBackgroundBox=d.dash_background.get_allocation_box().copy();const b=global._qaDockBackgroundBox.copy();b.x2=b.x1+b.get_width()/2;d.dash_background.allocate(b);return true;})()")
+                    evaluate("(() => {const d=global.blur_my_shell._dash_to_dock_blur.dashes.filter(d=>d.dash_container._slider)[0];global._qaDockBackgroundBox=d.dash_background.get_allocation_box().copy();const b=global._qaDockBackgroundBox.copy();b.x2=b.x1+b.get_width()/2;d.dash_background.allocate(b);return true;})()")
                     time.sleep(.15)
-                    resized=evaluate("(() => {const d=global.blur_my_shell._dash_to_dock_blur.dashes[0];return {width:d.dash_background.width,clip:d.background.get_clip()};})()")
+                    resized=evaluate("(() => {const d=global.blur_my_shell._dash_to_dock_blur.dashes.filter(d=>d.dash_container._slider)[0];return {width:d.dash_background.width,clip:d.background.get_clip()};})()")
                     assert resized['width']<cold_dock[0]['width']*.75,resized
-                    assert abs(resized['clip'][2]-resized['width']-2)<1,resized
-                    evaluate('global.blur_my_shell._dash_to_dock_blur.dashes[0].dash_background.allocate(global._qaDockBackgroundBox);delete global._qaDockBackgroundBox;true')
+                    assert abs(resized['clip'][2]-resized['width'])<1,resized
+                    evaluate('global.blur_my_shell._dash_to_dock_blur.dashes.filter(d=>d.dash_container._slider)[0].dash_background.allocate(global._qaDockBackgroundBox);delete global._qaDockBackgroundBox;true')
                     time.sleep(.15)
-                    restored=evaluate('global.blur_my_shell._dash_to_dock_blur.dashes[0].background.get_clip()[2]')
+                    restored=evaluate('global.blur_my_shell._dash_to_dock_blur.dashes.filter(d=>d.dash_container._slider)[0].background.get_clip()[2]')
                     assert abs(restored-cold_dock[0]['clip'][2])<1,restored
                     (args.evidence/'dock-background-allocation.json').write_text(json.dumps({'initial':cold_dock[0],'independent_background_allocation':resized,'restored_clip_width':restored},indent=2))
-                    evaluate('global.blur_my_shell._dash_to_dock_blur.dashes[0].dash.translation_y=30;true');time.sleep(.15)
-                    translated=evaluate('(() => {const d=global.blur_my_shell._dash_to_dock_blur.dashes[0];return {clip:d.background.get_clip(),origin:d.background.get_transformed_position(),target:d.dash_background.get_transformed_position()};})()')
-                    assert abs(translated['origin'][1]+translated['clip'][1]-translated['target'][1]+1)<1,translated
-                    evaluate('global.blur_my_shell._dash_to_dock_blur.dashes[0].dash.translation_y=0;true');time.sleep(.15)
+                    evaluate('global.blur_my_shell._dash_to_dock_blur.dashes.filter(d=>d.dash_container._slider)[0].dash.translation_y=30;true');time.sleep(.15)
+                    translated=evaluate('(() => {const d=global.blur_my_shell._dash_to_dock_blur.dashes.filter(d=>d.dash_container._slider)[0];return {clip:d.background.get_clip(),origin:d.background.get_transformed_position(),target:d.dash_background.get_transformed_position()};})()')
+                    assert abs(translated['origin'][1]+translated['clip'][1]-translated['target'][1])<1,translated
+                    evaluate('global.blur_my_shell._dash_to_dock_blur.dashes.filter(d=>d.dash_container._slider)[0].dash.translation_y=0;true');time.sleep(.15)
                     (args.evidence/'dock-startup-translation.json').write_text(json.dumps(translated,indent=2))
                     evaluate("import(Main.extensionManager.lookup('multi-monitors-bar@frederykabryan').dir.get_uri()+'/extension.js').then(m=>global._qaMM=m);true")
                     time.sleep(.3)
@@ -186,6 +198,30 @@ def main():
                     assert evaluate('Main.panel.statusArea.dateMenu.container.get_parent()===Main.panel._centerBox')
                     panel_geometry=evaluate(f'({{primary:Main.panel.height,secondary:{secondary}.height,primary_clock_in_native_center:true}})')
                     (args.evidence/'secondary-native-menus.json').write_text(json.dumps({'provider':'multi-monitors-bar','roles':roles,'blur':blur,'menus':menus,'closed_popup_animation':regression,'panel_geometry':panel_geometry,'primary_quick_settings_unchanged':True},indent=2))
+                    # Exercise real native EventsSection objects with long and
+                    # asynchronously growing agendas on every monitor.
+                    evaluate("import('resource:///org/gnome/shell/ui/calendar.js').then(m=>global._qaCalendar=m);true")
+                    time.sleep(.1)
+                    evaluate("global._qaAgendaClass=imports.gi.GObject.registerClass(class QAAgenda extends global._qaCalendar.EmptyEventSource {get hasCalendars(){return true;} getEvents(begin,end){if(!begin)return [];return Array.from({length:this._eventCount??36},(_,i)=>({id:'qa-'+i,summary:'Agenda QA '+i,date:new Date(begin.getTime()+i*1200000),end:new Date(begin.getTime()+(i+1)*1200000)}));}});true")
+                    agendas=[]
+                    for monitor_index in range(args.monitors):
+                        date='Main.panel.statusArea.dateMenu' if monitor_index==0 else f'global._qaMM.mmPanel[{monitor_index-1}].statusArea.dateMenu'
+                        evaluate(f"(() => {{const d={date};global._qaOriginalEvents=d._eventsItem._eventSource;global._qaAgenda=new global._qaAgendaClass();d._eventsItem.setEventSource(global._qaAgenda);d.menu.open();return true;}})()")
+                        time.sleep(.6)
+                        geometry=f"(() => {{const d={date},s=d._displaysSection;return {{events:d._eventsItem._eventsList.get_n_children(),viewport:s.height,content:s.vadjustment.upper,page:s.vadjustment.page_size,popup:d.menu.actor.height}};}})()"
+                        agenda=evaluate(geometry)
+                        assert agenda['events']==36 and agenda['viewport']<=200 and agenda['popup']<=620,agenda
+                        assert agenda['content']>agenda['page'],agenda
+                        evaluate("global._qaAgenda._eventCount=72;global._qaAgenda.emit('changed');true")
+                        time.sleep(.4)
+                        late=evaluate(geometry)
+                        assert late['events']==72 and late['viewport']<=200 and late['popup']<=620,late
+                        assert late['content']>agenda['content'],late
+                        evaluate(f"(() => {{const a={date}._displaysSection.vadjustment;a.value=a.upper-a.page_size;return true;}})()")
+                        assert evaluate(f'{date}._displaysSection.vadjustment.value')>0
+                        agendas.append({'monitor':monitor_index,'initial':agenda,'late_events':late,'last_events_reachable':True})
+                        evaluate(f'{date}._eventsItem.setEventSource(global._qaOriginalEvents);{date}.menu.close();true')
+                    (args.evidence/'long-calendar-agenda.json').write_text(json.dumps(agendas,indent=2))
                     if args.panels_only:
                         print('Native secondary menus and first-appearance dock geometry passed')
                         return 0

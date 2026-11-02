@@ -1,0 +1,56 @@
+[
+  {
+    "monitor": 0,
+    "initial": {
+      "events": 36,
+      "viewport": 175,
+      "content": 1827,
+      "page": 175,
+      "popup": 600
+    },
+    "late_events": {
+      "events": 72,
+      "viewport": 175,
+      "content": 3483,
+      "page": 175,
+      "popup": 600
+    },
+    "last_events_reachable": true
+  },
+  {
+    "monitor": 1,
+    "initial": {
+      "events": 36,
+      "viewport": 175,
+      "content": 1827,
+      "page": 175,
+      "popup": 597
+    },
+    "late_events": {
+      "events": 72,
+      "viewport": 175,
+      "content": 3483,
+      "page": 175,
+      "popup": 597
+    },
+    "last_events_reachable": true
+  },
+  {
+    "monitor": 2,
+    "initial": {
+      "events": 36,
+      "viewport": 175,
+      "content": 1827,
+      "page": 175,
+      "popup": 597
+    },
+    "late_events": {
+      "events": 72,
+      "viewport": 175,
+      "content": 3483,
+      "page": 175,
+      "popup": 597
+    },
+    "last_events_reachable": true
+  }
+]

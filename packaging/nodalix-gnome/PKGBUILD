@@ -1,12 +1,12 @@
 pkgname=nodalix-gnome
 pkgver=0.4.0
-pkgrel=6
+pkgrel=7
 pkgdesc="GNOME Shell, GDM and native desktop integration for Nodalix"
 arch=("any")
 install=nodalix-gnome.install
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-depends=("cups" "cups-pk-helper" "python-dbus" "python-xlib" "python-gobject" "gnome-shell>=1:51" "gnome-shell<1:52" "mutter>=51" "mutter<52" "gnome-rounded-blur" "xdg-terminal-exec" "gnome-session" "gdm" "nodalix-control-center" "nodalix-settings" "nodalix-video-wallpapers" "gnome-settings-daemon" "gnome-keyring" "ghostty" "adwaita-fonts" "gnome-contacts" "gnome-maps" "gnome-weather" "papers" "showtime" "snapshot" "gnome-calculator" "gnome-clocks" "baobab" "gnome-text-editor" "gnome-online-accounts" "gnome-calendar" "gvfs" "gvfs-mtp" "gvfs-smb" "networkmanager" "bluez" "bluez-utils" "bluez-obex" "pipewire-pulse" "wireplumber" "rtkit" "power-profiles-daemon" "nautilus" "nautilus-python" "libsoup3" "zenity" "libnotify" "xdg-desktop-portal" "xdg-desktop-portal-gnome" "xdg-desktop-portal-gtk" "nodalix-integrations>=0.3.0")
+depends=("cups" "cups-pk-helper" "python-dbus" "python-xlib" "python-gobject" "gnome-shell>=1:51" "gnome-shell<1:52" "mutter>=51" "mutter<52" "xdg-terminal-exec" "gnome-session" "gdm" "nodalix-control-center" "nodalix-settings" "nodalix-video-wallpapers" "gnome-settings-daemon" "gnome-keyring" "ghostty" "adwaita-fonts" "gnome-contacts" "gnome-maps" "gnome-weather" "papers" "showtime" "snapshot" "gnome-calculator" "gnome-clocks" "baobab" "gnome-text-editor" "gnome-online-accounts" "gnome-calendar" "gvfs" "gvfs-mtp" "gvfs-smb" "networkmanager" "bluez" "bluez-utils" "bluez-obex" "pipewire-pulse" "wireplumber" "rtkit" "power-profiles-daemon" "nautilus" "nautilus-python" "libsoup3" "zenity" "libnotify" "xdg-desktop-portal" "xdg-desktop-portal-gnome" "xdg-desktop-portal-gtk" "nodalix-integrations>=0.3.0")
 provides=("nodalix-shell=$pkgver")
 conflicts=("nodalix-shell" "nodalix-greeter-theme" "nodalix-hymission" "nodalix-wallpaper-engine")
 replaces=("nodalix-shell" "nodalix-greeter-theme" "nodalix-hymission" "nodalix-wallpaper-engine")

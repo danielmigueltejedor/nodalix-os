@@ -26,6 +26,7 @@ export class NativeNotifications {
         this._oldAreaStyle = this._area.get_style();
         this._oldDisplayStyle = this._date._displaysSection.get_style();
         this._oldDisplayPolicy = this._date._displaysSection.vscrollbar_policy;
+        this._oldDisplayLayout = [this._date._displaysSection.y_expand, this._date._displaysSection.y_align];
         this._oldLayout = [this._list.y_expand, this._list.y_align,
             this._list._scrollView.y_expand, this._list._scrollView.y_align,
             this._list._scrollView.hscrollbar_policy, this._list._scrollView.vscrollbar_policy];
@@ -78,6 +79,8 @@ export class NativeNotifications {
         this._connect(St.ThemeContext.get_for_stage(global.stage), 'notify::scale-factor', () => this._height());
         this._connect(this._list._scrollView.vadjustment, 'notify::upper', () => this._height());
         this._connect(this._list._scrollView, 'notify::width', () => this._height());
+        this._connect(this._date._displaysSection.vadjustment, 'notify::upper', () => this._height());
+        this._connect(this._date._displaysSection, 'notify::width', () => this._height());
         this._connect(this._view, 'notify::empty', () => this._height());
         this._connect(this._date.menu, 'open-state-changed', (_menu, open) => { if (open) this._refresh(); });
         this._refresh();
@@ -99,7 +102,21 @@ export class NativeNotifications {
             this._date._displaysSection.set_style(`${this._oldDisplayStyle ?? ''}; max-height: 12em;`);
             this._popupLimit = popupLimit;
         }
-        this._date._displaysSection.vscrollbar_policy = St.PolicyType.AUTOMATIC;
+        const agenda = this._date._displaysSection;
+        agenda.vscrollbar_policy = St.PolicyType.AUTOMATIC;
+        agenda.y_expand = false;
+        agenda.y_align = Clutter.ActorAlign.START;
+        // A blur extension can replace inline styles. Constrain the native
+        // viewport itself, including when calendar events arrive asynchronously.
+        const font = agenda.get_theme_node().get_font();
+        const dpi = St.ThemeContext.get_for_stage(global.stage).get_resolution();
+        const em = font.get_size() / 1024 *
+            (font.get_size_is_absolute() ? 1 : (dpi > 0 ? dpi : 96) / 72);
+        const agendaLimit = Math.max(1, Math.floor(Math.min(area.height * 0.30, em * 12)));
+        const agendaContent = agenda.get_child()?.get_preferred_height(agenda.width || -1)[1] ?? 0;
+        const agendaHeight = Math.min(agendaLimit, agendaContent);
+        if (Math.abs(agenda.height - agendaHeight) > 0.5)
+            agenda.set_height(agendaHeight);
         // Leave room for the popup padding and the native controls outside the scroller.
         const height = Math.max(1, Math.floor(area.height * 0.65 / scale));
         if (this._maxHeight !== height) {
@@ -149,6 +166,8 @@ export class NativeNotifications {
         if (this._date?._displaysSection) {
             this._date._displaysSection.set_style(this._oldDisplayStyle);
             this._date._displaysSection.vscrollbar_policy = this._oldDisplayPolicy;
+            this._date._displaysSection.set_height(-1);
+            [this._date._displaysSection.y_expand, this._date._displaysSection.y_align] = this._oldDisplayLayout;
         }
         this._list?._scrollView.set_style(this._oldStyle);
         this._list?._scrollView.set_height(-1);

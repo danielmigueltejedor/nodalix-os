@@ -8,9 +8,9 @@
     },
     {
       "name": "nodalix-gnome",
-      "version": "0.4.0-6",
-      "file": "nodalix-gnome-0.4.0-6-any.pkg.tar.zst",
-      "sha256": "a365c338b3177fbe859c486a9234060afd0266fd62746992316df179bfd84963"
+      "version": "0.4.0-7",
+      "file": "nodalix-gnome-0.4.0-7-any.pkg.tar.zst",
+      "sha256": "726c538548ff8a2fa7e39962c284b31d69f8a6b8afc6ea9d80440df4ec0da8aa"
     },
     {
       "name": "nodalix-integrations",

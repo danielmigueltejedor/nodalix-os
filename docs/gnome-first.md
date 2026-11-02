@@ -213,14 +213,18 @@ antiguo exacto se archiva; los launchers personales distintos se conservan.
 
 ## Mutter, blur y extensiones
 
-`gnome-rounded-blur` procede de `kancko/gnome-rounded-blur`, commit
-`c0d67c886ac0b54fedaddf75817e85264d16322e`, con `libmutter-51`,
-`mutter-clutter-51` y `mutter-cogl-51`. Los paquetes requieren Mutter 51 y
-GNOME Shell 51 y excluyen 52. Una actualización de versión mayor exige revisar
-el código, cambiar los límites ABI y volver a ejecutar compilación y pruebas de
-Shell/GDM. Un conflicto ABI falla explícitamente, en lugar de cargar una librería
-compilada para otra versión. Blur My Shell detecta el soporte real en runtime;
-Nodalix no fuerza `rounded-blur-found=true`.
+Blur My Shell 77 se distribuye tal como está publicado en GNOME Extensions,
+versión de archivo 77413, sin parches de Nodalix. El origen, SHA-256 y hashes de
+cada archivo constan en `gnome/extensions/snapshots.json`. Esta versión admite
+GNOME 51 y no requiere la antigua biblioteca `gnome-rounded-blur`. Su migración
+oficial elimina los efectos manuales de esquinas de las configuraciones antiguas;
+Nodalix no añade efectos ni modifica los shaders de la extensión.
+
+La agenda se limita mediante el tamaño solicitado del viewport nativo. Un estilo
+CSS no basta porque otra extensión puede reconstruirlo y la columna del calendario
+puede solicitar más altura. El límite se recalcula al abrir y al llegar eventos,
+con desplazamiento nativo y el mismo comportamiento en cada monitor. Las pruebas
+usan 36 eventos y otros 36 recibidos con el popup abierto.
 
 Los schemas privados se cargan desde el directorio de cada extensión con
 `Gio.SettingsSchemaSource`. El Dock inferior usa autohide e intellihide,

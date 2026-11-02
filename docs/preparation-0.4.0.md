@@ -114,7 +114,7 @@ monitors. Shell module replacement requires a new login.
 The dock blur follows the actual background allocation and startup translations.
 Private GNOME 51 tests exercise the first appearance before hide/show, both native
 menus, preserved primary Quick Settings, hidden blur surfaces, monitor changes,
-manual tiling and native shortcuts. Packages: nodalix-gnome 0.4.0-6 and
+manual tiling and native shortcuts. Packages: nodalix-gnome 0.4.0-7 and
 nodalix-integrations 0.4.0-2.
 
 Application folders discover publisher namespaces and ArtCraft metadata rather
@@ -128,3 +128,24 @@ and added window-corner effects are opt-in and are disabled by the development
 candidate repair. Nodalix no longer seeds custom blur pipelines or brightness;
 only its previously imposed brightness preset and popup cache are reset, while
 custom pipeline choices remain. Two- and three-monitor native menu tests pass.
+
+## Calendar agenda and official Blur My Shell
+
+The earlier CSS-only agenda limit did not survive popup restyling. The native
+scroll viewport now requests at most 12em (bounded by 30% of the monitor work
+area), recalculates when events arrive and retains scrolling. Private GNOME tests
+exercise 36 events followed by 72 on every monitor: the agenda stays 175 px and
+the complete popup 600 px at the tested default font and 720 px monitor height.
+
+Blur My Shell 77 is copied byte-for-byte from the published GNOME Extensions
+archive (version tag 77413, SHA-256 recorded with source file hashes). The old
+modified copy, shader compatibility code and subpixel geometry hacks are removed.
+Its official preference migration removes manual corner effects from legacy
+pipelines, so those added panel effects do not return at login. The native panel,
+menu controllers and Tiling Assistant remain. Secondary panel teardown drops
+notification-source handlers and ignores deferred blur registrations for panels
+that no longer exist.
+
+The complete private GNOME tests also load this PC's actual blur preferences in
+an isolated session; no real calendar events, windows or personal screenshots are
+committed. Replacing already loaded Shell modules requires a new login.

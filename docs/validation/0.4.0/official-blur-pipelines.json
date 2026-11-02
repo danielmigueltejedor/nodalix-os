@@ -1,0 +1,36 @@
+{
+  "pipeline_default": [
+    "dual_kawase_blur"
+  ],
+  "pipeline_default_rounded": [
+    "dual_kawase_blur"
+  ],
+  "pipeline_448cd606-1687-4b91-a73a-a4ba49e855f7": [
+    "dual_kawase_blur"
+  ],
+  "pipeline_11f1d962-c386-43ac-b640-a102221bef8f": [
+    "dual_kawase_blur"
+  ],
+  "pipeline_migrated_dynamic_blur": [
+    "dual_kawase_blur"
+  ],
+  "pipeline_liquid_glass": [
+    "luminosity",
+    "refraction",
+    "noise"
+  ],
+  "pipeline_vapor_glass": [
+    "luminosity",
+    "wave",
+    "refraction",
+    "noise"
+  ],
+  "pipeline_classic_light_background": [
+    "dual_kawase_blur",
+    "color"
+  ],
+  "pipeline_classic_dark_background": [
+    "dual_kawase_blur",
+    "color"
+  ]
+}
