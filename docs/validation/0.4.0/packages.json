@@ -8,15 +8,15 @@
     },
     {
       "name": "nodalix-gnome",
-      "version": "0.4.0-4",
-      "file": "nodalix-gnome-0.4.0-4-any.pkg.tar.zst",
-      "sha256": "b916a50b6e689b161f741946a10fc8c34dc50665a9fb3a679c432350bae56adf"
+      "version": "0.4.0-5",
+      "file": "nodalix-gnome-0.4.0-5-any.pkg.tar.zst",
+      "sha256": "ad329faac5bc004ddcc40e5175b8a2159e447c6515a647967be1141d3befa504"
     },
     {
       "name": "nodalix-integrations",
-      "version": "0.4.0-1",
-      "file": "nodalix-integrations-0.4.0-1-any.pkg.tar.zst",
-      "sha256": "940f6a2eabdec1c2976a14197a3d882d141ebaeaeefb7a451d246e74e1522cb7"
+      "version": "0.4.0-2",
+      "file": "nodalix-integrations-0.4.0-2-any.pkg.tar.zst",
+      "sha256": "c0a34579b8b1438bc9e4df3cbf1583f144a12ef067086010f2788b69c13aa8dc"
     },
     {
       "name": "nodalix-settings",

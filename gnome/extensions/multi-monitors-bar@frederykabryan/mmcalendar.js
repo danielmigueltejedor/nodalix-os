@@ -959,9 +959,20 @@ var MultiMonitorsDateMenuButton = (() => {
             const workArea = layoutManager.getWorkAreaForMonitor(monitorIndex);
             const scaleFactor = St.ThemeContext.get_for_stage(global.stage).scale_factor;
             const verticalMargins = this.menu.actor.margin_top + this.menu.actor.margin_bottom;
-            const maxHeight = Math.round((workArea.height - verticalMargins) / scaleFactor);
+            const maxHeight = Math.floor((workArea.height * 0.88 - verticalMargins) / scaleFactor);
 
             this.menu.actor.style = `max-height: ${maxHeight}px;`;
+            const list = this._messageList?._scrollView;
+            if (list) {
+                list.y_expand = false;
+                list.y_align = Clutter.ActorAlign.START;
+                list.set_style(`max-height: ${Math.floor(workArea.height * 0.65 / scaleFactor)}px;`);
+                list.vscrollbar_policy = St.PolicyType.AUTOMATIC;
+            }
+            if (this._displaysSection) {
+                this._displaysSection.set_style('max-height: 12em;');
+                this._displaysSection.vscrollbar_policy = St.PolicyType.AUTOMATIC;
+            }
         }
 
         // Fallback methods if not copied from upstream

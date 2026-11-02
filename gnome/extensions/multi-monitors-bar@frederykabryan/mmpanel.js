@@ -1080,8 +1080,8 @@ const MultiMonitorsPanel = GObject.registerClass(
         _updatePanel() {
             if (!this._settings)
                 return;
-            this._hideIndicators();
-
+            // Reconcile only changed roles. Hiding an unchanged native source
+            // closes its popup and can strand Blur My Shell's closing surface.
             // Clone ALL indicators from main panel instead of just the default ones
             this._cloneAllMainPanelIndicators();
 
@@ -1304,6 +1304,10 @@ MultiMonitorsPanel.prototype._ensureQuickSettingsRightmost = function () {
     // Move/add to be the last item in the right box
     const container = indicator.container ? indicator.container : indicator;
     const parent = container.get_parent();
+    if (parent === this._rightBox && this._rightBox.get_last_child() === container) {
+        this._showDateTime();
+        return;
+    }
     if (parent) parent.remove_child(container);
     this._addToPanelBox(role, indicator, this._rightBox.get_n_children(), this._rightBox);
     this._showDateTime();

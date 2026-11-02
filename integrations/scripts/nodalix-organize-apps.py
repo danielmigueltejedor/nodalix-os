@@ -1,303 +1,151 @@
 #!/usr/bin/env python3
+"""Keep native GNOME app folders current without editing installed launchers."""
 from pathlib import Path
-import ast
 import configparser
-import subprocess
-
-HOME = Path.home()
-
-APP_DIRS = [
-    Path("/usr/share/applications"),
-    Path("/usr/local/share/applications"),
-    Path("/var/lib/flatpak/exports/share/applications"),
-    HOME / ".local/share/flatpak/exports/share/applications",
-    HOME / ".local/share/applications",
-]
+import json
+import os
 
 FOLDERS = {
-    "nodalix-craft": ["ArtCraft", []],
-    "engineering": ["Ingeniería", []],
-    "internet": ["Internet", []],
-    "office": ["Oficina", []],
-    "multimedia": ["Multimedia", []],
-    "development": ["Desarrollo", []],
-    "games": ["Juegos", []],
-    "settings": ["Ajustes", []],
-    "hardware": ["Hardware", []],
-    "administration": ["Administración", []],
-    "utilities": ["Utilidades", []],
-    "other": ["Otros", []],
+    'nodalix-craft':'ArtCraft', 'engineering':'Ingeniería', 'internet':'Internet',
+    'office':'Oficina', 'multimedia':'Multimedia', 'development':'Desarrollo',
+    'games':'Juegos', 'science':'Ciencia y educación', 'settings':'Ajustes',
+    'hardware':'Hardware', 'administration':'Administración',
+    'utilities':'Utilidades', 'other':'Otros',
 }
-
-CRAFT_NAMES = (
-    "photocraft", "vectorcraft", "filmcraft", "lightcraft", "pdfcraft",
-    "effectcraft", "designcraft", "wordcraft", "deckcraft", "gridcraft",
-    "cadcraft", "soundcraft",
-)
-CRAFT = {
-    f"{publisher}.{name}.desktop"
-    for publisher in ("ai.storyteller", "com.storytold")
-    for name in CRAFT_NAMES
-} | {"ai.storyteller.artcraft-launcher.desktop"}
-
-
-ENGINEERING_PATTERNS = {
-    "matlab",
-    "simulink",
-    "octave",
-    "paraview",
-    "opencad",
-    "freecad",
-    "openscad",
-    "gmsh",
-    "salome",
-    "ansys",
-    "comsol",
-    "openfoam",
-}
-
-entries = {}
-
-# /usr -> /usr/local -> ~/.local, de forma que el usuario tenga prioridad
-for directory in APP_DIRS:
-    if not directory.exists():
-        continue
-    for path in directory.glob("*.desktop"):
-        entries[path.name] = path
+CRAFT_PUBLISHERS = ('ai.storyteller.', 'com.storytold.', 'io.tangencylabs.')
+ENGINEERING_PATTERNS = ('matlab','simulink','octave','paraview','opencad','freecad',
+    'openscad','gmsh','salome','ansys','comsol','openfoam')
 
 
 def read_entry(path):
-    cp = configparser.ConfigParser(
-        interpolation=None,
-        strict=False,
-    )
-    cp.optionxform = str
-
+    parser=configparser.ConfigParser(interpolation=None,strict=False)
+    parser.optionxform=str
     try:
-        cp.read(path, encoding="utf-8")
-        if "Desktop Entry" not in cp:
-            return None
-        return cp["Desktop Entry"]
-    except Exception:
-        return None
+        parser.read(path,encoding='utf-8')
+        return dict(parser['Desktop Entry']) if parser.has_section('Desktop Entry') else None
+    except (OSError,UnicodeError,configparser.Error):return None
 
 
-for desktop_id, path in sorted(entries.items()):
-    e = read_entry(path)
-
-    if e is None:
-        continue
-
-    if e.get("Type", "Application") != "Application":
-        continue
-
-    if e.get("Hidden", "false").lower() == "true":
-        continue
-
-    if e.get("NoDisplay", "false").lower() == "true":
-        continue
-
-    name = e.get("Name", "")
-    exec_cmd = e.get("Exec", "")
-
-    searchable = " ".join([
-        desktop_id,
-        name,
-        exec_cmd,
-    ]).lower()
-
-    categories = {
-        value
-        for value in e.get("Categories", "").split(";")
-        if value
-    }
-
-    # Craft siempre tiene prioridad.
-    if desktop_id in CRAFT:
-        FOLDERS["nodalix-craft"][1].append(desktop_id)
-        continue
-
-    # Software científico/técnico.
-    if any(word in searchable for word in ENGINEERING_PATTERNS):
-        FOLDERS["engineering"][1].append(desktop_id)
-        continue
-
-    # Enlace móvil es una utilidad, no una carpeta Nodalix.
-    if (
-        desktop_id == "com.nodalix.PhoneLink.desktop"
-        or name.lower() in {"enlace móvil", "phone link"}
-    ):
-        FOLDERS["utilities"][1].append(desktop_id)
-        continue
-
-    # Gestores de sesiones.
-    if desktop_id == "com.pojtinger.felicitas.Sessions.desktop" or name.lower() in {"sesiones", "sessions"}:
-        FOLDERS["utilities"][1].append(desktop_id)
-        continue
-
-    if "Game" in categories:
-        FOLDERS["games"][1].append(desktop_id)
-        continue
-
-    if categories & {"Development", "IDE", "TextEditor"}:
-        FOLDERS["development"][1].append(desktop_id)
-        continue
-
-    if categories & {
-        "Office",
-        "Spreadsheet",
-        "WordProcessor",
-        "Presentation",
-        "Calendar",
-    }:
-        FOLDERS["office"][1].append(desktop_id)
-        continue
-
-    if categories & {
-        "Network",
-        "WebBrowser",
-        "Email",
-        "InstantMessaging",
-        "Chat",
-        "FileTransfer",
-    }:
-        FOLDERS["internet"][1].append(desktop_id)
-        continue
-
-    if categories & {
-        "HardwareSettings",
-        "X-GNOME-HardwareSettings",
-    }:
-        FOLDERS["hardware"][1].append(desktop_id)
-        continue
-
-    if "Settings" in categories:
-        FOLDERS["settings"][1].append(desktop_id)
-        continue
-
-    if categories & {
-        "System",
-        "PackageManager",
-        "Monitor",
-    }:
-        FOLDERS["administration"][1].append(desktop_id)
-        continue
-
-    if categories & {
-        "AudioVideo",
-        "Audio",
-        "Video",
-        "Graphics",
-        "Photography",
-        "Player",
-        "Recorder",
-    }:
-        FOLDERS["multimedia"][1].append(desktop_id)
-        continue
-
-    if "Utility" in categories:
-        FOLDERS["utilities"][1].append(desktop_id)
-        continue
-
-    FOLDERS["other"][1].append(desktop_id)
+def classify(desktop_id,entry):
+    categories=set(filter(None,entry.get('Categories','').split(';')))
+    identity=desktop_id.casefold()
+    # Publisher namespaces and suite metadata cover new tools without a fixed
+    # product-name list. An unrelated game containing "craft" stays a game.
+    if (identity.startswith(CRAFT_PUBLISHERS)
+            or entry.get('X-ArtCraft-App','').lower()=='true'
+            or categories & {'ArtCraft','X-ArtCraft'}):
+        return 'nodalix-craft'
+    searchable=' '.join((desktop_id,entry.get('Name',''),entry.get('Exec',''))).casefold()
+    if any(word in searchable for word in ENGINEERING_PATTERNS) or 'Engineering' in categories:
+        return 'engineering'
+    if desktop_id=='com.nodalix.PhoneLink.desktop' or entry.get('Name','').casefold() in {'enlace móvil','phone link','sesiones','sessions'}:
+        return 'utilities'
+    rules=[
+        ('games',{'Game'}), ('development',{'Development','IDE'}),
+        ('hardware',{'HardwareSettings','X-GNOME-HardwareSettings'}),
+        ('settings',{'Settings'}),
+        ('office',{'Office','Spreadsheet','WordProcessor','Presentation','Calendar'}),
+        ('internet',{'Network','WebBrowser','Email','InstantMessaging','Chat','FileTransfer'}),
+        ('science',{'Education','Science','Math','Physics','Chemistry','Astronomy','Biology'}),
+        ('multimedia',{'AudioVideo','Audio','Video','Graphics','Photography','Player','Recorder'}),
+        ('administration',{'System','PackageManager','Monitor'}),
+        ('utilities',{'Utility','TextEditor','Accessibility'}),
+    ]
+    return next((folder for folder,values in rules if categories & values),'other')
 
 
-# No mostrar carpetas vacías.
-FOLDERS = {
-    key: value
-    for key, value in FOLDERS.items()
-    if value[1]
-}
+def app_directories(home):
+    data=Path(os.environ.get('XDG_DATA_HOME',str(home/'.local/share')))
+    roots=[Path(value) for value in os.environ.get('XDG_DATA_DIRS','/usr/local/share:/usr/share').split(':') if value]
+    # Lowest to highest precedence; user launchers can hide/override a package.
+    ordered=[root/'applications' for root in reversed(roots)]
+    system_flatpak=Path('/var/lib/flatpak/exports/share/applications')
+    user_flatpak=home/'.local/share/flatpak/exports/share/applications'
+    if system_flatpak not in ordered:ordered.insert(0,system_flatpak)
+    if user_flatpak not in ordered:ordered.append(user_flatpak)
+    return [folder for folder in ordered if folder!=data/'applications']+[data/'applications']
 
-# El organizador es dueño de estas carpetas.
-old_managed = [
-    "nodalix-craft",
-    "nodalix",
-    "engineering",
-    "internet",
-    "office",
-    "multimedia",
-    "development",
-    "games",
-    "settings",
-    "hardware",
-    "administration",
-    "utilities",
-    "other",
-]
 
-try:
-    current = ast.literal_eval(
-        subprocess.check_output(
-            [
-                "gsettings",
-                "get",
-                "org.gnome.desktop.app-folders",
-                "folder-children",
-            ],
-            text=True,
-        ).strip()
-    )
-except Exception:
-    current = []
+def collect(directories):
+    from gi.repository import Gio,GLib
+    result={}
+    for folder in directories:
+        if not folder.is_dir():continue
+        for path in sorted(folder.rglob('*.desktop')):
+            desktop_id='-'.join(path.relative_to(folder).parts)
+            result[desktop_id]=path
+    visible={}
+    for desktop_id,path in result.items():
+        entry=read_entry(path)
+        if not entry or entry.get('Type','Application')!='Application' or any(entry.get(key,'false').lower()=='true' for key in ('Hidden','NoDisplay')):continue
+        try:info=Gio.DesktopAppInfo.new_from_filename(str(path))
+        except (TypeError,GLib.Error):continue
+        if not info or not info.should_show():continue
+        visible[desktop_id]=entry
+    return visible
 
-# Conservar carpetas creadas manualmente que no gestiona Nodalix.
-custom = [
-    folder
-    for folder in current
-    if folder not in old_managed
-]
 
-children = list(FOLDERS.keys()) + custom
+def organize(home=None,directories=None):
+    from gi.repository import Gio,GLib
+    home=Path(home or Path.home())
+    entries=collect(directories or app_directories(home))
+    settings=Gio.Settings.new('org.gnome.desktop.app-folders')
+    current=list(settings.get_strv('folder-children'))
+    managed=set(FOLDERS)|{'nodalix'}
+    custom=[folder for folder in current if folder not in managed]
+    folders={folder:Gio.Settings.new_with_path('org.gnome.desktop.app-folders.folder',
+        '/org/gnome/desktop/app-folders/folders/'+folder+'/') for folder in current}
+    # A native user folder remains authoritative for its own explicit apps and
+    # category rules; suite membership is the user's explicit ArtCraft policy.
+    reserved=set()
+    for folder in custom:
+        prefs=folders[folder]
+        excluded=set(prefs.get_strv('excluded-apps'))
+        reserved.update(set(prefs.get_strv('apps'))-excluded)
+        categories=set(prefs.get_strv('categories'))
+        reserved.update(app for app,entry in entries.items()
+            if app not in excluded and categories.intersection(entry.get('Categories','').split(';')))
+    groups={folder:[] for folder in FOLDERS}
+    for app,entry in entries.items():
+        folder=classify(app,entry)
+        if app not in reserved or folder=='nodalix-craft':groups[folder].append(app)
+    groups={key:sorted(set(apps)) for key,apps in groups.items() if apps}
+    snapshot={folder:{key:prefs.get_value(key).unpack() for key in ('name','translate','apps','categories','excluded-apps')}
+        for folder,prefs in folders.items()}
+    state=Path(os.environ.get('XDG_STATE_HOME',str(home/'.local/state')))/'nodalix/app-folders'
+    state.mkdir(parents=True,exist_ok=True,mode=0o700)
+    backup=state/'before-040-dynamic.json'
+    if not backup.exists():
+        backup.write_text(json.dumps({'children':current,'folders':snapshot},ensure_ascii=False,indent=2)+'\n')
+        backup.chmod(0o600)
+    for folder,apps in groups.items():
+        prefs=folders.get(folder) or Gio.Settings.new_with_path('org.gnome.desktop.app-folders.folder',
+            '/org/gnome/desktop/app-folders/folders/'+folder+'/')
+        values={'name':GLib.Variant('s',FOLDERS[folder]),'translate':GLib.Variant('b',False),
+            'categories':GLib.Variant('as',[]),'apps':GLib.Variant('as',apps),
+            'excluded-apps':GLib.Variant('as',[])}
+        for key,value in values.items():
+            if prefs.get_value(key)!=value:prefs.set_value(key,value)
+    # Prevent native custom category folders from displaying a suite app twice.
+    suite=set(groups.get('nodalix-craft',[]))
+    for folder in custom:
+        prefs=folders[folder];apps=prefs.get_strv('apps')
+        retained=[app for app in apps if app not in suite]
+        if retained!=apps:prefs.set_strv('apps',retained)
+        categories=set(prefs.get_strv('categories'))
+        if categories:
+            excluded=set(prefs.get_strv('excluded-apps'))
+            extra={app for app in suite if categories.intersection(entries[app].get('Categories','').split(';'))}
+            if extra-excluded:prefs.set_strv('excluded-apps',sorted(excluded|extra))
+    children=list(groups)+custom
+    if children!=current:settings.set_strv('folder-children',children)
+    Gio.Settings.sync()
+    return groups
 
-subprocess.run(
-    [
-        "gsettings",
-        "set",
-        "org.gnome.desktop.app-folders",
-        "folder-children",
-        repr(children),
-    ],
-    check=True,
-)
 
-for folder_id, (name, apps) in FOLDERS.items():
-    apps = sorted(set(apps))
+def main():
+    groups=organize()
+    for folder,apps in groups.items():print(f'{FOLDERS[folder]:20} {len(apps):3} apps')
 
-    schema = (
-        "org.gnome.desktop.app-folders.folder:"
-        f"/org/gnome/desktop/app-folders/folders/{folder_id}/"
-    )
 
-    subprocess.run(
-        ["gsettings", "set", schema, "name", repr(name)],
-        check=True,
-    )
-
-    subprocess.run(
-        ["gsettings", "set", schema, "translate", "false"],
-        check=True,
-    )
-
-    subprocess.run(
-        ["gsettings", "set", schema, "categories", "[]"],
-        check=True,
-    )
-
-    subprocess.run(
-        ["gsettings", "set", schema, "apps", repr(apps)],
-        check=True,
-    )
-
-    print(f"{name:16} {len(apps):3} apps")
-
-# Limpiar la carpeta Nodalix antigua.
-subprocess.run(
-    [
-        "dconf",
-        "reset",
-        "-f",
-        "/org/gnome/desktop/app-folders/folders/nodalix/",
-    ],
-    check=False,
-)
+if __name__=='__main__':main()

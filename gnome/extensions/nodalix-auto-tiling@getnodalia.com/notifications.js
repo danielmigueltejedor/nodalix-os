@@ -93,10 +93,10 @@ export class NativeNotifications {
         const area = global.workspace_manager.get_active_workspace().get_work_area_for_monitor(monitor.index);
         const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
         const popupLimit = Math.floor(area.height * 0.88 / scale);
-        const displayLimit = Math.floor(area.height * 0.35 / scale);
+
         if (this._popupLimit !== popupLimit) {
             this._area.set_style(`${this._oldAreaStyle ?? ''}; max-height: ${popupLimit}px;`);
-            this._date._displaysSection.set_style(`${this._oldDisplayStyle ?? ''}; max-height: ${displayLimit}px;`);
+            this._date._displaysSection.set_style(`${this._oldDisplayStyle ?? ''}; max-height: 12em;`);
             this._popupLimit = popupLimit;
         }
         this._date._displaysSection.vscrollbar_policy = St.PolicyType.AUTOMATIC;

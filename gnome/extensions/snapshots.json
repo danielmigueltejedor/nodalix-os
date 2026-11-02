@@ -110,7 +110,7 @@
       "components/lockscreen.js": "c0fa39baa03486668cd303e2429820a6fdf21931e4ac37285356c0d503ed8330",
       "components/overview.js": "d5332b126e6cb00dc8f8d8319645d6783724edfc9545ec451f378301e0437661",
       "components/panel.js": "4871c1a15063efd527753c7cd3bdc6ba87d1f6af5e309aca619cb5880068355c",
-      "components/popup/blur_surface.js": "1085ef1743e01fc4d870d81f48d89b1e852cb28716ef86b143167e041226aca2",
+      "components/popup/blur_surface.js": "c6ed089dab173bde933fac5e44cd95ffc1f7c2d9010f8701af6949f7d830240c",
       "components/popup/index.js": "dee3b4222fbe176fb3faa021a8e5872e20d8dac7ea8e50b5ac349bc1a3b64bef",
       "components/popup/message_stacks.js": "a95faa402eb4381175e18a8cbff4085e5da85f866b278ca8e2fd5cefc72a9908",
       "components/popup/static_actor.js": "9190c82b71a811a4f94238b942644238ee2df5cc7736711719280b96f199c38f",

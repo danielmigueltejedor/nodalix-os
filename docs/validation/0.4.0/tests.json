@@ -1,11 +1,11 @@
 {
-  "unit_integration_tests": 263,
+  "unit_integration_tests": 266,
   "result": "passed",
-  "date": "2026-11-02",
+  "date": "2026-11-03",
   "native_shell": "GNOME Shell 51.1",
   "session": "private Wayland, two virtual 1280x720 monitors",
   "full_os_upgrade_vm": "not yet run for 0.4.0",
-  "iso": "not built or published for 0.4.0",
+  "iso": "959558e ISO built and locally boot-verified; fresh full validation still required for this head",
   "automatic_schedule": "mocked systemd/polkit; no host timers activated",
   "shortcut_applications": [
     "GTK4",
@@ -17,5 +17,11 @@
   "wallpaper_gpu": "Hardware 4K30 and software Theora; both monitors animate, coverage pause/reveal and Overview rounding verified",
   "secondary_native_calendar_and_quick_settings": true,
   "tiling_assistant_manual_placement": true,
-  "dock_first_appearance_and_translation": true
+  "dock_first_appearance_and_translation": true,
+  "secondary_panel_provider": "multi-monitors-bar",
+  "all_panel_blur_provider": "Blur My Shell",
+  "primary_panel_native_layout": true,
+  "hidden_popup_animation_regression": true,
+  "application_folder_integration": true,
+  "calendar_agenda_cap": "12em"
 }

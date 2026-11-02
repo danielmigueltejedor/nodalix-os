@@ -4,7 +4,7 @@ import json
 import os
 import shutil
 
-RETIRED=('nodalix-shortcuts@getnodalia.com','multi-monitors-bar@frederykabryan')
+RETIRED=('nodalix-shortcuts@getnodalia.com','nodalix-secondary-bars@getnodalia.com')
 SHADOWS=('global-menu@unmade.space','nodalix-startup-cursor@local')
 
 
@@ -37,24 +37,23 @@ def clean_extensions(home,settings,system=Path('/usr/share/gnome-shell/extension
         if target.exists():raise RuntimeError('Ya existe una copia de seguridad distinta de '+uuid)
         target.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
         shutil.move(str(folder),str(target))
-    # One provider for each feature; preferences for the surviving provider stay.
+    # Keep the existing native GNOME multi-monitor provider and user preferences.
     desired=[uuid for uuid in enabled if uuid not in RETIRED and uuid!='nodalix-login-background@getnodalia.com']
-    if 'multi-monitors-bar@frederykabryan' in enabled and 'nodalix-secondary-bars@getnodalia.com' not in desired:
-        desired.append('nodalix-secondary-bars@getnodalia.com')
+    if 'nodalix-secondary-bars@getnodalia.com' in enabled and 'multi-monitors-bar@frederykabryan' not in desired:
+        desired.append('multi-monitors-bar@frederykabryan')
     if 'nodalix-auto-tiling@getnodalia.com' not in desired:desired.append('nodalix-auto-tiling@getnodalia.com')
     settings.set_strv('enabled-extensions',desired)
     settings.set_strv('disabled-extensions',[uuid for uuid in disabled if uuid not in RETIRED])
 
 
-def apply_cached_blur():
-    from gi.repository import Gio
-    source=Gio.SettingsSchemaSource.get_default()
-    folder=Path('/usr/share/gnome-shell/extensions/blur-my-shell@aunetx/schemas')
-    if not (folder/'gschemas.compiled').is_file():return
-    local=Gio.SettingsSchemaSource.new_from_directory(str(folder),source,False)
-    for name in ('panel','popup'):
-        schema=local.lookup('org.gnome.shell.extensions.blur-my-shell.'+name,False)
-        if not schema:continue
-        prefs=Gio.Settings.new_full(schema,None,None)
-        if prefs.get_string('pipeline') in ('pipeline_default','pipeline_default_rounded'):
-            prefs.set_boolean('static-blur',True)
+def restore_native_panels(home,settings):
+    """Retire the development-only replacement and use the native panel mirror."""
+    enabled=list(settings.get_strv('enabled-extensions'))
+    old='nodalix-secondary-bars@getnodalia.com'
+    native='multi-monitors-bar@frederykabryan'
+    if old in enabled:
+        enabled=[item for item in enabled if item!=old]
+        if native not in enabled:enabled.append(native)
+        settings.set_strv('enabled-extensions',enabled)
+    disabled=settings.get_strv('disabled-extensions')
+    if old in disabled:settings.set_strv('disabled-extensions',[item for item in disabled if item!=old])

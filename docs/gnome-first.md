@@ -227,13 +227,13 @@ Los schemas privados se cargan desde el directorio de cada extensión con
 44 px, varios monitores y ocultación en fullscreen. No fuerza preferencias
 explícitas durante una actualización.
 
-`nodalix-secondary-bars@getnodalia.com` crea únicamente actores de barra con
-Actividades y reloj. La barra principal conserva Quick Settings, calendario,
-GLocalSend y Enlace móvil. No construye otro `Panel.Panel`, ni mueve indicadores.
-Los cambios de monitor, escala y altura reconstruyen las barras; chrome reserva
-workarea y respeta fullscreen. El blur propio usa Shell.BlurEffect. Las llamadas
-privadas a layoutManager están encapsuladas y protegidas por GNOME 51. No se
-incluye Top Bar All Monitors con metadata parcheada.
+`multi-monitors-bar@frederykabryan` replica el panel de GNOME en los monitores
+secundarios, con calendario y controles nativos. La barra principal conserva
+sus indicadores y distribución. Todo el desenfoque de paneles, menús y dock lo
+gestiona Blur My Shell; no hay una segunda implementación de blur ni una barra
+Nodalix de sustitución. Se conserva Tiling Assistant, sus preferencias y las
+versiones personales más recientes. El calendario limita su altura y permite
+desplazar las notificaciones en ambos monitores, aunque Phone Link esté apagado.
 
 La prueba `tools/test-gnome51-shell.py` arranca GNOME 51 headless en un HOME y
 bus privados, con dos monitores y ciclos repetidos de enable/disable. La única

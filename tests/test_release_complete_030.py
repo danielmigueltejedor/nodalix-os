@@ -44,7 +44,7 @@ class CompleteReleaseTests(unittest.TestCase):
 
     def test_every_added_extension_is_packaged_with_real_code(self):
         package = (ROOT / 'packaging/nodalix-gnome/PKGBUILD').read_text()
-        for uuid in ('global-menu@unmade.space', 'nodalix-secondary-bars@getnodalia.com',
+        for uuid in ('global-menu@unmade.space', 'multi-monitors-bar@frederykabryan',
                      'nodalix-auto-tiling@getnodalia.com'):
             self.assertIn(uuid, package)
             folder = ROOT / 'gnome/extensions' / uuid
@@ -60,6 +60,9 @@ class CompleteReleaseTests(unittest.TestCase):
         self.assertEqual(len(profile), len(set(profile)))
         self.assertFalse({'nodalix-secondary-bars@getnodalia.com',
                           'multi-monitors-bar@frederykabryan'}.issubset(profile))
+        self.assertIn('multi-monitors-bar@frederykabryan',profile)
+        self.assertNotIn('nodalix-secondary-bars@getnodalia.com',profile)
+        self.assertFalse((ROOT/'gnome/extensions/nodalix-secondary-bars@getnodalia.com').exists())
         self.assertIn('tiling-assistant@leleat-on-github',profile)
         self.assertIn('tiling-assistant@leleat-on-github',
                       (ROOT/'packaging/nodalix-gnome/PKGBUILD').read_text())
@@ -76,7 +79,7 @@ class CompleteReleaseTests(unittest.TestCase):
         self.assertIn('icloud-apple-official.svg', package)
         organizer = (ROOT / 'integrations/scripts/nodalix-organize-apps.py').read_text()
         self.assertIn('ai.storyteller', organizer)
-        self.assertIn('cadcraft', organizer)
+        self.assertIn('io.tangencylabs.', organizer)
         desktop = (ROOT / 'integrations/assets/com.nodalix.iCloudAccess.desktop').read_text()
         self.assertIn('Icon=icloud-apple-official', desktop)
         self.assertNotIn('/home/daniel', desktop)

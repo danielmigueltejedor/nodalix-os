@@ -91,7 +91,7 @@
 }
 
 /* Padding for mirrored indicators (e.g., Vitals extension) */
-.panel-status-menu-box {
+.multimonitor-panel .panel-status-menu-box {
     padding: 0px 2px;
     min-height: 24px;
 }

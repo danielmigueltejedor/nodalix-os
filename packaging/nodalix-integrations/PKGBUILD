@@ -1,12 +1,12 @@
 pkgname=nodalix-integrations
 pkgver=0.4.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Nodalix desktop services independent of the compositor"
 arch=("any")
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
 depends=("python" "python-gobject" "evolution-data-server" "xdg-user-dirs" "rclone" "fuse3" "openssl" "fish" "vdirsyncer" "gtk3" "desktop-file-utils" "zram-generator")
-optdepends=("keyd: optional Super copy/paste/cut remapping" "gamemode: automatic performance requests for Steam games" "xorg-xprop: native Steam window association" "python-xlib: native GNOME frames for Craft applications" "openlogi: optional Logitech device agent")
+optdepends=("gamemode: automatic performance requests for Steam games" "xorg-xprop: native Steam window association" "python-xlib: native GNOME frames for Craft applications" "openlogi: optional Logitech device agent")
 source=("nodalix-integrations-$pkgver.tar.zst")
 sha256sums=("SKIP")
 

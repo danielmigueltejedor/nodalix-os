@@ -77,11 +77,10 @@ def main():
         Gio.Settings.new('org.gnome.desktop.interface').set_boolean('enable-hot-corners',False)
         Gio.Settings.new('org.gnome.mutter').set_string('overlay-key','Super_L')
         Gio.Settings.new('org.gnome.desktop.input-sources').set_value('sources',GLib.Variant('a(ss)',[('xkb','es')]))
-        profile=[path.name for path in extensions.iterdir() if path.name!='multi-monitors-bar@frederykabryan']
+        profile=[path.name for path in extensions.iterdir()]
         if args.without_phone:profile=[uuid for uuid in profile if uuid!='nodalix-connect@getnodalia.com']
         if args.alternatives and not args.greeter:
-            profile=[uuid for uuid in profile if uuid not in ('nodalix-secondary-bars@getnodalia.com','nodalix-auto-tiling@getnodalia.com')]
-            profile+=['multi-monitors-bar@frederykabryan']
+            profile=[uuid for uuid in profile if uuid!='nodalix-auto-tiling@getnodalia.com']
         # Avoid competing with the receiver in the user's actual desktop.
         if not args.greeter:
             directory=extensions/'glocalsend@donnybeelo.github.com/schemas'
@@ -149,28 +148,40 @@ def main():
                     assert abs(translated['origin'][1]+translated['clip'][1]-translated['target'][1]+1)<1,translated
                     evaluate('global.blur_my_shell._dash_to_dock_blur.dashes[0].dash.translation_y=0;true');time.sleep(.15)
                     (args.evidence/'dock-startup-translation.json').write_text(json.dumps(translated,indent=2))
-                    secondary="Main.extensionManager.lookup('nodalix-secondary-bars@getnodalia.com').stateObj"
-                    roles=evaluate(f'[...{secondary}._bars[0].buttons.keys()]')
+                    evaluate("import(Main.extensionManager.lookup('multi-monitors-bar@frederykabryan').dir.get_uri()+'/extension.js').then(m=>global._qaMM=m);true")
+                    time.sleep(.3)
+                    secondary='global._qaMM.mmPanel[0]'
+                    roles=evaluate(f'Object.keys({secondary}.statusArea)')
+                    (args.evidence/'panel-source-roles.json').write_text(json.dumps(evaluate("({roles:Object.entries(Main.panel.statusArea).map(([role,a])=>({role,visible:a.visible,parent:a.get_parent()?.name,container:a.container?.name})),left:Main.panel._leftBox.get_children().map(a=>({name:a.name,visible:a.visible,children:a.get_children().map(c=>({name:c.name,visible:c.visible}))}))})"),indent=2))
                     assert all(role in roles for role in ('activities','dateMenu','quickSettings')),roles
-                    blur=evaluate(f'global.blur_my_shell._panel_blur.actors_list.filter(a=>a.widgets.panel===Main.panel||a.widgets.panel==={secondary}._bars[0].panel).map(a=>({{monitor:a.monitor.index,static:a.static_blur,background:!!a.widgets.background}}))')
-                    assert len(blur)==2 and all(row['static'] and row['background'] for row in blur),blur
+                    blur=evaluate(f'global.blur_my_shell._panel_blur.actors_list.map(a=>({{monitor:a.monitor.index,background:!!a.widgets.background}}))')
+                    assert len(blur)==2 and all(row['background'] for row in blur),blur
                     menus=[]
                     for role in ('quickSettings','dateMenu'):
-                        evaluate(f"{secondary}._bars[0].buttons.get('{role}').emit('clicked',1);true")
-                        time.sleep(.5)
-                        geometry=evaluate(f"(() => {{const menu=Main.panel.statusArea.{role}.menu,b={secondary}._bars[0].buttons.get('{role}'),m=Main.layoutManager.findMonitorForActor(b),p=menu._boxPointer.get_transformed_position(),s=menu._boxPointer.get_transformed_size();return {{open:menu.isOpen,sameSource:menu.sourceActor===b,monitor:m.index,x:p[0],y:p[1],width:s[0],height:s[1],bounds:[m.x,m.y,m.width,m.height]}};}})()")
+                        menu='Main.panel.statusArea.quickSettings.menu' if role=='quickSettings' else f'{secondary}.statusArea.dateMenu.menu'
+                        button=f'{secondary}.statusArea.{role}'
+                        evaluate(f"{button}._openQuickSettingsMenu();true" if role=='quickSettings' else f'{menu}.open();true')
+                        time.sleep(.4)
+                        evaluate(f'{secondary}._updatePanel();true')
+                        time.sleep(.4)
+                        geometry=evaluate(f"(() => {{const menu={menu},b={button},m=Main.layoutManager.findMonitorForActor(b),p=menu._boxPointer.get_transformed_position(),s=menu._boxPointer.get_transformed_size();return {{open:menu.isOpen,sameSource:menu.sourceActor===b,monitor:m.index,x:p[0],y:p[1],width:s[0],height:s[1],bounds:[m.x,m.y,m.width,m.height]}};}})()")
                         assert geometry['open'] and geometry['sameSource'],geometry
                         x,y,w,h=geometry['bounds']
                         assert x-.5<=geometry['x'] and geometry['x']+geometry['width']<=x+w+.5,geometry
                         assert y<=geometry['y'] and geometry['y']+geometry['height']<=y+h+.5,geometry
-                        if role=='quickSettings':
-                            bus.call_sync('org.gnome.Shell.Screenshot','/org/gnome/Shell/Screenshot','org.gnome.Shell.Screenshot','Screenshot',GLib.Variant('(bbs)',(False,False,str((args.evidence/'secondary-panel.png').resolve()))),None,Gio.DBusCallFlags.NONE,5000,None)
-                        evaluate(f'Main.panel.statusArea.{role}.menu.close({{animate:false}});true');time.sleep(.1)
-                        assert evaluate(f'Main.panel.statusArea.{role}.menu.sourceActor===Main.panel.statusArea.{role}'),role
-                        menus.append({'role':role,**geometry})
+                        evaluate(f'{menu}.close();true');time.sleep(.6)
+                        residue=evaluate('[...global.blur_my_shell._popup.surfaces.values()].filter(s=>!s.is_visible()&&s.actor?.visible).length')
+                        assert residue==0,residue
+                        menus.append({'role':role,**geometry,'hidden_blur_surfaces_still_visible':residue})
+                    # A descendant animation must never retain the blur after
+                    # its native parent closes (the persistent-outline regression).
+                    evaluate('Main.panel.statusArea.dateMenu.menu.open();true');time.sleep(.4)
+                    regression=evaluate("(() => {const s=[...global.blur_my_shell._popup.surfaces.values()].find(s=>s.is_visible()&&s.is_heavy_surface());if(!s)return {found:false};const old=s.transitions.get_state;s.transitions.get_state=()=>({running:true,geometry:true,opacity:false,complete:true});s.root_actor.hide();s.update();const result={found:true,visible:s.actor.visible,opacity:s.opacity};s.transitions.get_state=old;Main.panel.statusArea.dateMenu.menu.close();return result;})()")
+                    assert regression.get('found') and not regression['visible'] and regression['opacity']==0,regression
                     assert evaluate('Main.panel.statusArea.quickSettings.menu._grid.get_children().length')==before
-                    panel_geometry=evaluate(f"(() => {{const e={secondary}._bars[0];return {{primary:Main.panel.height,primaryBox:Main.layoutManager.panelBox.height,secondary:e.panel.height,secondaryBox:e.bar.height,buttons:[...e.buttons.entries()].map(([role,b])=>({{role,height:b.height,content:b.get_first_child().height,source:Main.panel.statusArea[role].height}}))}};}})()")
-                    (args.evidence/'secondary-native-menus.json').write_text(json.dumps({'roles':roles,'blur':blur,'menus':menus,'panel_geometry':panel_geometry,'primary_quick_settings_unchanged':True},indent=2))
+                    assert evaluate('Main.panel.statusArea.dateMenu.container.get_parent()===Main.panel._centerBox')
+                    panel_geometry=evaluate(f'({{primary:Main.panel.height,secondary:{secondary}.height,primary_clock_in_native_center:true}})')
+                    (args.evidence/'secondary-native-menus.json').write_text(json.dumps({'provider':'multi-monitors-bar','roles':roles,'blur':blur,'menus':menus,'closed_popup_animation':regression,'panel_geometry':panel_geometry,'primary_quick_settings_unchanged':True},indent=2))
                     if args.panels_only:
                         print('Native secondary menus and first-appearance dock geometry passed')
                         return 0
@@ -252,7 +263,7 @@ def main():
                     assert evaluate('Main.panel.statusArea.quickSettings.menu._grid.get_children().length')==before
                     print('Real GNOME 51: alternative multi-monitor bars, Tiling Assistant and Global Menu lifecycle passed')
                     return 0
-                for uuid in ('glocalsend@donnybeelo.github.com','nodalix-connect@getnodalia.com','nodalix-secondary-bars@getnodalia.com'):
+                for uuid in ('glocalsend@donnybeelo.github.com','nodalix-connect@getnodalia.com','multi-monitors-bar@frederykabryan'):
                     if uuid not in profile:continue
                     for attempt in range(3):
                         call('org.gnome.Shell.Extensions','DisableExtension',GLib.Variant('(s)',(uuid,)))
@@ -262,7 +273,7 @@ def main():
                         assert info(uuid).get('state')==1,info(uuid)
                 after=evaluate('Main.panel.statusArea.quickSettings.menu._grid.get_children().length')
                 assert after==before,(before,after)
-                bars=evaluate("Main.extensionManager.lookup('nodalix-secondary-bars@getnodalia.com').stateObj._bars.length")
+                bars=evaluate("global._qaMM.mmPanel.length")
                 assert bars==1,bars
                 workareas=evaluate('Main.layoutManager.monitors.map(m => ({monitor:[m.x,m.y,m.width,m.height],work:[global.workspace_manager.get_active_workspace().get_work_area_for_monitor(m.index).x,global.workspace_manager.get_active_workspace().get_work_area_for_monitor(m.index).y,global.workspace_manager.get_active_workspace().get_work_area_for_monitor(m.index).width,global.workspace_manager.get_active_workspace().get_work_area_for_monitor(m.index).height]}))')
                 assert all(row['work'][1]>row['monitor'][1] for row in workareas),workareas
@@ -277,19 +288,19 @@ def main():
                     time.sleep(1)
                 primary=next(row for row in original if row[4])
                 configure([(0,0,primary[2],primary[3],True,primary[5])])
-                assert evaluate("Main.extensionManager.lookup('nodalix-secondary-bars@getnodalia.com').stateObj._bars.length")==0
+                assert evaluate("global._qaMM.mmPanel.length")==0
                 configure(original)
                 for _ in range(100):
-                    if evaluate("Main.extensionManager.lookup('nodalix-secondary-bars@getnodalia.com').stateObj._bars.length")==1:break
+                    if evaluate("global._qaMM.mmPanel.length")==1:break
                     time.sleep(.05)
-                assert evaluate("Main.extensionManager.lookup('nodalix-secondary-bars@getnodalia.com').stateObj._bars.length")==1
+                assert evaluate("global._qaMM.mmPanel.length")==1
                 scale_test=False
                 if all(2.0 in mode[5] for monitor in current[1] for mode in monitor[1] if mode[6].get('is-current')):
                     scaled=[];offset=0
                     for row in original:
                         scaled.append((offset,0,2.0,row[3],row[4],row[5]));offset+=640
                     configure(scaled)
-                    assert evaluate("Main.extensionManager.lookup('nodalix-secondary-bars@getnodalia.com').stateObj._bars.length")==1
+                    assert evaluate("global._qaMM.mmPanel.length")==1
                     configure(original);scale_test=True
                 evaluate("import(Main.extensionManager.lookup('dash-to-dock@micxgx.gmail.com').dir.get_uri()+'/extension.js').then(m=>global._qaDockManager=m.dockManager);true")
                 time.sleep(.3)
@@ -605,10 +616,10 @@ app.connect('activate',activate);app.run()
                     time.sleep(.5)
                     evaluate("(() => { const w=global.get_window_actors().find(a=>a.meta_window.get_title()==='Nodalix fullscreen QA').meta_window; w.move_to_monitor(Main.layoutManager.monitors.find(m=>m.index!==Main.layoutManager.primaryIndex).index); w.make_fullscreen(); return true; })()")
                     time.sleep(.8)
-                    assert evaluate("Main.extensionManager.lookup('nodalix-secondary-bars@getnodalia.com').stateObj._bars.every(b=>!b.bar.visible)")
+                    assert evaluate("global._qaMM.mmPanel.every(b=>!b.mapped)")
                     evaluate("global.get_window_actors().find(a=>a.meta_window.get_title()==='Nodalix fullscreen QA').meta_window.unmake_fullscreen(); true")
                     time.sleep(.8)
-                    assert evaluate("Main.extensionManager.lookup('nodalix-secondary-bars@getnodalia.com').stateObj._bars.every(b=>b.bar.visible)")
+                    assert evaluate("global._qaMM.mmPanel.every(b=>b.mapped)")
                 finally:
                     app.terminate();app.wait(timeout=10)
                 evaluate('Main.overview.hide();true');time.sleep(.3)

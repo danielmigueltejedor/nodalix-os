@@ -44,7 +44,6 @@ def main():
         if cleanup.is_file():
             module=runpy.run_path(str(cleanup))
             module['clean_extensions'](home,settings)
-            module['apply_cached_blur']()
         close=Gio.Settings.new('org.gnome.desktop.wm.keybindings')
         bindings=list(close.get_strv('close'))
         if bindings==['<Alt>F4']:close.set_strv('close',['<Super>q','<Alt>F4'])
@@ -58,6 +57,20 @@ def main():
             runpy.run_path(str(cleanup))['restore_tiling_assistant'](home,Gio.Settings.new('org.gnome.shell'))
             Gio.Settings.sync()
             tiling_marker.write_text('0.4.0\n')
+    panels_marker=root/'gnome-0.4.0-native-panels.done'
+    if not panels_marker.exists():
+        from gi.repository import Gio
+        cleanup=preferences.with_name('desktop_040.py')
+        if cleanup.is_file():
+            runpy.run_path(str(cleanup))['restore_native_panels'](home,Gio.Settings.new('org.gnome.shell'))
+            prototypes=Path('/usr/share/nodalix/gnome-extension-prototypes-040.json')
+            if prototypes.is_file():
+                adoption=runpy.run_path(str(Path(__file__).with_name('user-031.py')))
+                adoption['retire_extension_prototypes'](
+                    Path(os.environ.get('XDG_DATA_HOME',home/'.local/share')),root/'gnome-0.4.0-native-panels',
+                    [row for row in json.loads(prototypes.read_text()) if row['uuid']=='multi-monitors-bar@frederykabryan'])
+            Gio.Settings.sync()
+            panels_marker.write_text('0.4.0\n')
     if marker.exists():return
     prototypes=Path('/usr/share/nodalix/gnome-extension-prototypes-040.json')
     if prototypes.is_file():

@@ -1,6 +1,8 @@
 [Unit]
 Description=Organize installed applications into Nodalix folders
 After=graphical-session.target
+StartLimitIntervalSec=0
 [Service]
 Type=oneshot
+ExecStartPre=/usr/bin/sleep 1
 ExecStart=/usr/bin/nodalix-organize-apps

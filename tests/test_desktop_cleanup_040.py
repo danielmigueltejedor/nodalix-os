@@ -32,11 +32,23 @@ class DesktopCleanup(unittest.TestCase):
             for uuid in (*cleanup.RETIRED,*cleanup.SHADOWS):
                 self.assertEqual((backup/uuid/'extension.js').read_text(),'personal snapshot')
                 self.assertNotIn(uuid,prefs.values['enabled-extensions']) if uuid in cleanup.RETIRED else None
-            self.assertIn('nodalix-secondary-bars@getnodalia.com',prefs.values['enabled-extensions'])
+            self.assertIn('multi-monitors-bar@frederykabryan',prefs.values['enabled-extensions'])
             self.assertIn('my-own-extension@example.invalid',prefs.values['enabled-extensions'])
             self.assertIn('tiling-assistant@leleat-on-github',prefs.values['enabled-extensions'])
             self.assertTrue((data/'gnome-shell/extensions/tiling-assistant@leleat-on-github/extension.js').is_file())
             self.assertEqual(prefs.values['disabled-extensions'],['nodalix-connect@getnodalia.com'])
+
+    def test_native_panel_migration_is_idempotent_and_preserves_other_extensions(self):
+        old='nodalix-secondary-bars@getnodalia.com'
+        native='multi-monitors-bar@frederykabryan'
+        prefs=Settings([old,'blur-my-shell@aunetx','tiling-assistant@leleat-on-github'])
+        cleanup.restore_native_panels(Path('/unused'),prefs)
+        cleanup.restore_native_panels(Path('/unused'),prefs)
+        self.assertEqual(prefs.get_strv('enabled-extensions'),
+            ['blur-my-shell@aunetx','tiling-assistant@leleat-on-github',native])
+        prefs=Settings(['my-extension'])
+        cleanup.restore_native_panels(Path('/unused'),prefs)
+        self.assertEqual(prefs.get_strv('enabled-extensions'),['my-extension'])
 
     def test_retiring_the_last_keyd_configuration_stops_instead_of_hot_reloading(self):
         with tempfile.TemporaryDirectory() as directory:

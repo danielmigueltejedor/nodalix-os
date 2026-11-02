@@ -97,8 +97,28 @@ See [the measured GPU evidence](validation/0.4.0/wallpaper-gpu.json). With the s
 
 A fast cursor move to the bottom edge now reveals both docks: the throttled dwell callback reads the latest pointer position. Cleanup archives replaced local extensions and preferences; it preserves unrelated extensions and user customizations. Shell code replacement needs a new login. The update icon resolves through the active theme to the Adwaita symbolic refresh asset.
 
-## Secondary-panel and dock revision
+## Native panels, popup height and application folders
 
-Tiling Assistant is retained and the development-candidate retirement is repaired using the original saved preference, while respecting later explicit disable. The secondary panel uses native panel button metrics and mirrored indicator contents; its calendar and Quick Settings reuse the primary controllers and restore their anchors after closing. The same configured cached panel blur is applied per monitor. The notification cap follows the menu source monitor.
+The development-only replacement bar has been removed. Multi Monitor Bar mirrors
+GNOME on the secondary displays. It leaves the primary panel allocation, clipping
+and clock placement to GNOME. All panel, popup and dock blur comes from Blur My
+Shell. Its hidden popup surfaces are removed even while a descendant animation
+continues, preventing a blur outline from outliving its menu. User blur pipelines
+and preferences remain intact.
 
-The dock blur watches its actual background allocation plus both dock and container startup translations, with coalesced updates after layout and no periodic polling. Real GNOME tests exercise the first appearance before any hide/show, independent background resizing, startup displacement, two-monitor native menus, preserved primary Quick Settings, repeated lifecycle and monitor changes. Package `nodalix-gnome` is 0.4.0-4 for this revision.
+Tiling Assistant is retained, including newer user-local copies. The calendar
+agenda restores its previous 12em height limit; notifications scroll within the
+monitor work area independently of Phone Link. The same cap applies on secondary
+monitors. Shell module replacement requires a new login.
+
+The dock blur follows the actual background allocation and startup translations.
+Private GNOME 51 tests exercise the first appearance before hide/show, both native
+menus, preserved primary Quick Settings, hidden blur surfaces, monitor changes,
+manual tiling and native shortcuts. Packages: nodalix-gnome 0.4.0-5 and
+nodalix-integrations 0.4.0-2.
+
+Application folders discover publisher namespaces and ArtCraft metadata rather
+than a closed product list. System and Flatpak applications follow desktop-file
+precedence, hidden overrides and categories. Custom user folders are retained;
+ArtCraft suite membership takes priority. Folder changes have a private backup
+and directory events coalesce without polling or repeated gsettings subprocesses.

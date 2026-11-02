@@ -172,9 +172,15 @@ export const PopupBlurSurface = class PopupBlurSurface {
             this.update_live_surface();
             return;
         }
+        // A closing native popup may still contain a child animation. Once its
+        // surface is unmapped, none of its sibling blur actors may remain drawn.
+        const visible = this.is_visible();
+        if (!visible) {
+            this.hide_surface();
+            return;
+        }
         let transition_state = this.transitions.get_state();
         let geometry = this.placement.get_surface_geometry();
-        const visible = this.is_visible();
         const geometry_changed = this.placement.has_surface_geometry_changed(geometry);
         if (
             !visible

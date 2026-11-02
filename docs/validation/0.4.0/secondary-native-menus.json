@@ -1,22 +1,17 @@
 {
+  "provider": "multi-monitors-bar",
   "roles": [
     "activities",
-    "dateMenu",
-    "tiling-assistant@leleat-on-github",
-    "dwellClick",
-    "a11y",
-    "keyboard",
-    "quickSettings"
+    "quickSettings",
+    "dateMenu"
   ],
   "blur": [
     {
       "monitor": 0,
-      "static": true,
       "background": true
     },
     {
       "monitor": 1,
-      "static": true,
       "background": true
     }
   ],
@@ -35,74 +30,36 @@
         0,
         1280,
         720
-      ]
+      ],
+      "hidden_blur_surfaces_still_visible": 0
     },
     {
       "role": "dateMenu",
       "open": true,
       "sameSource": true,
       "monitor": 1,
-      "x": 1543,
+      "x": 1542,
       "y": 32,
       "width": 754,
-      "height": 621,
+      "height": 579,
       "bounds": [
         1280,
         0,
         1280,
         720
-      ]
+      ],
+      "hidden_blur_surfaces_still_visible": 0
     }
   ],
+  "closed_popup_animation": {
+    "found": true,
+    "visible": false,
+    "opacity": 0
+  },
   "panel_geometry": {
     "primary": 32,
-    "primaryBox": 32,
     "secondary": 32,
-    "secondaryBox": 32,
-    "buttons": [
-      {
-        "role": "activities",
-        "height": 32,
-        "content": 8,
-        "source": 8
-      },
-      {
-        "role": "dateMenu",
-        "height": 32,
-        "content": 32,
-        "source": 32
-      },
-      {
-        "role": "tiling-assistant@leleat-on-github",
-        "height": 16,
-        "content": 16,
-        "source": 16
-      },
-      {
-        "role": "dwellClick",
-        "height": 0,
-        "content": 0,
-        "source": 0
-      },
-      {
-        "role": "a11y",
-        "height": 0,
-        "content": 0,
-        "source": 0
-      },
-      {
-        "role": "keyboard",
-        "height": 23,
-        "content": 23,
-        "source": 23
-      },
-      {
-        "role": "quickSettings",
-        "height": 32,
-        "content": 16,
-        "source": 32
-      }
-    ]
+    "primary_clock_in_native_center": true
   },
   "primary_quick_settings_unchanged": true
 }

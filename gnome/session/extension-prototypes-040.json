@@ -290,5 +290,37 @@
       "utils.js": "c3513cff331e6fb674070ef93ccc43de36e7114dd6d6ad50ed9c334552fa4bb4",
       "windowPreview.js": "4a5eb2b7f1554adc99df76787722586cb32317b5da7b1d383e526185196d1aa2"
     }
+  },
+  {
+    "uuid": "multi-monitors-bar@frederykabryan",
+    "version": 56,
+    "files": {
+      ".gitignore": "b26a5285cb650a905da3b461501952140c3b56a4bd5697d49efbe10713b1a0f5",
+      "GUIDELINES.md": "5fa3e25bbbd7ad609b21d95fc74c9f9e6b6ad0763dd6fc08188ddde72c0e5ac1",
+      "LICENSE": "cb088a197f6ff430c351c43d0cad616d4f8cf088121f6f7366d5e77a19f7788a",
+      "README.md": "c8145211477b42b9b3b2b78407df18f26b0b3f589cdeedbd538f834e7581d204",
+      "astraSourceGeometry.js": "7e4fb40d2aef6a17fc58b5bb4c117f5e994653c591f71f5fc081d2528075405d",
+      "common.js": "2aae96632c43fdefe745b02dd5fc5a0d12eb7c9fa06d2919014582e72f80c770",
+      "extension.js": "c8a1b1695242fe6d35fc8975999503d4bb9841e1a12a4973af604043d7a0c9c0",
+      "metadata.json": "b4b9ae04c9eefa7e2f6cf800881c9444506096ed6a8c0cf3e8006c075a40345c",
+      "mirroredIndicatorButton.js": "debcf15470a0c09fff7ff374de0bd45e3e9419d232c4e8432d5338b5da414325",
+      "mmPanelConstants.js": "756fc36e2f3e86afa1a9976d410d95433e67f302873cf71a9f1dcd244ce61bc3",
+      "mmcalendar.js": "e5fd6a03e228731e1245b22b48020f26c5ce5e32612e1f680aed401b5e92d7ef",
+      "mmdock.js": "9216ccc88a276211e49874ed67dc23567974db2edb9744c923972fc351ed58aa",
+      "mmlayout.js": "1b912ebc030d5e9e5f2593a419e0214cdbc6cea048ee6e615ab6f539828a30dc",
+      "mmoverview.js": "862ce91df7c5f8f7dd3377fa79a902d6cf70881c2efc33f24053593e7fd835b3",
+      "mmpanel.js": "11d05368377ec333fcdf1ec9c070d8099e554db1c20ba8eba50fb814ce416f08",
+      "monitorIndicatorPolicy.js": "dcdcb76c0bf52e7d61a3eea2a4efcf3b05f99fbf4eb93b8d8f9c9f1fd583bc68",
+      "monitorIndicatorPrefs.js": "ad0a4e5e687417321d8b182d91b9d92a1616e424b5da07d6a51ea1474a301eb3",
+      "monitorIndicatorsDialog.js": "55c93d7275028a393fd76e1087be5bae1a4826a9436489fd9460a558b695de50",
+      "package.sh": "f0c45ac75d3447dc3f25fcc3a20b48b83b3989d29932666e2171d571331bc262",
+      "prefs.js": "b5e7fe199fb87f61bdf16a9a463cd9119b2a650cdd46e4f16df2040779c945df",
+      "reinstall.sh": "569f3d71002ff82464335a7e55b4fca2ad5aae87a37bd2d0d0219520cc7ba2d2",
+      "schemas/org.gnome.shell.extensions.multi-monitors-bar.gschema.xml": "978c7b10f3f3819713fa7c540aa7fc1ddfe0afbab879d27bff1b4654ec5bd40f",
+      "screenshotPatch.js": "c5acfd76a93965322dfc060b1d41cbfa4c4c470aa41a1a4f46d4b2e5c098c94e",
+      "statusIndicatorsController.js": "2606b9d30f750cdc95fb0a45e83ec43b898f77472f8326d17204d68b41ab3d2e",
+      "stylesheet.css": "e305b43e9ff9669e900d7206b27ef5d2ea2936427d43606e60f7be19c06e38ed",
+      "utils.js": "97efd961c2f8f4aeb4141b96ab8728a81793bd6b689712465d7126d811c99609"
+    }
   }
 ]
