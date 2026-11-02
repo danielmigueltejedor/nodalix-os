@@ -1,7 +1,7 @@
 {
-  "unit_integration_tests": 252,
+  "unit_integration_tests": 262,
   "result": "passed",
-  "date": "2026-10-31",
+  "date": "2026-11-02",
   "native_shell": "GNOME Shell 51.1",
   "session": "private Wayland, two virtual 1280x720 monitors",
   "full_os_upgrade_vm": "not yet run for 0.4.0",
@@ -11,5 +11,8 @@
     "GTK4",
     "Qt6",
     "Ghostty"
-  ]
+  ],
+  "native_shortcuts": "GNOME media-keys custom shortcuts; no keyboard Shell extension",
+  "calendar_without_phone_link": true,
+  "wallpaper_gpu": "Hardware 4K30 and software Theora; both monitors animate, coverage pause/reveal and Overview rounding verified"
 }

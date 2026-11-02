@@ -20,7 +20,7 @@ t=t.replace('    cc_panel_add_static_subpage (CC_PANEL (self), "updates", CC_TYP
 p=root/'panels/system/cc-system-panel.blp';t=p.read_text().replace('        $CcListRow about_row {','''        $CcListRow {
           title: "Actualizaciones";
           subtitle: "Nodalix, aplicaciones, programas y kernel";
-          icon-name: "system-software-update-symbolic";
+          icon-name: "view-refresh-symbolic";
           show-arrow: true;
           action-name: "navigation.push";
           action-target: "'updates'";

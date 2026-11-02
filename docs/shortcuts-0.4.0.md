@@ -2,6 +2,7 @@
 
 | Atajo | Acción |
 | --- | --- |
+| Super sola | Abrir la vista de GNOME |
 | Super+C | Copiar |
 | Super+V | Pegar |
 | Super+Enter | Abrir la terminal predeterminada |
@@ -14,25 +15,34 @@
 La ventana bajo el ratón recibe el foco sin clicar. No se eleva automáticamente.
 Las aplicaciones se abren mediante los valores predeterminados del usuario.
 
-La extensión Nodalix Shortcuts adapta copiar y pegar a las terminales. Ghostty
-usa sus acciones reales de portapapeles para evitar enviar Ctrl+C al proceso
-o introducir secuencias de teclado cuando no hay selección. Ctrl+C conserva
-su función de interrupción. Las demás terminales usan Ctrl+Shift+C/V.
-El portapapeles se usa a través de la aplicación; no se guarda un historial.
+Los atajos se registran con GNOME: cierre y capturas usan sus acciones nativas;
+los lanzadores y copiar/pegar aparecen en los atajos personalizados de Ajustes.
+No se instala una extensión para capturar el teclado. Los valores personalizados
+existentes se conservan y no se ocupa una combinación ya asignada por el usuario.
 
-Los lanzadores, el foco y las capturas se configuran solo si el usuario no ha
-escrito ya una preferencia. Los atajos de copiar y pegar tienen sus propias
-claves en el esquema `com.nodalix.shell.shortcuts`; se pueden cambiar o
-inhabilitar con la extensión. La página unificada de atajos sigue pendiente.
+GNOME no dispone de una acción global de copiar/pegar. El pequeño servicio
+`nodalix-clipboard` emite únicamente Ctrl+Insert y Shift+Insert. Espera a que se
+suelten realmente las teclas modificadoras y comprueba que quien lo solicita es
+el propietario de la sesión local activa y desbloqueada. Consulta el estado de
+los modificadores; no lee eventos de texto, contenido del portapapeles ni ventanas.
+No admite secuencias arbitrarias. Las aplicaciones deben admitir esas combinaciones.
+Ghostty recibe una configuración de portapapeles explícita para Insert, evitando
+la selección primaria y manteniendo Ctrl+C para interrumpir el proceso.
 
-La migración elimina únicamente las asignaciones de fábrica Super+Q y
-Super+Shift+3/4 del dock que competían con el cierre y las capturas. Conserva asignaciones personalizadas.
-También archiva y retira la configuración antigua exacta de Nodalix en keyd
-que convertía Super+Q en Ctrl+W y Super+C/V en Ctrl+C/V. No retira configuraciones
-personalizadas ni enlaces simbólicos. Los archivos archivados quedan bajo
-`/var/lib/nodalix-updater/migrations/gnome-0.4.0/`.
+La migración libera primero las combinaciones de la antigua extensión Nodalix
+Shortcuts y después registra los atajos nativos. Retira únicamente los atajos de
+fábrica Super+Q y Super+Shift+3/4 del dock que competían con cierre y capturas.
+Archiva la configuración antigua exacta de keyd bajo
+`/var/lib/nodalix-updater/migrations/gnome-0.4.0/`; las configuraciones personalizadas
+se conservan. El servicio keyd se detiene si ya no quedan configuraciones.
 
-La actualización instala estos cambios; las pruebas de preparación no los
-instalan ni modifican la sesión real del usuario. Las pruebas de GNOME 51
-usan otra sesión Wayland, dos monitores virtuales y un directorio de usuario
-temporal. Verifican GTK, Qt, Ghostty, Ctrl+C, capturas, foco con el ratón y cierre.
+Las extensiones sustituidas y las copias locales que ocultaban versiones del
+sistema se archivan bajo
+`~/.local/state/nodalix/migrations/gnome-0.4.0-native-extensions/`.
+Solo queda un proveedor de mosaico y uno de paneles secundarios. Las preferencias
+y extensiones ajenas se conservan. Se necesita volver a iniciar sesión para cargar
+los módulos nuevos de GNOME Shell; la actualización no cierra aplicaciones.
+
+Las pruebas usan un compositor GNOME 51 real con bus, usuario temporal y monitores
+virtuales propios. Verifican GTK, Qt, Ghostty, Ctrl+C, capturas, foco con el ratón,
+cierre de ventanas completas y despliegue del dock en ambos monitores.

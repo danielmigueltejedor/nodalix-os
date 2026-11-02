@@ -44,7 +44,7 @@ class CompleteReleaseTests(unittest.TestCase):
 
     def test_every_added_extension_is_packaged_with_real_code(self):
         package = (ROOT / 'packaging/nodalix-gnome/PKGBUILD').read_text()
-        for uuid in ('global-menu@unmade.space', 'multi-monitors-bar@frederykabryan',
+        for uuid in ('global-menu@unmade.space', 'nodalix-secondary-bars@getnodalia.com',
                      'nodalix-auto-tiling@getnodalia.com'):
             self.assertIn(uuid, package)
             folder = ROOT / 'gnome/extensions' / uuid

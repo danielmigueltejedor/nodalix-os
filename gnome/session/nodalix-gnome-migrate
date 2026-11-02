@@ -20,8 +20,14 @@ def retire_legacy_keyboard_remap(root,runner=subprocess.run):
         path.unlink()
     else:shutil.move(str(path),str(target))
     if root==Path('/') and runner(['systemctl','is-active','--quiet','keyd.service'],check=False).returncode==0:
-        runner(['/usr/bin/keyd','reload'],check=True)
+        refresh_keyboard_remapper(root,runner)
     return True
+
+def refresh_keyboard_remapper(root,runner=subprocess.run):
+    # keyd 2.6 can crash when reloading after its last configuration disappears.
+    # Stop the now-unused remapper; keep custom configurations running.
+    operation='restart' if any((root/'etc/keyd').glob('*.conf')) else 'stop'
+    runner(['systemctl',operation,'keyd.service'],check=True)
 
 def retire_legacy_update_override(root):
     # Run independently of the already completed 0.3.0 migration. This global

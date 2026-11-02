@@ -1,6 +1,6 @@
 pkgname=nodalix-gnome
 pkgver=0.4.0
-pkgrel=2
+pkgrel=3
 pkgdesc="GNOME Shell, GDM and native desktop integration for Nodalix"
 arch=("any")
 install=nodalix-gnome.install
@@ -18,10 +18,16 @@ package() {
     install -Dm755 "$srcdir/gnome/migration/user-030.sh" "$pkgdir/usr/lib/nodalix/migration/user-030.sh"
     install -Dm755 "$srcdir/gnome/migration/user-031.py" "$pkgdir/usr/lib/nodalix/migration/user-031.py"
     install -Dm755 "$srcdir/gnome/migration/user-040.py" "$pkgdir/usr/lib/nodalix/migration/user-040.py"
+    install -Dm644 "$srcdir/gnome/migration/desktop_040.py" "$pkgdir/usr/lib/nodalix/desktop_040.py"
     install -Dm644 "$srcdir/gnome/migration/user_preferences.py" "$pkgdir/usr/lib/nodalix/user_preferences.py"
     install -Dm755 "$srcdir/gnome/session/nodalix-gnome-user-migrate" "$pkgdir/usr/lib/nodalix/nodalix-gnome-user-migrate"
     install -Dm755 "$srcdir/gnome/session/nodalix-gnome-migrate" "$pkgdir/usr/bin/nodalix-gnome-migrate"
     install -Dm644 "$srcdir/gnome/session/nodalix-gnome-migrate.desktop" "$pkgdir/etc/xdg/autostart/nodalix-gnome-migrate.desktop"
+    install -Dm755 "$srcdir/gnome/session/nodalix-clipboard" "$pkgdir/usr/bin/nodalix-clipboard"
+    install -Dm644 "$srcdir/gnome/session/keyboard/native_clipboard.py" "$pkgdir/usr/lib/nodalix/native_clipboard.py"
+    install -Dm644 "$srcdir/gnome/session/keyboard/nodalix-keyboard.service" "$pkgdir/usr/lib/systemd/system/nodalix-keyboard.service"
+    install -Dm644 "$srcdir/gnome/session/keyboard/com.nodalix.Keyboard.service" "$pkgdir/usr/share/dbus-1/system-services/com.nodalix.Keyboard.service"
+    install -Dm644 "$srcdir/gnome/session/keyboard/com.nodalix.Keyboard.conf" "$pkgdir/usr/share/dbus-1/system.d/com.nodalix.Keyboard.conf"
     install -Dm755 "$srcdir/gnome/session/nodalix-open-default" "$pkgdir/usr/bin/nodalix-open-default"
     install -Dm755 "$srcdir/gnome/session/nodalix-shell-symbols" "$pkgdir/usr/bin/nodalix-shell-symbols"
     install -Dm644 "$srcdir/gnome/session/nodalix.desktop" "$pkgdir/usr/share/wayland-sessions/nodalix.desktop"
@@ -50,7 +56,7 @@ package() {
     install -Dm644 "$srcdir/gnome/session/extension-defaults.json" "$pkgdir/usr/share/nodalix/gnome-extension-defaults.json"
     install -Dm644 "$srcdir/gnome/session/extension-prototypes.json" "$pkgdir/usr/share/nodalix/gnome-extension-prototypes.json"
     install -Dm644 "$srcdir/gnome/session/extension-prototypes-040.json" "$pkgdir/usr/share/nodalix/gnome-extension-prototypes-040.json"
-    for uuid in nodalix-shortcuts@getnodalia.com nodalix-startup-cursor@local global-menu@unmade.space multi-monitors-bar@frederykabryan nodalix-auto-tiling@getnodalia.com nodalix-secondary-bars@getnodalia.com glocalsend@donnybeelo.github.com nodalix-connect@getnodalia.com dash-to-dock@micxgx.gmail.com blur-my-shell@aunetx tiling-assistant@leleat-on-github rounded-window-corners@ztrahmet.github.io; do
+    for uuid in nodalix-startup-cursor@local global-menu@unmade.space nodalix-auto-tiling@getnodalia.com nodalix-secondary-bars@getnodalia.com glocalsend@donnybeelo.github.com nodalix-connect@getnodalia.com dash-to-dock@micxgx.gmail.com blur-my-shell@aunetx rounded-window-corners@ztrahmet.github.io; do
         install -d "$pkgdir/usr/share/gnome-shell/extensions/$uuid"
         cp -a --no-preserve=ownership "$srcdir/gnome/extensions/$uuid/." "$pkgdir/usr/share/gnome-shell/extensions/$uuid/"
     done

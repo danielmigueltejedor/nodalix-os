@@ -480,6 +480,9 @@ class SettingsService:
         preview=poster_for(Path(path))
         settings=wallpaper_preferences()
         settings.set_boolean('enable-va',True)
+        for option in ('enable-graphics-offload','pause-when-covered'):
+            if settings.props.settings_schema.has_key(option) and settings.get_user_value(option) is None:
+                settings.set_boolean(option,True)
         settings.set_boolean('prefer-clappersink',False)
         settings.set_string('video-path',path)
         settings.set_boolean('mute',True)

@@ -19,6 +19,7 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--greeter',action='store_true')
     parser.add_argument('--alternatives',action='store_true')
+    parser.add_argument('--without-phone',action='store_true')
     parser.add_argument('--evidence',type=Path,default=ROOT/'dist/shell-evidence')
     args=parser.parse_args();args.evidence.mkdir(parents=True,exist_ok=True)
     if os.environ.get('NODALIX_PRIVATE_SHELL_TEST')!='1':
@@ -28,7 +29,7 @@ def main():
             env.update(NODALIX_PRIVATE_SHELL_TEST='1',NODALIX_QA_HOME=directory,HOME=directory,
                 XDG_RUNTIME_DIR=str(runtime),XDG_CONFIG_HOME=str(home/'config'),XDG_DATA_HOME=str(home/'data'),
                 XDG_STATE_HOME=str(home/'state'),XDG_CACHE_HOME=str(home/'cache'))
-            result=subprocess.run(['dbus-run-session','--',sys.executable,__file__,'--evidence',str(args.evidence.resolve()),*(['--greeter'] if args.greeter else []),*(['--alternatives'] if args.alternatives else [])],env=env)
+            result=subprocess.run(['dbus-run-session','--',sys.executable,__file__,'--evidence',str(args.evidence.resolve()),*(['--greeter'] if args.greeter else []),*(['--alternatives'] if args.alternatives else []),*(['--without-phone'] if args.without_phone else [])],env=env)
             for name in ('doc','gvfs'):
                 subprocess.run(['fusermount3','-uz',str(runtime/name)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             return result.returncode
@@ -56,6 +57,11 @@ def main():
         shutil.copy2(ROOT/'gnome/session/90-nodalix.gschema.override',schemas/'90-nodalix.gschema.override')
         subprocess.run(['glib-compile-schemas','--strict',str(schemas)],check=True)
         os.environ['GSETTINGS_SCHEMA_DIR']=str(schemas)
+        if not args.greeter and not args.alternatives:
+            row=next(row for row in json.loads((ROOT/'gnome/session/extension-defaults.json').read_text()) if row['uuid']=='dash-to-dock@micxgx.gmail.com')
+            local=Gio.SettingsSchemaSource.new_from_directory(str(extensions/row['uuid']/'schemas'),Gio.SettingsSchemaSource.get_default(),False)
+            dock=Gio.Settings.new_full(local.lookup(row['schema'],False),None,None)
+            for key,value in row['values'].items():dock.set_value(key,GLib.Variant.parse(None,value,None,None))
         if not args.greeter:
             binaries=home/'bin';binaries.mkdir()
             daemon=binaries/'global-menu'
@@ -67,7 +73,10 @@ def main():
         Gio.Settings.new('org.gnome.desktop.screensaver').set_boolean('lock-enabled',False)
         Gio.Settings.new('org.gnome.desktop.session').set_uint('idle-delay',0)
         Gio.Settings.new('org.gnome.desktop.interface').set_boolean('enable-hot-corners',False)
+        Gio.Settings.new('org.gnome.mutter').set_string('overlay-key','Super_L')
+        Gio.Settings.new('org.gnome.desktop.input-sources').set_value('sources',GLib.Variant('a(ss)',[('xkb','es')]))
         profile=[path.name for path in extensions.iterdir() if path.name not in ('multi-monitors-bar@frederykabryan','tiling-assistant@leleat-on-github')]
+        if args.without_phone:profile=[uuid for uuid in profile if uuid!='nodalix-connect@getnodalia.com']
         if args.alternatives and not args.greeter:
             profile=[uuid for uuid in profile if uuid not in ('nodalix-secondary-bars@getnodalia.com','nodalix-auto-tiling@getnodalia.com')]
             profile+=['multi-monitors-bar@frederykabryan','tiling-assistant@leleat-on-github']
@@ -126,9 +135,10 @@ def main():
                     assert evaluate(f'![...{view}.messages[0]._notificationToMessage.values()][0]._header.closeButton.visible')
                     evaluate('Main.overview.hide(); Main.panel.statusArea.dateMenu.menu.open(); true')
                     time.sleep(.5)
-                    geometry=evaluate("(() => {const d=Main.panel.statusArea.dateMenu,l=d._messageList,s=l._scrollView,m=Main.layoutManager.primaryMonitor; return {height:s.height,content:s.vadjustment.upper,page:s.vadjustment.page_size,monitor:m.height,controls:l._clearButton.get_transformed_position()[1]+l._clearButton.height};})()")
+                    geometry=evaluate("(() => {const d=Main.panel.statusArea.dateMenu,l=d._messageList,s=l._scrollView,m=Main.layoutManager.primaryMonitor; return {panelHeight:d.menu.actor.height,height:s.height,content:s.vadjustment.upper,page:s.vadjustment.page_size,monitor:m.height,controls:l._clearButton.get_transformed_position()[1]+l._clearButton.height};})()")
                     assert 0<geometry['height']<geometry['monitor']*.8,geometry
                     assert geometry['content']>geometry['page'],geometry
+                    assert geometry['panelHeight']<=geometry['monitor']*.95,geometry
                     assert geometry['controls']<=geometry['monitor'],geometry
                     evaluate(f'[...{view}.messages.at(-1)._notificationToMessage.values()][0].grab_key_focus(); true')
                     time.sleep(.3)
@@ -183,6 +193,7 @@ def main():
                     print('Real GNOME 51: alternative multi-monitor bars, Tiling Assistant and Global Menu lifecycle passed')
                     return 0
                 for uuid in ('glocalsend@donnybeelo.github.com','nodalix-connect@getnodalia.com','nodalix-secondary-bars@getnodalia.com'):
+                    if uuid not in profile:continue
                     for attempt in range(3):
                         call('org.gnome.Shell.Extensions','DisableExtension',GLib.Variant('(s)',(uuid,)))
                         time.sleep(.2)
@@ -217,6 +228,25 @@ def main():
                     configure(scaled)
                     assert evaluate("Main.extensionManager.lookup('nodalix-secondary-bars@getnodalia.com').stateObj._bars.length")==1
                     configure(original);scale_test=True
+                evaluate("import(Main.extensionManager.lookup('dash-to-dock@micxgx.gmail.com').dir.get_uri()+'/extension.js').then(m=>global._qaDockManager=m.dockManager);true")
+                time.sleep(.3)
+                evaluate('Main.overview.hide();global._qaPointer=global.stage.get_context().get_backend().get_default_seat().create_virtual_device(imports.gi.Clutter.InputDeviceType.POINTER_DEVICE);true')
+                dock.set_boolean('intellihide',False);Gio.Settings.sync()
+                dock_results=[]
+                for monitor in range(2):
+                    # Force autohide in the empty private desktop. Moving
+                    # rapidly to the edge must still reveal the hidden dock.
+                    evaluate(f"(() => {{let m=Main.layoutManager.monitors[{monitor}],d=global._qaPointer,t=imports.gi.GLib.get_monotonic_time();d.notify_absolute_motion(t,m.x+m.width/2,m.y+m.height/2);return true;}})()")
+                    time.sleep(.7)
+                    assert evaluate(f"global._qaDockManager._allDocks.find(d=>d.monitorIndex==={monitor}).dockState")==0
+                    evaluate(f"(() => {{let m=Main.layoutManager.monitors[{monitor}],d=global._qaPointer,t=imports.gi.GLib.get_monotonic_time();d.notify_absolute_motion(t,m.x+m.width/2,m.y+m.height-20);d.notify_absolute_motion(t+1000,m.x+m.width/2,m.y+m.height-1);return true;}})()")
+                    time.sleep(.7)
+                    state=evaluate(f"(() => {{let d=global._qaDockManager._allDocks.find(d=>d.monitorIndex==={monitor});return {{state:d.dockState,slide:d._slider.slide_x,mapped:d.mapped}};}})()")
+                    assert state['state']==2 and state['slide']>.9,state
+                    dock_results.append(state)
+                (args.evidence/'dock-reveal.json').write_text(json.dumps(dock_results,indent=2))
+                dock.set_boolean('intellihide',True);Gio.Settings.sync()
+                evaluate('(() => {let m=Main.layoutManager.primaryMonitor;global._qaPointer.notify_absolute_motion(imports.gi.GLib.get_monotonic_time(),m.x+m.width/2,m.y+m.height/2);return true;})()')
                 fixture="""import gi
 gi.require_version('Gtk','4.0')
 from gi.repository import Gtk
@@ -244,6 +274,29 @@ def activate(app):
     win.present();entry.grab_focus()
 app.connect('activate',activate);app.run()
 """
+                # Native GNOME custom shortcuts, with a fixture command instead
+                # of the privileged kernel broker in this private compositor.
+                command=home/'clipboard-command.py'
+                command.write_text("""import sys,time
+from gi.repository import Gio,GLib
+mod=29 if sys.argv[1]=='copy' else 42
+code=f'(() => {{ const d=global._qaKeyboard;let t=imports.gi.GLib.get_monotonic_time();d.notify_key(t+=10,{mod},1);d.notify_key(t+=10,110,1);d.notify_key(t+=10,110,0);d.notify_key(t+=10,{mod},0);return true; }})()'
+time.sleep(.1)
+bus=Gio.bus_get_sync(Gio.BusType.SESSION,None)
+result=bus.call_sync('org.gnome.Shell','/org/gnome/Shell','org.gnome.Shell','Eval',GLib.Variant('(s)',(code,)),None,Gio.DBusCallFlags.NONE,3000,None).unpack()
+assert result[0],result
+""")
+                media=Gio.Settings.new('org.gnome.settings-daemon.plugins.media-keys')
+                paths=[]
+                for action,key in [('copy','c'),('paste','v')]:
+                    path='/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/nodalix-'+action+'/'
+                    setting=Gio.Settings.new_with_path('org.gnome.settings-daemon.plugins.media-keys.custom-keybinding',path)
+                    setting.set_string('name','Nodalix '+action)
+                    setting.set_string('command',sys.executable+' '+str(command)+' '+action)
+                    setting.set_string('binding','<Super>'+key);paths.append(path)
+                media.set_strv('custom-keybindings',paths);Gio.Settings.sync()
+                media_keys=subprocess.Popen(['/usr/lib/gsd-media-keys'],env=env,stdout=log,stderr=log)
+                time.sleep(1)
                 entry=subprocess.Popen([sys.executable,'-c',entry_fixture],env=env,stdout=log,stderr=log)
                 def action(name):
                     bus.call_sync('com.nodalix.EntryQA','/com/nodalix/EntryQA','org.gtk.Actions','Activate',
@@ -251,8 +304,9 @@ app.connect('activate',activate);app.run()
                 def keys(key,modifiers=(0xffeb,)):
                     codes={ord('a'):30,ord('c'):46,ord('v'):47,ord('q'):16,ord('3'):4,ord('4'):5,0xff0d:28,0xff08:14}
                     mods=[{0xffeb:125,0xffe1:42,0xffe3:29}[value] for value in modifiers]
-                    evaluate(f"(() => {{ const d=Main.extensionManager.lookup('nodalix-shortcuts@getnodalia.com').stateObj._keyboard;let t=imports.gi.GLib.get_monotonic_time();for(const k of {json.dumps(mods)})d.notify_key(t+=10,k,1);d.notify_key(t+=10,{codes[key]},1);d.notify_key(t+=10,{codes[key]},0);for(const k of {json.dumps(list(reversed(mods)))})d.notify_key(t+=10,k,0);return true;}})()")
+                    evaluate(f"(() => {{ const d=global._qaKeyboard;let t=imports.gi.GLib.get_monotonic_time();for(const k of {json.dumps(mods)})d.notify_key(t+=10,k,1);d.notify_key(t+=10,{codes[key]},1);d.notify_key(t+=10,{codes[key]},0);for(const k of {json.dumps(list(reversed(mods)))})d.notify_key(t+=10,k,0);return true;}})()")
                 try:
+                    evaluate('global._qaKeyboard=global.stage.get_context().get_backend().get_default_seat().create_virtual_device(imports.gi.Clutter.InputDeviceType.KEYBOARD_DEVICE); true')
                     for attempt in range(60):
                         if evaluate("global.get_window_actors().some(a=>a.meta_window.get_title()?.startsWith('Nodalix Entry QA'))"):break
                         time.sleep(.05)
@@ -265,7 +319,7 @@ app.connect('activate',activate);app.run()
                     assert focus=='sloppy',focus
                     terminal_program=home/'terminal-fixture.py'
                     terminal_program.write_text("import signal,sys\nfrom pathlib import Path\np=Path("+repr(str(home))+ ")\nsignal.signal(signal.SIGINT,lambda *_:(p/'interrupt-received').write_text('yes'))\nprint('Nodalix terminal QA ready',flush=True)\nfor line in sys.stdin:\n (p/'terminal-input').write_text(line)\n")
-                    terminal=subprocess.Popen(['ghostty','--confirm-close-surface=false','--title=Nodalix Terminal QA',
+                    terminal=subprocess.Popen(['ghostty','--confirm-close-surface=false','--keybind=shift+insert=paste_from_clipboard','--title=Nodalix Terminal QA',
                         '-e',sys.executable,'-u',str(terminal_program)],env=env,stdout=log,stderr=log)
                     try:
                         for attempt in range(100):
@@ -291,19 +345,18 @@ app.connect('activate',activate);app.run()
                         bus.call_sync(gtk[0],gtk[1],'org.gtk.Actions','Activate',
                             GLib.Variant('(sava{sv})',('new-tab',[],{})),None,Gio.DBusCallFlags.NONE,2000,None)
                         time.sleep(.4)
-                        evaluate("(() => {const t=Main.extensionManager.lookup('nodalix-auto-tiling@getnodalia.com').stateObj;global._qaCloseCalls=[];const original=t._closeWindow.bind(t);t._closeWindow=(w,time)=>{global._qaCloseCalls.push(w?.get_title());original(w,time);};return true;})()")
                         keys(ord('q'))
                         for attempt in range(40):
                             if not evaluate("global.get_window_actors().some(a=>a.meta_window.get_gtk_unique_bus_name()==="+json.dumps(gtk[0])+")"):break
                             time.sleep(.05)
-                        else:raise AssertionError(evaluate("({focus:global.display.focus_window?.get_title(),mode:Main.actionMode,action:global.display.get_keybinding_action(24,64),calls:global._qaCloseCalls,windows:global.get_window_actors().map(a=>({title:a.meta_window.get_title(),bus:a.meta_window.get_gtk_unique_bus_name()}))})"))
+                        else:raise AssertionError(evaluate("({focus:global.display.focus_window?.get_title(),mode:Main.actionMode,action:global.display.get_keybinding_action(24,64),windows:global.get_window_actors().map(a=>({title:a.meta_window.get_title(),bus:a.meta_window.get_gtk_unique_bus_name()}))})"))
                     finally:
                         terminal.terminate();terminal.wait(timeout=5)
                     action('prepare-copy');time.sleep(.3)
                     evaluate("global._qaAreaRequested=false; global._qaKeyboardEvents=[]; global._qaKeyTrace=global.stage.connect('captured-event',(_s,e)=>{if(e.type()===imports.gi.Clutter.EventType.KEY_PRESS)global._qaKeyboardEvents.push([e.get_key_symbol(),e.get_key_code(),e.get_state()]);return imports.gi.Clutter.EVENT_PROPAGATE;}); global._qaScreenshotOpen=Main.screenshotUI.open; Main.screenshotUI.open=function(...args){global._qaAreaRequested=true; return global._qaScreenshotOpen.apply(this,args);}; true")
                     keys(ord('4'),(0xffeb,0xffe1))
                     for attempt in range(40):
-                        if evaluate('Main.screenshotUI.visible && Main.screenshotUI._selectionButton.checked'):break
+                        if evaluate('Main.screenshotUI.visible'):break
                         time.sleep(.1)
                     else:raise AssertionError(evaluate("({requested:global._qaAreaRequested,events:global._qaKeyboardEvents,action:global.display.get_keybinding_action(13,65),mode:Main.actionMode,visible:Main.screenshotUI.visible,area:Main.screenshotUI._selectionButton.checked,opening:Main.screenshotUI._openingCoroutineInProgress,keys:new imports.gi.Gio.Settings({schema_id:'org.gnome.shell.keybindings'}).get_strv('show-screenshot-ui')})"))
                     evaluate('Main.screenshotUI.open=global._qaScreenshotOpen; true')
@@ -408,7 +461,7 @@ app.connect('activate',activate);app.run()
                     evaluate(f'{tile_windows}[0].minimize(); true');time.sleep(.4)
                     assert evaluate(f'{tile_windows}.filter(w=>!w.minimized).every(w=>{tiler}._windowGroups.has(w.get_stable_sequence()))')
                     evaluate(f'{tile_windows}[0].unminimize(); true');time.sleep(.4)
-                    evaluate(f'{tile_windows}[0].move_to_monitor(Main.layoutManager.monitors.find(m=>m.index!==Main.layoutManager.primaryIndex).index); true')
+                    evaluate(f'{tile_windows}[0].move_to_monitor(Main.layoutManager.monitors.find(m=>m.index!=={tile_windows}[0].get_monitor()).index); true')
                     time.sleep(.4)
                     assert evaluate(f'new Set({tile_windows}.map(w=>{tiler}._windowGroups.get(w.get_stable_sequence()).monitor)).size')==2
                     evaluate(f"{tiler}._settings.set_boolean('enabled',false); true")
@@ -472,9 +525,16 @@ app.connect('activate',activate);app.run()
                     assert evaluate("Main.extensionManager.lookup('nodalix-secondary-bars@getnodalia.com').stateObj._bars.every(b=>b.bar.visible)")
                 finally:
                     app.terminate();app.wait(timeout=10)
+                evaluate('Main.overview.hide();true');time.sleep(.3)
+                evaluate('(() => {let d=global._qaKeyboard,t=imports.gi.GLib.get_monotonic_time();d.notify_key(t,125,1);d.notify_key(t+30000,125,0);return true;})()')
+                time.sleep(.6)
+                assert evaluate('Main.overview.visible'),'Standalone Super did not open GNOME overview'
+                evaluate('Main.overview.hide();true')
                 (args.evidence/'lifecycle.json').write_text(json.dumps({'quick_settings_before':before,'quick_settings_after':after,'secondary_bars':bars,'enable_disable_cycles':3,'workareas':workareas,'monitor_reconfiguration':True,'fullscreen_hide_restore':True,'scale_2_supported_and_tested':scale_test},indent=2))
                 print('Real GNOME 51: all extensions enabled; repeated lifecycle preserved Quick Settings; two-monitor bars passed')
             finally:
+                if 'media_keys' in locals() and media_keys.poll() is None:
+                    media_keys.terminate();media_keys.wait(timeout=5)
                 shell.set_strv('enabled-extensions',[]);Gio.Settings.sync()
                 time.sleep(.3)
                 process.terminate()

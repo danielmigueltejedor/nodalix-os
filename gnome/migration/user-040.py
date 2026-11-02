@@ -16,15 +16,38 @@ def main():
     # This module writes only unset preferences and keeps custom launch shortcuts.
     preferences=Path(__file__).with_name('user_preferences.py')
     if not preferences.is_file():preferences=Path('/usr/lib/nodalix/user_preferences.py')
-    shortcuts_marker=root/'gnome-0.4.0-shortcuts.done'
+    shortcuts_marker=root/'gnome-0.4.0-native-shortcuts.done'
     if not shortcuts_marker.exists():
-        runpy.run_path(str(preferences))['apply_preferences']()
-        from gi.repository import Gio
+        from gi.repository import Gio,GLib
+        import time
         settings=Gio.Settings.new('org.gnome.shell')
         uuid='nodalix-shortcuts@getnodalia.com'
         enabled=list(settings.get_strv('enabled-extensions'))
-        if uuid not in enabled and uuid not in settings.get_strv('disabled-extensions'):
-            settings.set_strv('enabled-extensions',enabled+[uuid])
+        # Release the old Shell grabs before gsd-media-keys requests the native
+        # accelerators. Registering first can leave a failed grab until login.
+        if uuid in enabled:
+            try:
+                bus=Gio.bus_get_sync(Gio.BusType.SESSION,None)
+                owner=bus.call_sync('org.freedesktop.DBus','/org/freedesktop/DBus','org.freedesktop.DBus','NameHasOwner',GLib.Variant('(s)',('org.gnome.Shell',)),None,Gio.DBusCallFlags.NONE,1000,None).unpack()[0]
+                if owner:
+                    bus.call_sync('org.gnome.Shell','/org/gnome/Shell','org.gnome.Shell.Extensions','DisableExtension',GLib.Variant('(s)',(uuid,)),None,Gio.DBusCallFlags.NONE,3000,None)
+                    for _ in range(30):
+                        info=bus.call_sync('org.gnome.Shell','/org/gnome/Shell','org.gnome.Shell.Extensions','GetExtensionInfo',GLib.Variant('(s)',(uuid,)),None,Gio.DBusCallFlags.NONE,1000,None).unpack()[0]
+                        if info.get('state')!=1:break
+                        time.sleep(.05)
+            except GLib.Error:pass
+        settings.set_strv('enabled-extensions',[item for item in enabled if item!=uuid])
+        settings.set_strv('disabled-extensions',[item for item in settings.get_strv('disabled-extensions') if item!=uuid])
+        Gio.Settings.sync()
+        runpy.run_path(str(preferences))['apply_preferences']()
+        cleanup=preferences.with_name('desktop_040.py')
+        if cleanup.is_file():
+            module=runpy.run_path(str(cleanup))
+            module['clean_extensions'](home,settings)
+            module['apply_cached_blur']()
+        close=Gio.Settings.new('org.gnome.desktop.wm.keybindings')
+        bindings=list(close.get_strv('close'))
+        if bindings==['<Alt>F4']:close.set_strv('close',['<Super>q','<Alt>F4'])
         Gio.Settings.sync()
         shortcuts_marker.write_text('0.4.0\n')
     if marker.exists():return

@@ -5,11 +5,11 @@ import Meta from 'gi://Meta';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
 import * as Layout from './layout.js';
+import {NativeNotifications} from './notifications.js';
 
 import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as QuickSettings from 'resource:///org/gnome/shell/ui/quickSettings.js';
-import * as OverviewControls from 'resource:///org/gnome/shell/ui/overviewControls.js';
 
 
 const AutoTilingToggle = GObject.registerClass(
@@ -65,14 +65,14 @@ class AutoTilingIndicator extends QuickSettings.SystemIndicator {
 export default class NodalixAutoTilingExtension extends Extension {
     enable() {
         this._settings = this.getSettings();
+        this._notifications = new NativeNotifications();
+        this._notifications.enable();
 
         this._floating = new Set();
         this._windowSignals = new Map();
         this._firstFrameSignals = new Map();
         this._signals = [];
         this._retileSource = 0;
-        this._closeCancellable = new Gio.Cancellable();
-        this._closeDebug = Gio.File.new_for_path(`${GLib.get_user_cache_dir()}/nodalix-close-debug`);
         this._groups = new Map();
         this._windowGroups = new Map();
         this._grab = null;
@@ -175,39 +175,20 @@ export default class NodalixAutoTilingExtension extends Extension {
             () => this._toggleFocusedFloating()
         );
 
-Main.wm.addKeybinding(
-'toggle-launcher',
-this._settings,
-Meta.KeyBindingFlags.NONE,
-Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
-() => this._toggleLauncher()
-);
-
-        const closeAction = Main.wm.addKeybinding(
-            'close-window', this._settings,
-            Meta.KeyBindingFlags.NON_MASKABLE | Meta.KeyBindingFlags.IGNORE_AUTOREPEAT,
-            Shell.ActionMode.NORMAL,
-            () => this._closeWindow(global.display.get_focus_window(), global.get_current_time())
-        );
-        if (this._closeDebug?.query_exists(null))
-            console.log(`Nodalix close shortcut registered: ${closeAction}`);
-
         if (this._settings.get_boolean('enabled'))
             this._scheduleRetile();
     }
 
 
     disable() {
+        this._notifications?.disable();
+        this._notifications = null;
         this._cancelGrab();
         this._groups?.clear();
         this._windowGroups?.clear();
 
-        Main.wm.removeKeybinding('close-window');
-        this._closeCancellable?.cancel();
-        this._closeCancellable = null;
 
         Main.wm.removeKeybinding('toggle-floating');
-        Main.wm.removeKeybinding('toggle-launcher');
 
         if (this._retileSource) {
             GLib.source_remove(this._retileSource);
@@ -244,62 +225,6 @@ Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
         this._windowSignals = null;
         this._firstFrameSignals = null;
         this._settings = null;
-    }
-
-
-    _closeWindow(win, timestamp) {
-        if (!win)
-            return;
-        if (this._closeDebug?.query_exists(null))
-            console.log(`Nodalix close request: class=${win.get_wm_class()} gtk=${win.get_gtk_application_id()}`);
-
-        const isGhostty = win.get_gtk_application_id() === 'com.mitchellh.ghostty' ||
-            win.get_wm_class()?.toLowerCase() === 'ghostty' ||
-            win.get_wm_class() === 'com.mitchellh.ghostty';
-        const closeNormally = () => {
-            if (win.get_compositor_private() && (isGhostty || win.can_close()))
-                win.delete(timestamp);
-        };
-
-        if (!isGhostty) {
-            closeNormally();
-            return;
-        }
-
-        // Ghostty ignores the compositor delete request in some configurations.
-        // GTK exports a close-window action distinct from close-tab. Use the focused window's
-        // unique bus name and object path, never the application-wide quit action.
-        const busName = win.get_gtk_unique_bus_name();
-        const windowPath = win.get_gtk_window_object_path();
-        const cancellable = this._closeCancellable;
-        if (this._closeDebug?.query_exists(null))
-            console.log(`Nodalix Ghostty close route: bus=${busName} path=${windowPath}`);
-        if (!busName || !windowPath || !cancellable) {
-            closeNormally();
-            return;
-        }
-
-        Gio.DBus.session.call(
-            busName,
-            windowPath,
-            'org.gtk.Actions',
-            'Activate',
-            new GLib.Variant('(sava{sv})', ['close', [], {}]),
-            null,
-            Gio.DBusCallFlags.NONE,
-            2000,
-            cancellable,
-            (connection, result) => {
-                try {
-                    connection.call_finish(result);
-                } catch (error) {
-                    if (!cancellable.is_cancelled()) {
-                        console.warn(`Nodalix: Ghostty window close failed: ${error.message}`);
-                        closeNormally();
-                    }
-                }
-            }
-        );
     }
 
 
@@ -792,25 +717,6 @@ Shell.ActionMode.NORMAL | Shell.ActionMode.OVERVIEW,
             );
         }
     }
-
-
-    _toggleLauncher() {
-const controls = Main.overview._overview.controls;
-
-// Escritorio / Overview -> Apps
-// Apps -> Escritorio
-if (
-Main.overview.visible &&
-controls.dash.showAppsButton.checked
-) {
-Main.overview.hide();
-return;
-}
-
-Main.overview.show(
-OverviewControls.ControlsState.APP_GRID
-);
-}
 
 
     _toggleFocusedFloating() {

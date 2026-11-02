@@ -8,9 +8,9 @@
     },
     {
       "name": "nodalix-gnome",
-      "version": "0.4.0-2",
-      "file": "nodalix-gnome-0.4.0-2-any.pkg.tar.zst",
-      "sha256": "f64b52b09e8cb3838313f324fc01b189d7b2444c4dec0d0651c6415357357ebe"
+      "version": "0.4.0-3",
+      "file": "nodalix-gnome-0.4.0-3-any.pkg.tar.zst",
+      "sha256": "d14c073e7079946d4480ceac03b7e69322be5f169f07012b948d9e25a303f6c9"
     },
     {
       "name": "nodalix-integrations",
@@ -20,15 +20,21 @@
     },
     {
       "name": "nodalix-settings",
-      "version": "0.4.0-2",
-      "file": "nodalix-settings-0.4.0-2-any.pkg.tar.zst",
-      "sha256": "41cd78b707ef6ad2720736c11bbfc59860e1b37c84358c95141e915759e41c06"
+      "version": "0.4.0-3",
+      "file": "nodalix-settings-0.4.0-3-any.pkg.tar.zst",
+      "sha256": "61ba4fef55a52ee4fc3676862448aeb4c4dee0117588c4da4dfa1fdc7c6d11bd"
     },
     {
       "name": "nodalix-control-center",
-      "version": "51.0.0-8",
-      "file": "nodalix-control-center-51.0.0-8-x86_64.pkg.tar.zst",
-      "sha256": "c656890dab1180853a9640d1caf761eb7053cede8e8b0e731ec143d248dae7a2"
+      "version": "51.0.0-9",
+      "file": "nodalix-control-center-51.0.0-9-x86_64.pkg.tar.zst",
+      "sha256": "ac7f39310609dc3bb68ffd64a9d509e81f82c9854f56c21ab69898012c9fb3bb"
+    },
+    {
+      "name": "nodalix-video-wallpapers",
+      "version": "0.4.0-2",
+      "file": "nodalix-video-wallpapers-0.4.0-2-any.pkg.tar.zst",
+      "sha256": "32f5c7b6d833f7871c15bd9d8a92185c163f4d9f526533b113130eb6945f2854"
     }
   ]
 }

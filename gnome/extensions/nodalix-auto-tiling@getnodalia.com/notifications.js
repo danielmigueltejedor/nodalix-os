@@ -22,6 +22,10 @@ export class NativeNotifications {
         this._list = this._date._messageList;
         this._view = this._list._messageView;
         this._oldStyle = this._list._scrollView.get_style();
+        this._area = this._list.get_parent();
+        this._oldAreaStyle = this._area.get_style();
+        this._oldDisplayStyle = this._date._displaysSection.get_style();
+        this._oldDisplayPolicy = this._date._displaysSection.vscrollbar_policy;
         this._oldLayout = [this._list.y_expand, this._list.y_align,
             this._list._scrollView.y_expand, this._list._scrollView.y_align,
             this._list._scrollView.hscrollbar_policy, this._list._scrollView.vscrollbar_policy];
@@ -88,6 +92,14 @@ export class NativeNotifications {
         if (!monitor) return;
         const area = global.workspace_manager.get_active_workspace().get_work_area_for_monitor(monitor.index);
         const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;
+        const popupLimit = Math.floor(area.height * 0.88 / scale);
+        const displayLimit = Math.floor(area.height * 0.35 / scale);
+        if (this._popupLimit !== popupLimit) {
+            this._area.set_style(`${this._oldAreaStyle ?? ''}; max-height: ${popupLimit}px;`);
+            this._date._displaysSection.set_style(`${this._oldDisplayStyle ?? ''}; max-height: ${displayLimit}px;`);
+            this._popupLimit = popupLimit;
+        }
+        this._date._displaysSection.vscrollbar_policy = St.PolicyType.AUTOMATIC;
         // Leave room for the popup padding and the native controls outside the scroller.
         const height = Math.max(1, Math.floor(area.height * 0.65 / scale));
         if (this._maxHeight !== height) {
@@ -133,6 +145,11 @@ export class NativeNotifications {
         for (const [object, id] of this._signals ?? []) object.disconnect(id);
         this._signals = [];
         this._injections?.clear();
+        this._area?.set_style(this._oldAreaStyle);
+        if (this._date?._displaysSection) {
+            this._date._displaysSection.set_style(this._oldDisplayStyle);
+            this._date._displaysSection.vscrollbar_policy = this._oldDisplayPolicy;
+        }
         this._list?._scrollView.set_style(this._oldStyle);
         this._list?._scrollView.set_height(-1);
         if (this._list && this._oldLayout) {

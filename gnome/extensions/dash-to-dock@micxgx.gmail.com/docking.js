@@ -980,13 +980,16 @@ const DockedDash = GObject.registerClass({
         }
     }
 
-    _checkDockDwellLater(x, y) {
+    _checkDockDwellLater() {
         if (this._checkDockDwellId > 0)
             return;
 
         this._checkDockDwellId = GLib.timeout_add(GLib.PRIORITY_DEFAULT,
             DOCK_DWELL_CHECK_INTERVAL, () => {
-                this._checkDockDwellNow(x, y);
+                // Pointer events are throttled. Use the final position, since
+                // the first event can precede reaching the edge; there may be
+                // no further motion once the pointer stops at the screen edge.
+                this._checkDockDwellNow(...global.get_pointer());
                 this._checkDockDwellId = 0;
                 return GLib.SOURCE_REMOVE;
             });

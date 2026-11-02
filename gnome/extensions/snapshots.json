@@ -19,9 +19,8 @@
     "uuid": "nodalix-connect@getnodalia.com",
     "version": 2,
     "files": {
-      "extension.js": "9eeda62501d30469074617b8905fe5e7ae242c3bee5c3a63cd013642c6530233",
-      "metadata.json": "d9715b7326e4b2f1afb2d69f59ee76eb698d2586c5fc44b266e5508ed61581e5",
-      "notifications.js": "e7956ab258c7677a8dd77790013b4b89894e827fdb2c3a136c47229606390150"
+      "extension.js": "64a2d3d4b8ca3f11b65b06c91180c11adf36f63994027a134b83286d2e89c010",
+      "metadata.json": "d9715b7326e4b2f1afb2d69f59ee76eb698d2586c5fc44b266e5508ed61581e5"
     }
   },
   {
@@ -43,7 +42,7 @@
       "dependencies/shell/ui.js": "359175c7371e3720219406284be5da1fb3093bd46e19160065c354443d0b2836",
       "desktopIconsIntegration.js": "6bb32089139c0bd989cd08ffd082b48b3af03fd7b4192b6c74299d4eda8d32b3",
       "dockStruts.js": "c82afebe39a166845113c3b119e643154cb46f6ae45e615a680c5524548140bb",
-      "docking.js": "f5635609a0597867c9c9c5481b857d3f827dfde747feecbcda8bb92b457903ba",
+      "docking.js": "966129e6338f35d8c7d4c859749acd1b1ead092adb2cbd916d365957999afc65",
       "extension.js": "e6afbc7e16440c107687165886112d55c68143f039fc5b17adadccb48194a612",
       "fileManager1API.js": "e8c3e57dd6c8a9625f15f08f011c9a6adc44677864427dada5f5d6bcc6fbacdc",
       "imports.js": "45e7f3727273c38644882800c1a10488fc948224543d8c7f6240965b79676264",

@@ -58,7 +58,7 @@
     "values": {
       "brightness": "0.69999999999999996",
       "corner-radius": "0",
-      "static-blur": "false",
+      "static-blur": "true",
       "sigma": "30",
       "pipeline": "'pipeline_default'"
     }
@@ -120,57 +120,7 @@
       "blur": "true",
       "pipeline": "'pipeline_default_rounded'",
       "brightness": "0.69999999999999996",
-      "static-blur": "false"
-    }
-  },
-  {
-    "uuid": "tiling-assistant@leleat-on-github",
-    "schema": "org.gnome.shell.extensions.tiling-assistant",
-    "values": {
-      "dynamic-keybinding-behavior": "0",
-      "tile-top-half-ignore-ta": "@as []",
-      "last-version-installed": "55",
-      "screen-bottom-gap": "8",
-      "tile-topleft-quarter-ignore-ta": "@as []",
-      "activate-layout0": "@as []",
-      "tile-bottom-half-ignore-ta": "@as []",
-      "restore-window": "['<Super>Down']",
-      "screen-right-gap": "8",
-      "tile-topright-quarter": "['<Super>KP_9']",
-      "tile-maximize-horizontally": "@as []",
-      "tile-topright-quarter-ignore-ta": "@as []",
-      "activate-layout1": "@as []",
-      "auto-tile": "@as []",
-      "tile-maximize": "['<Super>Up', '<Super>KP_5']",
-      "center-window": "@as []",
-      "tile-right-half-ignore-ta": "@as []",
-      "activate-layout2": "@as []",
-      "tile-left-half": "['<Super>Left', '<Super>KP_4']",
-      "tile-bottomright-quarter": "['<Super>KP_3']",
-      "activate-layout3": "@as []",
-      "tile-top-half": "['<Super>KP_8']",
-      "tile-edit-mode": "@as []",
-      "tile-maximize-vertically": "@as []",
-      "tile-left-half-ignore-ta": "@as []",
-      "screen-top-gap": "8",
-      "tile-right-half": "['<Super>Right', '<Super>KP_6']",
-      "debugging-show-tiled-rects": "@as []",
-      "import-layout-examples": "false",
-      "screen-left-gap": "8",
-      "single-screen-gap": "8",
-      "toggle-tiling-popup": "@as []",
-      "tile-topleft-quarter": "['<Super>KP_7']",
-      "window-gap": "8",
-      "tile-bottom-half": "['<Super>KP_2']",
-      "default-move-mode": "0",
-      "toggle-always-on-top": "@as []",
-      "focus-hint": "0",
-      "debugging-free-rects": "@as []",
-      "tile-bottomright-quarter-ignore-ta": "@as []",
-      "tile-bottomleft-quarter-ignore-ta": "@as []",
-      "search-popup-layout": "@as []",
-      "tile-bottomleft-quarter": "['<Super>KP_1']",
-      "focus-hint-color": "'rgb(237,91,0)'"
+      "static-blur": "true"
     }
   }
 ]

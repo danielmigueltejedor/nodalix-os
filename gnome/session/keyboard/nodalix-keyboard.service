@@ -1,0 +1,15 @@
+[Unit]
+Description=Fixed clipboard actions for GNOME native keyboard shortcuts
+[Service]
+Type=dbus
+BusName=com.nodalix.Keyboard
+ExecStartPre=/usr/bin/modprobe uinput
+ExecStart=/usr/bin/python3 /usr/lib/nodalix/native_clipboard.py
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX
