@@ -20,6 +20,8 @@ class ServiceHardeningTests(unittest.TestCase):
             "PrivateDevices=yes",
             "ProtectSystem=strict",
             "ProtectHome=yes",
+            "CacheDirectory=nodalix-updater",
+            "StateDirectory=nodalix-updater",
             "ProtectKernelTunables=yes",
             "ProtectKernelModules=yes",
             "ProtectControlGroups=yes",
