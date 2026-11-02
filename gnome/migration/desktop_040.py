@@ -57,3 +57,28 @@ def restore_native_panels(home,settings):
         settings.set_strv('enabled-extensions',enabled)
     disabled=settings.get_strv('disabled-extensions')
     if old in disabled:settings.set_strv('disabled-extensions',[item for item in disabled if item!=old])
+
+
+def restore_stock_appearance(home,settings):
+    """Drop development-only visual defaults; leave useful desktop features."""
+    from gi.repository import Gio
+    state=Path(os.environ.get('XDG_STATE_HOME',str(home/'.local/state')))
+    backup=state/'nodalix/migrations/gnome-0.4.0-stock-appearance'
+    backup.mkdir(parents=True,exist_ok=True,mode=0o700)
+    saved=backup/'preferences.json'
+    if not saved.exists():
+        saved.write_text(json.dumps({'enabled':settings.get_strv('enabled-extensions'),
+            'disabled':settings.get_strv('disabled-extensions')},indent=2)+'\n')
+        saved.chmod(0o600)
+    appearance={'global-menu@unmade.space','rounded-window-corners@ztrahmet.github.io'}
+    settings.set_strv('enabled-extensions',[uuid for uuid in settings.get_strv('enabled-extensions') if uuid not in appearance])
+    folder=Path('/usr/share/gnome-shell/extensions/blur-my-shell@aunetx/schemas')
+    if not (folder/'gschemas.compiled').is_file():return
+    source=Gio.SettingsSchemaSource.new_from_directory(str(folder),Gio.SettingsSchemaSource.get_default(),False)
+    for suffix in ('panel','popup','dash-to-dock','overview'):
+        schema=source.lookup('org.gnome.shell.extensions.blur-my-shell.'+suffix,False)
+        if not schema:continue
+        prefs=Gio.Settings.new_full(schema,None,None)
+        # Undo only the candidate's brightness preset, retaining custom values.
+        if abs(prefs.get_double('brightness')-0.7)<1e-9:prefs.reset('brightness')
+        if suffix=='popup':prefs.reset('static-blur')

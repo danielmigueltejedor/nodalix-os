@@ -21,6 +21,7 @@ def main():
     parser.add_argument('--alternatives',action='store_true')
     parser.add_argument('--without-phone',action='store_true')
     parser.add_argument('--panels-only',action='store_true')
+    parser.add_argument('--monitors',type=int,choices=range(2,5),default=2)
     parser.add_argument('--evidence',type=Path,default=ROOT/'dist/shell-evidence')
     args=parser.parse_args();args.evidence.mkdir(parents=True,exist_ok=True)
     if os.environ.get('NODALIX_PRIVATE_SHELL_TEST')!='1':
@@ -30,7 +31,7 @@ def main():
             env.update(NODALIX_PRIVATE_SHELL_TEST='1',NODALIX_QA_HOME=directory,HOME=directory,GTK_A11Y='none',
                 XDG_RUNTIME_DIR=str(runtime),XDG_CONFIG_HOME=str(home/'config'),XDG_DATA_HOME=str(home/'data'),
                 XDG_STATE_HOME=str(home/'state'),XDG_CACHE_HOME=str(home/'cache'))
-            result=subprocess.run(['dbus-run-session','--',sys.executable,__file__,'--evidence',str(args.evidence.resolve()),*(['--greeter'] if args.greeter else []),*(['--alternatives'] if args.alternatives else []),*(['--without-phone'] if args.without_phone else []),*(['--panels-only'] if args.panels_only else [])],env=env)
+            result=subprocess.run(['dbus-run-session','--',sys.executable,__file__,'--evidence',str(args.evidence.resolve()),*(['--greeter'] if args.greeter else []),*(['--alternatives'] if args.alternatives else []),*(['--without-phone'] if args.without_phone else []),*(['--panels-only'] if args.panels_only else []),'--monitors',str(args.monitors)],env=env)
             for name in ('doc','gvfs'):
                 subprocess.run(['fusermount3','-uz',str(runtime/name)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             return result.returncode
@@ -77,7 +78,8 @@ def main():
         Gio.Settings.new('org.gnome.desktop.interface').set_boolean('enable-hot-corners',False)
         Gio.Settings.new('org.gnome.mutter').set_string('overlay-key','Super_L')
         Gio.Settings.new('org.gnome.desktop.input-sources').set_value('sources',GLib.Variant('a(ss)',[('xkb','es')]))
-        profile=[path.name for path in extensions.iterdir()]
+        profile=([path.name for path in extensions.iterdir()] if args.greeter else
+            [uuid for uuid in json.loads((ROOT/'gnome/session/extensions.json').read_text()) if (extensions/uuid).is_dir()]+[qa.name])
         if args.without_phone:profile=[uuid for uuid in profile if uuid!='nodalix-connect@getnodalia.com']
         if args.alternatives and not args.greeter:
             profile=[uuid for uuid in profile if uuid!='nodalix-auto-tiling@getnodalia.com']
@@ -88,7 +90,7 @@ def main():
             Gio.Settings.new_full(source.lookup('org.gnome.shell.extensions.glocalsend',False),None,None).set_boolean('start-on-login',False)
         shell.set_strv('enabled-extensions',profile);Gio.Settings.sync()
         with (args.evidence/'gnome-shell.log').open('w') as log:
-            process=subprocess.Popen(['gnome-shell',*(['--mode=gdm'] if args.greeter else []),'--headless','--wayland','--no-x11','--debug-control','--virtual-monitor','1280x720','--virtual-monitor','1280x720'],stdout=log,stderr=log)
+            process=subprocess.Popen(['gnome-shell',*(['--mode=gdm'] if args.greeter else []),'--headless','--wayland','--no-x11','--debug-control',*(['--virtual-monitor','1280x720']*args.monitors)],stdout=log,stderr=log)
             try:
                 bus=Gio.bus_get_sync(Gio.BusType.SESSION,None)
                 def call(interface,method,parameters=None,path='/org/gnome/Shell'):
@@ -129,7 +131,7 @@ def main():
                     else:raise AssertionError('Native dock did not finish its initial appearance')
                     time.sleep(.6)  # Native icon-size transitions finish after the slide.
                     cold_dock=evaluate("global.blur_my_shell._dash_to_dock_blur.dashes.map(d=>({width:d.dash_background.width,height:d.dash_background.height,clip:d.background.has_clip?d.background.get_clip():null,origin:d.background.get_transformed_position(),target:d.dash_background.get_transformed_position(),static:d.dash_blur.is_static,configured:d.settings.dash_to_dock.STATIC_BLUR,container:[d.dash_container.x,d.dash_container.y,d.dash_container.width,d.dash_container.height,d.dash_container.translation_x,d.dash_container.translation_y],tracked:!!d.dash_background_allocation_id}))")
-                    assert len(cold_dock)==2,cold_dock
+                    assert len(cold_dock)==args.monitors,cold_dock
                     assert all(d['tracked'] and d['clip'] and d['width']>0 and d['height']>0 and d['clip'][2]>=d['width']-.5 and d['clip'][3]>=d['height']-.5 for d in cold_dock),cold_dock
                     assert all(abs(d['origin'][1]+d['clip'][1]-d['target'][1]+1)<1 for d in cold_dock),cold_dock
                     (args.evidence/'dock-first-frame.json').write_text(json.dumps(cold_dock,indent=2))
@@ -155,24 +157,26 @@ def main():
                     (args.evidence/'panel-source-roles.json').write_text(json.dumps(evaluate("({roles:Object.entries(Main.panel.statusArea).map(([role,a])=>({role,visible:a.visible,parent:a.get_parent()?.name,container:a.container?.name})),left:Main.panel._leftBox.get_children().map(a=>({name:a.name,visible:a.visible,children:a.get_children().map(c=>({name:c.name,visible:c.visible}))}))})"),indent=2))
                     assert all(role in roles for role in ('activities','dateMenu','quickSettings')),roles
                     blur=evaluate(f'global.blur_my_shell._panel_blur.actors_list.map(a=>({{monitor:a.monitor.index,background:!!a.widgets.background}}))')
-                    assert len(blur)==2 and all(row['background'] for row in blur),blur
+                    assert len(blur)==args.monitors and all(row['background'] for row in blur),blur
                     menus=[]
-                    for role in ('quickSettings','dateMenu'):
-                        menu='Main.panel.statusArea.quickSettings.menu' if role=='quickSettings' else f'{secondary}.statusArea.dateMenu.menu'
-                        button=f'{secondary}.statusArea.{role}'
-                        evaluate(f"{button}._openQuickSettingsMenu();true" if role=='quickSettings' else f'{menu}.open();true')
-                        time.sleep(.4)
-                        evaluate(f'{secondary}._updatePanel();true')
-                        time.sleep(.4)
-                        geometry=evaluate(f"(() => {{const menu={menu},b={button},m=Main.layoutManager.findMonitorForActor(b),p=menu._boxPointer.get_transformed_position(),s=menu._boxPointer.get_transformed_size();return {{open:menu.isOpen,sameSource:menu.sourceActor===b,monitor:m.index,x:p[0],y:p[1],width:s[0],height:s[1],bounds:[m.x,m.y,m.width,m.height]}};}})()")
-                        assert geometry['open'] and geometry['sameSource'],geometry
-                        x,y,w,h=geometry['bounds']
-                        assert x-.5<=geometry['x'] and geometry['x']+geometry['width']<=x+w+.5,geometry
-                        assert y<=geometry['y'] and geometry['y']+geometry['height']<=y+h+.5,geometry
-                        evaluate(f'{menu}.close();true');time.sleep(.6)
-                        residue=evaluate('[...global.blur_my_shell._popup.surfaces.values()].filter(s=>!s.is_visible()&&s.actor?.visible).length')
-                        assert residue==0,residue
-                        menus.append({'role':role,**geometry,'hidden_blur_surfaces_still_visible':residue})
+                    for panel_index in range(args.monitors-1):
+                        secondary=f'global._qaMM.mmPanel[{panel_index}]'
+                        for role in ('quickSettings','dateMenu'):
+                            menu='Main.panel.statusArea.quickSettings.menu' if role=='quickSettings' else f'{secondary}.statusArea.dateMenu.menu'
+                            button=f'{secondary}.statusArea.{role}'
+                            evaluate(f"{button}._openQuickSettingsMenu();true" if role=='quickSettings' else f'{menu}.open();true')
+                            time.sleep(.4)
+                            evaluate(f'{secondary}._updatePanel();true')
+                            time.sleep(.4)
+                            geometry=evaluate(f"(() => {{const menu={menu},b={button},m=Main.layoutManager.findMonitorForActor(b),p=menu._boxPointer.get_transformed_position(),s=menu._boxPointer.get_transformed_size();return {{open:menu.isOpen,sameSource:menu.sourceActor===b,monitor:m.index,x:p[0],y:p[1],width:s[0],height:s[1],bounds:[m.x,m.y,m.width,m.height]}};}})()")
+                            assert geometry['open'] and geometry['sameSource'],geometry
+                            x,y,w,h=geometry['bounds']
+                            assert x-.5<=geometry['x'] and geometry['x']+geometry['width']<=x+w+.5,geometry
+                            assert y<=geometry['y'] and geometry['y']+geometry['height']<=y+h+.5,geometry
+                            evaluate(f'{menu}.close();true');time.sleep(.6)
+                            residue=evaluate('[...global.blur_my_shell._popup.surfaces.values()].filter(s=>!s.is_visible()&&s.actor?.visible).length')
+                            assert residue==0,residue
+                            menus.append({'role':role,**geometry,'hidden_blur_surfaces_still_visible':residue})
                     # A descendant animation must never retain the blur after
                     # its native parent closes (the persistent-outline regression).
                     evaluate('Main.panel.statusArea.dateMenu.menu.open();true');time.sleep(.4)
@@ -584,6 +588,9 @@ def activate(app):
     win.show_all();win.present()
 app.connect('activate',activate);app.run()
 """
+                # This optional extension is deliberately absent from the stock profile.
+                call('org.gnome.Shell.Extensions','EnableExtension',GLib.Variant('(s)',('global-menu@unmade.space',)))
+                time.sleep(.3)
                 menus=subprocess.Popen([sys.executable,'-c',menu_fixture],env=env,stdout=log,stderr=log)
                 menubar="Main.extensionManager.lookup('global-menu@unmade.space').stateObj._menubar"
                 try:
@@ -606,6 +613,7 @@ app.connect('activate',activate);app.run()
                     (args.evidence/'global-menu.json').write_text(json.dumps({'gtk3_native_export':True,'real_action_invoked':True,'disabled_state_preserved':True,'stale_window_reply_ignored':True},indent=2))
                 finally:
                     menus.terminate();menus.wait(timeout=5)
+                    call('org.gnome.Shell.Extensions','DisableExtension',GLib.Variant('(s)',('global-menu@unmade.space',)))
                 app=subprocess.Popen([sys.executable,'-c',fixture],env=env,stdout=log,stderr=log)
                 try:
                     for attempt in range(30):

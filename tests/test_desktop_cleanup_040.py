@@ -3,6 +3,8 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import subprocess
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -18,6 +20,29 @@ class Settings:
     def set_strv(self,key,value):self.values[key]=value
 
 class DesktopCleanup(unittest.TestCase):
+    def test_stock_appearance_keeps_blur_tiling_and_dock(self):
+        code='''
+import json,runpy
+from pathlib import Path
+from gi.repository import Gio
+m=runpy.run_path(SOURCE);home=Path.home()
+p=Gio.Settings.new('org.gnome.shell')
+keep=['blur-my-shell@aunetx','multi-monitors-bar@frederykabryan',
+      'tiling-assistant@leleat-on-github','dash-to-dock@micxgx.gmail.com']
+original=keep+['global-menu@unmade.space','rounded-window-corners@ztrahmet.github.io']
+p.set_strv('enabled-extensions',original)
+m['restore_stock_appearance'](home,p);m['restore_stock_appearance'](home,p)
+assert p.get_strv('enabled-extensions')==keep
+saved=home/'.local/state/nodalix/migrations/gnome-0.4.0-stock-appearance/preferences.json'
+assert json.loads(saved.read_text())['enabled']==original
+assert saved.stat().st_mode & 0o777==0o600
+'''
+        with tempfile.TemporaryDirectory() as directory:
+            result=subprocess.run([sys.executable,'-c','SOURCE='+repr(str(ROOT/'gnome/migration/desktop_040.py'))+'\n'+code],
+                env=dict(os.environ,HOME=directory,XDG_STATE_HOME=directory+'/.local/state',GSETTINGS_BACKEND='memory'),
+                capture_output=True,text=True)
+            self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+
     def test_duplicate_sources_are_backed_up_and_only_one_provider_remains(self):
         with tempfile.TemporaryDirectory() as directory:
             home=Path(directory);data=home/'data';state=home/'state';system=home/'system'

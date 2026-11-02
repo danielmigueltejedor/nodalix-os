@@ -114,7 +114,7 @@ monitors. Shell module replacement requires a new login.
 The dock blur follows the actual background allocation and startup translations.
 Private GNOME 51 tests exercise the first appearance before hide/show, both native
 menus, preserved primary Quick Settings, hidden blur surfaces, monitor changes,
-manual tiling and native shortcuts. Packages: nodalix-gnome 0.4.0-5 and
+manual tiling and native shortcuts. Packages: nodalix-gnome 0.4.0-6 and
 nodalix-integrations 0.4.0-2.
 
 Application folders discover publisher namespaces and ArtCraft metadata rather
@@ -122,3 +122,9 @@ than a closed product list. System and Flatpak applications follow desktop-file
 precedence, hidden overrides and categories. Custom user folders are retained;
 ArtCraft suite membership takes priority. Folder changes have a private backup
 and directory events coalesce without polling or repeated gsettings subprocesses.
+
+The default appearance uses GNOME's native panel plus Blur My Shell. Global Menu
+and added window-corner effects are opt-in and are disabled by the development
+candidate repair. Nodalix no longer seeds custom blur pipelines or brightness;
+only its previously imposed brightness preset and popup cache are reset, while
+custom pipeline choices remain. Two- and three-monitor native menu tests pass.

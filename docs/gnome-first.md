@@ -231,7 +231,9 @@ explícitas durante una actualización.
 secundarios, con calendario y controles nativos. La barra principal conserva
 sus indicadores y distribución. Todo el desenfoque de paneles, menús y dock lo
 gestiona Blur My Shell; no hay una segunda implementación de blur ni una barra
-Nodalix de sustitución. Se conserva Tiling Assistant, sus preferencias y las
+Nodalix de sustitución. El menú global y el redondeado añadido de ventanas quedan
+desactivados por defecto; no se imponen presets de aspecto a Blur My Shell.
+Se conserva Tiling Assistant, sus preferencias y las
 versiones personales más recientes. El calendario limita su altura y permite
 desplazar las notificaciones en ambos monitores, aunque Phone Link esté apagado.
 

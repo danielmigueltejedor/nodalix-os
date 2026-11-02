@@ -1,5 +1,5 @@
 {
-  "unit_integration_tests": 266,
+  "unit_integration_tests": 267,
   "result": "passed",
   "date": "2026-11-03",
   "native_shell": "GNOME Shell 51.1",
@@ -23,5 +23,7 @@
   "primary_panel_native_layout": true,
   "hidden_popup_animation_regression": true,
   "application_folder_integration": true,
-  "calendar_agenda_cap": "12em"
+  "calendar_agenda_cap": "12em",
+  "default_appearance": "Native GNOME with Blur My Shell; added Global Menu/window effects disabled",
+  "three_monitor_native_menus": true
 }
