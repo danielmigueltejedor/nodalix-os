@@ -21,7 +21,14 @@ def user_script(source):
 
 try:
     deadline=time.monotonic()+360
+    qa_idle_configured=False
     while time.monotonic()<deadline:
+        if not qa_idle_configured and Path('/run/user/'+GUEST_UID+'/bus').exists():
+            # Only this disposable guest: two-core TCG initialization can take
+            # longer than the normal desktop idle timeout. Locking would switch
+            # Shell mode and intentionally disable the user-only extensions.
+            user_script("from gi.repository import Gio; Gio.Settings.new('org.gnome.desktop.session').set_uint('idle-delay',0); Gio.Settings.new('org.gnome.desktop.screensaver').set_boolean('lock-enabled',False); Gio.Settings.sync()")
+            qa_idle_configured=True
         if (GUEST_HOME/'.local/state/nodalix/migrations/gnome-0.3.1.done').exists() and Path('/run/user/'+GUEST_UID+'/bus').exists():break
         time.sleep(2)
     else:raise AssertionError('GNOME first-login migration did not finish')
@@ -133,6 +140,27 @@ state=json.loads(bus.call_sync('com.nodalix.Settings','/com/nodalix/Settings','c
 assert state['available'] and state['requested'] and state['path']==str(video),state
 wait_renderer()
 print('Animated wallpaper renderer active')
+# A portal owns its bus name before every asynchronous backend interface is
+# ready. Under TCG the renderer/GTK can activate it while Shell is still
+# starting. Require the real screenshot interfaces; never bypass the portal,
+# restart it to hide a failure, or accept an absent screenshot implementation.
+def wait_portal_interface(name,interface):
+    deadline=time.monotonic()+180
+    last=None
+    while time.monotonic()<deadline:
+        try:
+            version=bus.call_sync(name,'/org/freedesktop/portal/desktop',
+                'org.freedesktop.DBus.Properties','Get',GLib.Variant('(ss)',(interface,'version')),
+                None,Gio.DBusCallFlags.NONE,10000,None).unpack()[0]
+            if isinstance(version,GLib.Variant):version=version.unpack()
+            if isinstance(version,int) and version>=1:return
+            last=version
+        except GLib.Error as error:last=str(error)
+        time.sleep(1)
+    raise AssertionError(('Screenshot portal interface did not become ready',name,interface,last))
+wait_portal_interface('org.freedesktop.impl.portal.desktop.gnome','org.freedesktop.impl.portal.Screenshot')
+wait_portal_interface('org.freedesktop.portal.Desktop','org.freedesktop.portal.Screenshot')
+print('Real screenshot backend and frontend interfaces ready')
 # Register this QA process explicitly; the systemd verifier otherwise supplies
 # a different app identity than a terminal process. All files are guest-only.
 qa_id='com.nodalix.QA'
@@ -166,6 +194,7 @@ except Exception:
     traceback.print_exc()
     print(run('journalctl','-b','--no-pager','-n','100','_COMM=gnome-shell'))
     print(run('journalctl','-b','--no-pager','-n','90','--grep=nodalix|gnome-session|gdm'))
+    print(run('journalctl','-b','--no-pager','-n','100','--user-unit=xdg-desktop-portal.service','--user-unit=xdg-desktop-portal-gnome.service'))
     print('NODALIX_VM_MIGRATION_FAIL',flush=True)
 finally:
     subprocess.run(['systemctl','poweroff'],check=False)
