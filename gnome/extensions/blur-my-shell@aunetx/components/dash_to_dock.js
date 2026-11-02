@@ -42,6 +42,14 @@ class DashInfos {
         this.bg_allocation_id = this.background_group?.connect('notify::allocation', () => {
             this.schedule_update();
         });
+        // Its first theme allocation can settle after the icons/container.
+        // Track the actual background, not only the outer dock dimensions.
+        this.dash_background_allocation_id = this.dash_background.connect('notify::allocation', () => {
+            this.schedule_update();
+        });
+        this.dash_background_destroy_id = this.dash_background.connect('destroy', () => {
+            this.dash_background_allocation_id = this.dash_background_destroy_id = 0;
+        });
 
         let monitor = Main.layoutManager.findMonitorForActor(this.dash_container);
         this.current_monitor_index = monitor ? monitor.index : null;
@@ -78,6 +86,14 @@ class DashInfos {
 
     // IMPORTANT: do never call this in a mutable `this.dash_blur.forEach`
     remove_dash_blur() {
+        if (this.dash_background_allocation_id) {
+            this.dash_background.disconnect(this.dash_background_allocation_id);
+            this.dash_background_allocation_id = 0;
+        }
+        if (this.dash_background_destroy_id) {
+            this.dash_background.disconnect(this.dash_background_destroy_id);
+            this.dash_background_destroy_id = 0;
+        }
         // remove the style and destroy the effects
         this.remove_style();
         this.destroy_dash();
@@ -426,7 +442,8 @@ export const DashBlur = class DashBlur extends Signals.EventEmitter {
         // updates size and position on change
         this.connections.connect(
             dash,
-            ['notify::width', 'notify::height'],
+            ['notify::width', 'notify::height', 'notify::allocation',
+                'notify::translation-x', 'notify::translation-y'],
             _ => this.update_size()
         );
         this.connections.connect(
@@ -436,6 +453,8 @@ export const DashBlur = class DashBlur extends Signals.EventEmitter {
                 'notify::height', 
                 'notify::y', 
                 'notify::x', 
+                'notify::translation-x',
+                'notify::translation-y',
                 'notify::style-class-name',
                 'notify::allocation'
             ],

@@ -50,6 +50,14 @@ def main():
         if bindings==['<Alt>F4']:close.set_strv('close',['<Super>q','<Alt>F4'])
         Gio.Settings.sync()
         shortcuts_marker.write_text('0.4.0\n')
+    tiling_marker=root/'gnome-0.4.0-tiling-assistant.done'
+    if not tiling_marker.exists():
+        from gi.repository import Gio
+        cleanup=preferences.with_name('desktop_040.py')
+        if cleanup.is_file():
+            runpy.run_path(str(cleanup))['restore_tiling_assistant'](home,Gio.Settings.new('org.gnome.shell'))
+            Gio.Settings.sync()
+            tiling_marker.write_text('0.4.0\n')
     if marker.exists():return
     prototypes=Path('/usr/share/nodalix/gnome-extension-prototypes-040.json')
     if prototypes.is_file():

@@ -1,8 +1,10 @@
 {
   "uuid": "nodalix-secondary-bars@getnodalia.com",
   "name": "Nodalix Secondary Bars",
-  "description": "Lightweight secondary monitor bars; the primary panel owns all menus and indicators.",
-  "shell-version": ["51"],
-  "version": 1,
+  "description": "Native panel indicators and shared GNOME menus on secondary monitors, with the configured panel blur.",
+  "shell-version": [
+    "51"
+  ],
+  "version": 2,
   "url": "https://github.com/danielmigueltejedor/nodalix-os"
 }

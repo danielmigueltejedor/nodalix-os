@@ -39,7 +39,7 @@ se conservan. El servicio keyd se detiene si ya no quedan configuraciones.
 Las extensiones sustituidas y las copias locales que ocultaban versiones del
 sistema se archivan bajo
 `~/.local/state/nodalix/migrations/gnome-0.4.0-native-extensions/`.
-Solo queda un proveedor de mosaico y uno de paneles secundarios. Las preferencias
+Tiling Assistant se conserva para colocar ventanas manualmente; el mosaico automático es opcional y respeta las ventanas colocadas con Tiling Assistant. Solo queda un proveedor de paneles secundarios. Las preferencias
 y extensiones ajenas se conservan. Se necesita volver a iniciar sesión para cargar
 los módulos nuevos de GNOME Shell; la actualización no cierra aplicaciones.
 

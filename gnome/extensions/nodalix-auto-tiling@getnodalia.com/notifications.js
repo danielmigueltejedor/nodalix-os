@@ -88,7 +88,7 @@ export class NativeNotifications {
     }
 
     _height() {
-        const monitor = Main.layoutManager.findMonitorForActor(this._date) ?? Main.layoutManager.primaryMonitor;
+        const monitor = Main.layoutManager.findMonitorForActor(this._date.menu.sourceActor ?? this._date) ?? Main.layoutManager.primaryMonitor;
         if (!monitor) return;
         const area = global.workspace_manager.get_active_workspace().get_work_area_for_monitor(monitor.index);
         const scale = St.ThemeContext.get_for_stage(global.stage).scale_factor;

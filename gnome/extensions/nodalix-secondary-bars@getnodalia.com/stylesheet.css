@@ -1,5 +1,2 @@
-.nodalix-secondary-bar {
-    background-color: rgba(25, 25, 30, 0.75);
-    color: white;
-    font-weight: bold;
-}
+/* Native #panel and .panel-button theme rules are shared with the primary.
+ * Blur My Shell supplies the same configured background pipeline per monitor. */

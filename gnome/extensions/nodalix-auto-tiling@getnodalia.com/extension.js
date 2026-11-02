@@ -678,6 +678,10 @@ export default class NodalixAutoTilingExtension extends Extension {
          */
         if (win.is_above())
             return false;
+        // A manual Tiling Assistant placement takes priority over automatic
+        // layout. Its window metadata is removed again when it is untiled.
+        if (win.isTiled && win.tiledRect)
+            return false;
 
         const title =
             (win.get_title() ?? "")

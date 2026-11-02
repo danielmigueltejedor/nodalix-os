@@ -20,16 +20,17 @@ def main():
     parser.add_argument('--greeter',action='store_true')
     parser.add_argument('--alternatives',action='store_true')
     parser.add_argument('--without-phone',action='store_true')
+    parser.add_argument('--panels-only',action='store_true')
     parser.add_argument('--evidence',type=Path,default=ROOT/'dist/shell-evidence')
     args=parser.parse_args();args.evidence.mkdir(parents=True,exist_ok=True)
     if os.environ.get('NODALIX_PRIVATE_SHELL_TEST')!='1':
         with tempfile.TemporaryDirectory(prefix='nodalix-private-bus-',ignore_cleanup_errors=True) as directory:
             home=Path(directory);runtime=home/'runtime';runtime.mkdir(mode=0o700)
             env={key:value for key,value in os.environ.items() if key not in ('DBUS_SESSION_BUS_ADDRESS','DISPLAY','WAYLAND_DISPLAY','XDG_SESSION_ID','GDK_BACKEND','GNOME_SETUP_DISPLAY')}
-            env.update(NODALIX_PRIVATE_SHELL_TEST='1',NODALIX_QA_HOME=directory,HOME=directory,
+            env.update(NODALIX_PRIVATE_SHELL_TEST='1',NODALIX_QA_HOME=directory,HOME=directory,GTK_A11Y='none',
                 XDG_RUNTIME_DIR=str(runtime),XDG_CONFIG_HOME=str(home/'config'),XDG_DATA_HOME=str(home/'data'),
                 XDG_STATE_HOME=str(home/'state'),XDG_CACHE_HOME=str(home/'cache'))
-            result=subprocess.run(['dbus-run-session','--',sys.executable,__file__,'--evidence',str(args.evidence.resolve()),*(['--greeter'] if args.greeter else []),*(['--alternatives'] if args.alternatives else []),*(['--without-phone'] if args.without_phone else [])],env=env)
+            result=subprocess.run(['dbus-run-session','--',sys.executable,__file__,'--evidence',str(args.evidence.resolve()),*(['--greeter'] if args.greeter else []),*(['--alternatives'] if args.alternatives else []),*(['--without-phone'] if args.without_phone else []),*(['--panels-only'] if args.panels_only else [])],env=env)
             for name in ('doc','gvfs'):
                 subprocess.run(['fusermount3','-uz',str(runtime/name)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             return result.returncode
@@ -58,10 +59,11 @@ def main():
         subprocess.run(['glib-compile-schemas','--strict',str(schemas)],check=True)
         os.environ['GSETTINGS_SCHEMA_DIR']=str(schemas)
         if not args.greeter and not args.alternatives:
-            row=next(row for row in json.loads((ROOT/'gnome/session/extension-defaults.json').read_text()) if row['uuid']=='dash-to-dock@micxgx.gmail.com')
-            local=Gio.SettingsSchemaSource.new_from_directory(str(extensions/row['uuid']/'schemas'),Gio.SettingsSchemaSource.get_default(),False)
-            dock=Gio.Settings.new_full(local.lookup(row['schema'],False),None,None)
-            for key,value in row['values'].items():dock.set_value(key,GLib.Variant.parse(None,value,None,None))
+            for row in json.loads((ROOT/'gnome/session/extension-defaults.json').read_text()):
+                local=Gio.SettingsSchemaSource.new_from_directory(str(extensions/row['uuid']/'schemas'),Gio.SettingsSchemaSource.get_default(),False)
+                prefs=Gio.Settings.new_full(local.lookup(row['schema'],False),None,None)
+                for key,value in row['values'].items():prefs.set_value(key,GLib.Variant.parse(None,value,None,None))
+                if row['uuid']=='dash-to-dock@micxgx.gmail.com':dock=prefs
         if not args.greeter:
             binaries=home/'bin';binaries.mkdir()
             daemon=binaries/'global-menu'
@@ -75,11 +77,11 @@ def main():
         Gio.Settings.new('org.gnome.desktop.interface').set_boolean('enable-hot-corners',False)
         Gio.Settings.new('org.gnome.mutter').set_string('overlay-key','Super_L')
         Gio.Settings.new('org.gnome.desktop.input-sources').set_value('sources',GLib.Variant('a(ss)',[('xkb','es')]))
-        profile=[path.name for path in extensions.iterdir() if path.name not in ('multi-monitors-bar@frederykabryan','tiling-assistant@leleat-on-github')]
+        profile=[path.name for path in extensions.iterdir() if path.name!='multi-monitors-bar@frederykabryan']
         if args.without_phone:profile=[uuid for uuid in profile if uuid!='nodalix-connect@getnodalia.com']
         if args.alternatives and not args.greeter:
             profile=[uuid for uuid in profile if uuid not in ('nodalix-secondary-bars@getnodalia.com','nodalix-auto-tiling@getnodalia.com')]
-            profile+=['multi-monitors-bar@frederykabryan','tiling-assistant@leleat-on-github']
+            profile+=['multi-monitors-bar@frederykabryan']
         # Avoid competing with the receiver in the user's actual desktop.
         if not args.greeter:
             directory=extensions/'glocalsend@donnybeelo.github.com/schemas'
@@ -114,6 +116,64 @@ def main():
                     print('GNOME 51 greeter: own background actors enabled on both monitors')
                     return 0
                 before=evaluate('Main.panel.statusArea.quickSettings.menu._grid.get_children().length')
+                if not args.alternatives:
+                    # Inspect the very first desktop appearance, before any
+                    # hide/show cycle can repair a stale startup blur clip.
+                    for _ in range(160):
+                        if evaluate('!Main.layoutManager._startingUp'):break
+                        time.sleep(.05)
+                    else:raise AssertionError('Native startup animation did not finish')
+                    evaluate('Main.overview.hide();true')
+                    for _ in range(100):
+                        if evaluate('global.blur_my_shell._dash_to_dock_blur.dashes.every(d=>d.dash.opacity===255&&d.dash.translation_x===0&&d.dash.translation_y===0&&d.dash_container._slider.slide_x===1)'):break
+                        time.sleep(.05)
+                    else:raise AssertionError('Native dock did not finish its initial appearance')
+                    time.sleep(.6)  # Native icon-size transitions finish after the slide.
+                    cold_dock=evaluate("global.blur_my_shell._dash_to_dock_blur.dashes.map(d=>({width:d.dash_background.width,height:d.dash_background.height,clip:d.background.has_clip?d.background.get_clip():null,origin:d.background.get_transformed_position(),target:d.dash_background.get_transformed_position(),static:d.dash_blur.is_static,configured:d.settings.dash_to_dock.STATIC_BLUR,container:[d.dash_container.x,d.dash_container.y,d.dash_container.width,d.dash_container.height,d.dash_container.translation_x,d.dash_container.translation_y],tracked:!!d.dash_background_allocation_id}))")
+                    assert len(cold_dock)==2,cold_dock
+                    assert all(d['tracked'] and d['clip'] and d['width']>0 and d['height']>0 and d['clip'][2]>=d['width']-.5 and d['clip'][3]>=d['height']-.5 for d in cold_dock),cold_dock
+                    assert all(abs(d['origin'][1]+d['clip'][1]-d['target'][1]+1)<1 for d in cold_dock),cold_dock
+                    (args.evidence/'dock-first-frame.json').write_text(json.dumps(cold_dock,indent=2))
+                    evaluate("(() => {const d=global.blur_my_shell._dash_to_dock_blur.dashes[0];global._qaDockBackgroundBox=d.dash_background.get_allocation_box().copy();const b=global._qaDockBackgroundBox.copy();b.x2=b.x1+b.get_width()/2;d.dash_background.allocate(b);return true;})()")
+                    time.sleep(.15)
+                    resized=evaluate("(() => {const d=global.blur_my_shell._dash_to_dock_blur.dashes[0];return {width:d.dash_background.width,clip:d.background.get_clip()};})()")
+                    assert resized['width']<cold_dock[0]['width']*.75,resized
+                    assert abs(resized['clip'][2]-resized['width']-2)<1,resized
+                    evaluate('global.blur_my_shell._dash_to_dock_blur.dashes[0].dash_background.allocate(global._qaDockBackgroundBox);delete global._qaDockBackgroundBox;true')
+                    time.sleep(.15)
+                    restored=evaluate('global.blur_my_shell._dash_to_dock_blur.dashes[0].background.get_clip()[2]')
+                    assert abs(restored-cold_dock[0]['clip'][2])<1,restored
+                    (args.evidence/'dock-background-allocation.json').write_text(json.dumps({'initial':cold_dock[0],'independent_background_allocation':resized,'restored_clip_width':restored},indent=2))
+                    evaluate('global.blur_my_shell._dash_to_dock_blur.dashes[0].dash.translation_y=30;true');time.sleep(.15)
+                    translated=evaluate('(() => {const d=global.blur_my_shell._dash_to_dock_blur.dashes[0];return {clip:d.background.get_clip(),origin:d.background.get_transformed_position(),target:d.dash_background.get_transformed_position()};})()')
+                    assert abs(translated['origin'][1]+translated['clip'][1]-translated['target'][1]+1)<1,translated
+                    evaluate('global.blur_my_shell._dash_to_dock_blur.dashes[0].dash.translation_y=0;true');time.sleep(.15)
+                    (args.evidence/'dock-startup-translation.json').write_text(json.dumps(translated,indent=2))
+                    secondary="Main.extensionManager.lookup('nodalix-secondary-bars@getnodalia.com').stateObj"
+                    roles=evaluate(f'[...{secondary}._bars[0].buttons.keys()]')
+                    assert all(role in roles for role in ('activities','dateMenu','quickSettings')),roles
+                    blur=evaluate(f'global.blur_my_shell._panel_blur.actors_list.filter(a=>a.widgets.panel===Main.panel||a.widgets.panel==={secondary}._bars[0].panel).map(a=>({{monitor:a.monitor.index,static:a.static_blur,background:!!a.widgets.background}}))')
+                    assert len(blur)==2 and all(row['static'] and row['background'] for row in blur),blur
+                    menus=[]
+                    for role in ('quickSettings','dateMenu'):
+                        evaluate(f"{secondary}._bars[0].buttons.get('{role}').emit('clicked',1);true")
+                        time.sleep(.5)
+                        geometry=evaluate(f"(() => {{const menu=Main.panel.statusArea.{role}.menu,b={secondary}._bars[0].buttons.get('{role}'),m=Main.layoutManager.findMonitorForActor(b),p=menu._boxPointer.get_transformed_position(),s=menu._boxPointer.get_transformed_size();return {{open:menu.isOpen,sameSource:menu.sourceActor===b,monitor:m.index,x:p[0],y:p[1],width:s[0],height:s[1],bounds:[m.x,m.y,m.width,m.height]}};}})()")
+                        assert geometry['open'] and geometry['sameSource'],geometry
+                        x,y,w,h=geometry['bounds']
+                        assert x-.5<=geometry['x'] and geometry['x']+geometry['width']<=x+w+.5,geometry
+                        assert y<=geometry['y'] and geometry['y']+geometry['height']<=y+h+.5,geometry
+                        if role=='quickSettings':
+                            bus.call_sync('org.gnome.Shell.Screenshot','/org/gnome/Shell/Screenshot','org.gnome.Shell.Screenshot','Screenshot',GLib.Variant('(bbs)',(False,False,str((args.evidence/'secondary-panel.png').resolve()))),None,Gio.DBusCallFlags.NONE,5000,None)
+                        evaluate(f'Main.panel.statusArea.{role}.menu.close({{animate:false}});true');time.sleep(.1)
+                        assert evaluate(f'Main.panel.statusArea.{role}.menu.sourceActor===Main.panel.statusArea.{role}'),role
+                        menus.append({'role':role,**geometry})
+                    assert evaluate('Main.panel.statusArea.quickSettings.menu._grid.get_children().length')==before
+                    panel_geometry=evaluate(f"(() => {{const e={secondary}._bars[0];return {{primary:Main.panel.height,primaryBox:Main.layoutManager.panelBox.height,secondary:e.panel.height,secondaryBox:e.bar.height,buttons:[...e.buttons.entries()].map(([role,b])=>({{role,height:b.height,content:b.get_first_child().height,source:Main.panel.statusArea[role].height}}))}};}})()")
+                    (args.evidence/'secondary-native-menus.json').write_text(json.dumps({'roles':roles,'blur':blur,'menus':menus,'panel_geometry':panel_geometry,'primary_quick_settings_unchanged':True},indent=2))
+                    if args.panels_only:
+                        print('Native secondary menus and first-appearance dock geometry passed')
+                        return 0
                 # Real freedesktop notifications, in this private bus only.
                 def notification(app, title, hints=None, actions=None, replace=0):
                     return bus.call_sync('org.freedesktop.Notifications', '/org/freedesktop/Notifications',
@@ -219,6 +279,9 @@ def main():
                 configure([(0,0,primary[2],primary[3],True,primary[5])])
                 assert evaluate("Main.extensionManager.lookup('nodalix-secondary-bars@getnodalia.com').stateObj._bars.length")==0
                 configure(original)
+                for _ in range(100):
+                    if evaluate("Main.extensionManager.lookup('nodalix-secondary-bars@getnodalia.com').stateObj._bars.length")==1:break
+                    time.sleep(.05)
                 assert evaluate("Main.extensionManager.lookup('nodalix-secondary-bars@getnodalia.com').stateObj._bars.length")==1
                 scale_test=False
                 if all(2.0 in mode[5] for monitor in current[1] for mode in monitor[1] if mode[6].get('is-current')):
@@ -445,10 +508,33 @@ app.connect('activate',activate);app.run()
                             if evaluate(f'{tile_windows}.length')==count:break
                             time.sleep(.05)
                         else:raise AssertionError('Tiling fixture did not map '+str(count)+' windows')
-                        time.sleep(.4)
-                        result=evaluate(f"(() => {{const t={tiler};return {tile_windows}.map(w=>{{const g=t._windowGroups.get(w.get_stable_sequence()),r=w.get_frame_rect(),expected=g?.rects.get(w.get_stable_sequence());return {{actual:[r.x,r.y,r.width,r.height],expected:expected?[expected.x,expected.y,expected.width,expected.height]:null}};}});}})()")
+                        for attempt in range(40):
+                            result=evaluate(f"(() => {{const t={tiler};return {tile_windows}.map(w=>{{const g=t._windowGroups.get(w.get_stable_sequence()),r=w.get_frame_rect(),expected=g?.rects.get(w.get_stable_sequence());return {{actual:[r.x,r.y,r.width,r.height],expected:expected?[expected.x,expected.y,expected.width,expected.height]:null}};}});}})()")
+                            if all(row['actual']==row['expected'] for row in result):break
+                            time.sleep(.05)
                         assert all(row['actual']==row['expected'] for row in result),result
                         counts.append({'windows':count,'rectangles':result})
+                    evaluate(f"""(async () => {{
+                        const ext=Main.extensionManager.lookup('tiling-assistant@leleat-on-github');
+                        const {{Rect}}=await import(ext.dir.get_uri()+'/src/extension/utility.js');
+                        const w={tile_windows}[0],a=w.get_work_area_for_monitor(w.get_monitor());
+                        global._qaTATarget=w;
+                        const rect=new Rect(a.x,a.y,Math.floor(a.width/2),a.height);
+                        await ext.stateObj._twm.tile(w,rect,{{openTilingPopup:false,skipAnim:true}});
+                        await ext.stateObj._twm._waitForWindowToSettle(w,rect.addGaps(new Rect(a),w.get_monitor()),1000);
+                    }})().then(()=>global._qaTAComplete=true).catch(e=>global._qaTAError=String(e));true""")
+                    for _ in range(80):
+                        if evaluate('!!global._qaTAComplete || !!global._qaTAError'):break
+                        time.sleep(.05)
+                    assert evaluate('!!global._qaTAComplete'),evaluate('global._qaTAError??null')
+                    manual_rect=evaluate('(() => {let r=global._qaTATarget.get_frame_rect();return [r.x,r.y,r.width,r.height];})()')
+                    evaluate(f'{tiler}._retileAll();true');time.sleep(.2)
+                    assert evaluate('!!global._qaTATarget.isTiled')
+                    after_manual=evaluate('(() => {let r=global._qaTATarget.get_frame_rect();return [r.x,r.y,r.width,r.height];})()')
+                    assert after_manual==manual_rect,(manual_rect,after_manual)
+                    evaluate("Main.extensionManager.lookup('tiling-assistant@leleat-on-github').stateObj._twm.untile(global._qaTATarget,{skipAnim:true});true")
+                    evaluate(f'{tiler}._scheduleRetile();true');time.sleep(.3)
+                    (args.evidence/'tiling-assistant.json').write_text(json.dumps({'enabled':True,'real_manual_placement':True,'manual_rect':manual_rect,'automatic_layout_preserves_manual_placement':True,'untile':True},indent=2))
                     evaluate('global._qaPointer=global.stage.get_context().get_backend().get_default_seat().create_virtual_device(imports.gi.Clutter.InputDeviceType.POINTER_DEVICE); true')
                     time.sleep(.3)
                     evaluate('Main.overview.hide(); true');time.sleep(.5)

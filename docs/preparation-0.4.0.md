@@ -46,7 +46,7 @@ This also agrees with the existing [technical investigation on #15](https://gith
 
 ## Local validation
 
-- 262 unit/integration tests passed on the actual PC, including real GJS/GIO tests and the upstream ZRAM generator fixtures.
+- 263 unit/integration tests passed on the actual PC, including real GJS/GIO tests and the upstream ZRAM generator fixtures.
 - CI/release native validation is pinned to Ubuntu 26.04 with Nautilus GIR 4.1. The previous `ubuntu-latest` setup requested the removed GIR 4.0 package and failed before executing tests. The existing Nautilus bridge supports both API versions; this PC validates its real 4.1 typelib.
 - Previous revision: five changed packages built locally: `nodalix-updater`, `nodalix-gnome`, `nodalix-integrations`, `nodalix-settings` 0.4.0-2 and `nodalix-control-center` 51.0.0-8; updater and GNOME are also 0.4.0-2, integrations remains 0.4.0-1. The last package compiles the complete pinned Control Center and its native additions.
 - A private GNOME Shell 51.1 Wayland session tests two virtual 1280×720 monitors. It has a separate bus, home, configuration and runtime directory, and does not replace the user's desktop.
@@ -96,3 +96,9 @@ and hibernation policy are not removed or rewritten.
 See [the measured GPU evidence](validation/0.4.0/wallpaper-gpu.json). With the same original 3840×2160 H264 30 fps video and two 1920×1080 private monitors, this trial measured compositor graphics-engine occupancy from 0.506% to 0.395%; combined Shell/renderer CPU from 4.17% to 3.58% of one core. These are short samples on one AMD GPU, not universal thresholds or battery measurements. Decode activity remains necessary while the video is visible. With eight ordinary windows covering the monitors, renderer CPU and reported GPU engines were 0% over the three-second sample, and playback resumed after reveal. Per-client VRAM varies and can include shared allocations; no memory-saving claim is inferred from those counters. The Theora test verifies the software compatibility path without changing the original collection.
 
 A fast cursor move to the bottom edge now reveals both docks: the throttled dwell callback reads the latest pointer position. Cleanup archives replaced local extensions and preferences; it preserves unrelated extensions and user customizations. Shell code replacement needs a new login. The update icon resolves through the active theme to the Adwaita symbolic refresh asset.
+
+## Secondary-panel and dock revision
+
+Tiling Assistant is retained and the development-candidate retirement is repaired using the original saved preference, while respecting later explicit disable. The secondary panel uses native panel button metrics and mirrored indicator contents; its calendar and Quick Settings reuse the primary controllers and restore their anchors after closing. The same configured cached panel blur is applied per monitor. The notification cap follows the menu source monitor.
+
+The dock blur watches its actual background allocation plus both dock and container startup translations, with coalesced updates after layout and no periodic polling. Real GNOME tests exercise the first appearance before any hide/show, independent background resizing, startup displacement, two-monitor native menus, preserved primary Quick Settings, repeated lifecycle and monitor changes. Package `nodalix-gnome` is 0.4.0-4 for this revision.

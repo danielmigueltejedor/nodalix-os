@@ -1,0 +1,60 @@
+[
+  {
+    "width": 362,
+    "height": 62,
+    "clip": [
+      458,
+      653,
+      364,
+      64
+    ],
+    "origin": [
+      1281,
+      0.421875
+    ],
+    "target": [
+      1739,
+      654
+    ],
+    "static": true,
+    "configured": true,
+    "container": [
+      1280,
+      720,
+      1280,
+      66,
+      0,
+      -66
+    ],
+    "tracked": true
+  },
+  {
+    "width": 362,
+    "height": 62,
+    "clip": [
+      458,
+      653,
+      364,
+      64
+    ],
+    "origin": [
+      -1.0546875,
+      0.421875
+    ],
+    "target": [
+      459,
+      654
+    ],
+    "static": true,
+    "configured": true,
+    "container": [
+      0,
+      720,
+      1280,
+      66,
+      0,
+      -66
+    ],
+    "tracked": true
+  }
+]

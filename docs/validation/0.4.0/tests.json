@@ -1,5 +1,5 @@
 {
-  "unit_integration_tests": 262,
+  "unit_integration_tests": 263,
   "result": "passed",
   "date": "2026-11-02",
   "native_shell": "GNOME Shell 51.1",
@@ -14,5 +14,8 @@
   ],
   "native_shortcuts": "GNOME media-keys custom shortcuts; no keyboard Shell extension",
   "calendar_without_phone_link": true,
-  "wallpaper_gpu": "Hardware 4K30 and software Theora; both monitors animate, coverage pause/reveal and Overview rounding verified"
+  "wallpaper_gpu": "Hardware 4K30 and software Theora; both monitors animate, coverage pause/reveal and Overview rounding verified",
+  "secondary_native_calendar_and_quick_settings": true,
+  "tiling_assistant_manual_placement": true,
+  "dock_first_appearance_and_translation": true
 }

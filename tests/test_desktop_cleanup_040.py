@@ -1,5 +1,6 @@
 """Duplicate-extension retirement retains recoverable copies and user settings."""
 import importlib.util
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -20,7 +21,7 @@ class DesktopCleanup(unittest.TestCase):
     def test_duplicate_sources_are_backed_up_and_only_one_provider_remains(self):
         with tempfile.TemporaryDirectory() as directory:
             home=Path(directory);data=home/'data';state=home/'state';system=home/'system'
-            uuids=[*cleanup.RETIRED,*cleanup.SHADOWS,'my-own-extension@example.invalid']
+            uuids=[*cleanup.RETIRED,*cleanup.SHADOWS,'tiling-assistant@leleat-on-github','my-own-extension@example.invalid']
             for uuid in uuids:
                 folder=data/'gnome-shell/extensions'/uuid;folder.mkdir(parents=True);(folder/'extension.js').write_text('personal snapshot')
                 target=system/uuid;target.mkdir(parents=True);(target/'metadata.json').write_text('{}')
@@ -33,6 +34,8 @@ class DesktopCleanup(unittest.TestCase):
                 self.assertNotIn(uuid,prefs.values['enabled-extensions']) if uuid in cleanup.RETIRED else None
             self.assertIn('nodalix-secondary-bars@getnodalia.com',prefs.values['enabled-extensions'])
             self.assertIn('my-own-extension@example.invalid',prefs.values['enabled-extensions'])
+            self.assertIn('tiling-assistant@leleat-on-github',prefs.values['enabled-extensions'])
+            self.assertTrue((data/'gnome-shell/extensions/tiling-assistant@leleat-on-github/extension.js').is_file())
             self.assertEqual(prefs.values['disabled-extensions'],['nodalix-connect@getnodalia.com'])
 
     def test_retiring_the_last_keyd_configuration_stops_instead_of_hot_reloading(self):
@@ -44,5 +47,20 @@ class DesktopCleanup(unittest.TestCase):
             (folder/'custom.conf').write_text('[ids]\n*\n')
             SYSTEM.refresh_keyboard_remapper(root,runner)
             self.assertEqual(runner.call_args.args[0],['systemctl','restart','keyd.service'])
+
+    def test_development_candidate_restores_tiling_assistant_without_overriding_disable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home=Path(directory);state=home/'state';system=home/'system';uuid='tiling-assistant@leleat-on-github'
+            saved=state/'nodalix/migrations/gnome-0.4.0-native-extensions/preferences.json'
+            saved.parent.mkdir(parents=True);saved.write_text(json.dumps({'enabled':[uuid]}))
+            folder=system/uuid;folder.mkdir(parents=True);(folder/'metadata.json').write_text('{}')
+            prefs=Settings([])
+            with mock.patch.dict(os.environ,{'XDG_STATE_HOME':str(state)}):
+                cleanup.restore_tiling_assistant(home,prefs,system)
+                cleanup.restore_tiling_assistant(home,prefs,system)
+                self.assertEqual(prefs.get_strv('enabled-extensions'),[uuid])
+                prefs.values['enabled-extensions']=[];prefs.values['disabled-extensions']=[uuid]
+                cleanup.restore_tiling_assistant(home,prefs,system)
+                self.assertEqual(prefs.get_strv('enabled-extensions'),[])
 
 if __name__=='__main__':unittest.main()

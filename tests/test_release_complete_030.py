@@ -60,8 +60,9 @@ class CompleteReleaseTests(unittest.TestCase):
         self.assertEqual(len(profile), len(set(profile)))
         self.assertFalse({'nodalix-secondary-bars@getnodalia.com',
                           'multi-monitors-bar@frederykabryan'}.issubset(profile))
-        self.assertFalse({'nodalix-auto-tiling@getnodalia.com',
-                          'tiling-assistant@leleat-on-github'}.issubset(profile))
+        self.assertIn('tiling-assistant@leleat-on-github',profile)
+        self.assertIn('tiling-assistant@leleat-on-github',
+                      (ROOT/'packaging/nodalix-gnome/PKGBUILD').read_text())
 
     def test_iso_wallpaper_is_owned_only_by_its_package(self):
         tool = (ROOT / 'tools/build-iso.py').read_text()

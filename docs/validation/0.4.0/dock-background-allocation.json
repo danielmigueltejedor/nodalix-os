@@ -1,0 +1,41 @@
+{
+  "initial": {
+    "width": 362,
+    "height": 62,
+    "clip": [
+      458,
+      653,
+      364,
+      64
+    ],
+    "origin": [
+      1281,
+      0.421875
+    ],
+    "target": [
+      1739,
+      654
+    ],
+    "static": true,
+    "configured": true,
+    "container": [
+      1280,
+      720,
+      1280,
+      66,
+      0,
+      -66
+    ],
+    "tracked": true
+  },
+  "independent_background_allocation": {
+    "width": 181,
+    "clip": [
+      458,
+      653,
+      183,
+      60
+    ]
+  },
+  "restored_clip_width": 364
+}

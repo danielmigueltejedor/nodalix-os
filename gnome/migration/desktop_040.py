@@ -4,8 +4,20 @@ import json
 import os
 import shutil
 
-RETIRED=('nodalix-shortcuts@getnodalia.com','multi-monitors-bar@frederykabryan','tiling-assistant@leleat-on-github')
+RETIRED=('nodalix-shortcuts@getnodalia.com','multi-monitors-bar@frederykabryan')
 SHADOWS=('global-menu@unmade.space','nodalix-startup-cursor@local')
+
+
+def restore_tiling_assistant(home,settings,system=Path('/usr/share/gnome-shell/extensions')):
+    """Repair the earlier development candidate's retirement, preserving opt-out."""
+    uuid='tiling-assistant@leleat-on-github'
+    state=Path(os.environ.get('XDG_STATE_HOME',str(home/'.local/state')))
+    saved=state/'nodalix/migrations/gnome-0.4.0-native-extensions/preferences.json'
+    if not saved.is_file() or not (system/uuid/'metadata.json').is_file():return
+    previous=json.loads(saved.read_text())
+    enabled=list(settings.get_strv('enabled-extensions'))
+    if uuid in previous.get('enabled',[]) and uuid not in enabled and uuid not in settings.get_strv('disabled-extensions'):
+        settings.set_strv('enabled-extensions',enabled+[uuid])
 
 
 def clean_extensions(home,settings,system=Path('/usr/share/gnome-shell/extensions')):
