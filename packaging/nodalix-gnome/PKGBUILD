@@ -1,6 +1,6 @@
 pkgname=nodalix-gnome
 pkgver=0.4.0
-pkgrel=17
+pkgrel=19
 pkgdesc="GNOME Shell, GDM and native desktop integration for Nodalix"
 arch=("any")
 install=nodalix-gnome.install
@@ -44,6 +44,11 @@ package() {
     install -d "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/symbolic"
     for context in actions devices status categories; do
         ln -s "/usr/share/icons/Adwaita/symbolic/$context" "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/symbolic/$context"
+    done
+    install -d "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/symbolic/window-controls"
+    for role in minimize maximize restore close; do
+        name="window-$role-symbolic.svg"
+        ln -s "/usr/share/icons/Adwaita/symbolic/ui/$name" "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/symbolic/window-controls/$name"
     done
     install -d "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/symbolic/settings"
     while IFS= read -r name; do

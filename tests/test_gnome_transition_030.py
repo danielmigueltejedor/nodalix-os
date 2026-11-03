@@ -177,10 +177,10 @@ class CandidateSafetyTests(unittest.TestCase):
 
 class IconPreferenceTests(unittest.TestCase):
     def test_symbol_migration_keeps_existing_application_theme(self):
-        import os,configparser
+        import os,configparser,shutil
         with tempfile.TemporaryDirectory() as temp:
             root=Path(temp);commands=root/'bin';commands.mkdir()
-            p=commands/'gsettings';p.write_text("#!/bin/sh\nif [ \"$1\" = get ]; then printf \"'MyApps'\\n\"; fi\n");p.chmod(0o755)
+            p=commands/'gsettings';p.write_text("#!/bin/sh\nif [ \"$1\" = get ]; then printf \"'%s'\\n\" \"${NODALIX_TEST_ICON_THEME:-MyApps}\"; fi\n");p.chmod(0o755)
             for name in ('gtk4-update-icon-cache','gtk-update-icon-cache'):
                 p=commands/name;p.write_text('#!/bin/sh\nexit 0\n');p.chmod(0o755)
             env={**os.environ,'PATH':str(commands)+':'+os.environ['PATH'],'XDG_DATA_HOME':str(root/'data')}
@@ -189,6 +189,35 @@ class IconPreferenceTests(unittest.TestCase):
             self.assertEqual(values['Icon Theme']['Inherits'],'MyApps,hicolor')
             for panel in ('accessibility','keyboard','display','bluetooth'):
                 self.assertTrue((theme/f'symbolic/settings/org.gnome.Settings-{panel}-symbolic.svg').is_file())
+            upstream=Path('/usr/share/icons/Adwaita/symbolic/ui')
+            if upstream.is_dir():
+                self.assertIn('symbolic/window-controls',values['Icon Theme']['Directories'].split(','))
+                for role in ('minimize','maximize','restore','close'):
+                    name=f'window-{role}-symbolic.svg'
+                    self.assertEqual((theme/'symbolic/window-controls'/name).resolve(),upstream/name)
+            index=theme/'index.theme'
+            old=index.read_bytes()
+            subprocess.run(['/usr/bin/python3',str(ROOT/'gnome/session/nodalix-shell-symbols'),'--refresh-window-controls'],
+                           env=env,check=True,capture_output=True)
+            self.assertEqual(index.read_bytes(),old)
+            if upstream.is_dir():
+                # Earlier overlays can contain real directories with user assets.
+                actions=theme/'symbolic/actions'
+                actions.unlink()
+                actions.mkdir()
+                marker=actions/'personal.svg'
+                marker.write_text('user asset')
+                shutil.rmtree(theme/'symbolic/window-controls')
+                index.write_text(old.decode().split('[symbolic/window-controls]')[0].replace(',symbolic/window-controls',''))
+                env['NODALIX_TEST_ICON_THEME']='Nodalix-Adwaita-Symbols'
+                command=['/usr/bin/python3',str(ROOT/'gnome/session/nodalix-shell-symbols'),'--refresh-window-controls']
+                subprocess.run(command,env=env,check=True,capture_output=True)
+                updated=index.read_bytes()
+                subprocess.run(command,env=env,check=True,capture_output=True)
+                self.assertEqual(index.read_bytes(),updated)
+                self.assertIn(b'Inherits=MyApps,hicolor',updated)
+                self.assertIn(b'[symbolic/window-controls]',updated)
+                self.assertEqual(marker.read_text(),'user asset')
 
 class RetirementTests(unittest.TestCase):
     def test_removes_old_desktop_with_normal_dependency_checks(self):

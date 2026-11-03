@@ -107,6 +107,10 @@ def main():
         terminal['configure_terminal_welcome'](home,pwd.getpwuid(os.getuid()).pw_shell)
         terminal['retire_legacy_terminal_card'](config)
         welcome_marker.write_text('0.4.0\n')
+    controls_marker=root/'gnome-0.4.0-window-control-icons.done'
+    if not controls_marker.exists() and Path('/usr/bin/nodalix-shell-symbols').is_file():
+        subprocess.run(['/usr/bin/nodalix-shell-symbols','--refresh-window-controls'],check=True,timeout=30)
+        controls_marker.write_text('0.4.0\n')
     if marker.exists():return
     prototypes=Path('/usr/share/nodalix/gnome-extension-prototypes-040.json')
     if prototypes.is_file():

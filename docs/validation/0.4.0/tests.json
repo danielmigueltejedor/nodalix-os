@@ -67,5 +67,6 @@
   "applications_folder_created_in_fresh_profile": true,
   "applications_folder_recreated_in_existing_profile": true,
   "terminal_logo_pty": "Exact artwork with live system card alongside or below, plain and colored layouts, small viewports, local TTY guards, and safe retirement of the legacy Arch greeting and prompt",
-  "terminal_logo_native_ghostty": "Gradient and live system card verified with full, compact and stacked artwork in a private GNOME Wayland session on the test PC"
+  "terminal_logo_native_ghostty": "Gradient and live system card verified with full, compact and stacked artwork in a private GNOME Wayland session on the test PC",
+  "adwaita_window_control_icons": "GTK 4 resolved all four default control symbols to upstream Adwaita on a package-only theme search path"
 }

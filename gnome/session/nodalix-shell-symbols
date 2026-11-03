@@ -5,12 +5,52 @@ import configparser
 import os
 import shutil
 import subprocess
+import sys
 
 NAME = 'Nodalix-Adwaita-Symbols'
 CONTEXTS = ['actions', 'devices', 'status', 'categories']
+WINDOW_CONTEXT = 'symbolic/window-controls'
+
+
+def link_window_controls(theme):
+    controls = theme/WINDOW_CONTEXT
+    if controls.is_symlink() or (controls.exists() and not controls.is_dir()):
+        return False
+    for role in ('minimize', 'maximize', 'restore', 'close'):
+        name = f'window-{role}-symbolic.svg'
+        source = Path('/usr/share/icons/Adwaita/symbolic/ui')/name
+        if source.is_file():
+            controls.mkdir(exist_ok=True)
+            target = controls/name
+            if not target.exists() and not target.is_symlink():
+                target.symlink_to(source)
+    return controls.is_dir()
+
+
+def rebuild_cache(theme):
+    cache = shutil.which('gtk4-update-icon-cache') or shutil.which('gtk-update-icon-cache')
+    if cache:
+        subprocess.run([cache, '-f', '-t', str(theme)], check=True)
+
+
 current = subprocess.check_output(['gsettings', 'get', 'org.gnome.desktop.interface', 'icon-theme'], text=True).strip().strip("'")
 theme = Path(os.environ.get('XDG_DATA_HOME', str(Path.home()/'.local/share'))) / 'icons' / NAME
 index = theme/'index.theme'
+if sys.argv[1:] == ['--refresh-window-controls']:
+    if current == NAME and index.is_file() and not index.is_symlink() and link_window_controls(theme):
+        previous = index.read_text()
+        lines = previous.splitlines()
+        for line_number, line in enumerate(lines):
+            if line.startswith('Directories='):
+                if WINDOW_CONTEXT not in [name.strip() for name in line.partition('=')[2].split(',')]:
+                    lines[line_number] = line+','+WINDOW_CONTEXT
+                    if f'[{WINDOW_CONTEXT}]' not in lines:
+                        lines += ['', f'[{WINDOW_CONTEXT}]', 'Size=16', 'MinSize=8',
+                                  'MaxSize=512', 'Type=Scalable', 'Context=UI']
+                    index.write_text('\n'.join(lines)+'\n')
+                break
+        rebuild_cache(theme)
+    raise SystemExit(0)
 base_index = index if index.exists() else Path('/usr/share/icons')/NAME/'index.theme'
 if current == NAME and base_index.exists():
     previous = configparser.ConfigParser(interpolation=None)
@@ -46,17 +86,18 @@ for panel, asset in {'accessibility': 'legacy/preferences-desktop-accessibility-
     if target.exists() or target.is_symlink():
         target.unlink()
     shutil.copy2(Path('/usr/share/icons/Adwaita/symbolic')/asset, target)
-cache = shutil.which('gtk4-update-icon-cache') or shutil.which('gtk-update-icon-cache')
 directories = CONTEXTS + ['settings']
+if link_window_controls(theme):
+    directories.append('window-controls')
 lines = ['[Icon Theme]', 'Name=Nodalix Adwaita Symbols',
          'Comment=Adwaita controls with existing application icons',
          f'Inherits={current},hicolor',
          'Directories='+','.join('symbolic/'+c for c in directories), '']
 for context in directories:
+    category = {'settings': 'Actions', 'window-controls': 'UI'}.get(context, context.title())
     lines += [f'[symbolic/{context}]', 'Size=16', 'MinSize=8', 'MaxSize=512',
-              'Type=Scalable', f'Context={"Actions" if context == "settings" else context.title()}', '']
+              'Type=Scalable', f'Context={category}', '']
 index.write_text('\n'.join(lines))
-if cache:
-    subprocess.run([cache, '-f', '-t', str(theme)], check=True)
+rebuild_cache(theme)
 subprocess.run(['gsettings','set','org.gnome.desktop.interface','icon-theme',NAME],check=True)
 print(f'Adwaita control symbols applied; application theme inherited: {current}')
