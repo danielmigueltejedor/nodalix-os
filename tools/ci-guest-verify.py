@@ -160,11 +160,8 @@ session=dict(line.split('=',1) for line in manager_environment.splitlines() if '
 display=session.get('WAYLAND_DISPLAY','')
 assert session.get('XDG_SESSION_TYPE')=='wayland' and display, 'GNOME did not export its Wayland session'
 assert (Path(os.environ['XDG_RUNTIME_DIR'])/display).is_socket(), 'GNOME Wayland socket is missing'
-# Restart any backend first activated before GNOME exported this environment.
-subprocess.run(['systemctl','--user','restart','xdg-desktop-portal-gnome.service'],
-               check=True,timeout=30)
-subprocess.run(['systemctl','--user','restart','xdg-desktop-portal.service'],
-               check=True,timeout=30)
+# Let D-Bus activate the portals in the running graphical session. A forced
+# restart can block waiting on GTK and the compositor in a software-rendered VM.
 def wait_portal_interface(name,interface):
     deadline=time.monotonic()+180
     last=None
@@ -178,6 +175,9 @@ def wait_portal_interface(name,interface):
             last=version
         except GLib.Error as error:last=str(error)
         time.sleep(1)
+    subprocess.run(['journalctl','--user','-b','--no-pager','-n','60',
+                    '-u','xdg-desktop-portal-gnome.service','-u','xdg-desktop-portal.service'],
+                   check=False,timeout=10)
     raise AssertionError(('Screenshot portal interface did not become ready',name,interface,last))
 wait_portal_interface('org.freedesktop.impl.portal.desktop.gnome','org.freedesktop.impl.portal.Screenshot')
 wait_portal_interface('org.freedesktop.portal.Desktop','org.freedesktop.portal.Screenshot')
