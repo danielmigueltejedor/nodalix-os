@@ -1,6 +1,7 @@
 """Native Applications folder, installer and provider-aware Trash handling."""
 from __future__ import annotations
 import argparse
+import base64
 import fcntl
 import hashlib
 import json
@@ -182,15 +183,42 @@ def resolve_icon(icon):
 
 
 def folder_icon_uri():
-    # Colloid ships a folder with an applications emblem, but some user icon
-    # caches omit this name. Resolve the supplied core-folder asset directly.
-    for root in (DATA/'icons', HOME/'.icons', Path('/usr/share/icons')):
-        for theme in ('Colloid-Teal', 'Colloid-Teal-Light'):
-            for name in ('folder-applications.svg', 'folder-appimage.svg'):
-                file = root/theme/'places/scalable'/name
-                if file.is_file():
-                    return file.as_uri()
-    return resolve_icon(Gio.ThemedIcon.new_from_names(['folder-applications', 'folder']))
+    uri = resolve_icon(Gio.ThemedIcon.new('folder'))
+    if not uri:
+        return ''
+    source = Gio.File.new_for_uri(uri).get_path()
+    if not source:
+        return uri
+    source = Path(source)
+    mime = {'.svg': 'image/svg+xml', '.png': 'image/png'}.get(source.suffix.lower())
+    if not mime:
+        return uri
+    try:
+        # Reuse the installed theme's folder silhouette and color. The emblem
+        # stays a vector even when the theme supplies a raster base.
+        with source.open('rb') as icon:
+            artwork = icon.read(1024 * 1024 + 1)
+        if not artwork or len(artwork) > 1024 * 1024:
+            return uri
+        encoded = base64.b64encode(artwork).decode('ascii')
+        svg = f'''<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink" width="128" height="128" viewBox="0 0 128 128">
+  <image width="128" height="128" xlink:href="data:{mime};base64,{encoded}"/>
+  <g fill="#000" opacity=".42">
+    <rect x="49" y="61" width="13" height="13" rx="3"/>
+    <rect x="66" y="61" width="13" height="13" rx="3"/>
+    <rect x="49" y="78" width="13" height="13" rx="3"/>
+    <rect x="66" y="78" width="13" height="13" rx="3"/>
+  </g>
+</svg>
+'''.encode('ascii')
+        target = STORAGE/'folder-applications.svg'
+        if not target.is_file() or target.read_bytes() != svg:
+            STORAGE.mkdir(parents=True, exist_ok=True)
+            GLib.file_set_contents(str(target), svg)
+        return target.as_uri()
+    except (OSError, GLib.Error):
+        return uri
 
 
 def set_icon(path, uri):

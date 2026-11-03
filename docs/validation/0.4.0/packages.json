@@ -14,9 +14,9 @@
     },
     {
       "name": "nodalix-apps",
-      "version": "0.4.0-4",
-      "file": "nodalix-apps-0.4.0-4-any.pkg.tar.zst",
-      "sha256": "39c7c7bb60188ae35d385a28f04c0e538045f825ea1062b64810bd70e2b34411"
+      "version": "0.4.0-5",
+      "file": "nodalix-apps-0.4.0-5-any.pkg.tar.zst",
+      "sha256": "e35dd0ccde6c6c736c71210be36fb3c8a3dc97d8565d559eedb0bf2917e59268"
     },
     {
       "name": "nodalix-control-center",

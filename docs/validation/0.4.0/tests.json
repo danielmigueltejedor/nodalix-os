@@ -1,11 +1,11 @@
 {
-  "unit_integration_tests": 299,
+  "unit_integration_tests": 300,
   "result": "passed",
   "date": "2026-11-03",
   "native_shell": "GNOME Shell 51.1",
   "session": "private Wayland, two virtual 1280x720 monitors",
   "full_os_upgrade_vm": "not yet run for 0.4.0",
-  "iso": "Built locally from the final 0.4.0 candidate packages and boot-verified with GDM, GNOME, native Settings search, the Applications folder and a real portal PNG",
+  "iso": "Built locally from the 0.4.0 candidate packages before the Applications icon change and boot-verified with GDM, GNOME, native Settings search, the Applications folder and a real portal PNG",
   "automatic_schedule": "Mocked failure/retry cases plus authorized live system job: success, 6 package upgrades, zero pending after check",
   "shortcut_applications": [
     "GTK4",
@@ -26,6 +26,7 @@
   "calendar_agenda_cap": "12em",
   "default_appearance": "GNOME native panels with official Blur My Shell, Global Menu and Rounded Window Corners enabled",
   "three_monitor_native_menus": true,
+  "fractional_panels": "Real GNOME at 2560×1440 (125%) and 1920×1080 (150%). Verified bounded menus, long agendas, notification scrolling, primary-monitor changes and intact Quick Settings.",
   "calendar_limit_uses_native_viewport": true,
   "calendar_agenda_events": [
     36,
@@ -54,7 +55,7 @@
   "updater_status_labels_localized": true,
   "native_restart_page": true,
   "applications_native_trash_uninstall": true,
-  "application_folder_theme_icon": true,
+  "application_folder_theme_icon": "Rendered the active folder artwork with a four-app grid through GdkPixbuf for Adwaita and Colloid-Teal",
   "craft_flatpak_launch_confirmed_on_pc": true,
   "flatpak_both_automatic_jobs": "success",
   "storage_native_widgets": true,

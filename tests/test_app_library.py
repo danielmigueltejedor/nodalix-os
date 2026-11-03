@@ -1,4 +1,5 @@
 """A Trash intent must refer to a registered app, never an arbitrary command."""
+import base64
 import importlib.util
 import json
 import os
@@ -6,10 +7,33 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch, Mock
+from xml.etree import ElementTree
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('app_library', ROOT/'nodalix-apps/library/library.py')
 library = importlib.util.module_from_spec(spec); spec.loader.exec_module(library)
+
+
+class LibraryFolderIconTests(unittest.TestCase):
+    def test_folder_icon_reuses_active_theme_and_adds_app_grid(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root/'folder.svg'
+            source.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"/>')
+            target = root/'storage/folder-applications.svg'
+            with patch.object(library, 'STORAGE', target.parent), patch.object(
+                library, 'resolve_icon', return_value=source.as_uri()
+            ) as resolve:
+                self.assertEqual(library.folder_icon_uri(), target.as_uri())
+                self.assertEqual(resolve.call_args.args[0].get_names()[0], 'folder')
+                svg = ElementTree.parse(target)
+                image = svg.find('{*}image')
+                href = image.attrib['{http://www.w3.org/1999/xlink}href']
+                self.assertEqual(base64.b64decode(href.split(',', 1)[1]), source.read_bytes())
+                self.assertEqual(len(svg.findall('.//{*}rect')), 4)
+                with patch.object(library.GLib, 'file_set_contents') as write:
+                    library.folder_icon_uri()
+                    write.assert_not_called()
 
 
 class LibraryTrashTests(unittest.TestCase):
@@ -58,7 +82,7 @@ class LibraryTrashTests(unittest.TestCase):
             folder=Path(temp);user=folder/'Fixture.app';user.write_text('personal')
             launcher=folder/'qa.desktop';launcher.write_text('[Desktop Entry]\nType=Application\nName=Fixture\nExec=/usr/bin/true\n')
             app=library.Gio.DesktopAppInfo.new_from_filename(str(launcher));registry={}
-            with patch.object(library,'icon_uri',return_value=''):
+            with patch.object(library,'icon_uri',return_value=''), patch.object(library,'folder_icon_uri',return_value=''):
                 library.reconcile(folder,registry,[app]);first=folder/registry['qa.desktop']['filename'];first.rename(folder/'Personal name.app')
                 library.reconcile(folder,registry,[app])
             self.assertEqual(user.read_text(),'personal')
