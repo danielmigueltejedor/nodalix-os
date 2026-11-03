@@ -79,6 +79,14 @@ def main():
             runpy.run_path(str(cleanup))['restore_stock_appearance'](home,Gio.Settings.new('org.gnome.shell'))
             Gio.Settings.sync()
             appearance_marker.write_text('0.4.0\n')
+    defaults_marker=root/'gnome-0.4.0-default-desktop-extensions.done'
+    if not defaults_marker.exists():
+        from gi.repository import Gio
+        cleanup=preferences.with_name('desktop_040.py')
+        if cleanup.is_file():
+            runpy.run_path(str(cleanup))['restore_default_extensions'](home,Gio.Settings.new('org.gnome.shell'))
+            Gio.Settings.sync()
+            defaults_marker.write_text('0.4.0\n')
     if marker.exists():return
     prototypes=Path('/usr/share/nodalix/gnome-extension-prototypes-040.json')
     if prototypes.is_file():

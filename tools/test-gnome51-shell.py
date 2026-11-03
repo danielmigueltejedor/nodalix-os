@@ -649,7 +649,8 @@ app.connect('activate',activate);app.run()
                     (args.evidence/'global-menu.json').write_text(json.dumps({'gtk3_native_export':True,'real_action_invoked':True,'disabled_state_preserved':True,'stale_window_reply_ignored':True},indent=2))
                 finally:
                     menus.terminate();menus.wait(timeout=5)
-                    call('org.gnome.Shell.Extensions','DisableExtension',GLib.Variant('(s)',('global-menu@unmade.space',)))
+                    if 'global-menu@unmade.space' not in profile:
+                        call('org.gnome.Shell.Extensions','DisableExtension',GLib.Variant('(s)',('global-menu@unmade.space',)))
                 app=subprocess.Popen([sys.executable,'-c',fixture],env=env,stdout=log,stderr=log)
                 try:
                     for attempt in range(30):

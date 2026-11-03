@@ -6,6 +6,23 @@ import shutil
 
 RETIRED=('nodalix-shortcuts@getnodalia.com','nodalix-secondary-bars@getnodalia.com')
 SHADOWS=('global-menu@unmade.space','nodalix-startup-cursor@local')
+DESKTOP_DEFAULTS=('global-menu@unmade.space','rounded-window-corners@ztrahmet.github.io')
+
+
+def restore_default_extensions(home,settings,system=Path('/usr/share/gnome-shell/extensions')):
+    """Restore Nodalix defaults removed by an earlier development candidate."""
+    state=Path(os.environ.get('XDG_STATE_HOME',str(home/'.local/state')))
+    backup=state/'nodalix/migrations/gnome-0.4.0-default-desktop-extensions'
+    backup.mkdir(parents=True,exist_ok=True,mode=0o700)
+    saved=backup/'preferences.json'
+    if not saved.exists():
+        saved.write_text(json.dumps({key:settings.get_strv(key) for key in
+            ('enabled-extensions','disabled-extensions')},indent=2)+'\n')
+        saved.chmod(0o600)
+    defaults=[uuid for uuid in DESKTOP_DEFAULTS if (system/uuid/'metadata.json').is_file()]
+    enabled=list(settings.get_strv('enabled-extensions'))
+    settings.set_strv('enabled-extensions',enabled+[uuid for uuid in defaults if uuid not in enabled])
+    settings.set_strv('disabled-extensions',[uuid for uuid in settings.get_strv('disabled-extensions') if uuid not in defaults])
 
 
 def restore_tiling_assistant(home,settings,system=Path('/usr/share/gnome-shell/extensions')):
@@ -70,8 +87,6 @@ def restore_stock_appearance(home,settings):
         saved.write_text(json.dumps({'enabled':settings.get_strv('enabled-extensions'),
             'disabled':settings.get_strv('disabled-extensions')},indent=2)+'\n')
         saved.chmod(0o600)
-    appearance={'global-menu@unmade.space','rounded-window-corners@ztrahmet.github.io'}
-    settings.set_strv('enabled-extensions',[uuid for uuid in settings.get_strv('enabled-extensions') if uuid not in appearance])
     folder=Path('/usr/share/gnome-shell/extensions/blur-my-shell@aunetx/schemas')
     if not (folder/'gschemas.compiled').is_file():return
     source=Gio.SettingsSchemaSource.new_from_directory(str(folder),Gio.SettingsSchemaSource.get_default(),False)
@@ -80,5 +95,5 @@ def restore_stock_appearance(home,settings):
         if not schema:continue
         prefs=Gio.Settings.new_full(schema,None,None)
         # Undo only the candidate's brightness preset, retaining custom values.
-        if abs(prefs.get_double('brightness')-0.7)<1e-9:prefs.reset('brightness')
-        if suffix=='popup':prefs.reset('static-blur')
+        if schema.has_key('brightness') and abs(prefs.get_double('brightness')-0.7)<1e-9:prefs.reset('brightness')
+        if suffix=='popup' and schema.has_key('static-blur'):prefs.reset('static-blur')

@@ -8,9 +8,9 @@
     },
     {
       "name": "nodalix-gnome",
-      "version": "0.4.0-7",
-      "file": "nodalix-gnome-0.4.0-7-any.pkg.tar.zst",
-      "sha256": "726c538548ff8a2fa7e39962c284b31d69f8a6b8afc6ea9d80440df4ec0da8aa"
+      "version": "0.4.0-9",
+      "file": "nodalix-gnome-0.4.0-9-any.pkg.tar.zst",
+      "sha256": "8982629bf81e93194f8fb1a24a6a5b55d56678bbe634cb91fac4bb3e9a0c06f6"
     },
     {
       "name": "nodalix-integrations",
@@ -32,9 +32,9 @@
     },
     {
       "name": "nodalix-video-wallpapers",
-      "version": "0.4.0-2",
-      "file": "nodalix-video-wallpapers-0.4.0-2-any.pkg.tar.zst",
-      "sha256": "32f5c7b6d833f7871c15bd9d8a92185c163f4d9f526533b113130eb6945f2854"
+      "version": "0.4.0-3",
+      "file": "nodalix-video-wallpapers-0.4.0-3-any.pkg.tar.zst",
+      "sha256": "ab2d0892d99c516176b3b11b0f112f18d7761a373d8f52a0b397120a5a9d34a5"
     }
   ]
 }

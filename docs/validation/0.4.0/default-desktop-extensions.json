@@ -1,0 +1,49 @@
+{
+  "default_profile": [
+    "glocalsend@donnybeelo.github.com",
+    "global-menu@unmade.space",
+    "rounded-window-corners@ztrahmet.github.io",
+    "nodalix-connect@getnodalia.com",
+    "dash-to-dock@micxgx.gmail.com",
+    "blur-my-shell@aunetx",
+    "hanabi-extension@jeffshee.github.io",
+    "multi-monitors-bar@frederykabryan",
+    "tiling-assistant@leleat-on-github",
+    "nodalix-auto-tiling@getnodalia.com",
+    "nodalix-startup-cursor@local"
+  ],
+  "private_gnome_51_all_active": true,
+  "local_requested_extensions_active": {
+    "global-menu@unmade.space": {
+      "state": 1.0,
+      "version": null,
+      "error": ""
+    },
+    "rounded-window-corners@ztrahmet.github.io": {
+      "state": 1.0,
+      "version": null,
+      "error": ""
+    },
+    "tiling-assistant@leleat-on-github": {
+      "state": 1.0,
+      "version": 56.0,
+      "error": ""
+    },
+    "multi-monitors-bar@frederykabryan": {
+      "state": 1.0,
+      "version": 56.0,
+      "error": ""
+    },
+    "blur-my-shell@aunetx": {
+      "state": 1.0,
+      "version": 77.0,
+      "error": ""
+    },
+    "hanabi-extension@jeffshee.github.io": {
+      "state": 1.0,
+      "version": 1.0,
+      "error": ""
+    }
+  },
+  "user_confirmed_after_new_login": true
+}

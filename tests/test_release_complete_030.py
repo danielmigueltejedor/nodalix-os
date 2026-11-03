@@ -61,8 +61,8 @@ class CompleteReleaseTests(unittest.TestCase):
         self.assertFalse({'nodalix-secondary-bars@getnodalia.com',
                           'multi-monitors-bar@frederykabryan'}.issubset(profile))
         self.assertIn('multi-monitors-bar@frederykabryan',profile)
-        self.assertNotIn('global-menu@unmade.space',profile)
-        self.assertNotIn('rounded-window-corners@ztrahmet.github.io',profile)
+        self.assertIn('global-menu@unmade.space',profile)
+        self.assertIn('rounded-window-corners@ztrahmet.github.io',profile)
         self.assertNotIn('nodalix-secondary-bars@getnodalia.com',profile)
         self.assertFalse((ROOT/'gnome/extensions/nodalix-secondary-bars@getnodalia.com').exists())
         self.assertIn('tiling-assistant@leleat-on-github',profile)

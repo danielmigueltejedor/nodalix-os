@@ -20,7 +20,7 @@ class Settings:
     def set_strv(self,key,value):self.values[key]=value
 
 class DesktopCleanup(unittest.TestCase):
-    def test_stock_appearance_keeps_blur_tiling_and_dock(self):
+    def test_legacy_appearance_cleanup_preserves_default_extensions(self):
         code='''
 import json,runpy
 from pathlib import Path
@@ -31,8 +31,10 @@ keep=['blur-my-shell@aunetx','multi-monitors-bar@frederykabryan',
       'tiling-assistant@leleat-on-github','dash-to-dock@micxgx.gmail.com']
 original=keep+['global-menu@unmade.space','rounded-window-corners@ztrahmet.github.io']
 p.set_strv('enabled-extensions',original)
+p.set_strv('disabled-extensions',['my-disabled@example.invalid'])
 m['restore_stock_appearance'](home,p);m['restore_stock_appearance'](home,p)
-assert p.get_strv('enabled-extensions')==keep
+assert p.get_strv('enabled-extensions')==original
+assert p.get_strv('disabled-extensions')==['my-disabled@example.invalid']
 saved=home/'.local/state/nodalix/migrations/gnome-0.4.0-stock-appearance/preferences.json'
 assert json.loads(saved.read_text())['enabled']==original
 assert saved.stat().st_mode & 0o777==0o600
@@ -42,6 +44,20 @@ assert saved.stat().st_mode & 0o777==0o600
                 env=dict(os.environ,HOME=directory,XDG_STATE_HOME=directory+'/.local/state',GSETTINGS_BACKEND='memory'),
                 capture_output=True,text=True)
             self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+
+    def test_default_desktop_restores_both_extensions_and_preserves_other_choices(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home=Path(directory);system=home/'system'
+            for uuid in cleanup.DESKTOP_DEFAULTS:
+                folder=system/uuid;folder.mkdir(parents=True);(folder/'metadata.json').write_text('{}')
+            keep=['blur-my-shell@aunetx','tiling-assistant@leleat-on-github','my-own@example.invalid']
+            prefs=Settings(keep[:])
+            prefs.values['disabled-extensions']=['my-disabled@example.invalid',*cleanup.DESKTOP_DEFAULTS]
+            with mock.patch.dict(os.environ,{'XDG_STATE_HOME':str(home/'state')}):
+                cleanup.restore_default_extensions(home,prefs,system)
+                cleanup.restore_default_extensions(home,prefs,system)
+            self.assertEqual(prefs.get_strv('enabled-extensions'),keep+list(cleanup.DESKTOP_DEFAULTS))
+            self.assertEqual(prefs.get_strv('disabled-extensions'),['my-disabled@example.invalid'])
 
     def test_duplicate_sources_are_backed_up_and_only_one_provider_remains(self):
         with tempfile.TemporaryDirectory() as directory:

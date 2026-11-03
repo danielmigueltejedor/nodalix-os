@@ -46,6 +46,7 @@ def main():
     parser.add_argument('--output',type=Path,required=True)
     parser.add_argument('--seconds',type=int,default=12)
     parser.add_argument('--offload',action='store_true')
+    parser.add_argument('--shell-blur',action='store_true',help='Test live wallpaper inputs to official Blur My Shell and native monitor panels')
     args=parser.parse_args();args.output.mkdir(parents=True,exist_ok=True)
     if os.environ.get('NODALIX_GPU_PRIVATE')!='1':
         with tempfile.TemporaryDirectory(prefix='nodalix-gpu-',ignore_cleanup_errors=True) as directory:
@@ -78,7 +79,18 @@ def main():
     settings.set_int('pause-on-maximize-or-fullscreen',0);settings.set_int('pause-on-battery',0)
     Gio.Settings.new('org.gnome.desktop.screensaver').set_boolean('lock-enabled',False)
     Gio.Settings.new('org.gnome.desktop.session').set_uint('idle-delay',0)
-    shell=Gio.Settings.new('org.gnome.shell');shell.set_strv('enabled-extensions',[qa.name,UUID]);Gio.Settings.sync()
+    profile=[qa.name,UUID]
+    if args.shell_blur:
+        for uuid in ('blur-my-shell@aunetx','multi-monitors-bar@frederykabryan'):
+            target=folder/uuid
+            shutil.copytree(Path(__file__).resolve().parents[1]/'gnome/extensions'/uuid,target)
+            subprocess.run(['glib-compile-schemas',str(target/'schemas')],check=True)
+            profile.append(uuid)
+        source=Gio.SettingsSchemaSource.new_from_directory(str(folder/'blur-my-shell@aunetx/schemas'),Gio.SettingsSchemaSource.get_default(),False)
+        panel=Gio.Settings.new_full(source.lookup('org.gnome.shell.extensions.blur-my-shell.panel',False),None,None)
+        panel.set_boolean('static-blur',True)
+        panel.set_boolean('override-background-dynamically',False)
+    shell=Gio.Settings.new('org.gnome.shell');shell.set_strv('enabled-extensions',profile);Gio.Settings.sync()
     log=(args.output/(args.label+'.log')).open('w')
     process=subprocess.Popen(['gnome-shell','--headless','--wayland','--no-x11','--debug-control','--virtual-monitor','1920x1080','--virtual-monitor','1920x1080'],stdout=log,stderr=log)
     try:
@@ -100,6 +112,10 @@ def main():
         else:raise AssertionError('Wallpaper renderer never played')
         pid=call('org.freedesktop.DBus','/org/freedesktop/DBus','org.freedesktop.DBus','GetConnectionUnixProcessID',GLib.Variant('(s)',(owner,)))[0]
         evaluate('Main.overview.hide();true');time.sleep(4)
+        # Monitor panels can settle after the renderer first appears. Resolve
+        # the current owner after that startup, before sampling its process.
+        owner=call('org.freedesktop.DBus','/org/freedesktop/DBus','org.freedesktop.DBus','GetNameOwner',GLib.Variant('(s)',(BUS,)))[0]
+        pid=call('org.freedesktop.DBus','/org/freedesktop/DBus','org.freedesktop.DBus','GetConnectionUnixProcessID',GLib.Variant('(s)',(owner,)))[0]
         state=evaluate("({extension:Main.extensionManager.lookup('hanabi-extension@jeffshee.github.io').state,error:Main.extensionManager.lookup('hanabi-extension@jeffshee.github.io').error,backgrounds:Main.layoutManager._bgManagers.length,monitors:Main.layoutManager.monitors.length,hasClip:typeof Main.panel.has_clip,hasEffects:typeof Main.panel.get_effects,groupChildren:Main.layoutManager._backgroundGroup.get_children().length,mode:Main.sessionMode.currentMode})")
         assert state['extension']==1 and state['backgrounds']==2,state
         visible=evaluate("Main.layoutManager._bgManagers.map(m=>m.backgroundActor.get_children().filter(a=>a.constructor.name.includes('LiveWallpaper')).map(a=>({opacity:a.opacity,clone:!!a.wallpaper?.get_source()})))")
@@ -129,6 +145,31 @@ def main():
             'playing':{name:delta(before[name],after[name],elapsed) for name in before},
             'wallpaper_windows':evaluate("global.display.list_all_windows().filter(w=>w.get_gtk_application_id()==='io.github.jeffshee.HanabiRenderer').length"),
             'background_effects':evaluate("Main.layoutManager._bgManagers.map(m=>m.backgroundActor.get_effects().map(e=>({type:e.constructor.name,enabled:e.get_enabled()})))")}
+        if args.shell_blur:
+            inputs=evaluate("global.blur_my_shell._panel_blur.actors_list.map(a=>({monitor:a.monitor.index,clip:a.bg_manager.backgroundActor.get_clip(),height:a.widgets.panel.height,live:!!a.bg_manager.wallpaperActor?.wallpaper?.get_source()}))")
+            (args.output/(args.label+'-blur-inputs.json')).write_text(json.dumps(inputs,indent=2)+'\n')
+            assert len(inputs)==2 and all(a['live'] for a in inputs),inputs
+            assert all(a['clip'][1]==0 for a in inputs),'Live wallpaper omitted the pixels underneath the panel: '+repr(inputs)
+            # This fixture has a solid #2050c0 band across its top 120 pixels.
+            # Sample empty panel space, outside native labels/buttons, so a
+            # stale frame or clipped/black input cannot pass as working blur.
+            colors=[list(b.getpixel((x+250,16))) for x in (0,1920)]
+            assert all(5<r<60 and 20<g<90 and 60<blue<170 for r,g,blue in colors),colors
+            result['shell_blur']={'live_inputs':inputs,'panel_rgb':colors,'full_video_under_panel':True}
+            panel.set_boolean('static-blur',False);Gio.Settings.sync();time.sleep(.8)
+            dynamic=Image.open(capture('dynamic-blur')).convert('RGB')
+            dynamic_colors=[list(dynamic.getpixel((x+250,16))) for x in (0,1920)]
+            assert all(5<r<60 and 20<g<90 and 60<blue<170 for r,g,blue in dynamic_colors),dynamic_colors
+            panel.set_boolean('static-blur',True);Gio.Settings.sync();time.sleep(.8)
+            result['shell_blur']['dynamic_panel_rgb']=dynamic_colors
+            evaluate('Main.overview.show();true');time.sleep(.8)
+            # Read the visible workspace backgrounds directly; the private
+            # field name of Hanabi's owner is not part of its public API.
+            rounded=evaluate("(() => {const live=[];function visit(a){if(a.constructor.name.includes('LiveWallpaper'))live.push({radius:a.clipRadius,enabled:a.roundedCornersEffect.enabled});for(const c of a.get_children())visit(c);}visit(Main.uiGroup);return live.filter(a=>a.radius>0);})()")
+            assert rounded and all(a['enabled'] for a in rounded),rounded
+            evaluate('Main.overview.hide();true');time.sleep(.8)
+            assert evaluate("Main.layoutManager._bgManagers.every(m=>m.backgroundActor.get_clip()[1]===0)")
+            result['shell_blur']['overview_rounding_and_desktop_restore']=True
         if settings.props.settings_schema.has_key('pause-when-covered'):
             # Eight ordinary, unmaximized windows cover both monitors. The old
             # maximize/fullscreen policy cannot account for this workload.

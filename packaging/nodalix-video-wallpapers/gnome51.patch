@@ -555,10 +555,9 @@ index 2528900..bfb3e2f 100644
              <description>Add a startup delay (in milliseconds) to mitigate compatibility issues with
                  other extensions</description>
 diff --git a/src/wallpaper.ts b/src/wallpaper.ts
-index 390765a..5f5f08e 100644
 --- a/src/wallpaper.ts
 +++ b/src/wallpaper.ts
-@@ -31,9 +31,9 @@ import {APPLICATION_ID} from './constants.js';
+@@ -31,9 +31,9 @@
 
  const logger = new Logger('wallpaper');
  // Ref: https://gitlab.gnome.org/GNOME/gnome-shell/-/blob/main/js/ui/layout.js
@@ -570,7 +569,7 @@ index 390765a..5f5f08e 100644
 
  export const LiveWallpaper = GObject.registerClass(
      class LiveWallpaper extends St.Widget {
-@@ -62,6 +62,10 @@ export const LiveWallpaper = GObject.registerClass(
+@@ -62,6 +62,10 @@
          private roundedCornersEffect!: RoundedCornersEffect;
          private monitorWidth!: number;
          private monitorHeight!: number;
@@ -581,7 +580,7 @@ index 390765a..5f5f08e 100644
 
          constructor(
              backgroundActor: Meta.BackgroundActor,
-@@ -77,6 +81,7 @@ export const LiveWallpaper = GObject.registerClass(
+@@ -77,6 +81,7 @@
                  opacity: 0,
              });
              this.backgroundActor = backgroundActor;
@@ -589,7 +588,7 @@ index 390765a..5f5f08e 100644
              this.metaBackgroundGroup = backgroundActor.get_parent();
              this.monitorIndex = this.backgroundActor.monitor;
              this.settings = settings;
-@@ -84,6 +89,8 @@ export const LiveWallpaper = GObject.registerClass(
+@@ -84,6 +89,8 @@
 
              this.connect('destroy', () => {
                  this.isDisposed = true;
@@ -598,13 +597,19 @@ index 390765a..5f5f08e 100644
                  if (this.rendererPollTimeoutId) {
                      GLib.source_remove(this.rendererPollTimeoutId);
                      this.rendererPollTimeoutId = 0;
-@@ -140,27 +147,56 @@ export const LiveWallpaper = GObject.registerClass(
+@@ -139,28 +146,61 @@
+             if (!monitor)
                  return;
              const workArea = Main.layoutManager.getWorkAreaForMonitor(this.monitorIndex);
-             const panelOffset = (workArea.y - monitor.y) / monitor.height * this.backgroundActor.height;
+-            const panelOffset = (workArea.y - monitor.y) / monitor.height * this.backgroundActor.height;
 -            this.roundedCornersEffect.setBounds(
 -                [0, panelOffset, this.width, this.height]
 -            );
++            // Desktop and Blur My Shell inputs cover the whole monitor,
++            // including the pixels underneath its transparent native panel.
++            // Only Overview workspace previews crop to the work area.
++            const panelOffset = this.clipRadius > 0
++                ? (workArea.y - monitor.y) / monitor.height * this.backgroundActor.height : 0;
 +            this.setRoundedClipBounds(0, panelOffset, this.width, this.height);
 +        }
 +
@@ -638,7 +643,7 @@ index 390765a..5f5f08e 100644
                  return;
 +            this.clipRadius = radius;
              this.roundedCornersEffect.setClipRadius(radius);
-+            this.updateRenderPath();
++            this.applyBounds();
          }
 
          setRoundedClipBounds(x1: number, y1: number, x2: number, y2: number): void {

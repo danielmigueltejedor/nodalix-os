@@ -1,5 +1,5 @@
 {
-  "unit_integration_tests": 267,
+  "unit_integration_tests": 268,
   "result": "passed",
   "date": "2026-11-03",
   "native_shell": "GNOME Shell 51.1",
@@ -24,7 +24,7 @@
   "hidden_popup_animation_regression": true,
   "application_folder_integration": true,
   "calendar_agenda_cap": "12em",
-  "default_appearance": "Native GNOME with Blur My Shell; added Global Menu/window effects disabled",
+  "default_appearance": "GNOME native panels with official Blur My Shell, Global Menu and Rounded Window Corners enabled",
   "three_monitor_native_menus": true,
   "calendar_limit_uses_native_viewport": true,
   "calendar_agenda_events": [
@@ -37,5 +37,8 @@
   "upstream_source_unmodified": true,
   "legacy_corner_effects_removed_by_upstream_migration": true,
   "test_with_actual_blur_preferences": true,
-  "secondary_panel_destroyed_notification_handlers_fixed": true
+  "secondary_panel_destroyed_notification_handlers_fixed": true,
+  "live_wallpaper_input_under_panel": true,
+  "static_and_dynamic_live_wallpaper_blur": true,
+  "physical_panel_after_new_login_user_confirmed": true
 }

@@ -220,6 +220,13 @@ GNOME 51 y no requiere la antigua biblioteca `gnome-rounded-blur`. Su migración
 oficial elimina los efectos manuales de esquinas de las configuraciones antiguas;
 Nodalix no añade efectos ni modifica los shaders de la extensión.
 
+El fondo animado debe entregar la imagen completa también bajo el panel
+transparente. El recorte del área de trabajo se aplica solo a las miniaturas
+redondeadas de Actividades: excluir los 32 píxeles superiores del escritorio
+dejaba a Blur My Shell sin entrada y producía franjas o halos alrededor del texto.
+La prueba conjunta de Hanabi, Blur My Shell oficial y Multi Monitor Bar comprueba
+los píxeles del panel con blur estático y dinámico y la vuelta desde Actividades.
+
 La agenda se limita mediante el tamaño solicitado del viewport nativo. Un estilo
 CSS no basta porque otra extensión puede reconstruirlo y la columna del calendario
 puede solicitar más altura. El límite se recalcula al abrir y al llegar eventos,
@@ -235,8 +242,10 @@ explícitas durante una actualización.
 secundarios, con calendario y controles nativos. La barra principal conserva
 sus indicadores y distribución. Todo el desenfoque de paneles, menús y dock lo
 gestiona Blur My Shell; no hay una segunda implementación de blur ni una barra
-Nodalix de sustitución. El menú global y el redondeado añadido de ventanas quedan
-desactivados por defecto; no se imponen presets de aspecto a Blur My Shell.
+Nodalix de sustitución. Menú Global y Rounded Window Corners forman parte del
+perfil activo por defecto de la 0.4.0. Una migración con respaldo recupera su
+activación si un candidato anterior las desactivó. No se imponen presets de
+aspecto a Blur My Shell.
 Se conserva Tiling Assistant, sus preferencias y las
 versiones personales más recientes. El calendario limita su altura y permite
 desplazar las notificaciones en ambos monitores, aunque Phone Link esté apagado.

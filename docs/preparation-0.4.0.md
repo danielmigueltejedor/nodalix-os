@@ -124,8 +124,9 @@ ArtCraft suite membership takes priority. Folder changes have a private backup
 and directory events coalesce without polling or repeated gsettings subprocesses.
 
 The default appearance uses GNOME's native panel plus Blur My Shell. Global Menu
-and added window-corner effects are opt-in and are disabled by the development
-candidate repair. Nodalix no longer seeds custom blur pipelines or brightness;
+and Rounded Window Corners are enabled in the 0.4.0 profile. A one-time upgrade
+repair restores both after an earlier development candidate disabled them.
+Nodalix no longer seeds custom blur pipelines or brightness;
 only its previously imposed brightness preset and popup cache are reset, while
 custom pipeline choices remain. Two- and three-monitor native menu tests pass.
 
@@ -149,3 +150,21 @@ that no longer exist.
 The complete private GNOME tests also load this PC's actual blur preferences in
 an isolated session; no real calendar events, windows or personal screenshots are
 committed. Replacing already loaded Shell modules requires a new login.
+
+## Live wallpaper below the native panel
+
+The physical session exposed a missing integration check: Hanabi cropped every
+background to the work area, including Blur My Shell's private input backgrounds.
+The first 32 pixels were therefore missing on each monitor, producing coloured
+strips in static blur and white echoes of native panel text in dynamic blur.
+Desktop and blur input backgrounds now cover the entire monitor. Only rounded
+Overview workspace previews retain the work-area crop. Blur My Shell remains the
+unmodified official version 77; the fix changes wallpaper input geometry only.
+
+The real-GBM two-monitor regression first fails on the old clipped input, then
+passes against the compiled wallpaper package: both static and dynamic panel
+samples show the fixture background, video keeps moving, Overview rounding is
+restored, and coverage pause/reveal still works. After loading the fix in a fresh
+physical session, the user confirmed the panel is correct. GNOME Shell's 389
+packaged files remain unmodified. The follow-up package also restores Global
+Menu and Rounded Window Corners as requested system defaults.
