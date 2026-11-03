@@ -17,7 +17,94 @@ fi
 size=$(stty size 2>/dev/null) || exit 0
 set -- $size
 [ "$#" -eq 2 ] && [ "$1" -gt 2 ] && [ "$2" -gt 1 ] || exit 0
-exec awk -v rows="$(( $1 - 2 ))" -v columns="$(( $2 - 1 ))" '
+case "${LC_ALL:-${LC_MESSAGES:-${LANG:-C}}}" in
+    es|es[_@.]*) spanish=1 ;;
+    *) spanish=0 ;;
+esac
+system_id=$(uname -srm)
+disk=$(LC_ALL=C df -k --output=fstype,size,used,pcent / 2>/dev/null)
+color=0
+[ -n "${NO_COLOR:-}" ] || [ "${TERM:-}" = dumb ] || color=1
+LC_ALL=C exec awk -v rows="$(( $1 - 2 ))" -v columns="$(( $2 - 1 ))" \
+    -v spanish="$spanish" -v system_id="$system_id" -v disk="$disk" -v color="$color" '
+BEGIN {
+    escape = sprintf("%c[", 27)
+    split("128;155;251 105;164;250 82;175;246 66;187;238 62;201;225 69;212;210 99;222;199", gradient, " ")
+}
+function styled(code, value) {
+    return color ? escape code "m" value escape "0m" : value
+}
+function detail(label, value) {
+    if (value != "")
+        details[++detail_count] = sprintf("%-9s %s", label, value)
+}
+function system_details(    release, version, line, fields, count, elapsed, days, hours, uptime, total, available) {
+    release = "/etc/nodalix-release"
+    while ((getline line < release) > 0) {
+        if (line ~ /^VERSION_ID=/) {
+            version = substr(line, 12)
+            gsub(/"/, "", version)
+            break
+        }
+    }
+    close(release)
+    details[++detail_count] = "Nodalix OS" (version ~ /^[0-9][A-Za-z0-9.+-]*$/ ? " " version : "")
+    details[++detail_count] = ""
+    if (split(system_id, fields, " ") == 3) {
+        detail(spanish ? "Sistema" : "System", fields[3])
+        detail("Kernel", fields[1] " " fields[2])
+    }
+    if ((getline line < "/proc/uptime") > 0) {
+        elapsed = int(line / 60)
+        days = int(elapsed / 1440)
+        hours = int(elapsed / 60) % 24
+        uptime = (days ? days " d " : "") (hours ? hours " h " : "") (elapsed % 60) " min"
+        detail(spanish ? "Actividad" : "Uptime", uptime)
+    }
+    close("/proc/uptime")
+    while ((getline line < "/proc/meminfo") > 0) {
+        if (line ~ /^MemTotal:/)
+            total = substr(line, 10) + 0
+        if (line ~ /^MemAvailable:/) {
+            available = substr(line, 14) + 0
+            break
+        }
+    }
+    close("/proc/meminfo")
+    if (total > 0 && available > 0 && available <= total)
+        detail(spanish ? "Memoria" : "Memory", sprintf("%.1f/%.1f GiB %.0f%%",
+            (total - available) / 1048576, total / 1048576, 100 * (total - available) / total))
+    if (split(disk, fields, "\n") == 2) {
+        line = fields[2]
+        count = split(line, fields, " ")
+        if (count == 4 && fields[2] > 0)
+            detail(spanish ? "Disco" : "Disk", sprintf("%.0f/%.0f GiB %s %s",
+                fields[3] / 1048576, fields[2] / 1048576, fields[4], fields[1]))
+    }
+}
+function display_detail(row, limit,    value) {
+    value = substr(details[row], 1, limit)
+    if (!color)
+        return value
+    if (row == 1)
+        return styled("1;38;2;107;214;226", substr(value, 1, 10)) styled("2", substr(value, 11))
+    if (row == 2) {
+        gsub(/-/, "─", value)
+        return styled("38;2;83;135;169", value)
+    }
+    return styled("2", substr(value, 1, 10)) substr(value, 11)
+}
+function art_line(edition, row, height, width,    source, column, character, line) {
+    source = artwork[edition, int((row + 0.5) * artwork_rows[edition] / height) + 1]
+    if (width == artwork_columns[edition])
+        return source
+    for (column = 0; column < width; column++) {
+        character = substr(source, int((column + 0.5) * artwork_columns[edition] / width) + 1, 1)
+        line = line (character == "" ? " " : character)
+    }
+    sub(/ +$/, "", line)
+    return line
+}
 {
     edition = FILENAME == ARGV[1] ? 1 : 2
     artwork[edition, FNR] = $0
@@ -26,31 +113,40 @@ exec awk -v rows="$(( $1 - 2 ))" -v columns="$(( $2 - 1 ))" '
         artwork_columns[edition] = length
 }
 END {
-    edition = artwork_rows[1] <= rows && artwork_columns[1] <= columns ? 1 : 2
+    system_details()
+    for (row = 1; row <= detail_count; row++)
+        if (length(details[row]) > detail_width)
+            detail_width = length(details[row])
+    details[2] = sprintf("%*s", detail_width, "")
+    gsub(/ /, "-", details[2])
+    gap = 4
+    edition = artwork_rows[1] <= rows && artwork_columns[1] + gap + detail_width <= columns ? 1 : 2
     original_height = artwork_rows[edition]
     original_width = artwork_columns[edition]
-    if (original_height <= rows && original_width <= columns) {
-        for (row = 1; row <= original_height; row++)
-            print artwork[edition, row]
-        exit
-    }
-    scale = rows / original_height
+    side = original_width + gap + detail_width <= columns && detail_count <= rows
+    art_rows = side ? rows : rows - detail_count - 1
+    scale = 1
+    if (art_rows / original_height < scale)
+        scale = art_rows / original_height
     if (columns / original_width < scale)
         scale = columns / original_width
     height = int(original_height * scale)
     width = int(original_width * scale)
-    if (height < 5 || width < 10) {
-        print substr("Nodalix OS", 1, columns)
-        exit
-    }
-    for (row = 0; row < height; row++) {
-        source = artwork[edition, int((row + 0.5) * original_height / height) + 1]
-        line = ""
-        for (column = 0; column < width; column++) {
-            character = substr(source, int((column + 0.5) * original_width / width) + 1, 1)
-            line = line (character == "" ? " " : character)
+    if (height >= 5 && width >= 10 && (!side || height >= detail_count)) {
+        top = int((height - detail_count) / 2)
+        for (row = 0; row < height; row++) {
+            line = art_line(edition, row, height, width)
+            hue = "38;2;" gradient[int(7 * row / height) + 1]
+            index_in_details = row - top + 1
+            if (side && index_in_details in details)
+                printf "%s%*s%s\n", styled(hue, line), width - length(line) + gap, "", display_detail(index_in_details, detail_width)
+            else
+                print styled(hue, line)
         }
-        sub(/ +$/, "", line)
-        print line
+        if (side)
+            exit
+        print ""
     }
+    for (row = 1; row <= detail_count && row <= rows; row++)
+        print display_detail(row, columns)
 }' "$art" "$compact"

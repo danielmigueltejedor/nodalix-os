@@ -100,10 +100,12 @@ def main():
         subprocess.run(['systemctl','--user','enable','--now','nodalix-app-organizer.path'],check=True,timeout=15)
         subprocess.run(['systemctl','--user','start','nodalix-app-organizer.service'],check=True,timeout=30)
         folders_marker.write_text('0.4.0\n')
-    welcome_marker=root/'gnome-0.4.0-terminal-welcome.done'
+    welcome_marker=root/'gnome-0.4.0-terminal-welcome-v2.done'
     if not welcome_marker.exists():
-        runpy.run_path(str(preferences))['configure_terminal_welcome'](
-            home,pwd.getpwuid(os.getuid()).pw_shell)
+        terminal=runpy.run_path(str(preferences))
+        config=Path(os.environ.get('XDG_CONFIG_HOME',home/'.config'))
+        terminal['configure_terminal_welcome'](home,pwd.getpwuid(os.getuid()).pw_shell)
+        terminal['retire_legacy_terminal_card'](config)
         welcome_marker.write_text('0.4.0\n')
     if marker.exists():return
     prototypes=Path('/usr/share/nodalix/gnome-extension-prototypes-040.json')

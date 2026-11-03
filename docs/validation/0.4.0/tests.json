@@ -1,5 +1,5 @@
 {
-  "unit_integration_tests": 296,
+  "unit_integration_tests": 299,
   "result": "passed",
   "date": "2026-11-03",
   "native_shell": "GNOME Shell 51.1",
@@ -66,6 +66,6 @@
   "native_settings_search_queries": 6,
   "applications_folder_created_in_fresh_profile": true,
   "applications_folder_recreated_in_existing_profile": true,
-  "terminal_logo_pty": "Exact full and compact artwork, very small viewport and noninteractive and SSH guards",
-  "terminal_logo_native_ghostty": "Full, compact and reduced artwork verified on a private GNOME Wayland session on the test PC"
+  "terminal_logo_pty": "Exact artwork with live system card alongside or below, plain and colored layouts, small viewports, local TTY guards, and safe retirement of the legacy Arch greeting and prompt",
+  "terminal_logo_native_ghostty": "Gradient and live system card verified with full, compact and stacked artwork in a private GNOME Wayland session on the test PC"
 }

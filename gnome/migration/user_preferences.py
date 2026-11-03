@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import tempfile
 from gi.repository import Gio, GLib
 
 
@@ -106,6 +107,54 @@ def retire_chatgpt(path, backup):
         path.replace(backup)
         return True
     return False
+
+
+LEGACY_TERMINAL_CARD = b'''# Show the Nodalix/Arch system card only for real interactive terminals.
+if status is-interactive
+    if type -q fastfetch
+        # Select a layout from the terminal's initial geometry. This keeps the
+        # logo and data aligned in tiled, floating and very small terminals.
+        set -l ff_dir "$HOME/.config/fastfetch"
+        if test "$COLUMNS" -ge 108; and test "$LINES" -ge 20
+            fastfetch --config "$ff_dir/config.jsonc"
+        else if test "$COLUMNS" -ge 72; and test "$LINES" -ge 11
+            fastfetch --config "$ff_dir/compact.jsonc"
+        else
+            fastfetch --config "$ff_dir/minimal.jsonc"
+        end
+    end
+end
+
+'''
+
+
+def replace_terminal_default(path, old, new=b''):
+    if path.is_symlink() or not path.is_file():
+        return
+    original = path.read_bytes()
+    if original.count(old) != 1:
+        return
+    backup = path.with_name(path.name+'.pre-nodalix-terminal')
+    if not backup.exists():
+        shutil.copy2(path, backup, follow_symlinks=False)
+    with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as updated:
+        staged = Path(updated.name)
+        try:
+            updated.write(original.replace(old, new, 1))
+            updated.flush()
+            shutil.copymode(path, staged)
+            if not path.is_symlink() and path.read_bytes() == original:
+                staged.replace(path)
+        finally:
+            staged.unlink(missing_ok=True)
+
+
+def retire_legacy_terminal_card(config_home):
+    """Remove the known Arch greeting and prompt emblem."""
+    replace_terminal_default(config_home/'fish/config.fish', LEGACY_TERMINAL_CARD)
+    prompt = b'format = """\n$directory$git_branch$git_status$character"""'
+    legacy_prompt = prompt.replace(b'\n', '\n[](bold #1793d1) '.encode(), 1)
+    replace_terminal_default(config_home/'starship.toml', legacy_prompt, prompt)
 
 
 def configure_terminal_welcome(home, shell):
