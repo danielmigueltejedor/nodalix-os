@@ -20,9 +20,9 @@
     },
     {
       "name": "nodalix-control-center",
-      "version": "51.0.0-12",
-      "file": "nodalix-control-center-51.0.0-12-x86_64.pkg.tar.zst",
-      "sha256": "4bbe6941136127e4d0ede46eee58c88b853bbee613ba0a0f9c1003012cc3c72b"
+      "version": "51.0.0-14",
+      "file": "nodalix-control-center-51.0.0-14-x86_64.pkg.tar.zst",
+      "sha256": "0e1b88b658e8d9a9ddc0dfa75bb4fa52d53a7104d178a99e1b2636f0247d0e80"
     },
     {
       "name": "nodalix-gnome",

@@ -184,6 +184,26 @@ def wait_portal_interface(name,interface):
 wait_portal_interface('org.freedesktop.impl.portal.desktop.gnome','org.freedesktop.impl.portal.Screenshot')
 wait_portal_interface('org.freedesktop.portal.Desktop','org.freedesktop.portal.Screenshot')
 print('Real screenshot backend and frontend interfaces ready')
+# The application catalog must be populated by the packaged session service
+# on both a clean account and an upgraded account.
+state_home=Path.home()/'.local/state/nodalix'
+deadline=time.monotonic()+45
+while time.monotonic()<deadline:
+    try:
+        layout=json.loads((state_home/'layout/paths.json').read_text())
+        folder=Path(layout['applications'])
+        registry=json.loads((state_home/'applications/registry.json').read_text())
+        if folder.is_dir() and (folder/registry['org.gnome.Settings.desktop']['filename']).is_file():break
+    except (OSError,ValueError,KeyError):
+        pass
+    time.sleep(.5)
+else:raise AssertionError('The Applications folder did not acquire its native Settings entry')
+assert subprocess.check_output(['systemctl','--user','is-active','nodalix-applications.service'],text=True).strip()=='active'
+results=bus.call_sync('org.gnome.Settings.SearchProvider','/org/gnome/Settings/SearchProvider',
+    'org.gnome.Shell.SearchProvider2','GetInitialResultSet',GLib.Variant('(as)',(['documentos','grandes'],)),
+    None,Gio.DBusCallFlags.NONE,30000,None).unpack()[0]
+assert 'nodalix-storage' in results,results
+print('Applications folder and native Settings search are available')
 # Register this QA process explicitly; the systemd verifier otherwise supplies
 # a different app identity than a terminal process. All files are guest-only.
 qa_id='com.nodalix.QA'

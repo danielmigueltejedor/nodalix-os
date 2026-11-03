@@ -67,12 +67,18 @@ t=t.replace('    g_signal_handlers_block_by_func (self->settings, on_settings_ch
                             G_DBUS_CALL_FLAGS_NONE, 2000, NULL, NULL, NULL);
     g_signal_handlers_block_by_func (self->settings, on_settings_changed, self);''',1)
 p.write_text(t)
+p=root/'panels/background/cc-background-panel.c';t=p.read_text()
+t=t.replace('    gtk_widget_init_template (GTK_WIDGET (self));', '    gtk_widget_init_template (GTK_WIDGET (self));\n    cc_panel_add_static_subpage (CC_PANEL (self), "animated-wallpapers", CC_TYPE_NODALIX_WALLPAPER_PAGE);')
+p.write_text(t)
 p=root/'panels/background/cc-background-panel.blp';t=p.read_text();pos=t.rfind('        };');t=t[:pos]+'''          Adw.PreferencesGroup {
-            title: "Fondos animados";
-            Adw.Bin {
-              styles ["card"]
-              accessible-role: group;
-              $CcNodalixBackgroundChooser { hexpand: true; }
+            Adw.ActionRow {
+              title: "Fondos animados";
+              subtitle: "Elige un vídeo para el escritorio";
+              activatable: true;
+              action-name: "navigation.push";
+              action-target: "'animated-wallpapers'";
+              [suffix]
+              Image { icon-name: "go-next-symbolic"; }
             }
           }
 '''+t[pos:];p.write_text(t)
@@ -121,3 +127,84 @@ p.write_text(t.replace(anchor, anchor + '''
               action-name: "navigation.push";
               action-target: "'storage'";
             }''', 1))
+
+# Keep the built-in Settings search provider. These entries are searchable in
+# both Settings and the GNOME launcher without adding apps to the app grid.
+search_sections = (
+    ('storage', 'Storage', 'Almacenamiento', 'applications', 'storage', 'drive-harddisk-symbolic',
+     'disk;storage;space;large;files;documents;music;developer;', 'disco;espacio;archivos;documentos;grandes;música;desarrollo;'),
+    ('updates', 'Updates', 'Actualizaciones', 'system', 'updates', 'view-refresh-symbolic',
+     'update;updates;automatic;flatpak;kernel;firmware;nodalix;', 'actualizar;actualizaciones;automáticas;flatpak;kernel;firmware;nodalix;'),
+    ('diagnostics', 'System Diagnostics', 'Diagnóstico del sistema', 'system', 'diagnostics', 'dialog-information-symbolic',
+     'diagnostics;system;memory;display;services;performance;', 'diagnóstico;sistema;memoria;pantallas;servicios;rendimiento;'),
+    ('version', 'Nodalix OS Version', 'Versión de Nodalix OS', 'system', 'about', 'org.gnome.Settings-about-symbolic',
+     'version;nodalix;system;about;information;', 'versión;nodalix;sistema;acerca;información;'),
+    ('localsend', 'LocalSend', 'LocalSend', 'sharing', 'localsend', 'send-to-symbolic',
+     'localsend;share;files;nearby;transfer;', 'localsend;compartir;archivos;cercanos;transferir;'),
+    ('wallpapers', 'Animated Wallpapers', 'Fondos animados', 'background', 'animated-wallpapers', 'preferences-desktop-wallpaper-symbolic',
+     'wallpaper;wallpapers;animated;video;appearance;background;', 'fondo;fondos;animados;vídeo;apariencia;escritorio;'),
+)
+files = []
+for slug, english, spanish, panel, subpage, icon, keywords, localized in search_sections:
+    filename = f'gnome-nodalix-{slug}-panel.desktop'
+    files.append(filename)
+    (root/'search-provider'/filename).write_text(f'''[Desktop Entry]
+Type=Application
+Name={english}
+Name[es]={spanish}
+Exec=gnome-control-center nodalix-{slug}
+Icon={icon}
+Terminal=false
+StartupNotify=true
+NoDisplay=true
+OnlyShowIn=GNOME;Unity;
+Categories=GNOME;GTK;Settings;X-GNOME-Settings-Panel;X-GNOME-SystemSettings;
+Keywords={keywords}{localized}
+Keywords[es]={localized}{keywords}
+X-Nodalix-Parent={panel}
+X-Nodalix-Subpage={subpage}
+''')
+p=root/'search-provider/meson.build';t=p.read_text()
+p.write_text(t+'\ninstall_data('+', '.join(repr(filename) for filename in files)+',\n             install_dir: control_center_desktopdir)\n')
+p=root/'shell/cc-panel-loader.c';t=p.read_text();anchor='    { CC_CATEGORY_SYSTEM, "about" },'
+assert anchor in t
+p.write_text(t.replace(anchor,anchor+''.join(f'\n    {{ CC_CATEGORY_SYSTEM, "nodalix-{row[0]}" }},' for row in search_sections),1))
+
+# Apply the same parent/subpage routing when a result is selected inside
+# Control Center; the Shell provider uses the desktop file's normal Exec.
+p=root/'shell/cc-window.c';t=p.read_text()
+if '#include <gio/gdesktopappinfo.h>' not in t:
+    t=t.replace('#include "cc-window.h"','#include "cc-window.h"\n#include <gio/gdesktopappinfo.h>')
+t=t.replace('    g_autoptr(GVariant) system_param_overwrite = NULL;', '''    g_autoptr(GVariant) system_param_overwrite = NULL;
+    g_autoptr(GAppInfo) entry_info = NULL;
+    g_autofree gchar *nodalix_parent = NULL;
+    g_autofree gchar *nodalix_subpage = NULL;''',1)
+t=t.replace('    if (category == CC_CATEGORY_SYSTEM) {','''    if (g_str_has_prefix (start_id, "nodalix-")) {
+        gtk_tree_model_get (GTK_TREE_MODEL (self->store), &iter, COL_APP, &entry_info, -1);
+        if (G_IS_DESKTOP_APP_INFO (entry_info)) {
+            nodalix_parent = g_desktop_app_info_get_string (G_DESKTOP_APP_INFO (entry_info), "X-Nodalix-Parent");
+            nodalix_subpage = g_desktop_app_info_get_string (G_DESKTOP_APP_INFO (entry_info), "X-Nodalix-Subpage");
+        }
+    }
+    if (nodalix_parent && nodalix_subpage) {
+        GVariantBuilder arguments;
+        g_variant_builder_init (&arguments, G_VARIANT_TYPE ("av"));
+        g_variant_builder_add (&arguments, "v", g_variant_new_string (nodalix_subpage));
+        system_param_overwrite = g_variant_ref_sink (g_variant_builder_end (&arguments));
+        start_id = nodalix_parent;
+    } else if (category == CC_CATEGORY_SYSTEM) {''',1)
+p.write_text(t)
+p=root/'panels/applications/cc-applications-panel.c';t=p.read_text()
+anchor='''            g_variant_unref (v);
+
+            select_app (CC_APPLICATIONS_PANEL (object), first_arg, TRUE);'''
+assert anchor in t
+p.write_text(t.replace(anchor,'''            if (g_strcmp0 (first_arg, "storage") == 0) {
+                CcPanel *panel = CC_PANEL (object);
+                AdwNavigationPage *subpage = cc_panel_get_static_subpage (panel, "storage");
+                if (subpage)
+                    g_ptr_array_add (cc_panel_get_navigation_stack (panel), subpage);
+            } else {
+                select_app (CC_APPLICATIONS_PANEL (object), first_arg, TRUE);
+            }
+            g_variant_unref (v);''',1))

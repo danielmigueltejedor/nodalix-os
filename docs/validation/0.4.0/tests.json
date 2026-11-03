@@ -62,5 +62,8 @@
   "phone_ancs_advertisement_registered_on_pc": true,
   "phone_adapter_handsfree_class_verified_on_pc": true,
   "phone_notifications_live_delivery": "real new ANCS events received after corrected pairing",
-  "gnome_contact_vcard_api_uses_base_class": true
+  "gnome_contact_vcard_api_uses_base_class": true,
+  "native_settings_search_queries": 6,
+  "applications_folder_created_in_fresh_profile": true,
+  "applications_folder_recreated_in_existing_profile": true
 }

@@ -161,3 +161,30 @@ static void cc_nodalix_background_chooser_init (CcNodalixBackgroundChooser *self
   self->timer=g_timeout_add_seconds(3,poll_state,self);
   g_dbus_proxy_new_for_bus(G_BUS_TYPE_SESSION,G_DBUS_PROXY_FLAGS_NONE,NULL,BUS,OBJECT,IFACE,self->cancel,proxy_ready,g_object_ref(self));
 }
+
+struct _CcNodalixWallpaperPage {
+  AdwNavigationPage parent_instance;
+};
+
+G_DEFINE_TYPE (CcNodalixWallpaperPage, cc_nodalix_wallpaper_page, ADW_TYPE_NAVIGATION_PAGE)
+
+static void
+cc_nodalix_wallpaper_page_class_init (CcNodalixWallpaperPageClass *klass)
+{
+}
+
+static void
+cc_nodalix_wallpaper_page_init (CcNodalixWallpaperPage *self)
+{
+  adw_navigation_page_set_title (ADW_NAVIGATION_PAGE (self), "Fondos animados");
+  GtkWidget *toolbar = adw_toolbar_view_new ();
+  adw_toolbar_view_add_top_bar (ADW_TOOLBAR_VIEW (toolbar), adw_header_bar_new ());
+  GtkWidget *page = adw_preferences_page_new ();
+  AdwPreferencesGroup *group = ADW_PREFERENCES_GROUP (adw_preferences_group_new ());
+  GtkWidget *chooser = g_object_new (CC_TYPE_NODALIX_BACKGROUND_CHOOSER, NULL);
+  gtk_widget_set_hexpand (chooser, TRUE);
+  adw_preferences_group_add (group, chooser);
+  adw_preferences_page_add (ADW_PREFERENCES_PAGE (page), group);
+  adw_toolbar_view_set_content (ADW_TOOLBAR_VIEW (toolbar), page);
+  adw_navigation_page_set_child (ADW_NAVIGATION_PAGE (self), toolbar);
+}
