@@ -1,0 +1,8 @@
+{
+  "synthetic_contacts": 3,
+  "accent_insensitive_matches": 2,
+  "selected_local_number_preserved": true,
+  "name_opens_picker_without_guessing": true,
+  "live_calls_made": false,
+  "native_virtualized_list": true
+}

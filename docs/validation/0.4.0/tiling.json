@@ -1,0 +1,169 @@
+{
+  "layouts": [
+    {
+      "windows": 1,
+      "rectangles": [
+        {
+          "actual": [
+            8,
+            40,
+            1264,
+            672
+          ],
+          "expected": [
+            8,
+            40,
+            1264,
+            672
+          ]
+        }
+      ]
+    },
+    {
+      "windows": 2,
+      "rectangles": [
+        {
+          "actual": [
+            8,
+            40,
+            628,
+            672
+          ],
+          "expected": [
+            8,
+            40,
+            628,
+            672
+          ]
+        },
+        {
+          "actual": [
+            644,
+            40,
+            628,
+            672
+          ],
+          "expected": [
+            644,
+            40,
+            628,
+            672
+          ]
+        }
+      ]
+    },
+    {
+      "windows": 3,
+      "rectangles": [
+        {
+          "actual": [
+            8,
+            40,
+            628,
+            672
+          ],
+          "expected": [
+            8,
+            40,
+            628,
+            672
+          ]
+        },
+        {
+          "actual": [
+            644,
+            40,
+            628,
+            332
+          ],
+          "expected": [
+            644,
+            40,
+            628,
+            332
+          ]
+        },
+        {
+          "actual": [
+            644,
+            380,
+            628,
+            332
+          ],
+          "expected": [
+            644,
+            380,
+            628,
+            332
+          ]
+        }
+      ]
+    },
+    {
+      "windows": 4,
+      "rectangles": [
+        {
+          "actual": [
+            8,
+            40,
+            628,
+            332
+          ],
+          "expected": [
+            8,
+            40,
+            628,
+            332
+          ]
+        },
+        {
+          "actual": [
+            644,
+            40,
+            628,
+            332
+          ],
+          "expected": [
+            644,
+            40,
+            628,
+            332
+          ]
+        },
+        {
+          "actual": [
+            644,
+            380,
+            628,
+            332
+          ],
+          "expected": [
+            644,
+            380,
+            628,
+            332
+          ]
+        },
+        {
+          "actual": [
+            8,
+            380,
+            628,
+            332
+          ],
+          "expected": [
+            8,
+            380,
+            628,
+            332
+          ]
+        }
+      ]
+    }
+  ],
+  "minimize_restore": true,
+  "two_monitor_groups": true,
+  "disable_without_logout": true,
+  "hover_focus_without_click": true,
+  "super_q_closes_one_window": true
+}

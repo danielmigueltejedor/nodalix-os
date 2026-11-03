@@ -32,6 +32,9 @@ The shell, settings, application management, system updater, iPhone integration,
 > **`main` tracks active development for the next Nodalix release.**
 > For normal installations, use a published release from [GitHub Releases](https://github.com/danielmigueltejedor/nodalix-os/releases).
 
+The [0.4.0 preparation audit](docs/preparation-0.4.0.md) records the status of all
+26 open issues, local validation and the work still needed before publication.
+
 ## The Nodalix experience
 
 | Desktop | System | Integration |

@@ -1,0 +1,12 @@
+{
+  "enabled": true,
+  "real_manual_placement": true,
+  "manual_rect": [
+    0,
+    32,
+    640,
+    688
+  ],
+  "automatic_layout_preserves_manual_placement": true,
+  "untile": true
+}

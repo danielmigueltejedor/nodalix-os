@@ -1,0 +1,214 @@
+{
+  "date": "2026-11-02",
+  "context": "GNOME 51.1, AMD RX 9070 XT, private real-GBM Wayland compositor, two 1920x1080 monitors, 12-second samples; original H264 4K30 file unchanged",
+  "baseline": {
+    "video": [
+      {
+        "codec_name": "h264",
+        "width": 3840,
+        "height": 2160,
+        "r_frame_rate": "30/1"
+      }
+    ],
+    "visible_motion_rgb_difference": [
+      12.9916,
+      12.9916
+    ],
+    "playing": {
+      "shell": {
+        "cpu_percent_one_core": 2.17,
+        "pss_mib": 137.54,
+        "gpu_engine_percent": {
+          "gfx": 0.506
+        },
+        "gpu_memory_bytes": {
+          "drm-total-gtt": 14692352,
+          "drm-total-vram": 251183104,
+          "drm-memory-vram": 251183104,
+          "drm-memory-gtt": 16789504
+        }
+      },
+      "renderer": {
+        "cpu_percent_one_core": 2.0,
+        "pss_mib": 73.99,
+        "gpu_engine_percent": {
+          "gfx": 0.447,
+          "compute": 0.0,
+          "enc": 12.335
+        },
+        "gpu_memory_bytes": {
+          "drm-total-gtt": 17362944,
+          "drm-total-vram": 289566720,
+          "drm-memory-vram": 289566720,
+          "drm-memory-gtt": 19460096
+        }
+      }
+    },
+    "background_effects": [
+      [
+        {
+          "type": "RoundedCornersEffect2",
+          "enabled": true
+        }
+      ],
+      [
+        {
+          "type": "RoundedCornersEffect2",
+          "enabled": true
+        }
+      ]
+    ]
+  },
+  "candidate": {
+    "video": [
+      {
+        "codec_name": "h264",
+        "width": 3840,
+        "height": 2160,
+        "r_frame_rate": "30/1"
+      }
+    ],
+    "visible_motion_rgb_difference": [
+      13.0246,
+      13.0246
+    ],
+    "playing": {
+      "shell": {
+        "cpu_percent_one_core": 1.83,
+        "pss_mib": 141.9,
+        "gpu_engine_percent": {
+          "gfx": 0.395
+        },
+        "gpu_memory_bytes": {
+          "drm-total-gtt": 14692352,
+          "drm-total-vram": 202276864,
+          "drm-memory-vram": 202276864,
+          "drm-memory-gtt": 16789504
+        }
+      },
+      "renderer": {
+        "cpu_percent_one_core": 1.75,
+        "pss_mib": 72.31,
+        "gpu_engine_percent": {
+          "gfx": 0.436,
+          "compute": 0.0,
+          "enc": 12.243
+        },
+        "gpu_memory_bytes": {
+          "drm-total-gtt": 17358848,
+          "drm-total-vram": 289566720,
+          "drm-memory-vram": 289566720,
+          "drm-memory-gtt": 19456000
+        }
+      }
+    },
+    "background_effects": [
+      [
+        {
+          "type": "RoundedCornersEffect2",
+          "enabled": false
+        }
+      ],
+      [
+        {
+          "type": "RoundedCornersEffect2",
+          "enabled": false
+        }
+      ]
+    ],
+    "covered_by_tiled_windows": {
+      "shell": {
+        "cpu_percent_one_core": 0.0,
+        "pss_mib": 204.03,
+        "gpu_engine_percent": {
+          "gfx": 0.0
+        },
+        "gpu_memory_bytes": {
+          "drm-total-gtt": 31281152,
+          "drm-total-vram": 324734976,
+          "drm-memory-vram": 324734976,
+          "drm-memory-gtt": 33378304
+        }
+      },
+      "renderer": {
+        "cpu_percent_one_core": 0.0,
+        "pss_mib": 69.68,
+        "gpu_engine_percent": {
+          "gfx": 0.0,
+          "compute": 0.0,
+          "enc": 0.0
+        },
+        "gpu_memory_bytes": {
+          "drm-total-gtt": 17358848,
+          "drm-total-vram": 289566720,
+          "drm-memory-vram": 289566720,
+          "drm-memory-gtt": 19456000
+        }
+      }
+    },
+    "resumed_after_reveal": true,
+    "overview_effects": [
+      {
+        "type": "RoundedCornersEffect2",
+        "enabled": false
+      },
+      {
+        "type": "RoundedCornersEffect2",
+        "enabled": false
+      },
+      {
+        "type": "RoundedCornersEffect2",
+        "enabled": true
+      },
+      {
+        "type": "RoundedCornersEffect2",
+        "enabled": true
+      },
+      {
+        "type": "RoundedCornersEffect2",
+        "enabled": true
+      },
+      {
+        "type": "RoundedCornersEffect2",
+        "enabled": true
+      },
+      {
+        "type": "RoundedCornersEffect2",
+        "enabled": true
+      },
+      {
+        "type": "RoundedCornersEffect2",
+        "enabled": true
+      },
+      {
+        "type": "RoundedCornersEffect2",
+        "enabled": true
+      },
+      {
+        "type": "RoundedCornersEffect2",
+        "enabled": true
+      }
+    ]
+  },
+  "software_fallback": {
+    "video": [
+      {
+        "codec_name": "theora",
+        "width": 1280,
+        "height": 720,
+        "r_frame_rate": "24/1"
+      }
+    ],
+    "visible_motion_rgb_difference": [
+      21.6149,
+      21.6149
+    ],
+    "resumed_after_reveal": true
+  },
+  "limits": [
+    "One desktop/GPU; no universal performance or battery-power claim.",
+    "DRM per-client memory may share allocations and varies; do not sum it or infer a VRAM reduction.",
+    "Driver engine enc is reported verbatim; this workload decodes video.",
+    "Theora fallback proves playback, coverage pause and reveal without hardware decode; it is not a performance comparison."
+  ]
+}

@@ -1,5 +1,5 @@
 pkgname=nodalix-cursor-theme
-pkgver=0.3.1
+pkgver=0.4.0
 pkgrel=1
 options=("!strip")
 pkgdesc="Nodalix system cursor theme based on Bibata Modern Classic"

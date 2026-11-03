@@ -2,6 +2,7 @@
 Description=Keep Nodalix user-layout consistent
 [Timer]
 OnStartupSec=15s
-OnUnitInactiveSec=60s
+OnUnitInactiveSec=30min
+AccuracySec=5min
 [Install]
 WantedBy=default.target

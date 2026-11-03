@@ -1,0 +1,17 @@
+[Unit]
+Description=Automatic system Flatpak updates
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/nodalix-updater/update-transaction flatpak --automatic
+RestartForceExitStatus=75
+RestartSec=5min
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+LockPersonality=yes

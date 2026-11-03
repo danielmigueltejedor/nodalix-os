@@ -89,3 +89,5 @@ snapshot
 gnome-calculator
 gnome-clocks
 baobab
+
+ghostty

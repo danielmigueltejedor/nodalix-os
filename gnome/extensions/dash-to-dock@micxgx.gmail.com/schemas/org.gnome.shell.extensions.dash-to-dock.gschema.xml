@@ -376,12 +376,12 @@
       <description>The dock will be quickly shown so that the number-overlay is visible and app activation is easier</description>
     </key>
     <key type="s" name="shortcut-text">
-      <default>"&lt;Super&gt;q"</default>
+      <default>""</default>
       <summary>Keybinding to show the dock and the number overlay.</summary>
       <description>Behavior depends on hotkeys-show-dock and hotkeys-overlay.</description>
     </key>
     <key type="as" name="shortcut">
-      <default><![CDATA[['<Super>q']]]></default>
+      <default>[]</default>
       <summary>Keybinding to show the dock and the number overlay.</summary>
       <description>Behavior depends on hotkeys-show-dock and hotkeys-overlay.</description>
     </key>
@@ -480,14 +480,14 @@
       </description>
     </key>
     <key name="app-shift-hotkey-3" type="as">
-      <default><![CDATA[['<Shift><Super>3']]]></default>
+      <default>[]</default>
       <summary>Keybinding to trigger 3rd dash app with shift behavior</summary>
       <description>
         Keybinding to trigger 3rd app with shift behavior.
       </description>
     </key>
     <key name="app-shift-hotkey-4" type="as">
-      <default><![CDATA[['<Shift><Super>4']]]></default>
+      <default>[]</default>
       <summary>Keybinding to trigger 4th dash app with shift behavior</summary>
       <description>
         Keybinding to trigger 4th app with shift behavior.

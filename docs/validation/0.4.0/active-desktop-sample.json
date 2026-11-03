@@ -1,0 +1,398 @@
+{
+  "schema_version": 1,
+  "nodalix_version": "0.3.0",
+  "identity_health": "present",
+  "kernel": "7.3.0-2-cachyos",
+  "architecture": "x86_64",
+  "session_type": "wayland",
+  "packages": {
+    "gnome-shell": "1:51.1-1.1",
+    "mutter": "51.1-1",
+    "pipewire": "1:1.6.10-1",
+    "wireplumber": "0.5.18-1.1",
+    "power-profiles-daemon": "0.30-3",
+    "zram-generator": "1.2.1-1.1"
+  },
+  "memory": {
+    "MemTotal": 32455639040,
+    "MemAvailable": 14696697856,
+    "SwapTotal": 16227758080,
+    "SwapFree": 14859599872
+  },
+  "sensors": {
+    "gpu": [
+      {
+        "driver": "amdgpu",
+        "busy_percent": 18
+      },
+      {
+        "driver": "amdgpu",
+        "busy_percent": 0
+      }
+    ],
+    "batteries": [
+      {
+        "status": "Discharging",
+        "power_watts": null,
+        "capacity_percent": 57
+      }
+    ],
+    "gpu_limit": "Utilization is available only for supported drivers; it is not a power measurement."
+  },
+  "displays": {
+    "monitors": [
+      {
+        "vrr_capable": null,
+        "vrr_state": null,
+        "current_modes": [
+          {
+            "width": 1920,
+            "height": 1080,
+            "refresh_hz": 143.855,
+            "current": true
+          }
+        ],
+        "available_mode_count": 158,
+        "available_refresh_hz": [
+          50.0,
+          56.25,
+          59.745,
+          59.801,
+          59.81,
+          59.825,
+          59.837,
+          59.853,
+          59.855,
+          59.861,
+          59.87,
+          59.882,
+          59.883,
+          59.887,
+          59.901,
+          59.91,
+          59.912,
+          59.92,
+          59.934,
+          59.939,
+          59.94,
+          59.946,
+          59.948,
+          59.954,
+          59.959,
+          59.963,
+          59.978,
+          59.989,
+          60.0,
+          60.004,
+          60.02,
+          60.317,
+          70.069,
+          72.188,
+          75.0,
+          75.025,
+          75.029,
+          99.93,
+          119.562,
+          119.685,
+          119.729,
+          119.744,
+          119.773,
+          119.783,
+          119.804,
+          119.831,
+          119.837,
+          119.838,
+          119.846,
+          119.852,
+          119.854,
+          119.858,
+          119.863,
+          119.877,
+          119.885,
+          119.891,
+          119.897,
+          119.904,
+          119.909,
+          119.925,
+          119.939,
+          119.942,
+          119.948,
+          119.982,
+          143.672,
+          143.769,
+          143.831,
+          143.835,
+          143.855
+        ]
+      },
+      {
+        "vrr_capable": null,
+        "vrr_state": null,
+        "current_modes": [
+          {
+            "width": 2560,
+            "height": 1440,
+            "refresh_hz": 165.0,
+            "current": true
+          }
+        ],
+        "available_mode_count": 125,
+        "available_refresh_hz": [
+          50.0,
+          56.25,
+          59.745,
+          59.801,
+          59.81,
+          59.825,
+          59.837,
+          59.853,
+          59.855,
+          59.861,
+          59.869,
+          59.87,
+          59.882,
+          59.883,
+          59.885,
+          59.887,
+          59.901,
+          59.903,
+          59.909,
+          59.91,
+          59.912,
+          59.92,
+          59.924,
+          59.934,
+          59.939,
+          59.94,
+          59.946,
+          59.948,
+          59.95,
+          59.951,
+          59.954,
+          59.959,
+          59.961,
+          59.963,
+          59.968,
+          59.974,
+          59.978,
+          59.989,
+          60.0,
+          60.001,
+          60.004,
+          60.02,
+          60.317,
+          70.069,
+          72.188,
+          75.0,
+          75.025,
+          75.029,
+          119.562,
+          119.685,
+          119.729,
+          119.744,
+          119.773,
+          119.783,
+          119.804,
+          119.805,
+          119.823,
+          119.831,
+          119.837,
+          119.838,
+          119.846,
+          119.852,
+          119.854,
+          119.858,
+          119.863,
+          119.877,
+          119.88,
+          119.885,
+          119.891,
+          119.897,
+          119.904,
+          119.907,
+          119.909,
+          119.925,
+          119.93,
+          119.939,
+          119.942,
+          119.948,
+          119.962,
+          119.966,
+          119.989,
+          120.0,
+          143.672,
+          143.769,
+          143.798,
+          143.831,
+          143.835,
+          143.861,
+          143.862,
+          143.868,
+          143.877,
+          143.879,
+          143.882,
+          143.888,
+          143.889,
+          143.898,
+          143.922,
+          143.926,
+          144.0,
+          164.708,
+          164.721,
+          164.738,
+          164.767,
+          164.77,
+          164.773,
+          164.784,
+          164.802,
+          164.811,
+          164.825,
+          164.834,
+          164.849,
+          164.868,
+          164.882,
+          164.897,
+          164.976,
+          165.0
+        ]
+      }
+    ],
+    "logical_scales": [
+      1.0,
+      1.0
+    ],
+    "note": "VRR properties are reported only when Mutter exposes them. No display configuration is changed.",
+    "evidence_note": "Available modes are summarized by refresh rate; the local collector reports the full mode list."
+  },
+  "failed_system_units": {
+    "count": 1,
+    "nodalix_units": []
+  },
+  "failed_user_units": {
+    "count": 0,
+    "nodalix_units": []
+  },
+  "power_profile": "balanced",
+  "root_filesystem": "btrfs",
+  "zram": "zstd 15.1G  1.5M 245.4K  960K",
+  "boot_time": "Startup finished in 37.546s (firmware) + 627ms (loader) + 3.951s (kernel) + 3.116s (initrd) + 5.391s (userspace) = 50.632s \ngraphical.target reached after 5.364s in userspace.",
+  "privacy": "Local report: no host/user names, device identifiers, command lines, network data or personal content.",
+  "performance": {
+    "sample_seconds": 10.0198323240038,
+    "process_groups": {
+      "rclone": {
+        "processes": 1,
+        "cpu_percent_one_core": 0.0,
+        "rss_bytes": 37343232,
+        "pss_bytes": 34008064,
+        "pss_available": true,
+        "context_switches_per_second": 0.0
+      },
+      "nodalix-python": {
+        "processes": 2,
+        "cpu_percent_one_core": 0.2994062079076027,
+        "rss_bytes": 75046912,
+        "pss_bytes": 39389184,
+        "pss_available": true,
+        "context_switches_per_second": 8.383373821412876
+      },
+      "gnome-shell": {
+        "processes": 1,
+        "cpu_percent_one_core": 34.83092218658445,
+        "rss_bytes": 418062336,
+        "pss_bytes": 315381760,
+        "pss_available": true,
+        "context_switches_per_second": 2148.8383541528647
+      },
+      "gnome-shell-cal": {
+        "processes": 1,
+        "cpu_percent_one_core": 0.0,
+        "rss_bytes": 28721152,
+        "pss_bytes": 9519104,
+        "pss_available": true,
+        "context_switches_per_second": 0.0
+      },
+      "gjs": {
+        "processes": 3,
+        "cpu_percent_one_core": 0.0,
+        "rss_bytes": 221888512,
+        "pss_bytes": 83278848,
+        "pss_available": true,
+        "context_switches_per_second": 0.09980206930253424
+      },
+      "pipewire": {
+        "processes": 1,
+        "cpu_percent_one_core": 0.0,
+        "rss_bytes": 12869632,
+        "pss_bytes": 6017024,
+        "pss_available": true,
+        "context_switches_per_second": 0.0
+      },
+      "wireplumber": {
+        "processes": 1,
+        "cpu_percent_one_core": 0.0,
+        "rss_bytes": 33193984,
+        "pss_bytes": 12961792,
+        "pss_available": true,
+        "context_switches_per_second": 0.09980206930253424
+      },
+      "pipewire-pulse": {
+        "processes": 1,
+        "cpu_percent_one_core": 0.0,
+        "rss_bytes": 16060416,
+        "pss_bytes": 8548352,
+        "pss_available": true,
+        "context_switches_per_second": 0.0
+      },
+      "steam-auto-game": {
+        "processes": 1,
+        "cpu_percent_one_core": 0.2994062079076027,
+        "rss_bytes": 13864960,
+        "pss_bytes": 6304768,
+        "pss_available": true,
+        "context_switches_per_second": 0.4990103465126712
+      },
+      "global-menu": {
+        "processes": 1,
+        "cpu_percent_one_core": 0.0,
+        "rss_bytes": 49381376,
+        "pss_bytes": 19884032,
+        "pss_available": true,
+        "context_switches_per_second": 0.0
+      }
+    },
+    "memory": {
+      "MemTotal": 32455639040,
+      "MemAvailable": 14472683520,
+      "SwapTotal": 16227758080,
+      "SwapFree": 14860197888
+    },
+    "sensors": {
+      "gpu": [
+        {
+          "driver": "amdgpu",
+          "busy_percent": 15
+        },
+        {
+          "driver": "amdgpu",
+          "busy_percent": 0
+        }
+      ],
+      "batteries": [
+        {
+          "status": "Discharging",
+          "power_watts": null,
+          "capacity_percent": 57
+        }
+      ],
+      "gpu_limit": "Utilization is available only for supported drivers; it is not a power measurement."
+    },
+    "limitations": [
+      "Context switches are not hardware wakeups.",
+      "Processes that exit during the sample are not included.",
+      "RSS double-counts shared pages; prefer PSS when available.",
+      "GPU, disk I/O, frame times and package watts require separate hardware-specific tools.",
+      "A busy working session is not an idle or upstream Arch baseline."
+    ]
+  }
+}

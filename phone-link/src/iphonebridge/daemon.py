@@ -76,6 +76,7 @@ class Daemon:
         self._reconnect_backoff = RECONNECT_TICK_SEC
         self._reconnect_next = 0.0
         self._ancs_recover_pending = False
+        self._le_connect_after = 0.0
         self._le_prop_match = None
         self._ancs_restart_id: int | None = None
         self._bus_name = None
@@ -92,9 +93,7 @@ class Daemon:
         # service.  Never attempt sudo from this hardened user service.
         if not self._prepare_bluetooth():
             log.warning(
-                "bluez_setup.prepare reported issues — continuing anyway, "
-                "but MAP/PBAP may be refused. Re-pair on iPhone after the "
-                "adapter is in A/V Hands-Free CoD if the toggles aren't there."
+                "Bluetooth preparation is pending; calls and other services continue independently."
             )
 
         # ANCS — per-app notifications via BLE GATT. Independent of MAP/PBAP.
@@ -386,9 +385,13 @@ class Daemon:
         connected = bool(changed["Connected"])
 
         if not connected:
-            log.warning(
-                "iPhone LE bearer disconnected; suspending ANCS"
-            )
+            # Inbound iPhone GATT sessions can be live while the experimental
+            # bearer property still reads false. ANCS owns its fd/characteristic
+            # lifetime and must keep watching for the next inbound service.
+            if self.ancs is not None and self.ancs.active:
+                return
+            log.info("iPhone LE bearer unavailable; waiting for ANCS")
+            self._le_connect_after = time.monotonic() + RECONNECT_TICK_SEC
             self._ancs_recover_pending = True
 
             if self._ancs_restart_id is not None:
@@ -397,14 +400,6 @@ class Daemon:
                 except Exception:
                     pass
                 self._ancs_restart_id = None
-
-            if self.ancs is not None:
-                try:
-                    self.ancs.stop()
-                except Exception:
-                    log.exception(
-                        "could not suspend ANCS after LE loss"
-                    )
 
             if config.AUTO_RECONNECT:
                 self._reconnect_next = 0.0
@@ -523,7 +518,8 @@ class Daemon:
                 except dbus.exceptions.DBusException:
                     le_connected = False
 
-                if le_connected and self.ancs.active:
+                if self.ancs.active:
+                    self._le_connect_after = 0.0
                     self._recover_hfp_now()
                     self._reconnect_backoff = RECONNECT_TICK_SEC
                     self._reconnect_next = (
@@ -549,6 +545,13 @@ class Daemon:
                     return True
 
                 if device_connected:
+                    bluez_setup.register_advert()
+                    # Give the iPhone a chance to connect to the solicitation
+                    # before asking the controller to initiate outbound LE.
+                    if not self._le_connect_after:
+                        self._le_connect_after = now + RECONNECT_TICK_SEC
+                    if now < self._le_connect_after:
+                        return True
                     log.info(
                         "iPhone BR/EDR connected but LE bearer "
                         "is down; restoring LE only"

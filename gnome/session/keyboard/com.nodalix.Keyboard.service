@@ -1,0 +1,5 @@
+[D-BUS Service]
+Name=com.nodalix.Keyboard
+Exec=/usr/bin/python3 /usr/lib/nodalix/native_clipboard.py
+User=root
+SystemdService=nodalix-keyboard.service

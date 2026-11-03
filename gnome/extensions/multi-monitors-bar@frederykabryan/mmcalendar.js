@@ -568,8 +568,12 @@ var MultiMonitorsDateMenuButton = (() => {
 
             if (DateMenu.DateMenuButton) {
                 this._mmTrackClockConnections(() =>
-                    this._mmTrackSingletonSignals(() => super._init()));
+                    this._mmTrackSingletonSignals(() =>
+                        this._mmTrackIndicatorConnections(() => super._init())));
                 this._panel = panel;
+                this._displaysSection.get_child().connectObject('notify::height', () => {
+                    if (this.menu.isOpen) this._onOpenStateChanged(this.menu, true);
+                }, this);
                 this._syncMultiMonitorPanelStyle();
                 return;
             }
@@ -752,6 +756,22 @@ var MultiMonitorsDateMenuButton = (() => {
                     this.menu?.close();
                 });
             }
+        }
+
+        _mmTrackIndicatorConnections(callback) {
+            // Native GNOME keeps this indicator for the whole session. Its
+            // secondary copies need source handlers tied to their destruction.
+            const nativeIndicator = MainRef?.panel?.statusArea.dateMenu?._indicator;
+            const prototype = nativeIndicator ? Object.getPrototypeOf(nativeIndicator) : null;
+            if (!prototype) return callback();
+            const original = prototype._onSourceAdded;
+            prototype._onSourceAdded = function (_tray, source) {
+                source.connectObject('notify::count', this._updateCount.bind(this), this);
+                this._sources.push(source);
+                this._updateCount();
+            };
+            try { return callback(); }
+            finally { prototype._onSourceAdded = original; }
         }
 
         _mmTrackSingletonSignals(callback) {
@@ -959,9 +979,29 @@ var MultiMonitorsDateMenuButton = (() => {
             const workArea = layoutManager.getWorkAreaForMonitor(monitorIndex);
             const scaleFactor = St.ThemeContext.get_for_stage(global.stage).scale_factor;
             const verticalMargins = this.menu.actor.margin_top + this.menu.actor.margin_bottom;
-            const maxHeight = Math.round((workArea.height - verticalMargins) / scaleFactor);
+            const maxHeight = Math.floor((workArea.height * 0.88 - verticalMargins) / scaleFactor);
 
             this.menu.actor.style = `max-height: ${maxHeight}px;`;
+            const list = this._messageList?._scrollView;
+            if (list) {
+                list.y_expand = false;
+                list.y_align = Clutter.ActorAlign.START;
+                list.set_style(`max-height: ${Math.floor(workArea.height * 0.65 / scaleFactor)}px;`);
+                list.vscrollbar_policy = St.PolicyType.AUTOMATIC;
+            }
+            if (this._displaysSection) {
+                this._displaysSection.set_style('max-height: 12em;');
+                this._displaysSection.vscrollbar_policy = St.PolicyType.AUTOMATIC;
+                this._displaysSection.y_expand = false;
+                this._displaysSection.y_align = Clutter.ActorAlign.START;
+                const font = this._displaysSection.get_theme_node().get_font();
+                const dpi = St.ThemeContext.get_for_stage(global.stage).get_resolution();
+                const em = font.get_size() / 1024 *
+                    (font.get_size_is_absolute() ? 1 : (dpi > 0 ? dpi : 96) / 72);
+                const limit = Math.max(1, Math.floor(Math.min(workArea.height * 0.30, em * 12)));
+                const content = this._displaysSection.get_child()?.get_preferred_height(this._displaysSection.width || -1)[1] ?? 0;
+                this._displaysSection.set_height(Math.min(limit, content));
+            }
         }
 
         // Fallback methods if not copied from upstream

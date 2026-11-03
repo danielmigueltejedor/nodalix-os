@@ -1,0 +1,37 @@
+{
+  "nodalix-craft": [
+    "ai.storyteller.artcraft-launcher.desktop",
+    "ai.storyteller.cadcraft.desktop",
+    "ai.storyteller.deckcraft.desktop",
+    "ai.storyteller.designcraft.desktop",
+    "ai.storyteller.effectcraft.desktop",
+    "ai.storyteller.filmcraft.desktop",
+    "ai.storyteller.gridcraft.desktop",
+    "ai.storyteller.lightcraft.desktop",
+    "ai.storyteller.pdfcraft.desktop",
+    "ai.storyteller.photocraft.desktop",
+    "ai.storyteller.soundcraft.desktop",
+    "ai.storyteller.texturecraft.desktop",
+    "ai.storyteller.vectorcraft.desktop",
+    "ai.storyteller.wordcraft.desktop"
+  ],
+  "engineering": [
+    "ai.storyteller.cadcraft.desktop"
+  ],
+  "office": [
+    "ai.storyteller.deckcraft.desktop",
+    "ai.storyteller.gridcraft.desktop",
+    "ai.storyteller.pdfcraft.desktop",
+    "ai.storyteller.wordcraft.desktop"
+  ],
+  "multimedia": [
+    "ai.storyteller.designcraft.desktop",
+    "ai.storyteller.effectcraft.desktop",
+    "ai.storyteller.filmcraft.desktop",
+    "ai.storyteller.lightcraft.desktop",
+    "ai.storyteller.photocraft.desktop",
+    "ai.storyteller.soundcraft.desktop",
+    "ai.storyteller.texturecraft.desktop",
+    "ai.storyteller.vectorcraft.desktop"
+  ]
+}

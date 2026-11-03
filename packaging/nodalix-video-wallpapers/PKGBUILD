@@ -1,6 +1,6 @@
 pkgname=nodalix-video-wallpapers
-pkgver=0.3.1
-pkgrel=1
+pkgver=0.4.0
+pkgrel=3
 pkgdesc="GNOME 51 animated wallpaper player and Nodalix video collection"
 arch=("any")
 url="https://github.com/danielmigueltejedor/nodalix-os"
@@ -13,6 +13,7 @@ prepare() {
   cd "$srcdir/hanabi"
   patch -p1 < "$srcdir/packaging/nodalix-video-wallpapers/gnome51.patch"
   cp "$srcdir/packaging/nodalix-video-wallpapers/pnpm-lock.yaml" .
+  cp "$srcdir/gnome/lib/window-coverage.js" src/windowCoverage.js
 }
 build() {
   cd "$srcdir/hanabi"

@@ -1,0 +1,87 @@
+{
+  "date": "2026-11-03",
+  "context": "GNOME Shell 51.1, real GBM AMD compositor, two private 1920x1080 monitors, official unmodified Blur My Shell 77 and Multi Monitor Bar",
+  "old_clipped_inputs": [
+    {
+      "monitor": 0,
+      "clip": [
+        0,
+        32,
+        1920,
+        1048
+      ],
+      "height": 32,
+      "live": true
+    },
+    {
+      "monitor": 1,
+      "clip": [
+        0,
+        32,
+        1920,
+        1048
+      ],
+      "height": 32,
+      "live": true
+    }
+  ],
+  "packaged_fix": {
+    "live_inputs": [
+      {
+        "monitor": 0,
+        "clip": [
+          0,
+          0,
+          1920,
+          1080
+        ],
+        "height": 32,
+        "live": true
+      },
+      {
+        "monitor": 1,
+        "clip": [
+          0,
+          0,
+          1920,
+          1080
+        ],
+        "height": 32,
+        "live": true
+      }
+    ],
+    "panel_rgb": [
+      [
+        27,
+        43,
+        77
+      ],
+      [
+        27,
+        43,
+        77
+      ]
+    ],
+    "full_video_under_panel": true,
+    "dynamic_panel_rgb": [
+      [
+        27,
+        43,
+        77
+      ],
+      [
+        27,
+        43,
+        77
+      ]
+    ],
+    "overview_rounding_and_desktop_restore": true
+  },
+  "visible_motion_rgb_difference": [
+    14.1491,
+    14.1491
+  ],
+  "coverage_pause_and_reveal": true,
+  "physical_session_after_new_login": "User confirmed the panel is correct; calendar height also confirmed correct",
+  "gnome_shell_packaged_files_altered": 0
+}

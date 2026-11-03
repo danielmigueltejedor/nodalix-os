@@ -49,6 +49,10 @@ def main():
                     if followup.is_file():
                         result = run_migration(followup, output)
                         output.write(f'0.3.1 migration exit status: {result}\n')
+                    followup = helper.with_name('user-040.py')
+                    if result == 0 and followup.is_file():
+                        result = run_migration(followup, output)
+                        output.write(f'0.4.0 migration exit status: {result}\n')
             except (OSError, subprocess.TimeoutExpired) as error:
                 output.write(f'Migration incomplete, retry at next login: {error}\n')
     return 0

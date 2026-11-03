@@ -1,0 +1,65 @@
+{
+  "provider": "multi-monitors-bar",
+  "roles": [
+    "activities",
+    "quickSettings",
+    "dateMenu"
+  ],
+  "blur": [
+    {
+      "monitor": 0,
+      "background": true
+    },
+    {
+      "monitor": 1,
+      "background": true
+    }
+  ],
+  "menus": [
+    {
+      "role": "quickSettings",
+      "open": true,
+      "sameSource": true,
+      "monitor": 1,
+      "x": 2152,
+      "y": 32,
+      "width": 402,
+      "height": 322,
+      "bounds": [
+        1280,
+        0,
+        1280,
+        720
+      ],
+      "hidden_blur_surfaces_still_visible": 0
+    },
+    {
+      "role": "dateMenu",
+      "open": true,
+      "sameSource": true,
+      "monitor": 1,
+      "x": 1542,
+      "y": 32,
+      "width": 754,
+      "height": 597,
+      "bounds": [
+        1280,
+        0,
+        1280,
+        720
+      ],
+      "hidden_blur_surfaces_still_visible": 0
+    }
+  ],
+  "closed_popup_animation": {
+    "found": true,
+    "visible": false,
+    "opacity": 0
+  },
+  "panel_geometry": {
+    "primary": 32,
+    "secondary": 32,
+    "primary_clock_in_native_center": true
+  },
+  "primary_quick_settings_unchanged": true
+}

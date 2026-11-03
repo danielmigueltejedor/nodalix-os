@@ -69,11 +69,10 @@ def replace_icon(text, icon):
 
 def official_craft_icon(identifier, entry, roots):
     """Resolve Craft's supplied icon even when the Flatpak icon cache is stale."""
-    names = {'photocraft', 'vectorcraft', 'filmcraft', 'lightcraft', 'pdfcraft',
-             'effectcraft', 'designcraft', 'wordcraft', 'gridcraft', 'deckcraft',
-             'cadcraft', 'soundcraft', 'artcraft-launcher'}
     expected = identifier.removesuffix('.desktop')
-    if expected not in {'ai.storyteller.' + name for name in names}:
+    if not (expected.startswith(('ai.storyteller.', 'com.storytold.', 'io.tangencylabs.'))
+            or entry.get('X-ArtCraft-App','').lower()=='true'
+            or set(entry.get('Categories','').split(';')) & {'ArtCraft','X-ArtCraft'}):
         return None
     if entry.get('Icon') != expected:
         return None  # An explicit personal icon remains authoritative.

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -u -o pipefail
+export LC_ALL=C
 
 ANCS_UUID="7905f431-b5ce-4e99-a40f-4b1e122d00d0"
 
@@ -30,7 +31,7 @@ fi
 class_ready=0
 
 for attempt in {1..10}; do
-    if /usr/bin/btmgmt class 0x000400 0x000000 >/dev/null 2>&1; then
+    if /usr/bin/btmgmt class 4 8 >/dev/null 2>&1; then
         class_ready=1
         break
     fi
@@ -48,9 +49,9 @@ fi
 # programming ADDRESS_RESOLUTION into the controller. In that state LE
 # connections remain stuck in InProgress even though the device is bonded.
 #
-# Apply ADDRESS_RESOLUTION (flag 4) to paired ANCS-capable devices. We
-# identify iPhones by the ANCS service UUID rather than by device name or a
-# user-specific configuration file.
+# Apply ADDRESS_RESOLUTION to paired iPhones before ANCS is discoverable.
+# A classic Apple HFP+MAP device can still be identified while GATT is down;
+# requiring the ANCS UUID here would make the recovery circular.
 mapfile -t paired_devices < <(
     /usr/bin/bluetoothctl devices Paired 2>/dev/null |
     /usr/bin/awk "{print \$2}"
@@ -65,7 +66,11 @@ for mac in "${paired_devices[@]}"; do
     )
 
     if ! /usr/bin/grep -qi "$ANCS_UUID" <<< "$info"; then
-        continue
+        if ! /usr/bin/grep -qi 'Modalias: bluetooth:v004c' <<< "$info" ||
+           ! /usr/bin/grep -qi '0000111f-0000-1000-8000-00805f9b34fb' <<< "$info" ||
+           ! /usr/bin/grep -qi '00001132-0000-1000-8000-00805f9b34fb' <<< "$info"; then
+            continue
+        fi
     fi
 
     address_type=$(
@@ -84,11 +89,18 @@ for mac in "${paired_devices[@]}"; do
             ;;
     esac
 
-    if /usr/bin/btmgmt set-flags         -t "$btmgmt_type"         -f 4         "$mac" >/dev/null 2>&1
-    then
-        log "ADDRESS_RESOLUTION enabled for ANCS device $mac"
+    # Keep unrelated flags such as remote wakeup. A classic-only bond has no
+    # LE management entry and is intentionally left to normal iOS pairing.
+    flags=$(/usr/bin/timeout 5 /usr/bin/btmgmt get-flags -t "$btmgmt_type" "$mac" 2>/dev/null) || continue
+    supported=$(/usr/bin/sed -nE 's/^Supported Flags:[[:space:]]+(0x[0-9a-fA-F]+)$/\1/p' <<< "$flags")
+    current=$(/usr/bin/sed -nE 's/^Current Flags:[[:space:]]+(0x[0-9a-fA-F]+)$/\1/p' <<< "$flags")
+    [[ "$supported" =~ ^0x[0-9a-fA-F]+$ && "$current" =~ ^0x[0-9a-fA-F]+$ ]] || continue
+    (( (supported & 4) != 0 && (current & 4) == 0 )) || continue
+    printf -v updated '0x%08x' "$((current | 4))"
+    if /usr/bin/timeout 5 /usr/bin/btmgmt set-flags -t "$btmgmt_type" -f "$updated" "$mac" >/dev/null 2>&1; then
+        log "Address resolution enabled for paired iPhone notifications"
     else
-        log "could not enable ADDRESS_RESOLUTION for $mac"
+        log "Could not enable address resolution for paired iPhone notifications"
     fi
 done
 

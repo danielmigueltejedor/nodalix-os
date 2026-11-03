@@ -1,5 +1,13 @@
 [org.gnome.desktop.wm.preferences]
 button-layout=':minimize,maximize,close'
+focus-mode='sloppy'
+auto-raise=false
+[org.gnome.desktop.wm.keybindings]
+close=['<Super>q']
+[org.gnome.shell.keybindings]
+screenshot=['<Super><Shift>3']
+show-screenshot-ui=['<Super><Shift>4', 'Print']
+toggle-message-tray=['<Super>n']
 [org.gnome.desktop.interface]
 icon-theme='Nodalix-Adwaita-Symbols'
 cursor-theme='Nodalix'

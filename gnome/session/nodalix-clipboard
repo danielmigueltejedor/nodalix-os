@@ -1,0 +1,10 @@
+#!/usr/bin/python3
+"""Native GNOME custom-shortcut command. No clipboard content is read."""
+import sys
+from gi.repository import Gio,GLib
+if len(sys.argv)!=2 or sys.argv[1] not in ('copy','paste'):raise SystemExit('Uso: nodalix-clipboard copy|paste')
+try:
+    bus=Gio.bus_get_sync(Gio.BusType.SYSTEM,None)
+    bus.call_sync('com.nodalix.Keyboard','/com/nodalix/Keyboard','com.nodalix.Keyboard','Edit',
+        GLib.Variant('(s)',(sys.argv[1],)),None,Gio.DBusCallFlags.NONE,10000,None)
+except GLib.Error as error:raise SystemExit(error.message)

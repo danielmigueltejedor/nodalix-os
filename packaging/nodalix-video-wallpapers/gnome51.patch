@@ -1,25 +1,33 @@
 diff --git a/src/autoPause.ts b/src/autoPause.ts
-index 3ad4c49..5d150cc 100644
+index 3ad4c49..7cb258f 100644
 --- a/src/autoPause.ts
 +++ b/src/autoPause.ts
-@@ -33,12 +33,14 @@ const logger = new Logger('autoPause');
- 
+@@ -26,6 +26,7 @@ import * as Main from 'resource:///org/gnome/shell/ui/main.js';
+ import {Logger} from './logger.js';
+ import {DBusWrapper, MprisWrapper, UPowerWrapper} from './dbus.js';
+ import {APPLICATION_ID} from './constants.js';
++import {coveredFraction} from './windowCoverage.js';
+ import type {PlaybackState} from './playbackState.js';
+ import type HanabiExtension from './extension.js';
+
+@@ -33,12 +34,14 @@ const logger = new Logger('autoPause');
+
  export class AutoPause {
      private playbackState: PlaybackState;
 +    private settings: Gio.Settings;
      private modules: AutoPauseModule[];
- 
+
      constructor(extension: HanabiExtension) {
          this.playbackState = extension.getPlaybackState();
- 
+
          const settings = extension.getSettings();
 +        this.settings = settings;
          this.modules = [
              new PauseOnMaximizeOrFullscreenModule(settings),
              new PauseOnFocusModule(settings),
-@@ -55,7 +57,9 @@ export class AutoPause {
+@@ -55,7 +58,9 @@ export class AutoPause {
      }
- 
+
      eval(): void {
 -        if (this.modules.some(module => module.shouldAutoPause()))
 +        const locked = Main.sessionMode.currentMode === 'unlock-dialog' &&
@@ -28,6 +36,171 @@ index 3ad4c49..5d150cc 100644
              this.playbackState.autoPause();
          else
              this.playbackState.autoPlay();
+@@ -77,6 +82,11 @@ const AutoPauseModule = GObject.registerClass(
+     class AutoPauseModule extends GObject.Object {
+         protected settings: Gio.Settings;
+         protected logger: Logger;
++        private settingsSignals: number[] = [];
++
++        protected watchSettings(signal: string, callback: (...args: any[]) => void): void {
++            this.settingsSignals.push(this.settings.connect(signal, callback));
++        }
+
+         constructor(settings: Gio.Settings, moduleName?: string) {
+             super();
+@@ -96,7 +106,10 @@ const AutoPauseModule = GObject.registerClass(
+             return false;
+         }
+
+-        disable(): void { }
++        disable(): void {
++            for (const id of this.settingsSignals) this.settings.disconnect(id);
++            this.settingsSignals = [];
++        }
+     }
+ );
+
+@@ -124,6 +137,7 @@ const PauseOnMaximizeOrFullscreenModule = GObject.registerClass(
+             maximizedOrFullscreenOnAllMonitors: boolean;
+             inOverview: boolean;
+             onLockScreen: boolean;
++            mostlyCovered: boolean;
+         };
+
+         private conditions: { pauseOnMaximizeOrFullscreen: number };
+@@ -137,6 +151,7 @@ const PauseOnMaximizeOrFullscreenModule = GObject.registerClass(
+         private overviewHiddenId: number | null;
+         private sessionModeUpdatedId: number | null;
+         private showingDesktopChangedId: number | null;
++        private geometryUpdateId = 0;
+
+         constructor(settings: Gio.Settings) {
+             super(settings, 'maximizeOrFullscreen');
+@@ -145,13 +160,15 @@ const PauseOnMaximizeOrFullscreenModule = GObject.registerClass(
+                 maximizedOrFullscreenOnAllMonitors: false,
+                 inOverview: false,
+                 onLockScreen: false,
++                mostlyCovered: false,
+             };
+             this.conditions = {
+                 pauseOnMaximizeOrFullscreen: this.settings.get_int(
+                     'pause-on-maximize-or-fullscreen'
+                 ),
+             };
+-            this.settings.connect(
++            this.watchSettings('changed::pause-when-covered', () => this.update());
++            this.watchSettings(
+                 'changed::pause-on-maximize-or-fullscreen',
+                 () => {
+                     this.conditions.pauseOnMaximizeOrFullscreen =
+@@ -237,6 +254,13 @@ const PauseOnMaximizeOrFullscreenModule = GObject.registerClass(
+                 this.logger.debug('minimized changed');
+                 this.update();
+             }));
++            for (const signal of ['position-changed', 'size-changed'])
++                signals.push(metaWindow.connect(signal, () => {
++                    if (!this.geometryUpdateId)
++                        this.geometryUpdateId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 250, () => {
++                            this.geometryUpdateId = 0; this.update(); return GLib.SOURCE_REMOVE;
++                        });
++                }));
+             this.windows.push({metaWindow, signals});
+             this.logger.debug(`Window ${metaWindow.title} added`);
+             if (doUpdate)
+@@ -319,6 +343,15 @@ const PauseOnMaximizeOrFullscreenModule = GObject.registerClass(
+                 monitor => monitorsWithMaximized[monitor.index]
+             );
+
++            this.states.mostlyCovered = this.settings.get_boolean('pause-when-covered') &&
++                monitors.length > 0 && monitors.every(monitor => {
++                    const area = Main.layoutManager.getWorkAreaForMonitor(monitor.index);
++                    const rectangles = metaWindows.filter(w => {
++                        const actor = w.get_compositor_private();
++                        return actor && actor.get_paint_opacity() === 255;
++                    }).map(w => w.get_frame_rect());
++                    return coveredFraction(area, rectangles) >= 0.95;
++                });
+             this.states.inOverview = Main.overview.visible;
+             this.states.onLockScreen =
+                 Main.sessionMode.currentMode === 'unlock-dialog';
+@@ -334,7 +367,7 @@ const PauseOnMaximizeOrFullscreenModule = GObject.registerClass(
+                 return false;
+             }
+
+-            let res = false;
++            let res = this.states.mostlyCovered;
+             if (
+                 this.conditions.pauseOnMaximizeOrFullscreen ===
+                 PauseOnMaximizeOrFullscreenMode.anyMonitor &&
+@@ -352,6 +385,10 @@ const PauseOnMaximizeOrFullscreenModule = GObject.registerClass(
+         }
+
+         override disable(): void {
++            super.disable();
++            if (this.geometryUpdateId) {
++                GLib.source_remove(this.geometryUpdateId); this.geometryUpdateId = 0;
++            }
+             this.workspaceManager?.disconnect(this.activeWorkspaceChangedId!);
+             if (this.showingDesktopChangedId !== null)
+                 this.workspaceManager?.disconnect(this.showingDesktopChangedId);
+@@ -401,7 +438,7 @@ const PauseOnFocusModule = GObject.registerClass(
+             this.conditions = {
+                 pauseOnFocus: this.settings.get_boolean('pause-on-focus'),
+             };
+-            this.settings.connect('changed::pause-on-focus', () => {
++            this.watchSettings('changed::pause-on-focus', () => {
+                 this.conditions.pauseOnFocus = this.settings.get_boolean('pause-on-focus');
+                 this.update();
+             });
+@@ -469,6 +506,7 @@ const PauseOnFocusModule = GObject.registerClass(
+         }
+
+         override disable(): void {
++            super.disable();
+             if (this.focusWindowChangedId && this.display)
+                 this.display.disconnect(this.focusWindowChangedId);
+             if (this.appearsFocusedId && this.trackedWindow)
+@@ -504,11 +542,11 @@ const PauseOnBatteryModule = GObject.registerClass(
+                 pauseOnBattery: this.settings.get_int('pause-on-battery'),
+                 lowBatteryThreshold: this.settings.get_int('low-battery-threshold'),
+             };
+-            this.settings.connect('changed::pause-on-battery', () => {
++            this.watchSettings('changed::pause-on-battery', () => {
+                 this.conditions.pauseOnBattery = this.settings.get_int('pause-on-battery');
+                 this.update();
+             });
+-            this.settings.connect('changed::low-battery-threshold', () => {
++            this.watchSettings('changed::low-battery-threshold', () => {
+                 this.conditions.lowBatteryThreshold = this.settings.get_int('low-battery-threshold');
+                 this.update();
+             });
+@@ -562,7 +600,8 @@ const PauseOnBatteryModule = GObject.registerClass(
+             return res;
+         }
+
+-        override disable(): void { }
++        override disable(): void {
++            super.disable(); }
+     }
+ );
+
+@@ -589,7 +628,7 @@ const PauseOnMprisPlayingModule = GObject.registerClass(
+             this.conditions = {
+                 pauseOnMprisPlaying: this.settings.get_boolean('pause-on-mpris-playing'),
+             };
+-            this.settings.connect('changed::pause-on-mpris-playing', () => {
++            this.watchSettings('changed::pause-on-mpris-playing', () => {
+                 this.conditions.pauseOnMprisPlaying =
+                     this.settings.get_boolean('pause-on-mpris-playing');
+                 this.update();
+@@ -697,6 +736,7 @@ const PauseOnMprisPlayingModule = GObject.registerClass(
+         }
+
+         override disable(): void {
++            super.disable();
+             Object.values(this.mediaPlayers).forEach(({mpris, mprisPropertiesChangedId}) =>
+                 mpris.proxy.disconnect(mprisPropertiesChangedId)
+             );
 diff --git a/src/dbus.ts b/src/dbus.ts
 index 5dc587a..564d857 100644
 --- a/src/dbus.ts
@@ -39,7 +212,7 @@ index 5dc587a..564d857 100644
 -        return DBusProxy(Gio.DBus.session, APPLICATION_ID, RENDERER_OBJECT_PATH);
 +        return new DBusProxy(Gio.DBus.session, APPLICATION_ID, RENDERER_OBJECT_PATH);
      }
- 
+
      async setPlay(): Promise<void> {
 @@ -96,7 +96,7 @@ export class UPowerWrapper {
              '/org/freedesktop/UPower/devices/DisplayDevice';
@@ -48,7 +221,7 @@ index 5dc587a..564d857 100644
 -        return DBusProxy(Gio.DBus.system, DBUS_BUS_NAME, DBUS_OBJECT_PATH);
 +        return new DBusProxy(Gio.DBus.system, DBUS_BUS_NAME, DBUS_OBJECT_PATH);
      }
- 
+
      getState(): number {
 @@ -127,7 +127,7 @@ export class DBusWrapper {
          const DBUS_OBJECT_PATH = '/org/freedesktop/DBus';
@@ -57,7 +230,7 @@ index 5dc587a..564d857 100644
 -        return DBusProxy(Gio.DBus.session, DBUS_BUS_NAME, DBUS_OBJECT_PATH);
 +        return new DBusProxy(Gio.DBus.session, DBUS_BUS_NAME, DBUS_OBJECT_PATH);
      }
- 
+
      listNames(): string[][] {
 @@ -157,7 +157,7 @@ export class MprisWrapper {
          const DBUS_OBJECT_PATH = '/org/mpris/MediaPlayer2';
@@ -66,7 +239,7 @@ index 5dc587a..564d857 100644
 -        return DBusProxy(Gio.DBus.session, DBUS_BUS_NAME, DBUS_OBJECT_PATH);
 +        return new DBusProxy(Gio.DBus.session, DBUS_BUS_NAME, DBUS_OBJECT_PATH);
      }
- 
+
      getPlaybackStatus(): string {
 diff --git a/src/extension.ts b/src/extension.ts
 index 99dea7f..36e96f2 100644
@@ -79,7 +252,7 @@ index 99dea7f..36e96f2 100644
 +    private startupTimeoutId = 0;
      private reloadTime = RENDERER_RELOAD_DELAY_MS;
      private rendererSuspended = false;
- 
+
 @@ -96,11 +97,12 @@ export default class HanabiExtension extends Extension {
              const startupCompleteId = Main.layoutManager.connect(
                  'startup-complete',
@@ -112,11 +285,11 @@ index 99dea7f..36e96f2 100644
              );
 @@ -159,6 +162,7 @@ export default class HanabiExtension extends Extension {
              GLib.source_remove(this.launchRendererTimeoutId);
- 
+
          this.launchRenderer();
 +        this.onSessionModeUpdated();
      }
- 
+
      private onSessionModeUpdated(): void {
 @@ -174,14 +178,14 @@ export default class HanabiExtension extends Extension {
      private suspendRenderer(): void {
@@ -134,7 +307,7 @@ index 99dea7f..36e96f2 100644
 +        // Keep the decoded frame and window available for immediate unlock.
 +        this.playbackState?.autoPause();
      }
- 
+
      private resumeRenderer(): void {
 @@ -189,6 +193,7 @@ export default class HanabiExtension extends Extension {
              return;
@@ -146,12 +319,12 @@ index 99dea7f..36e96f2 100644
      }
 @@ -249,8 +254,15 @@ export default class HanabiExtension extends Extension {
      }
- 
+
      disable(): void {
 +        // unlock-dialog support keeps the paused renderer warm across locks.
 +        // A real disable/logout still tears down every process and signal.
          logger.debug('Disabling');
- 
+
 +        this.isEnabled = false;
 +        if (this.startupTimeoutId) {
 +            GLib.source_remove(this.startupTimeoutId);
@@ -159,7 +332,7 @@ index 99dea7f..36e96f2 100644
 +        }
          this.killCurrentProcess();
          this.rendererSuspended = false;
- 
+
 diff --git a/src/metadata.json.in b/src/metadata.json.in
 index e33f8cb..0965ee8 100755
 --- a/src/metadata.json.in
@@ -178,6 +351,97 @@ index e33f8cb..0965ee8 100755
    ],
    "url": "https://github.com/jeffshee/gnome-ext-hanabi",
    "uuid": "@uuid@",
+diff --git a/src/renderer/renderer.ts b/src/renderer/renderer.ts
+index a46b457..53f443a 100644
+--- a/src/renderer/renderer.ts
++++ b/src/renderer/renderer.ts
+@@ -323,6 +323,8 @@ const HanabiRenderer = GObject.registerClass(
+                 if (!featureName.endsWith('dec') && !featureName.endsWith('postproc'))
+                     continue;
+
++                if (/renderD|device[1-9]/.test(featureName))
++                    continue;
+                 const isStateless = featureName.includes('sl');
+                 if (isStateless !== useStateless)
+                     continue;
+@@ -398,7 +400,7 @@ const HanabiRenderer = GObject.registerClass(
+                 picture.set_content_fit(contentFit);
+                 this.pictures.push(picture);
+
+-                if (isEnableGraphicsOffload) {
++                if (isEnableGraphicsOffload && Gtk.GraphicsOffload) {
+                     const offload = Gtk.GraphicsOffload['new'](picture);
+                     offload.set_enabled(Gtk.GraphicsOffloadEnabled.ENABLED);
+                     return offload;
+@@ -435,19 +437,43 @@ const HanabiRenderer = GObject.registerClass(
+             if (!widget)
+                 return null;
+
+-            if (useGstGL) {
++            // gtk4paintablesink can import decoder DMA-BUFs directly. Wrapping
++            // it unconditionally in GL forces a colour conversion/full-frame
++            // intermediate texture, even when GTK can import the original YUV.
++            const caps = sink.get_pad_template('sink')?.get_caps();
++            let directDma = false;
++            let supportsGL = false;
++            for (let i = 0; caps && i < caps.get_size(); i++) {
++                directDma ||= caps.get_features(i).contains('memory:DMABuf');
++                supportsGL ||= caps.get_features(i).contains('memory:GLMemory');
++            }
++            const forceCompat = GLib.getenv('NODALIX_RENDER_PATH') === 'gl';
++            if (sink.constructor.find_property('enable-last-sample'))
++                sink.set_property('enable-last-sample', false);
++            if (sink.constructor.find_property('qos'))
++                sink.set_property('qos', true);
++            if (sink.constructor.find_property('max-lateness'))
++                sink.set_property('max-lateness', 50 * Gst.MSECOND);
++            let wrappedGL = false;
++            if (useGstGL && supportsGL && (!directDma || forceCompat)) {
+                 const glsink = Gst.ElementFactory.make('glsinkbin', 'glsinkbin');
+                 if (glsink) {
+                     this.gstImplName = `glsinkbin + ${this.gstImplName}`;
+
+                     glsink.set_property('sink', sink);
+                     sink = glsink;
++                    wrappedGL = true;
+                 }
+             }
+
+             this.play = GstPlay.Play.new(
+                 GstPlay.PlayVideoOverlayVideoRenderer.new_with_sink(null, sink)
+             );
++            console.log(`Nodalix video route: ${wrappedGL ? 'compatible-gl' : directDma ? 'native-dmabuf-negotiation' : 'compatible-memory'}`);
++            const pipeline = this.play.get_pipeline();
++            // Unused colour-balance filters can force RGB conversion and stop
++            // decoder DMA-BUFs reaching GTK. Keep automatic format negotiation.
++            pipeline.flags = Number(pipeline.flags) & ~(1024 | 4 | (mute ? 2 : 0));
+             this.adapter = GstPlay.PlaySignalAdapter.new(this.play);
+
+             this.adapter.connect('end-of-stream', (adapter: {play: {seek(t: number): void}}) =>
+@@ -476,6 +502,10 @@ const HanabiRenderer = GObject.registerClass(
+
+             this.adapter.connect('state-changed', (_adapter: any, state: number) => {
+                 this.playing = state === GstPlay.PlayState.PLAYING;
++                const dump = GLib.getenv('NODALIX_VIDEO_DIAGNOSTICS_DIR');
++                if (this.playing && dump)
++                    GLib.file_set_contents(GLib.build_filenamev([dump, 'renderer.dot']),
++                        Gst.debug_bin_to_dot_data(this.play.get_pipeline(), Gst.DebugGraphDetails.ALL));
+                 this.dbus.emit_signal(
+                     'isPlayingChanged',
+                     new GLib.Variant('(b)', [this.playing])
+@@ -570,6 +600,12 @@ const HanabiRenderer = GObject.registerClass(
+
+         setMute(_mute: boolean): void {
+             if (this.play) {
++                const pipeline = this.play.get_pipeline();
++                if (pipeline.constructor.find_property('flags')) {
++                    const flags = Number(pipeline.flags);
++                    const next = _mute ? flags & ~(1024 | 6) : (flags & ~(1024 | 4)) | 2;
++                    if (flags !== next) pipeline.set_property('flags', next);
++                }
+                 if (this.play.mute === _mute)
+                     this.play.mute = !_mute;
+                 this.play.mute = _mute;
 diff --git a/src/roundedCornersEffect.ts b/src/roundedCornersEffect.ts
 index adbb4b3..5535716 100644
 --- a/src/roundedCornersEffect.ts
@@ -187,22 +451,22 @@ index adbb4b3..5535716 100644
  import GLib from 'gi://GLib';
  import GObject from 'gi://GObject';
 -import Shell from 'gi://Shell';
- 
+
  import {Logger} from './logger.js';
- 
+
 @@ -145,7 +144,7 @@ function getFboOffset(actor: Clutter.Actor): [number, number] {
  }
- 
+
  export const RoundedCornersEffect = GObject.registerClass(
 -    class RoundedCornersEffect extends Shell.GLSLEffect {
 +    class RoundedCornersEffect extends Clutter.ShaderEffect {
          // Pending debounced log timers, keyed by label.
          private logTimeouts = new Map<string, number>();
- 
+
 @@ -177,12 +176,11 @@ export const RoundedCornersEffect = GObject.registerClass(
              );
          }
- 
+
 -        vfunc_build_pipeline(): void {
 -            this.add_glsl_snippet(
 +        vfunc_get_static_snippet(): Cogl.Snippet {
@@ -214,10 +478,10 @@ index adbb4b3..5535716 100644
 +                fragmentShaderCode
              );
          }
- 
+
 @@ -230,13 +228,13 @@ export const RoundedCornersEffect = GObject.registerClass(
              this.debugDebounced('textureMapping', width, height, scale, offsetX, offsetY);
- 
+
              this.set_uniform_float(
 -                this.get_uniform_location('pixel_step'),
 +                'pixel_step',
@@ -256,11 +520,33 @@ index adbb4b3..5535716 100644
                  color
              );
 diff --git a/src/schemas/io.github.jeffshee.hanabi-extension.gschema.xml b/src/schemas/io.github.jeffshee.hanabi-extension.gschema.xml
-index 2528900..3e2441c 100644
+index 2528900..bfb3e2f 100644
 --- a/src/schemas/io.github.jeffshee.hanabi-extension.gschema.xml
 +++ b/src/schemas/io.github.jeffshee.hanabi-extension.gschema.xml
-@@ -128,7 +128,7 @@
- 
+@@ -57,6 +57,12 @@
+             <description>Pause playback when there is maximized or fullscreen window</description>
+         </key>
+
++        <key name="pause-when-covered" type="b">
++            <default>true</default>
++            <summary>Pause when windows cover at least 95 percent of every desktop</summary>
++            <description>Stop decoding when the wallpaper is mostly hidden, including tiled windows. Resume on desktop reveal or Overview.</description>
++        </key>
++
+         <key name="pause-on-focus" type="b">
+             <default>false</default>
+             <summary>Pause on Window Focus</summary>
+@@ -114,7 +120,7 @@
+         </key>
+
+         <key name="enable-graphics-offload" type="b">
+-            <default>false</default>
++            <default>true</default>
+             <summary>Enable Graphics Offload</summary>
+             <description>Enable graphics offload for improved performance (requires GTK 4.14+)</description>
+         </key>
+@@ -128,7 +134,7 @@
+
          <key name="startup-delay" type="i">
              <range min="0" max="10000" />
 -            <default>1000</default>
@@ -269,11 +555,10 @@ index 2528900..3e2441c 100644
              <description>Add a startup delay (in milliseconds) to mitigate compatibility issues with
                  other extensions</description>
 diff --git a/src/wallpaper.ts b/src/wallpaper.ts
-index 390765a..3e72fca 100644
 --- a/src/wallpaper.ts
 +++ b/src/wallpaper.ts
-@@ -31,9 +31,9 @@ import {APPLICATION_ID} from './constants.js';
- 
+@@ -31,9 +31,9 @@
+
  const logger = new Logger('wallpaper');
  // Ref: https://gitlab.gnome.org/GNOME/gnome-shell/-/blob/main/js/ui/layout.js
 -const BACKGROUND_FADE_ANIMATION_TIME = 1000;
@@ -281,6 +566,101 @@ index 390765a..3e72fca 100644
  // Interval for polling until the renderer window appears (ms).
 -const RENDERER_POLL_INTERVAL_MS = 1000;
 +const RENDERER_POLL_INTERVAL_MS = 100;
- 
+
  export const LiveWallpaper = GObject.registerClass(
      class LiveWallpaper extends St.Widget {
+@@ -62,6 +62,10 @@
+         private roundedCornersEffect!: RoundedCornersEffect;
+         private monitorWidth!: number;
+         private monitorHeight!: number;
++        private clipRadius = 0;
++        private borderStroke = 0;
++        private clipBounds = [0, 0, 0, 0];
++        private originalClip: number[] | null = null;
+
+         constructor(
+             backgroundActor: Meta.BackgroundActor,
+@@ -77,6 +81,7 @@
+                 opacity: 0,
+             });
+             this.backgroundActor = backgroundActor;
++            this.originalClip = backgroundActor.has_clip ? backgroundActor.get_clip() : null;
+             this.metaBackgroundGroup = backgroundActor.get_parent();
+             this.monitorIndex = this.backgroundActor.monitor;
+             this.settings = settings;
+@@ -84,6 +89,8 @@
+
+             this.connect('destroy', () => {
+                 this.isDisposed = true;
++                this.backgroundActor.remove_effect(this.roundedCornersEffect);
++                this.restoreNativeClip();
+                 if (this.rendererPollTimeoutId) {
+                     GLib.source_remove(this.rendererPollTimeoutId);
+                     this.rendererPollTimeoutId = 0;
+@@ -139,28 +146,61 @@
+             if (!monitor)
+                 return;
+             const workArea = Main.layoutManager.getWorkAreaForMonitor(this.monitorIndex);
+-            const panelOffset = (workArea.y - monitor.y) / monitor.height * this.backgroundActor.height;
+-            this.roundedCornersEffect.setBounds(
+-                [0, panelOffset, this.width, this.height]
+-            );
++            // Desktop and Blur My Shell inputs cover the whole monitor,
++            // including the pixels underneath its transparent native panel.
++            // Only Overview workspace previews crop to the work area.
++            const panelOffset = this.clipRadius > 0
++                ? (workArea.y - monitor.y) / monitor.height * this.backgroundActor.height : 0;
++            this.setRoundedClipBounds(0, panelOffset, this.width, this.height);
++        }
++
++        private restoreNativeClip(): void {
++            if (this.originalClip)
++                this.backgroundActor.set_clip(...this.originalClip as [number, number, number, number]);
++            else
++                this.backgroundActor.remove_clip();
++        }
++
++        private updateRenderPath(): void {
++            // Rectangular desktop clipping needs no full-screen offscreen FBO
++            // and fragment shader on every video frame. Keep the original
++            // rounded effect for Overview transitions and explicit borders.
++            const rectangular = this.clipRadius === 0 && this.borderStroke === 0;
++            this.roundedCornersEffect.set_enabled(!rectangular);
++            this.restoreNativeClip();
++            if (rectangular) {
++                let [x1, y1, x2, y2] = this.clipBounds;
++                if (this.originalClip) {
++                    const [x, y, width, height] = this.originalClip;
++                    x1 = Math.max(x1, x); y1 = Math.max(y1, y);
++                    x2 = Math.min(x2, x + width); y2 = Math.min(y2, y + height);
++                }
++                this.backgroundActor.set_clip(x1, y1, Math.max(0, x2 - x1), Math.max(0, y2 - y1));
++            }
+         }
+
+         setRoundedClipRadius(radius: number): void {
+             if (this.isDisposed)
+                 return;
++            this.clipRadius = radius;
+             this.roundedCornersEffect.setClipRadius(radius);
++            this.applyBounds();
+         }
+
+         setRoundedClipBounds(x1: number, y1: number, x2: number, y2: number): void {
+             if (this.isDisposed)
+                 return;
+-            this.roundedCornersEffect.setBounds([x1, y1, x2, y2]);
++            this.clipBounds = [x1, y1, x2, y2];
++            this.roundedCornersEffect.setBounds(this.clipBounds);
++            this.updateRenderPath();
+         }
+
+         setBorderStroke(stroke: number): void {
+             if (this.isDisposed)
+                 return;
++            this.borderStroke = stroke;
+             this.roundedCornersEffect.setBorderStroke(stroke);
++            this.updateRenderPath();
+         }
+
+         setBorderColor(color: number[]): void {

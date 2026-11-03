@@ -60,8 +60,14 @@ class CompleteReleaseTests(unittest.TestCase):
         self.assertEqual(len(profile), len(set(profile)))
         self.assertFalse({'nodalix-secondary-bars@getnodalia.com',
                           'multi-monitors-bar@frederykabryan'}.issubset(profile))
-        self.assertFalse({'nodalix-auto-tiling@getnodalia.com',
-                          'tiling-assistant@leleat-on-github'}.issubset(profile))
+        self.assertIn('multi-monitors-bar@frederykabryan',profile)
+        self.assertIn('global-menu@unmade.space',profile)
+        self.assertIn('rounded-window-corners@ztrahmet.github.io',profile)
+        self.assertNotIn('nodalix-secondary-bars@getnodalia.com',profile)
+        self.assertFalse((ROOT/'gnome/extensions/nodalix-secondary-bars@getnodalia.com').exists())
+        self.assertIn('tiling-assistant@leleat-on-github',profile)
+        self.assertIn('tiling-assistant@leleat-on-github',
+                      (ROOT/'packaging/nodalix-gnome/PKGBUILD').read_text())
 
     def test_iso_wallpaper_is_owned_only_by_its_package(self):
         tool = (ROOT / 'tools/build-iso.py').read_text()
@@ -75,7 +81,7 @@ class CompleteReleaseTests(unittest.TestCase):
         self.assertIn('icloud-apple-official.svg', package)
         organizer = (ROOT / 'integrations/scripts/nodalix-organize-apps.py').read_text()
         self.assertIn('ai.storyteller', organizer)
-        self.assertIn('cadcraft', organizer)
+        self.assertIn('io.tangencylabs.', organizer)
         desktop = (ROOT / 'integrations/assets/com.nodalix.iCloudAccess.desktop').read_text()
         self.assertIn('Icon=icloud-apple-official', desktop)
         self.assertNotIn('/home/daniel', desktop)

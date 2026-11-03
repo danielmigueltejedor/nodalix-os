@@ -21,7 +21,14 @@ def user_script(source):
 
 try:
     deadline=time.monotonic()+360
+    qa_idle_configured=False
     while time.monotonic()<deadline:
+        if not qa_idle_configured and Path('/run/user/'+GUEST_UID+'/bus').exists():
+            # Only this disposable guest: two-core TCG initialization can take
+            # longer than the normal desktop idle timeout. Locking would switch
+            # Shell mode and intentionally disable the user-only extensions.
+            user_script("from gi.repository import Gio; Gio.Settings.new('org.gnome.desktop.session').set_uint('idle-delay',0); Gio.Settings.new('org.gnome.desktop.screensaver').set_boolean('lock-enabled',False); Gio.Settings.sync()")
+            qa_idle_configured=True
         if (GUEST_HOME/'.local/state/nodalix/migrations/gnome-0.3.1.done').exists() and Path('/run/user/'+GUEST_UID+'/bus').exists():break
         time.sleep(2)
     else:raise AssertionError('GNOME first-login migration did not finish')
@@ -99,11 +106,14 @@ dock=Gio.Settings.new_full(source.lookup('org.gnome.shell.extensions.dash-to-doc
 assert not dock.get_boolean('dock-fixed') and dock.get_boolean('autohide') and dock.get_boolean('intellihide')
 source=Gio.SettingsSchemaSource.new_from_directory('/usr/share/gnome-shell/extensions/blur-my-shell@aunetx/schemas',Gio.SettingsSchemaSource.get_default(),False)
 blur=Gio.Settings.new_full(source.lookup('org.gnome.shell.extensions.blur-my-shell',False),None,None)
-assert blur.get_boolean('rounded-blur-found')
+assert blur.get_int('settings-version')>=8
+assert not source.lookup('org.gnome.shell.extensions.blur-my-shell',False).has_key('rounded-blur-found')
+panel=Gio.Settings.new_full(source.lookup('org.gnome.shell.extensions.blur-my-shell.panel',False),None,None)
+assert panel.get_boolean('blur')
 video_preferences=Gio.Settings.new('io.github.jeffshee.hanabi-extension')
 assert video_preferences.get_boolean('enable-va') and not video_preferences.get_boolean('prefer-clappersink')
 assert Path.home().joinpath('.config/xdg-terminals.list').read_text().strip()=='com.mitchellh.ghostty.desktop'
-print('GNOME profile, private schemas, rounded blur, shortcuts and repeated user migration passed')
+print('GNOME profile, official blur schemas, native panel blur, shortcuts and repeated user migration passed')
 deadline=time.monotonic()+90
 while time.monotonic()<deadline:
     try:
@@ -157,20 +167,23 @@ subprocess.run(['systemctl','--user','restart','xdg-desktop-portal-gnome.service
                check=True,timeout=30)
 subprocess.run(['systemctl','--user','restart','xdg-desktop-portal.service'],
                check=True,timeout=30)
-deadline=time.monotonic()+90
-while time.monotonic()<deadline:
-    try:
-        interfaces=bus.call_sync('org.freedesktop.portal.Desktop',
-            '/org/freedesktop/portal/desktop',
-            'org.freedesktop.DBus.Introspectable','Introspect',None,
-            GLib.VariantType('(s)'),Gio.DBusCallFlags.NONE,10000,None).unpack()[0]
-        if 'org.freedesktop.portal.Screenshot' in interfaces:
-            break
-    except GLib.Error:
-        pass
-    time.sleep(2)
-else:
-    raise AssertionError('Screenshot portal interface absent after backend restart')
+def wait_portal_interface(name,interface):
+    deadline=time.monotonic()+180
+    last=None
+    while time.monotonic()<deadline:
+        try:
+            version=bus.call_sync(name,'/org/freedesktop/portal/desktop',
+                'org.freedesktop.DBus.Properties','Get',GLib.Variant('(ss)',(interface,'version')),
+                None,Gio.DBusCallFlags.NONE,10000,None).unpack()[0]
+            if isinstance(version,GLib.Variant):version=version.unpack()
+            if isinstance(version,int) and version>=1:return
+            last=version
+        except GLib.Error as error:last=str(error)
+        time.sleep(1)
+    raise AssertionError(('Screenshot portal interface did not become ready',name,interface,last))
+wait_portal_interface('org.freedesktop.impl.portal.desktop.gnome','org.freedesktop.impl.portal.Screenshot')
+wait_portal_interface('org.freedesktop.portal.Desktop','org.freedesktop.portal.Screenshot')
+print('Real screenshot backend and frontend interfaces ready')
 # Register this QA process explicitly; the systemd verifier otherwise supplies
 # a different app identity than a terminal process. All files are guest-only.
 qa_id='com.nodalix.QA'
@@ -204,6 +217,7 @@ except Exception:
     traceback.print_exc()
     print(run('journalctl','-b','--no-pager','-n','100','_COMM=gnome-shell'))
     print(run('journalctl','-b','--no-pager','-n','90','--grep=nodalix|gnome-session|gdm'))
+    print(run('journalctl','-b','--no-pager','-n','100','--user-unit=xdg-desktop-portal.service','--user-unit=xdg-desktop-portal-gnome.service'))
     print('NODALIX_VM_MIGRATION_FAIL',flush=True)
 finally:
     subprocess.run(['systemctl','poweroff'],check=False)

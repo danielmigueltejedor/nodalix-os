@@ -43,6 +43,30 @@ def set_unset(schema, values):
             prefs.set_value(key, GLib.Variant.parse(None, value, None, None))
 
 
+def reserve_default_shortcuts():
+    source=Gio.SettingsSchemaSource.get_default()
+    schema=source.lookup('org.gnome.shell.extensions.dash-to-dock',True)
+    if not schema:
+        for root in (Path(os.environ.get('XDG_DATA_HOME',str(Path.home()/'.local/share'))),Path('/usr/share')):
+            folder=root/'gnome-shell/extensions/dash-to-dock@micxgx.gmail.com/schemas'
+            if (folder/'gschemas.compiled').is_file():
+                local=Gio.SettingsSchemaSource.new_from_directory(str(folder),source,False)
+                schema=local.lookup('org.gnome.shell.extensions.dash-to-dock',False)
+                if schema:break
+    if not schema:return
+    settings=Gio.Settings.new_full(schema,None,None)
+    if settings.get_string('shortcut-text')=='<Super>q':settings.set_string('shortcut-text','')
+    previous=settings.get_strv('shortcut')
+    remaining=[value for value in previous if value!='<Super>q']
+    if remaining!=previous:settings.set_strv('shortcut',remaining)
+    for number in (3,4):
+        key=f'app-shift-hotkey-{number}'
+        previous=settings.get_strv(key)
+        factory={f'<Shift><Super>{number}',f'<Super><Shift>{number}'}
+        remaining=[value for value in previous if value not in factory]
+        if remaining!=previous:settings.set_strv(key,remaining)
+
+
 def clean_ghostty(path):
     if not path.is_file() or path.is_symlink():
         return
@@ -50,10 +74,18 @@ def clean_ghostty(path):
                'gtk-tabs-location':'top', 'gtk-wide-tabs':'true'}
     # Retire duplicate compositor-specific values while retaining unrelated settings.
     lines = path.read_text().splitlines()
+    native={}
+    for line in lines:
+        match=re.match(r'^\s*keybind\s*=\s*(performable:)?(ctrl\+insert|shift\+insert)=(.*)',line)
+        if match:native[match[2]]=line
+    lines=[line for line in lines if not re.match(r'^\s*keybind\s*=\s*(performable:)?(ctrl\+insert|shift\+insert)=',line)]
     output = [line for line in lines if line.split('=', 1)[0].strip() not in managed
               and not re.match(r'^\s*keybind\s*=\s*(performable:)?ctrl\+[cv]=', line)]
     output += [f'{key} = {value}' for key, value in managed.items()]
     output += ['keybind = performable:ctrl+c=copy_to_clipboard', 'keybind = ctrl+v=paste_from_clipboard']
+    # Dedicated native clipboard commands use terminal-safe Insert chords.
+    for key,action in [('ctrl+insert','copy_to_clipboard'),('shift+insert','paste_from_clipboard')]:
+        output.append(native.get(key,f'keybind = {key}={action}'))
     text = '\n'.join(output)+'\n'
     if text != path.read_text():
         backup = path.with_name(path.name+'.pre-gnome-030')
@@ -77,6 +109,7 @@ def retire_chatgpt(path, backup):
 
 
 def apply_preferences():
+    reserve_default_shortcuts()
     prefs = Gio.Settings.new('org.gnome.desktop.input-sources')
     if prefs.get_user_value('sources') is None:
         prefs.set_value('sources', GLib.Variant('a(ss)', layout_from_system()))
@@ -93,13 +126,15 @@ def apply_preferences():
     occupied={Gio.Settings.new_with_path('org.gnome.settings-daemon.plugins.media-keys.custom-keybinding', path).get_string('binding') for path in bindings}
     for name, command, binding in [('terminal','xdg-terminal-exec','<Super>Return'),
                                     ('browser','nodalix-open-default browser','<Super>b'),
-                                    ('mail','nodalix-open-default mail','<Super>m')]:
+                                    ('mail','nodalix-open-default mail','<Super>m'),
+                                    ('copy','nodalix-clipboard copy','<Super>c'),
+                                    ('paste','nodalix-clipboard paste','<Super>v')]:
         location = f'/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/nodalix-{name}/'
         if location not in bindings and binding in occupied:
             continue
         custom = Gio.Settings.new_with_path('org.gnome.settings-daemon.plugins.media-keys.custom-keybinding', location)
         # Keep both unrelated bindings and explicit changes to Nodalix bindings.
-        for key,value in [('name','Nodalix '+name),('command',command),('binding',binding)]:
+        for key,value in [('name',{'copy':'Copiar','paste':'Pegar'}.get(name,'Nodalix '+name)),('command',command),('binding',binding)]:
             if custom.get_user_value(key) is None:custom.set_string(key,value)
         if location not in bindings:
             bindings.append(location)

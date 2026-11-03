@@ -26,9 +26,9 @@ subprocess.run(['/usr/bin/dconf', 'update'], check=True)
 with tempfile.NamedTemporaryFile(mode='w') as readonly:
     readonly.write('system-db:gdm\nfile-db:/usr/share/gdm/greeter-dconf-defaults\n')
     readonly.flush()
-    raw = subprocess.check_output(['/usr/bin/gsettings','get','org.gnome.shell','enabled-extensions'],
+    raw = subprocess.check_output(['/usr/bin/dconf','read','/org/gnome/shell/enabled-extensions'],
         env={**os.environ, 'DCONF_PROFILE':readonly.name}, text=True).strip()
-    enabled = ast.literal_eval(raw.removeprefix('@as '))
+    enabled = ast.literal_eval(raw.removeprefix('@as ')) if raw else []
 uuid = 'nodalix-login-background@getnodalia.com'
 if uuid not in enabled:
     enabled.append(uuid)

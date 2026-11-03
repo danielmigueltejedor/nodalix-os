@@ -53,7 +53,7 @@ case "$mode" in
         # Never execute them from the unattended timer: they require an
         # explicit diff/PKGBUILD review in the interactive update path.
         if command -v flatpak >/dev/null 2>&1; then
-            flatpak update -y --noninteractive
+            /usr/bin/python /usr/lib/nodalix-updater/flatpak_updates.py update --scope user
         fi
         ;;
     *)

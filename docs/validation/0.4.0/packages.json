@@ -1,0 +1,52 @@
+{
+  "built_and_payload_checked": [
+    {
+      "name": "nodalix-integrations",
+      "version": "0.4.0-3",
+      "file": "nodalix-integrations-0.4.0-3-any.pkg.tar.zst",
+      "sha256": "57421ec4eb0311a3733d655587bb0de950f5833c52484303be922465ec4d4b36"
+    },
+    {
+      "name": "nodalix-video-wallpapers",
+      "version": "0.4.0-3",
+      "file": "nodalix-video-wallpapers-0.4.0-3-any.pkg.tar.zst",
+      "sha256": "ab2d0892d99c516176b3b11b0f112f18d7761a373d8f52a0b397120a5a9d34a5"
+    },
+    {
+      "name": "nodalix-apps",
+      "version": "0.4.0-4",
+      "file": "nodalix-apps-0.4.0-4-any.pkg.tar.zst",
+      "sha256": "39c7c7bb60188ae35d385a28f04c0e538045f825ea1062b64810bd70e2b34411"
+    },
+    {
+      "name": "nodalix-control-center",
+      "version": "51.0.0-12",
+      "file": "nodalix-control-center-51.0.0-12-x86_64.pkg.tar.zst",
+      "sha256": "4bbe6941136127e4d0ede46eee58c88b853bbee613ba0a0f9c1003012cc3c72b"
+    },
+    {
+      "name": "nodalix-gnome",
+      "version": "0.4.0-12",
+      "file": "nodalix-gnome-0.4.0-12-any.pkg.tar.zst",
+      "sha256": "278ca1865a8c546a12fcd5b74f75011c368d034579d30f094b4b013264eac5c2"
+    },
+    {
+      "name": "nodalix-phone-link",
+      "version": "0.2.5-8",
+      "file": "nodalix-phone-link-0.2.5-8-any.pkg.tar.zst",
+      "sha256": "83590a1389ae347ab4c271fb5f58ead196fd6c3409f7f6a6660f4ae87476147c"
+    },
+    {
+      "name": "nodalix-settings",
+      "version": "0.4.0-7",
+      "file": "nodalix-settings-0.4.0-7-any.pkg.tar.zst",
+      "sha256": "d1cb5584612e5b28f58a5d45c66eb09ea5595471031d1933adc6c77dff9f7156"
+    },
+    {
+      "name": "nodalix-updater",
+      "version": "0.4.0-5",
+      "file": "nodalix-updater-0.4.0-5-any.pkg.tar.zst",
+      "sha256": "394a891e67b4a47eb2a44a6bfe7a6bafd1d22fe506df877c62d3f40231b351a6"
+    }
+  ]
+}

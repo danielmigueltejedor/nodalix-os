@@ -276,6 +276,8 @@ export class MultiMonitorsLayoutManager {
 	}
 
 	_registerPanelWithBlurMyShell(panel) {
+		// A monitor can disappear before a delayed registration runs.
+		if (!getMMPanelArray()?.includes(panel)) return;
 		// Primary access path: BMS exposes itself via global.blur_my_shell
 		let panelBlur = null;
 

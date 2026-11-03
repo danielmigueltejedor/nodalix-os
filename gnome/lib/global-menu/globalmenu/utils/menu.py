@@ -195,7 +195,7 @@ class DbusMenu:
 			payload = self._children_list(tree, tree[tree.root])
 		try:
 			proxy = self.session.get_object(MyService.BUS_NAME, MyService.BUS_PATH)
-			proxy.EchoSendMenuTree(json.dumps(payload))
+			proxy.EchoSendMenuTree(json.dumps({'window': str(self.window.get_utf8_prop('_NODALIX_WINDOW_ID') or ''), 'items': payload}))
 		except dbus.exceptions.DBusException:
 			# The service may not be up yet (startup race); the tree is
 			# re-sent on every window switch anyway

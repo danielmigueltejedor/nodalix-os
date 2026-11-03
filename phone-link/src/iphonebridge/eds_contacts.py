@@ -10,6 +10,8 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+from dataclasses import dataclass
+import unicodedata
 
 from iphonebridge.events import normalize_phone
 
@@ -17,6 +19,74 @@ log = logging.getLogger(__name__)
 
 SOURCE_UID = "nodalix-iphone-contacts"
 SOURCE_NAME = "iPhone (Nodalix)"
+
+
+@dataclass(frozen=True, slots=True)
+class DialContact:
+    name: str
+    number: str
+    label: str = ""
+
+
+def search_text(value: str) -> str:
+    return ''.join(c for c in unicodedata.normalize('NFKD',value.casefold()) if not unicodedata.combining(c))
+
+
+def dial_number(value: str) -> str | None:
+    """Retain international prefixes without turning a local number into one."""
+    raw=value.strip().removeprefix('tel:')
+    if not re.fullmatch(r'\+?[\d\s().-]+',raw):return None
+    digits=normalize_phone(raw)
+    return ('+' if raw.startswith('+') else '')+digits if digits else None
+
+
+def vcard_value(contact,name):
+    attribute=contact.get_attribute(name)
+    values=attribute.get_values() if attribute else []
+    return str(values[0]) if values else ''
+
+
+def contact_numbers(contact) -> list[DialContact]:
+    # e_contact_get() is an untyped gpointer in GI, not a Python string.
+    name=vcard_value(contact,'FN') or vcard_value(contact,'X-EVOLUTION-FILE-AS') or 'Sin nombre'
+    result=[]
+    labels={'CELL':'Móvil','HOME':'Casa','WORK':'Trabajo','MAIN':'Principal'}
+    # Older EContact bindings shadow EVCard.get_attributes with the
+    # field-specific method. Call the base API to read the complete vCard.
+    from gi.repository import EBookContacts
+    for attribute in EBookContacts.VCard.get_attributes(contact):
+        if attribute.get_name().upper()!='TEL':continue
+        types=[str(t).upper() for t in attribute.get_param('TYPE') or []]
+        label=next((labels[t] for t in types if t in labels),'Teléfono')
+        for value in attribute.get_values():
+            number=dial_number(str(value))
+            if number:result.append(DialContact(name,number,label))
+    return result
+
+
+def read_gnome_contacts(cancellable=None) -> list[DialContact]:
+    """Read all enabled GNOME address books, without modifying any contact."""
+    import gi
+    gi.require_version('EDataServer','1.2');gi.require_version('EBook','1.2');gi.require_version('EBookContacts','1.2')
+    from gi.repository import EBook,EBookContacts,EDataServer,GLib
+    registry=EDataServer.SourceRegistry.new_sync(cancellable)
+    result={};read=0;failed=0
+    for source in registry.list_sources(EDataServer.SOURCE_EXTENSION_ADDRESS_BOOK):
+        if not registry.check_enabled(source):continue
+        if cancellable and cancellable.is_cancelled():break
+        try:
+            client=EBook.BookClient.connect_sync(source,10,cancellable)
+            contacts=_sync_payload(client.get_contacts_sync('#t',cancellable)) or []
+            read+=1
+            for contact in contacts:
+                for entry in contact_numbers(contact):
+                    result.setdefault((search_text(entry.name),normalize_phone(entry.number)),entry)
+        except GLib.Error:
+            if cancellable and cancellable.is_cancelled():break
+            failed+=1
+            log.warning('No se pudo consultar una libreta de Contactos de GNOME')
+    if failed and not read:raise RuntimeError('No se han podido leer las libretas de Contactos de GNOME')
+    return sorted(result.values(),key=lambda c:(search_text(c.name),c.number))
 
 _VCARD_RE = re.compile(
     r"BEGIN:VCARD.*?END:VCARD",
@@ -118,7 +188,7 @@ def sync_gnome_contacts(blob: str) -> int:
 
     existing_by_uid = {}
     for contact in existing:
-        uid = contact.get(EBookContacts.ContactField.UID)
+        uid = vcard_value(contact,'UID')
         if uid:
             existing_by_uid[str(uid)] = contact
 

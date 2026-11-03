@@ -213,27 +213,51 @@ antiguo exacto se archiva; los launchers personales distintos se conservan.
 
 ## Mutter, blur y extensiones
 
-`gnome-rounded-blur` procede de `kancko/gnome-rounded-blur`, commit
-`c0d67c886ac0b54fedaddf75817e85264d16322e`, con `libmutter-51`,
-`mutter-clutter-51` y `mutter-cogl-51`. Los paquetes requieren Mutter 51 y
-GNOME Shell 51 y excluyen 52. Una actualización de versión mayor exige revisar
-el código, cambiar los límites ABI y volver a ejecutar compilación y pruebas de
-Shell/GDM. Un conflicto ABI falla explícitamente, en lugar de cargar una librería
-compilada para otra versión. Blur My Shell detecta el soporte real en runtime;
-Nodalix no fuerza `rounded-blur-found=true`.
+Blur My Shell 77 se distribuye tal como está publicado en GNOME Extensions,
+versión de archivo 77413, sin parches de Nodalix. El origen, SHA-256 y hashes de
+cada archivo constan en `gnome/extensions/snapshots.json`. Esta versión admite
+GNOME 51 y no requiere la antigua biblioteca `gnome-rounded-blur`. Su migración
+oficial elimina los efectos manuales de esquinas de las configuraciones antiguas;
+Nodalix no añade efectos ni modifica los shaders de la extensión.
+
+El organizador usa carpetas nativas y permite la misma aplicación en ArtCraft
+y en su categoría: CADCraft/SolidCraft en Ingeniería, WordCraft/DeckCraft/GridCraft/
+PdfCraft en Oficina y las herramientas gráficas en Multimedia. Conserva las
+carpetas personales. Los publicadores y metadatos detectan también futuras apps;
+el reparador resuelve sus iconos oficiales instalados sin cambiar los comandos
+de lanzamiento ni los iconos personales. Los prototipos antiguos del organizador
+que ocultaban el servicio empaquetado se archivan únicamente si coinciden con
+sus hashes conocidos.
+
+El fondo animado debe entregar la imagen completa también bajo el panel
+transparente. El recorte del área de trabajo se aplica solo a las miniaturas
+redondeadas de Actividades: excluir los 32 píxeles superiores del escritorio
+dejaba a Blur My Shell sin entrada y producía franjas o halos alrededor del texto.
+La prueba conjunta de Hanabi, Blur My Shell oficial y Multi Monitor Bar comprueba
+los píxeles del panel con blur estático y dinámico y la vuelta desde Actividades.
+
+La agenda se limita mediante el tamaño solicitado del viewport nativo. Un estilo
+CSS no basta porque otra extensión puede reconstruirlo y la columna del calendario
+puede solicitar más altura. El límite se recalcula al abrir y al llegar eventos,
+con desplazamiento nativo y el mismo comportamiento en cada monitor. Las pruebas
+usan 36 eventos y otros 36 recibidos con el popup abierto.
 
 Los schemas privados se cargan desde el directorio de cada extensión con
 `Gio.SettingsSchemaSource`. El Dock inferior usa autohide e intellihide,
 44 px, varios monitores y ocultación en fullscreen. No fuerza preferencias
 explícitas durante una actualización.
 
-`nodalix-secondary-bars@getnodalia.com` crea únicamente actores de barra con
-Actividades y reloj. La barra principal conserva Quick Settings, calendario,
-GLocalSend y Enlace móvil. No construye otro `Panel.Panel`, ni mueve indicadores.
-Los cambios de monitor, escala y altura reconstruyen las barras; chrome reserva
-workarea y respeta fullscreen. El blur propio usa Shell.BlurEffect. Las llamadas
-privadas a layoutManager están encapsuladas y protegidas por GNOME 51. No se
-incluye Top Bar All Monitors con metadata parcheada.
+`multi-monitors-bar@frederykabryan` replica el panel de GNOME en los monitores
+secundarios, con calendario y controles nativos. La barra principal conserva
+sus indicadores y distribución. Todo el desenfoque de paneles, menús y dock lo
+gestiona Blur My Shell; no hay una segunda implementación de blur ni una barra
+Nodalix de sustitución. Menú Global y Rounded Window Corners forman parte del
+perfil activo por defecto de la 0.4.0. Una migración con respaldo recupera su
+activación si un candidato anterior las desactivó. No se imponen presets de
+aspecto a Blur My Shell.
+Se conserva Tiling Assistant, sus preferencias y las
+versiones personales más recientes. El calendario limita su altura y permite
+desplazar las notificaciones en ambos monitores, aunque Phone Link esté apagado.
 
 La prueba `tools/test-gnome51-shell.py` arranca GNOME 51 headless en un HOME y
 bus privados, con dos monitores y ciclos repetidos de enable/disable. La única

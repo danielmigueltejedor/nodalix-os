@@ -1,0 +1,2 @@
+# Keep the published upstream extension byte-for-byte, including its whitespace.
+gnome/extensions/blur-my-shell@aunetx/** -whitespace
