@@ -97,6 +97,11 @@ cp "$root/packaging/nodalix-wallpapers/PKGBUILD" \
    "$root/packaging/nodalix-wallpapers/"*.jpg \
    "$wallpaper_dir/"
 
+# Build a pinned Nodalix package instead of relying on mutable AUR updates.
+xpadneo_dir="$workdir/nodalix-xpadneo-dkms"
+mkdir -p "$xpadneo_dir"
+cp "$root/packaging/nodalix-xpadneo-dkms/"{PKGBUILD,preserve-ble-identity.patch,99-nodalix-xpadneo-real-id.conf} "$xpadneo_dir/"
+
 integrations_dir="$workdir/nodalix-integrations"
 gnome_dir="$workdir/nodalix-gnome"
 for name in integrations gnome; do
@@ -140,6 +145,7 @@ if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
   mkdir -p "$ofono_dir"
   cp "$root/packaging/nodalix-ofono/PKGBUILD" "$ofono_dir/"
   makepkg_one "$ofono_dir"
+  makepkg_one "$xpadneo_dir"
   makepkg_one "$fluent_dir"
   makepkg_one "$colloid_dir"
   makepkg_one "$cursor_dir"
