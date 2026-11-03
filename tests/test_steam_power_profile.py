@@ -72,6 +72,7 @@ class SteamProfileTests(unittest.TestCase):
         self.gio = types.ModuleType("Gio")
         self.gio.BusType = types.SimpleNamespace(SYSTEM=1)
         self.gio.DBusSignalFlags = types.SimpleNamespace(NONE=0)
+        self.gio.DBusCallFlags = types.SimpleNamespace(NONE=0)
         self.gio.bus_get_sync = lambda *_: self.bus
         self.glib = types.ModuleType("GLib")
         self.glib.Variant = Variant
