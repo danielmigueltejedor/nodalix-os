@@ -61,6 +61,13 @@ static void state_ready(GObject *source, GAsyncResult *result, gpointer data)
           adw_switch_row_set_active(self->automatic[i],enabled || partial);
           gtk_widget_set_sensitive(GTK_WIDGET(self->automatic[i]),!busy && !automatic_busy && json_object_get_boolean_member(row,"available") && (owned || (!enabled && !partial)));
           adw_action_row_set_subtitle(ADW_ACTION_ROW(self->automatic[i]),!owned && (enabled || partial) ? "Autorizadas por otro usuario" : partial ? "Programación parcial: desactiva y vuelve a activar para repararla" : enabled && !json_object_get_boolean_member(row,"active") ? "Activadas, pero el temporizador no está en ejecución" : i==3 ? "Semanalmente · sin reinicios automáticos" : "Diariamente · sin reinicios automáticos");
+          if (owned && enabled && !partial && json_object_has_member(row,"last_result")) {
+            const char *last=json_object_get_string_member(row,"last_result");
+            if (json_object_get_boolean_member(row,"retrying"))
+              adw_action_row_set_subtitle(ADW_ACTION_ROW(self->automatic[i]),"Último intento aplazado · se reintentará automáticamente");
+            else if (last && *last && !g_str_equal(last,"success"))
+              adw_action_row_set_subtitle(ADW_ACTION_ROW(self->automatic[i]),"El último intento automático ha fallado · revisa el registro de actualizaciones");
+          }
         }
         self->syncing_automatic=FALSE;
       }
@@ -140,6 +147,8 @@ static void update_clicked(GtkButton *button, CcNodalixUpdatesPage *self)
 {
   const char *kind = g_object_get_data(G_OBJECT(button), "kind");
   if (!self->proxy) return;
+  if (!kind && button != GTK_BUTTON(self->restart))
+    g_dbus_proxy_call(self->proxy,"RefreshAutomaticUpdates",NULL,G_DBUS_CALL_FLAGS_NONE,2500,self->cancel,NULL,NULL);
   for (guint i=0;i<7;i++) gtk_widget_set_sensitive(self->buttons[i],FALSE);
   g_dbus_proxy_call(self->proxy, button == GTK_BUTTON(self->restart) ? "Restart" : kind ? "StartUpdate" : "CheckUpdates", kind ? g_variant_new("(s)",kind) : NULL,
                     G_DBUS_CALL_FLAGS_NONE,2500,self->cancel,operation_ready,g_object_ref(self));

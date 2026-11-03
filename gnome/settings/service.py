@@ -424,10 +424,8 @@ class SettingsService:
                             result = subprocess.run([program('nodalix-updater'),'check','--json'],capture_output=True,text=True,timeout=90)
                             data = json.loads(result.stdout)
                             if result.returncode:
-                                raise ValueError(data.get('message') or data.get('error') or 'No se pudo comprobar Nodalix')
-                            detail = data.get('message') or data.get('status', 'Comprobado')
-                            if data.get('update_available'):
-                                detail = 'Nueva versión: '+str(data.get('latest_version') or data.get('version'))
+                                raise ValueError(update_state.nodalix_status_label(data))
+                            detail = update_state.nodalix_status_label(data)
                         elif kind == 'system':
                             checker = program('checkupdates')
                             result = subprocess.run([checker] if checker else [program('pacman'),'-Qu'],capture_output=True,text=True,timeout=90)

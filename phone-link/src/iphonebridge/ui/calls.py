@@ -5,7 +5,8 @@ import re
 
 from gi.repository import Adw, Gtk
 
-from iphonebridge.contacts import ContactsResolver
+from iphonebridge.ui.contact_picker import ContactPicker
+from iphonebridge.events import normalize_phone
 
 _PHONE_RE = re.compile(r"^\+?[\d\s()\-.]{7,}$")
 
@@ -15,8 +16,8 @@ class CallsPage(Gtk.Box):
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
         self._client = client
         self._toast = toast
-        self._contacts = ContactsResolver()
         self._call_rows: list = []
+        self._selected_contact_names = {}
 
         page = Adw.PreferencesPage()
         self.append(page)
@@ -33,6 +34,10 @@ class CallsPage(Gtk.Box):
         call_btn.connect("clicked", self._on_dial)
         self._entry.add_suffix(call_btn)
         dial_group.add(self._entry)
+        contacts=Adw.ActionRow(title='Contactos de GNOME',subtitle='Elegir un contacto guardado y su teléfono',activatable=True)
+        contacts.add_suffix(Gtk.Image(icon_name='go-next-symbolic'))
+        contacts.connect('activated',lambda _row:self._show_contacts())
+        dial_group.add(contacts)
         page.add(dial_group)
 
         self._calls_group = Adw.PreferencesGroup(title="Llamadas activas")
@@ -47,16 +52,23 @@ class CallsPage(Gtk.Box):
         raw = self._entry.get_text().strip()
         if not raw:
             return
-        number = self._resolve(raw)
-        if number is None:
-            self._toast(f"No se ha encontrado ningún contacto que coincida con «{raw}»")
+        if not _PHONE_RE.match(raw):
+            self._show_contacts(raw)
             return
+        self._dial_number(raw,raw)
+
+    def _show_contacts(self,query=''):
+        ContactPicker(self._dial_number,query).present(self)
+
+    def _dial_number(self,number,label):
+        if not self._entry.get_sensitive():return
+        if label != number:self._selected_contact_names[normalize_phone(number)] = label
         self._entry.set_sensitive(False)
 
         def ok(_path: str) -> None:
             self._entry.set_sensitive(True)
             self._entry.set_text("")
-            self._toast(f"Llamando a {raw}…")
+            self._toast(f"Llamando a {label}…")
             self._refresh_calls()
 
         def err(text: str) -> None:
@@ -64,15 +76,6 @@ class CallsPage(Gtk.Box):
             self._toast(f"No se ha podido realizar la llamada: {text}")
 
         self._client.dial(number, ok, err)
-
-    def _resolve(self, raw: str) -> str | None:
-        """A phone number passes through; a name is looked up in contacts."""
-        if _PHONE_RE.match(raw):
-            return raw
-        matches = self._contacts.find_by_name(raw)
-        if not matches:
-            return None
-        return "+" + matches[0][1]
 
     # ---- active calls --------------------------------------------------
 
@@ -96,7 +99,7 @@ class CallsPage(Gtk.Box):
             self._call_rows.append(row)
 
     def _make_call_row(self, c: dict) -> Adw.ActionRow:
-        peer = c.get("contact_name") or c.get("peer_phone") or "Contacto desconocido"
+        peer = self._selected_contact_names.get(normalize_phone(c.get('peer_phone'))) or c.get("contact_name") or c.get("peer_phone") or "Contacto desconocido"
         state = c.get("state", "?")
         direction = c.get("direction", "")
         state_label = {

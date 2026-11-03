@@ -50,9 +50,11 @@ _prepare_nodalix_phone_link() {
     if (( restart_bluetooth )); then
         systemctl restart bluetooth.service || true
         sleep 1
+        systemctl restart nodalix-phone-link-bluetooth.service || true
+    else
+        # UI/contact-only upgrades keep an existing phone connection alive.
+        systemctl start nodalix-phone-link-bluetooth.service || true
     fi
-
-    systemctl restart nodalix-phone-link-bluetooth.service || true
 }
 
 post_install() {

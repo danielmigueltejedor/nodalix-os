@@ -6,13 +6,32 @@ import sys
 root=Path(sys.argv[1]);source=Path(__file__).resolve().parent
 if 'cc_nodalix_updates_page' in (root/'panels/system/cc-system-panel.c').read_text():
     raise SystemExit('Already patched')
-for name in ['cc-nodalix-pages.h','cc-nodalix-pages.c','cc-nodalix-localsend.c','cc-nodalix-diagnostics.c']:
+for name in ['cc-nodalix-pages.h','cc-nodalix-pages.c','cc-nodalix-localsend.c','cc-nodalix-diagnostics.c','cc-nodalix-release.c','cc-nodalix-release.h']:
     shutil.copy2(source/name,root/'panels/system'/name)
-p=root/'panels/system/meson.build';t=p.read_text().replace("  'cc-system-panel.c',","  'cc-system-panel.c',\n  'cc-nodalix-pages.c',\n  'cc-nodalix-localsend.c',");t=t.replace("deps = common_deps + [", "deps = common_deps + [\n  dependency('json-glib-1.0'),");p.write_text(t)
+p=root/'panels/system/meson.build';t=p.read_text().replace("  'cc-system-panel.c',","  'cc-system-panel.c',\n  'cc-nodalix-pages.c',\n  'cc-nodalix-release.c',\n  'cc-nodalix-localsend.c',");t=t.replace("deps = common_deps + [", "deps = common_deps + [\n  dependency('json-glib-1.0'),");p.write_text(t)
 p=root/'panels/system/cc-system-panel.c';t=p.read_text().replace('#include "cc-system-panel.h"','#include "cc-system-panel.h"\n#include "cc-nodalix-pages.h"')
 t=t.replace('    g_type_ensure (CC_TYPE_ABOUT_PAGE);','    g_type_ensure (CC_TYPE_NODALIX_UPDATES_PAGE);\n    g_type_ensure (CC_TYPE_ABOUT_PAGE);')
 t=t.replace('    cc_panel_add_static_subpage (CC_PANEL (self), "about", CC_TYPE_ABOUT_PAGE);','    cc_panel_add_static_subpage (CC_PANEL (self), "updates", CC_TYPE_NODALIX_UPDATES_PAGE);\n    cc_panel_add_static_subpage (CC_PANEL (self), "about", CC_TYPE_ABOUT_PAGE);')
 t=t.replace('show_software_updates_group (self));','FALSE);')
+p.write_text(t)
+
+# Keep the Nodalix release identity separate from the base distribution version.
+p=root/'panels/system/about/cc-about-page.blp';t=p.read_text()
+t=t.replace('          $CcHostnameEntry hostname_row {','''          Adw.ActionRow nodalix_version_row {
+            title: "Versión de Nodalix OS";
+            subtitle-selectable: true;
+            styles ["property"]
+          }
+        }
+
+        Adw.PreferencesGroup {
+          $CcHostnameEntry hostname_row {''')
+p.write_text(t)
+p=root/'panels/system/about/cc-about-page.c';t=p.read_text()
+t=t.replace('#include "cc-about-page.h"','#include "cc-about-page.h"\n#include "../cc-nodalix-release.h"')
+t=t.replace('    AdwActionRow *os_name_row;','    AdwActionRow *nodalix_version_row;\n    AdwActionRow *os_name_row;')
+t=t.replace('    gtk_widget_class_bind_template_child (widget_class, CcAboutPage, os_name_row);','    gtk_widget_class_bind_template_child (widget_class, CcAboutPage, nodalix_version_row);\n    gtk_widget_class_bind_template_child (widget_class, CcAboutPage, os_name_row);')
+t=t.replace('    gtk_widget_init_template (GTK_WIDGET (self));','    gtk_widget_init_template (GTK_WIDGET (self));\n    cc_nodalix_release_watch (self->nodalix_version_row, "/etc/nodalix-release");')
 p.write_text(t)
 p=root/'panels/system/meson.build';p.write_text(p.read_text().replace("  'cc-nodalix-pages.c',", "  'cc-nodalix-pages.c',\n  'cc-nodalix-diagnostics.c',"))
 p=root/'panels/system/cc-system-panel.c';t=p.read_text().replace('    g_type_ensure (CC_TYPE_NODALIX_UPDATES_PAGE);','    g_type_ensure (CC_TYPE_NODALIX_UPDATES_PAGE);\n    g_type_ensure (CC_TYPE_NODALIX_DIAGNOSTICS_PAGE);')

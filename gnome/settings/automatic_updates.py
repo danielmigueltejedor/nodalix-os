@@ -42,7 +42,7 @@ def write_state(path,state):
 
 
 def unit_states(names,runner=subprocess.run):
-    result=runner([SYSTEMCTL,'show','--no-pager','--property=Id,LoadState,UnitFileState,ActiveState',*names],
+    result=runner([SYSTEMCTL,'show','--no-pager','--property=Id,LoadState,UnitFileState,ActiveState,SubState,Result,ExecMainStatus,ExecMainExitTimestamp',*names],
                   capture_output=True,text=True,timeout=15,check=True)
     rows={}
     for block in result.stdout.strip().split('\n\n'):
@@ -55,21 +55,28 @@ def snapshot(uid=None,path=STATE,runner=subprocess.run):
     uid=os.getuid() if uid is None else uid
     config=read_state(path)
     names=[name for kind in KINDS for name in units(kind,uid)]
-    states=unit_states(names,runner)
+    states=unit_states(names+[name.removesuffix('.timer')+'.service' for name in names],runner)
     result={}
     for kind in KINDS:
         record=config.get(kind,{})
         owner=record.get('owner_uid')
         if kind=='flatpak' and type(owner) is int and owner>0 and owner!=uid:
             names=units(kind,owner)
-            states.update(unit_states(names,runner))
+            states.update(unit_states(names+[name.removesuffix('.timer')+'.service' for name in names],runner))
         else:names=units(kind,uid)
         rows=[states.get(name,{}) for name in names]
         enabled=all(row.get('UnitFileState') in ('enabled','enabled-runtime') for row in rows)
+        jobs=[states.get(name.removesuffix('.timer')+'.service',{}) for name in names]
+        attempted=[job for job in jobs if job.get('ExecMainExitTimestamp')]
+        failed=next((job for job in attempted if job.get('Result') not in ('','success',None)),None)
+        last=failed or next(iter(attempted),{})
         result[kind]={'enabled':enabled,'active':all(row.get('ActiveState')=='active' for row in rows),
             'available':all(row.get('LoadState')=='loaded' for row in rows),
             'partial':any(row.get('UnitFileState') in ('enabled','enabled-runtime') for row in rows) and not enabled,
-            'owned':owner in (None,uid),'frequency':'weekly' if kind=='firmware' else 'daily'}
+            'owned':owner in (None,uid),'frequency':'weekly' if kind=='firmware' else 'daily',
+            'last_result':last.get('Result',''),'last_attempt':last.get('ExecMainExitTimestamp',''),
+            'retrying':any(job.get('SubState')=='auto-restart' for job in jobs),
+            'last_deferred':last.get('ExecMainStatus')=='75'}
     legacy=runner([SYSTEMCTL,'--user','is-enabled','nodalix-update-apps.timer'],capture_output=True,text=True,timeout=10)
     result['flatpak']['system_enabled']=result['flatpak']['enabled'] or result['flatpak']['partial']
     if legacy.returncode==0 and legacy.stdout.strip() in ('enabled','enabled-runtime'):

@@ -1,12 +1,12 @@
 {
-  "unit_integration_tests": 270,
+  "unit_integration_tests": 275,
   "result": "passed",
   "date": "2026-11-03",
   "native_shell": "GNOME Shell 51.1",
   "session": "private Wayland, two virtual 1280x720 monitors",
   "full_os_upgrade_vm": "not yet run for 0.4.0",
   "iso": "959558e ISO built and locally boot-verified; fresh full validation still required for this head",
-  "automatic_schedule": "mocked systemd/polkit; no host timers activated",
+  "automatic_schedule": "Mocked failure/retry cases plus authorized live system job: success, 6 package upgrades, zero pending after check",
   "shortcut_applications": [
     "GTK4",
     "Qt6",
@@ -45,5 +45,11 @@
   "preserve_personal_folder_memberships": true,
   "future_suite_icons": true,
   "texturecraft_and_craft_anything_native_icon_decode": true,
-  "obsolete_organizer_prototype_migrated": true
+  "obsolete_organizer_prototype_migrated": true,
+  "native_about_release_version": true,
+  "release_version_updates_atomically": true,
+  "gnome_contact_picker": true,
+  "gnome_contacts_read_only": true,
+  "contact_calls_tested_with_fake_backend_only": true,
+  "updater_status_labels_localized": true
 }

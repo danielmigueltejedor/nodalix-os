@@ -1,0 +1,6 @@
+{
+  "initial_version": true,
+  "atomic_update_observed": true,
+  "invalid_identity_handled": true,
+  "native_gtk_row": true
+}

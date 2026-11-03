@@ -7,10 +7,26 @@ import unittest
 PHONE_SRC = Path(__file__).resolve().parents[1] / "phone-link" / "src"
 sys.path.insert(0, str(PHONE_SRC))
 
-from iphonebridge.eds_contacts import split_vcards, stable_uid
+from iphonebridge.eds_contacts import split_vcards, stable_uid, dial_number, contact_numbers, search_text
 
 
 class PhoneContactSyncTests(unittest.TestCase):
+    def test_dial_numbers_preserve_saved_country_prefix(self):
+        self.assertEqual(dial_number('+34 600 000 000'),'+34600000000')
+        self.assertEqual(dial_number('910 000 000'),'910000000')
+        self.assertEqual(dial_number('tel:+34-600-000-000'),'+34600000000')
+        self.assertIsNone(dial_number('contacto sin teléfono'))
+        self.assertIsNone(dial_number('910000000;ext=123'))
+
+    def test_real_gnome_vcards_expose_each_saved_number(self):
+        import gi
+        gi.require_version('EBookContacts','1.2')
+        from gi.repository import EBookContacts
+        card=EBookContacts.Contact.new_from_vcard('BEGIN:VCARD\nVERSION:3.0\nFN:José QA\nTEL;TYPE=CELL:+34 600 000 000\nTEL;TYPE=HOME:910000000\nEND:VCARD\n')
+        numbers=contact_numbers(card)
+        self.assertEqual([(item.number,item.label) for item in numbers],[('+34600000000','Móvil'),('910000000','Casa')])
+        self.assertEqual(search_text(numbers[0].name),'jose qa')
+
     def test_split_vcards_preserves_complete_cards(self) -> None:
         blob = (
             "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Alice\r\n"

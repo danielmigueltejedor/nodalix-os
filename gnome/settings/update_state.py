@@ -6,6 +6,26 @@ import re
 import tempfile
 
 
+def nodalix_status_label(data):
+    """Translate the updater's stable API codes into text for Settings."""
+    status=data.get('status','')
+    if data.get('update_available') or status=='update_available':
+        version=data.get('latest_version') or data.get('version')
+        return 'Nueva versión: '+str(version) if version else 'Hay una actualización de Nodalix disponible'
+    labels={
+        'up_to_date':'Nodalix está actualizado',
+        'no_release':'Todavía no hay versiones publicadas',
+        'no_compatible_release':'No hay una versión nueva compatible con el canal seleccionado',
+        'manifest_missing':'La publicación no contiene la información necesaria para actualizar',
+        'invalid_manifest':'La información de la actualización no es válida',
+        'network_error':'No se pudo comprobar Nodalix. Revisa la conexión a Internet',
+        'reboot_required':'Reinicia para completar la actualización',
+    }
+    if status in labels:return labels[status]
+    message=data.get('message') or data.get('error')
+    return message if isinstance(message,str) and not re.fullmatch(r'[a-z_]+',message) else 'Comprobación de Nodalix completada'
+
+
 def identity_label(release=Path('/etc/nodalix-release'), config=Path('/etc/nodalix/updater.json')):
     try:
         match = re.search(r'^VERSION_ID="?([^"\n]+)', release.read_text(), re.M)

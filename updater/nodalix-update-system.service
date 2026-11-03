@@ -2,14 +2,13 @@
 Description=Automatic Nodalix system update
 After=network-online.target
 Wants=network-online.target
-StartLimitIntervalSec=15min
-StartLimitBurst=5
+StartLimitIntervalSec=0
 
 [Service]
 Type=oneshot
 ExecStart=/usr/lib/nodalix-updater/update-transaction system --automatic
 RestartForceExitStatus=75
-RestartSec=2min
+RestartSec=5min
 
 # Pacman must be able to modify the system, package database and boot assets.
 # Keep those paths available while preventing accidental writes into user homes

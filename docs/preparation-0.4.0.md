@@ -187,3 +187,23 @@ their supplied hicolor assets, retaining launch commands, actions and personal
 icon choices. The local SolidCraft launcher was also corrected to its installed
 AppImage version; this local launcher repair does not claim to implement a
 general AppImage update manager.
+
+## Updates, release identity and GNOME contacts
+
+Settings translates updater status codes into readable Spanish text. The About
+page displays the Nodalix release version separately from the Arch base and
+watches the release file for atomic replacement without polling.
+
+Automatic system transactions defer with status 75 when pacman is busy; systemd
+retries these transient conditions after five minutes without a daily retry gap.
+Settings reports the last failed or deferred job even when its timer is enabled.
+The authorized local system job completed six package upgrades without further
+authentication; the subsequent repository check found no pending system updates.
+No automatic reboot was performed.
+
+Phone Link offers a searchable native GNOME Contacts picker with each saved
+phone number. Reading Evolution Data Server is asynchronous and cancellable;
+selecting a number preserves its stored country prefix. Names are read from
+vCard attributes because the untyped contact getter exposes pointers in current
+GI. Native widget tests use synthetic contacts and a fake dial backend; no real
+call was placed. The desktop integration reads existing address books only.

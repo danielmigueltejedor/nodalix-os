@@ -58,7 +58,8 @@ class AutomaticUpdatesTests(unittest.TestCase):
         self.systemd.calls=[]
         auto.configure('system',False,1000,self.path,self.systemd)
         self.assertFalse(auto.snapshot(1000,self.path,self.systemd)['system']['enabled'])
-        self.assertFalse(any(any(arg.endswith('.service') for arg in call) for call in self.systemd.calls))
+        self.assertFalse(any(any(arg.endswith('.service') for arg in call)
+            for call in self.systemd.calls if call[1] in ('start','stop','enable','disable','restart')))
 
     def test_other_user_cannot_disable_a_grant(self):
         auto.configure('system',True,1000,self.path,self.systemd)
@@ -116,6 +117,33 @@ class AutomaticUpdatesTests(unittest.TestCase):
         self.assertEqual(json.loads(marker.read_text()),{'packages':['linux']})
         with mock.patch.object(transaction.subprocess,'run',side_effect=OSError('unavailable')):
             self.assertIsNone(transaction.critical_versions())
+
+    def test_busy_package_manager_defers_only_automatic_transaction(self):
+        loader=SourceFileLoader('deferred_transaction',str(ROOT/'updater/nodalix-update-transaction'))
+        spec=importlib.util.spec_from_loader(loader.name,loader)
+        transaction=importlib.util.module_from_spec(spec);loader.exec_module(transaction)
+        for automatic,expected in ((True,75),(False,1)):
+            args=['update-transaction','system']+(['--automatic'] if automatic else [])
+            with mock.patch.object(transaction.sys,'argv',args),mock.patch.object(transaction.os,'geteuid',return_value=0), \
+                 mock.patch('builtins.open',mock.mock_open()),mock.patch.object(transaction.fcntl,'flock'), \
+                 mock.patch.object(transaction.Path,'exists',return_value=False), \
+                 mock.patch.object(transaction,'preflight',side_effect=transaction.PackageManagerBusy('busy')), \
+                 mock.patch.object(transaction.subprocess,'run',return_value=subprocess.CompletedProcess([],0)) as run:
+                self.assertEqual(transaction.main(),expected)
+                self.assertFalse(any('pacman' in str(call) or 'pre-update' in str(call) for call in run.call_args_list))
+
+    def test_last_automatic_failure_is_visible_even_when_timer_is_active(self):
+        auto.configure('system',True,1000,self.path,self.systemd)
+        def systemd(args,**kwargs):
+            result=self.systemd(args,**kwargs)
+            if args[1]=='show' and 'nodalix-update-system.service' in args:
+                result.stdout=result.stdout.replace('Id=nodalix-update-system.service\n',
+                    'Id=nodalix-update-system.service\nResult=exit-code\nExecMainStatus=75\nExecMainExitTimestamp=Tue 2026-11-03 00:05:51 CET\nSubState=auto-restart\n')
+            return result
+        state=auto.snapshot(1000,self.path,systemd)['system']
+        self.assertTrue(state['enabled']);self.assertTrue(state['active'])
+        self.assertTrue(state['retrying']);self.assertTrue(state['last_deferred'])
+        self.assertEqual(state['last_result'],'exit-code')
 
     def test_cancelled_authorization_returns_real_switch_state(self):
         service=settings.SettingsService();invocation=mock.Mock()
