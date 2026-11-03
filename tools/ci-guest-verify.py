@@ -152,17 +152,15 @@ state=json.loads(bus.call_sync('com.nodalix.Settings','/com/nodalix/Settings','c
 assert state['available'] and state['requested'] and state['path']==str(video),state
 wait_renderer()
 print('Animated wallpaper renderer active')
-# The serial systemd verifier is not launched from the graphical session.
-# Make the real Wayland session available to portal backends in this disposable
-# guest before testing screenshots; do not bypass the screenshot assertion.
-os.environ.setdefault('WAYLAND_DISPLAY','wayland-0')
-os.environ.setdefault('XDG_SESSION_TYPE','wayland')
-subprocess.run(['dbus-update-activation-environment','--systemd',
-                'XDG_CURRENT_DESKTOP','XDG_SESSION_TYPE','WAYLAND_DISPLAY'],
-               check=True,timeout=20)
-# Request a fresh backend after the real GNOME login finished. Otherwise the
-# portal may have started before WAYLAND_DISPLAY was exported, exposing no
-# Screenshot interface and returning UnknownMethod in a healthy GNOME session.
+# The serial verifier can inherit XDG_SESSION_TYPE=tty from PAM. The graphical
+# session has already populated the user manager; preserve its real environment.
+manager_environment=subprocess.check_output(['systemctl','--user','show-environment'],
+                                            text=True,timeout=20)
+session=dict(line.split('=',1) for line in manager_environment.splitlines() if '=' in line)
+display=session.get('WAYLAND_DISPLAY','')
+assert session.get('XDG_SESSION_TYPE')=='wayland' and display, 'GNOME did not export its Wayland session'
+assert (Path(os.environ['XDG_RUNTIME_DIR'])/display).is_socket(), 'GNOME Wayland socket is missing'
+# Restart any backend first activated before GNOME exported this environment.
 subprocess.run(['systemctl','--user','restart','xdg-desktop-portal-gnome.service'],
                check=True,timeout=30)
 subprocess.run(['systemctl','--user','restart','xdg-desktop-portal.service'],

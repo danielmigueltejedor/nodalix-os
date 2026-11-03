@@ -5,7 +5,7 @@
   "native_shell": "GNOME Shell 51.1",
   "session": "private Wayland, two virtual 1280x720 monitors",
   "full_os_upgrade_vm": "not yet run for 0.4.0",
-  "iso": "959558e ISO built and locally boot-verified; fresh full validation still required for this head",
+  "iso": "Built locally from the final 0.4.0 candidate packages and boot-verified with GDM, GNOME, native Settings search, the Applications folder and a real portal PNG",
   "automatic_schedule": "Mocked failure/retry cases plus authorized live system job: success, 6 package upgrades, zero pending after check",
   "shortcut_applications": [
     "GTK4",
@@ -68,5 +68,6 @@
   "applications_folder_recreated_in_existing_profile": true,
   "terminal_logo_pty": "Exact artwork with live system card alongside or below, plain and colored layouts, small viewports, local TTY guards, and safe retirement of the legacy Arch greeting and prompt",
   "terminal_logo_native_ghostty": "Gradient and live system card verified with full, compact and stacked artwork in a private GNOME Wayland session on the test PC",
-  "adwaita_window_control_icons": "GTK 4 resolved all four default control symbols to upstream Adwaita on a package-only theme search path"
+  "adwaita_window_control_icons": "GTK 4 resolved all four default control symbols to upstream Adwaita on a package-only theme search path",
+  "vm_portal_activation": "Preserved GNOME user-manager Wayland environment in the serial verifier. Reproduced failure by importing tty; verified successful real screenshot with the corrected verifier."
 }
