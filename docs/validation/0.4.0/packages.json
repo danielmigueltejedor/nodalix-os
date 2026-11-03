@@ -26,9 +26,9 @@
     },
     {
       "name": "nodalix-gnome",
-      "version": "0.4.0-12",
-      "file": "nodalix-gnome-0.4.0-12-any.pkg.tar.zst",
-      "sha256": "278ca1865a8c546a12fcd5b74f75011c368d034579d30f094b4b013264eac5c2"
+      "version": "0.4.0-13",
+      "file": "nodalix-gnome-0.4.0-13-any.pkg.tar.zst",
+      "sha256": "75fbeec490c53cd7b678486e1b76d80d278a80962680c5a8c1b12f14410bd89a"
     },
     {
       "name": "nodalix-phone-link",

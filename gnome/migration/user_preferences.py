@@ -108,6 +108,23 @@ def retire_chatgpt(path, backup):
     return False
 
 
+def configure_terminal_welcome(home, shell):
+    """Add the managed hook once and preserve personal startup files."""
+    startup = {'bash': '.bashrc', 'zsh': '.zshrc'}.get(Path(shell).name)
+    if startup is None:
+        return
+    path = home/startup
+    hook = b'. /usr/lib/nodalix/nodalix-welcome.sh'
+    if path.is_symlink() or (path.exists() and not path.is_file()):
+        return
+    if path.is_file() and hook in path.read_bytes():
+        return
+    content = b'\n# Nodalix terminal welcome\n[ ! -r /usr/lib/nodalix/nodalix-welcome.sh ] || ' + hook + b'\n'
+    fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, 'ab') as output:
+        output.write(content)
+
+
 def apply_preferences():
     reserve_default_shortcuts()
     prefs = Gio.Settings.new('org.gnome.desktop.input-sources')

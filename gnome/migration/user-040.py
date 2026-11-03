@@ -2,6 +2,7 @@
 """Retire exact packaged extension prototypes without changing user preferences."""
 import json
 import os
+import pwd
 from pathlib import Path
 import runpy
 import subprocess
@@ -99,6 +100,11 @@ def main():
         subprocess.run(['systemctl','--user','enable','--now','nodalix-app-organizer.path'],check=True,timeout=15)
         subprocess.run(['systemctl','--user','start','nodalix-app-organizer.service'],check=True,timeout=30)
         folders_marker.write_text('0.4.0\n')
+    welcome_marker=root/'gnome-0.4.0-terminal-welcome.done'
+    if not welcome_marker.exists():
+        runpy.run_path(str(preferences))['configure_terminal_welcome'](
+            home,pwd.getpwuid(os.getuid()).pw_shell)
+        welcome_marker.write_text('0.4.0\n')
     if marker.exists():return
     prototypes=Path('/usr/share/nodalix/gnome-extension-prototypes-040.json')
     if prototypes.is_file():

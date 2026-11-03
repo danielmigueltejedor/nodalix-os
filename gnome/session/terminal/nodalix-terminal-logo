@@ -1,0 +1,56 @@
+#!/bin/sh
+# Draw the original artwork or size it to the initial terminal viewport.
+art=/usr/share/nodalix/terminal-logo.txt
+compact=/usr/share/nodalix/terminal-logo-compact.txt
+if [ "$#" -eq 0 ]; then
+    exec cat "$art"
+fi
+if [ "$#" -ne 1 ] || [ "$1" != --welcome ]; then
+    printf '%s\n' 'Usage: nodalix-terminal-logo [--welcome]' >&2
+    exit 2
+fi
+if [ "${NODALIX_TERMINAL_LOGO:-1}" = 0 ] || [ "${TERM_PROGRAM:-}" != ghostty ] ||
+   [ -n "${SSH_CONNECTION:-}" ] || [ ! -t 0 ] || [ ! -t 1 ]; then
+    exit 0
+fi
+
+size=$(stty size 2>/dev/null) || exit 0
+set -- $size
+[ "$#" -eq 2 ] && [ "$1" -gt 2 ] && [ "$2" -gt 1 ] || exit 0
+exec awk -v rows="$(( $1 - 2 ))" -v columns="$(( $2 - 1 ))" '
+{
+    edition = FILENAME == ARGV[1] ? 1 : 2
+    artwork[edition, FNR] = $0
+    artwork_rows[edition] = FNR
+    if (length > artwork_columns[edition])
+        artwork_columns[edition] = length
+}
+END {
+    edition = artwork_rows[1] <= rows && artwork_columns[1] <= columns ? 1 : 2
+    original_height = artwork_rows[edition]
+    original_width = artwork_columns[edition]
+    if (original_height <= rows && original_width <= columns) {
+        for (row = 1; row <= original_height; row++)
+            print artwork[edition, row]
+        exit
+    }
+    scale = rows / original_height
+    if (columns / original_width < scale)
+        scale = columns / original_width
+    height = int(original_height * scale)
+    width = int(original_width * scale)
+    if (height < 5 || width < 10) {
+        print substr("Nodalix OS", 1, columns)
+        exit
+    }
+    for (row = 0; row < height; row++) {
+        source = artwork[edition, int((row + 0.5) * original_height / height) + 1]
+        line = ""
+        for (column = 0; column < width; column++) {
+            character = substr(source, int((column + 0.5) * original_width / width) + 1, 1)
+            line = line (character == "" ? " " : character)
+        }
+        sub(/ +$/, "", line)
+        print line
+    }
+}' "$art" "$compact"

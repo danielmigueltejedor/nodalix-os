@@ -1,5 +1,5 @@
 {
-  "unit_integration_tests": 293,
+  "unit_integration_tests": 296,
   "result": "passed",
   "date": "2026-11-03",
   "native_shell": "GNOME Shell 51.1",
@@ -65,5 +65,7 @@
   "gnome_contact_vcard_api_uses_base_class": true,
   "native_settings_search_queries": 6,
   "applications_folder_created_in_fresh_profile": true,
-  "applications_folder_recreated_in_existing_profile": true
+  "applications_folder_recreated_in_existing_profile": true,
+  "terminal_logo_pty": "Exact full and compact artwork, very small viewport and noninteractive and SSH guards",
+  "terminal_logo_native_ghostty": "Full, compact and reduced artwork verified on a private GNOME Wayland session on the test PC"
 }

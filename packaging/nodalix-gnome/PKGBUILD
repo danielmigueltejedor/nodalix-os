@@ -1,6 +1,6 @@
 pkgname=nodalix-gnome
 pkgver=0.4.0
-pkgrel=12
+pkgrel=13
 pkgdesc="GNOME Shell, GDM and native desktop integration for Nodalix"
 arch=("any")
 install=nodalix-gnome.install
@@ -15,6 +15,12 @@ source=("nodalix-gnome-$pkgver.tar.zst")
 sha256sums=("SKIP")
 
 package() {
+    install -Dm644 "$srcdir/gnome/session/terminal/nodalix-logo.txt" "$pkgdir/usr/share/nodalix/terminal-logo.txt"
+    install -Dm644 "$srcdir/gnome/session/terminal/nodalix-logo-compact.txt" "$pkgdir/usr/share/nodalix/terminal-logo-compact.txt"
+    install -Dm755 "$srcdir/gnome/session/terminal/nodalix-terminal-logo" "$pkgdir/usr/bin/nodalix-terminal-logo"
+    install -Dm644 "$srcdir/gnome/session/terminal/nodalix-welcome.fish" "$pkgdir/usr/share/fish/vendor_conf.d/nodalix-welcome.fish"
+    install -Dm644 "$srcdir/gnome/session/terminal/nodalix-welcome.sh" "$pkgdir/usr/lib/nodalix/nodalix-welcome.sh"
+
     install -Dm755 "$srcdir/gnome/session/nodalix-gnome-session" "$pkgdir/usr/lib/nodalix/nodalix-gnome-session"
     install -Dm755 "$srcdir/gnome/migration/user-030.sh" "$pkgdir/usr/lib/nodalix/migration/user-030.sh"
     install -Dm755 "$srcdir/gnome/migration/user-031.py" "$pkgdir/usr/lib/nodalix/migration/user-031.py"
