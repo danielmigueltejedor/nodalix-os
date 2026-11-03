@@ -19,21 +19,31 @@ class LibraryFolderIconTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             source = root/'folder.svg'
-            source.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"/>')
-            target = root/'storage/folder-applications.svg'
-            with patch.object(library, 'STORAGE', target.parent), patch.object(
+            source.write_text(
+                '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">'
+                '<rect width="64" height="64" fill="#a4caee"/>'
+                '<rect width="32" height="24" fill="#438de6"/>'
+                '</svg>'
+            )
+            storage = root/'storage'
+            with patch.object(library, 'STORAGE', storage), patch.object(
                 library, 'resolve_icon', return_value=source.as_uri()
             ) as resolve:
-                self.assertEqual(library.folder_icon_uri(), target.as_uri())
+                uri = library.folder_icon_uri()
+                target = Path(library.Gio.File.new_for_uri(uri).get_path())
+                self.assertEqual(target.parent, storage)
                 self.assertEqual(resolve.call_args.args[0].get_names()[0], 'folder')
                 svg = ElementTree.parse(target)
                 image = svg.find('{*}image')
                 href = image.attrib['{http://www.w3.org/1999/xlink}href']
                 self.assertEqual(base64.b64decode(href.split(',', 1)[1]), source.read_bytes())
                 self.assertEqual(len(svg.findall('.//{*}rect')), 4)
+                self.assertEqual(svg.find('{*}g').get('fill'), '#438de6')
                 with patch.object(library.GLib, 'file_set_contents') as write:
-                    library.folder_icon_uri()
+                    self.assertEqual(library.folder_icon_uri(), uri)
                     write.assert_not_called()
+                source.write_text(source.read_text().replace('#438de6', '#3e928a'))
+                self.assertNotEqual(library.folder_icon_uri(), uri)
 
 
 class LibraryTrashTests(unittest.TestCase):

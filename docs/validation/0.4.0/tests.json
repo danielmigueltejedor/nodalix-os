@@ -55,7 +55,7 @@
   "updater_status_labels_localized": true,
   "native_restart_page": true,
   "applications_native_trash_uninstall": true,
-  "application_folder_theme_icon": "Rendered the active folder artwork with a four-app grid through GdkPixbuf for Adwaita and Colloid-Teal",
+  "application_folder_theme_icon": "Rendered the active folder artwork and matching four-app grid in Adwaita and Colloid-Teal. The Adwaita accent was verified next to the other core folders in Nautilus on the test PC.",
   "craft_flatpak_launch_confirmed_on_pc": true,
   "flatpak_both_automatic_jobs": "success",
   "storage_native_widgets": true,
@@ -70,5 +70,5 @@
   "terminal_logo_pty": "Exact artwork with live system card alongside or below, plain and colored layouts, small viewports, local TTY guards, and safe retirement of the legacy Arch greeting and prompt",
   "terminal_logo_native_ghostty": "Gradient and live system card verified with full, compact and stacked artwork in a private GNOME Wayland session on the test PC",
   "adwaita_window_control_icons": "GTK 4 resolved all four default control symbols to upstream Adwaita on a package-only theme search path",
-  "vm_portal_activation": "Reproduced verifier contamination from a tty. Preserved the graphical user-manager environment and confirmed a real screenshot with the portals activated normally by D-Bus."
+  "vm_portal_activation": "Preserved the graphical user-manager environment. With the GNOME backend deliberately delayed by 35 seconds in the disposable ISO session, the ordered startup provided the real Screenshot portal and returned a PNG."
 }

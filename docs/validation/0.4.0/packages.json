@@ -14,9 +14,9 @@
     },
     {
       "name": "nodalix-apps",
-      "version": "0.4.0-5",
-      "file": "nodalix-apps-0.4.0-5-any.pkg.tar.zst",
-      "sha256": "e35dd0ccde6c6c736c71210be36fb3c8a3dc97d8565d559eedb0bf2917e59268"
+      "version": "0.4.0-6",
+      "file": "nodalix-apps-0.4.0-6-any.pkg.tar.zst",
+      "sha256": "9e70a7e735ddad30462c3e1549e5a8a2ff52b088c5cf5485f09bc0cd097d71c8"
     },
     {
       "name": "nodalix-control-center",
@@ -26,9 +26,9 @@
     },
     {
       "name": "nodalix-gnome",
-      "version": "0.4.0-19",
-      "file": "nodalix-gnome-0.4.0-19-any.pkg.tar.zst",
-      "sha256": "be7464d75d2bbdfe54c283959f118e083210d63b8b1905b82e2d79fde801c641"
+      "version": "0.4.0-20",
+      "file": "nodalix-gnome-0.4.0-20-any.pkg.tar.zst",
+      "sha256": "a05538eb699f8f4a53d3de5c1043b9b96e5f4d755ca34fe3f903f7972382b9d4"
     },
     {
       "name": "nodalix-phone-link",

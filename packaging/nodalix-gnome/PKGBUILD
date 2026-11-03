@@ -1,6 +1,6 @@
 pkgname=nodalix-gnome
 pkgver=0.4.0
-pkgrel=19
+pkgrel=20
 pkgdesc="GNOME Shell, GDM and native desktop integration for Nodalix"
 arch=("any")
 install=nodalix-gnome.install
@@ -39,6 +39,8 @@ package() {
     install -Dm755 "$srcdir/gnome/session/nodalix-shell-symbols" "$pkgdir/usr/bin/nodalix-shell-symbols"
     install -Dm644 "$srcdir/gnome/session/nodalix.desktop" "$pkgdir/usr/share/wayland-sessions/nodalix.desktop"
     install -Dm644 "$srcdir/gnome/session/gnome-portals.conf" "$pkgdir/etc/xdg/xdg-desktop-portal/gnome-portals.conf"
+    install -Dm644 "$srcdir/gnome/session/gnome-session-portals.conf" "$pkgdir/usr/lib/systemd/user/gnome-session.target.d/90-nodalix-portals.conf"
+    install -Dm644 "$srcdir/gnome/session/xdg-desktop-portal-order.conf" "$pkgdir/usr/lib/systemd/user/xdg-desktop-portal.service.d/90-nodalix-gnome-order.conf"
     install -Dm644 "$srcdir/gnome/session/90-nodalix.gschema.override" "$pkgdir/usr/share/glib-2.0/schemas/90-nodalix.gschema.override"
     install -Dm644 "$srcdir/gnome/session/index.theme" "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/index.theme"
     install -d "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/symbolic"

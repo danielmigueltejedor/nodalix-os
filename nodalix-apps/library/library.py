@@ -21,8 +21,9 @@ import tomllib
 import urllib.parse
 
 import gi
+gi.require_version('GdkPixbuf', '2.0')
 gi.require_version('Gtk', '4.0')
-from gi.repository import Gio, GLib
+from gi.repository import GdkPixbuf, Gio, GLib
 
 HOME = Path.home()
 DATA = Path(os.environ.get('XDG_DATA_HOME', HOME/'.local/share'))
@@ -200,11 +201,12 @@ def folder_icon_uri():
             artwork = icon.read(1024 * 1024 + 1)
         if not artwork or len(artwork) > 1024 * 1024:
             return uri
+        style = folder_emblem_style(artwork)
         encoded = base64.b64encode(artwork).decode('ascii')
         svg = f'''<svg xmlns="http://www.w3.org/2000/svg"
      xmlns:xlink="http://www.w3.org/1999/xlink" width="128" height="128" viewBox="0 0 128 128">
   <image width="128" height="128" xlink:href="data:{mime};base64,{encoded}"/>
-  <g fill="#000" opacity=".42">
+  <g {style}>
     <rect x="49" y="61" width="13" height="13" rx="3"/>
     <rect x="66" y="61" width="13" height="13" rx="3"/>
     <rect x="49" y="78" width="13" height="13" rx="3"/>
@@ -212,13 +214,34 @@ def folder_icon_uri():
   </g>
 </svg>
 '''.encode('ascii')
-        target = STORAGE/'folder-applications.svg'
-        if not target.is_file() or target.read_bytes() != svg:
+        # Give each rendition its own URI so file managers can invalidate
+        # a cached pixbuf when the theme changes.
+        target = STORAGE/f'folder-applications-{hashlib.sha256(svg).hexdigest()[:12]}.svg'
+        if not target.is_file():
             STORAGE.mkdir(parents=True, exist_ok=True)
             GLib.file_set_contents(str(target), svg)
         return target.as_uri()
     except (OSError, GLib.Error):
         return uri
+
+
+def folder_emblem_style(artwork):
+    stream = Gio.MemoryInputStream.new_from_bytes(GLib.Bytes.new(artwork))
+    pixbuf = GdkPixbuf.Pixbuf.new_from_stream_at_scale(stream, 128, 128, True, None)
+    pixels = pixbuf.get_pixels()
+    channels = pixbuf.get_n_channels()
+
+    def color_at(x, y):
+        offset = int(y * pixbuf.get_height()) * pixbuf.get_rowstride()
+        offset += int(x * pixbuf.get_width()) * channels
+        return pixels[offset:offset + channels]
+
+    # Native folders use the darker tab as an accent against the front face.
+    tab = color_at(0.1875, 0.21875)
+    face = color_at(0.5, 0.59375)
+    if (channels == 4 and tab[3] < 240) or max(abs(a - b) for a, b in zip(tab[:3], face[:3])) < 24:
+        return 'fill="#000" opacity=".42"'
+    return 'fill="#{:02x}{:02x}{:02x}"'.format(*tab[:3])
 
 
 def set_icon(path, uri):
@@ -594,6 +617,11 @@ class Library:
                 self.monitors.append(monitor)
         self.app_monitor = Gio.AppInfoMonitor.get()
         self.app_monitor.connect('changed', self.schedule)
+        settings = Gio.SettingsSchemaSource.get_default()
+        interface = settings.lookup('org.gnome.desktop.interface', True) if settings else None
+        if interface:
+            self.icon_settings = Gio.Settings.new_full(interface, None, None)
+            self.icon_settings.connect('changed::icon-theme', self.schedule)
         self.schedule()
         GLib.MainLoop().run()
 
