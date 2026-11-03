@@ -126,7 +126,7 @@ class PhoneResilience(unittest.TestCase):
                     bluez = Mock()
                     if stage == 'proxy': bluez.side_effect = BusError(name)
                     else: bluez.return_value.RegisterAdvertisement.side_effect = BusError(name)
-                    mod = load('bluez_setup.py', ['register_advert'], _advert_instance=object(), _AncsAdvert=SimpleNamespace(PATH='/advert'), bluez=bluez, config=SimpleNamespace(ADAPTER='hci0'))
+                    mod = load('bluez_setup.py', ['register_advert'], _advert_instance=object(), _advert_owner_watch=object(), _advert_state={'registered':False,'pending':False,'generation':0}, _AncsAdvert=SimpleNamespace(PATH='/advert'), bluez=bluez, config=SimpleNamespace(ADAPTER='hci0'))
                     mod.register_advert.__globals__['dbus'].Dictionary = lambda *a, **k: {}
                     self.assertFalse(mod.register_advert())
 
@@ -170,5 +170,32 @@ class PhoneResilience(unittest.TestCase):
         bluez.return_value.Get.return_value = 'last-seen'
         daemon._ensure_preferred_bearer()
         bluez.return_value.Set.assert_not_called()
+
+    def test_advertisement_registration_does_not_block_bluez_getall_callback(self):
+        state={'registered':False,'pending':False,'generation':0}
+        bluez=Mock();bus=Mock()
+        mod=load('bluez_setup.py',['register_advert','_reset_advert_registration'],
+                 _advert_instance=object(),_advert_owner_watch=None,_advert_state=state,
+                 _AncsAdvert=SimpleNamespace(PATH='/advert'),bluez=bluez,system_bus=bus,
+                 config=SimpleNamespace(ADAPTER='hci0'))
+        mod.register_advert.__globals__['dbus'].Dictionary=lambda *a,**k:{}
+        self.assertFalse(mod.register_advert())
+        self.assertTrue(state['pending'])
+        self.assertFalse(mod.register_advert())
+        registration=bluez.return_value.RegisterAdvertisement
+        self.assertEqual(registration.call_count,1)
+        registration.call_args.kwargs['reply_handler']()
+        self.assertTrue(mod.register_advert())
+        bus.add_signal_receiver.call_args.args[0]('org.bluez',':1.2',':1.3')
+        self.assertFalse(state['registered'])
+        self.assertFalse(mod.register_advert())
+        self.assertEqual(registration.call_count,2)
+
+    def test_false_bearer_property_keeps_live_inbound_ancs_subscription(self):
+        mod=load('daemon.py',['Daemon'],SessionManager=Mock(),ContactsResolver=Mock(),RECONNECT_TICK_SEC=15)
+        daemon=mod.Daemon();daemon.ancs=Mock();daemon.ancs.active=True
+        daemon._on_le_properties_changed('org.bluez.Bearer.LE1',{'Connected':False},[])
+        daemon.ancs.stop.assert_not_called()
+        self.assertFalse(daemon._ancs_recover_pending)
 
 if __name__ == '__main__': unittest.main()

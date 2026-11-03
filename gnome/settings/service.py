@@ -57,8 +57,7 @@ def update_commands(kind):
     if kind == 'flatpak':
         if not program('flatpak'):
             raise ValueError('Flatpak no está instalado')
-        return [[program('flatpak'), 'update', '--user', '-y', '--noninteractive'],
-                [program('flatpak'), 'update', '--system', '-y', '--noninteractive']]
+        return [['/usr/bin/python', '/usr/lib/nodalix-updater/flatpak_updates.py', 'update']]
     raise ValueError('Tipo de actualización inválido')
 
 
@@ -435,10 +434,11 @@ class SettingsService:
                             row['packages'] = update_state.package_updates(result.stdout)
                             detail = f'{count} paquetes disponibles' + ('' if checker else ' (base de datos local)')
                         elif kind == 'flatpak':
-                            result = subprocess.run([program('flatpak'),'remote-ls','--updates','--columns=application'],capture_output=True,text=True,timeout=60)
-                            if result.returncode:
-                                raise ValueError(result.stderr.strip())
-                            detail = f'{len(result.stdout.splitlines())} aplicaciones disponibles'
+                            result = subprocess.run(['/usr/bin/python', '/usr/lib/nodalix-updater/flatpak_updates.py', 'check'],capture_output=True,text=True,timeout=120)
+                            data = json.loads(result.stdout)
+                            detail = data['detail']
+                            if data.get('partial'):
+                                errors.append(TITLES[kind])
                         elif kind == 'firmware':
                             result = subprocess.run([program('fwupdmgr'),'get-updates','--json'],capture_output=True,text=True,timeout=45)
                             if result.returncode not in (0,2):raise ValueError('No se pudo consultar el firmware')

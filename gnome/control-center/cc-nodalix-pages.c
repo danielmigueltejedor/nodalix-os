@@ -19,6 +19,7 @@ struct _CcNodalixUpdatesPage {
   GtkWidget *buttons[7];
   GtkWidget *restart;
   AdwSwitchRow *automatic[4];
+  GtkWidget *automatic_repair[4];
   GtkLabel *automatic_status;
   gboolean syncing_automatic;
   gboolean refresh_pending;
@@ -59,8 +60,10 @@ static void state_ready(GObject *source, GAsyncResult *result, gpointer data)
           gboolean partial=json_object_get_boolean_member(row,"partial");
           gboolean owned=json_object_get_boolean_member(row,"owned");
           adw_switch_row_set_active(self->automatic[i],enabled || partial);
+          gtk_widget_set_visible(self->automatic_repair[i],partial && owned);
+          gtk_widget_set_sensitive(self->automatic_repair[i],!busy && !automatic_busy);
           gtk_widget_set_sensitive(GTK_WIDGET(self->automatic[i]),!busy && !automatic_busy && json_object_get_boolean_member(row,"available") && (owned || (!enabled && !partial)));
-          adw_action_row_set_subtitle(ADW_ACTION_ROW(self->automatic[i]),!owned && (enabled || partial) ? "Autorizadas por otro usuario" : partial ? "Programación parcial: desactiva y vuelve a activar para repararla" : enabled && !json_object_get_boolean_member(row,"active") ? "Activadas, pero el temporizador no está en ejecución" : i==3 ? "Semanalmente · sin reinicios automáticos" : "Diariamente · sin reinicios automáticos");
+          adw_action_row_set_subtitle(ADW_ACTION_ROW(self->automatic[i]),!owned && (enabled || partial) ? "Autorizadas por otro usuario" : partial ? "Programación incompleta · pulsa Reparar para completarla" : enabled && !json_object_get_boolean_member(row,"active") ? "Activadas, pero el temporizador no está en ejecución" : i==3 ? "Semanalmente · sin reinicios automáticos" : "Diariamente · sin reinicios automáticos");
           if (owned && enabled && !partial && json_object_has_member(row,"last_result")) {
             const char *last=json_object_get_string_member(row,"last_result");
             if (json_object_get_boolean_member(row,"retrying"))
@@ -132,6 +135,14 @@ static void automatic_changed(AdwSwitchRow *row,GParamSpec *pspec,CcNodalixUpdat
   const char *kind=g_object_get_data(G_OBJECT(row),"kind");
   for(guint i=0;i<4;i++)gtk_widget_set_sensitive(GTK_WIDGET(self->automatic[i]),FALSE);
   g_dbus_proxy_call(self->proxy,"SetAutomaticUpdate",g_variant_new("(sb)",kind,adw_switch_row_get_active(row)),
+      G_DBUS_CALL_FLAGS_NONE,190000,self->cancel,automatic_ready,g_object_ref(self));
+}
+static void automatic_repair_clicked(GtkButton *button,CcNodalixUpdatesPage *self)
+{
+  if (!self->proxy) return;
+  const char *kind=g_object_get_data(G_OBJECT(button),"kind");
+  gtk_widget_set_sensitive(GTK_WIDGET(button),FALSE);
+  g_dbus_proxy_call(self->proxy,"SetAutomaticUpdate",g_variant_new("(sb)",kind,TRUE),
       G_DBUS_CALL_FLAGS_NONE,190000,self->cancel,automatic_ready,g_object_ref(self));
 }
 static void operation_ready(GObject *source, GAsyncResult *result, gpointer data)
@@ -213,6 +224,12 @@ static void cc_nodalix_updates_page_init(CcNodalixUpdatesPage *self)
     gtk_widget_set_sensitive(GTK_WIDGET(self->automatic[i]),FALSE);
     g_object_set_data(G_OBJECT(self->automatic[i]),"kind",(gpointer)automatic_kinds[i]);
     g_signal_connect(self->automatic[i],"notify::active",G_CALLBACK(automatic_changed),self);
+    self->automatic_repair[i]=gtk_button_new_with_label("Reparar");
+    gtk_widget_set_valign(self->automatic_repair[i],GTK_ALIGN_CENTER);
+    gtk_widget_set_visible(self->automatic_repair[i],FALSE);
+    g_object_set_data(G_OBJECT(self->automatic_repair[i]),"kind",(gpointer)automatic_kinds[i]);
+    g_signal_connect(self->automatic_repair[i],"clicked",G_CALLBACK(automatic_repair_clicked),self);
+    adw_action_row_add_suffix(ADW_ACTION_ROW(self->automatic[i]),self->automatic_repair[i]);
     adw_preferences_group_add(automatic,GTK_WIDGET(self->automatic[i]));
   }
   self->automatic_status=GTK_LABEL(gtk_label_new(""));

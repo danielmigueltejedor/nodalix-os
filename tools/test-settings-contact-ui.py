@@ -6,13 +6,13 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument('--output',type=Path,default=ROOT/'dist/settings-contact-ui');p.add_argument('--control-center',type=Path);args=p.parse_args();output=args.output.resolve();output.mkdir(parents=True,exist_ok=True)
+    p=argparse.ArgumentParser();p.add_argument('--output',type=Path,default=ROOT/'dist/settings-contact-ui');p.add_argument('--control-center',type=Path);p.add_argument('--fixture',type=Path);args=p.parse_args();output=args.output.resolve();output.mkdir(parents=True,exist_ok=True)
     if os.environ.get('NODALIX_NATIVE_UI_QA')!='1':
         with tempfile.TemporaryDirectory(prefix='nodalix-native-ui-') as directory:
             home=Path(directory);runtime=home/'runtime';runtime.mkdir(mode=0o700)
             env={k:v for k,v in os.environ.items() if k not in ('DBUS_SESSION_BUS_ADDRESS','DISPLAY','WAYLAND_DISPLAY','XDG_SESSION_ID','GDK_BACKEND','GNOME_SETUP_DISPLAY')}
             env.update(NODALIX_NATIVE_UI_QA='1',NODALIX_UI_HOME=directory,HOME=directory,XDG_RUNTIME_DIR=str(runtime),XDG_CONFIG_HOME=str(home/'config'),XDG_DATA_HOME=str(home/'data'),XDG_CACHE_HOME=str(home/'cache'),XDG_STATE_HOME=str(home/'state'),XDG_CURRENT_DESKTOP='GNOME',GTK_A11Y='none')
-            result=subprocess.run(['dbus-run-session','--',sys.executable,__file__,'--output',str(output),*(['--control-center',str(args.control_center.resolve())] if args.control_center else [])],env=env)
+            result=subprocess.run(['dbus-run-session','--',sys.executable,__file__,'--output',str(output),*(['--control-center',str(args.control_center.resolve())] if args.control_center else []),*(['--fixture',str(args.fixture.resolve())] if args.fixture else [])],env=env)
             for name in ('doc','gvfs'):subprocess.run(['fusermount3','-uz',str(runtime/name)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             return result.returncode
     from gi.repository import Gio,GLib
@@ -36,6 +36,9 @@ def main():
         else:raise RuntimeError('Private compositor did not become ready')
         bus.call_sync('org.gnome.Shell','/org/gnome/Shell','org.gnome.Shell','Eval',GLib.Variant('(s)',('Main.overview.hide();true',)),None,Gio.DBusCallFlags.NONE,1000,None)
         env={**os.environ,'GDK_BACKEND':'wayland','WAYLAND_DISPLAY':sockets[0].name,'PYTHONPATH':str(ROOT/'phone-link/src')}
+        if args.fixture:
+            subprocess.run([sys.executable,str(args.fixture.resolve()),str(output)],check=True,env=env)
+            return 0
         cc=subprocess.check_output(['pkg-config','--cflags','--libs','libadwaita-1'],text=True)
         binary=output/'test-nodalix-release'
         subprocess.run(['cc','-o',str(binary),'-I'+str(ROOT/'gnome/control-center'),str(ROOT/'tools/qa/test-nodalix-release.c'),str(ROOT/'gnome/control-center/cc-nodalix-release.c'),*shlex.split(cc)],check=True)

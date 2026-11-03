@@ -1,6 +1,6 @@
 pkgname=nodalix-apps
 pkgver=0.4.0
-pkgrel=1
+pkgrel=4
 pkgdesc="Nodalix official applications manager"
 arch=("any")
 url="https://github.com/danielmigueltejedor/nodalix-os"
@@ -8,6 +8,15 @@ license=("GPL-3.0-or-later")
 
 depends=(
   "python"
+  "python-gobject"
+  "gtk4"
+  "libadwaita"
+  "flatpak"
+  "gvfs"
+  "squashfs-tools"
+  "libnotify"
+  "polkit"
+  "desktop-file-utils"
   "bash"
   "git"
   "curl"
@@ -20,6 +29,19 @@ source=("nodalix-apps-$pkgver.tar.zst")
 sha256sums=("SKIP")
 
 package() {
+  install -Dm644 "$srcdir/nodalix-apps/library/library.py" "$pkgdir/usr/lib/nodalix-apps/library.py"
+  install -Dm644 "$srcdir/nodalix-apps/library/install_ui.py" "$pkgdir/usr/lib/nodalix-apps/install_ui.py"
+  install -Dm755 "$srcdir/nodalix-apps/library/remove-system-app" "$pkgdir/usr/lib/nodalix-apps/remove-system-app"
+  install -Dm755 "$srcdir/nodalix-apps/library/nodalix-app-library" "$pkgdir/usr/bin/nodalix-app-library"
+  install -Dm644 "$srcdir/nodalix-apps/library/nodalix-applications.service" "$pkgdir/usr/lib/systemd/user/nodalix-applications.service"
+  install -d "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants"
+  ln -s ../nodalix-applications.service "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants/nodalix-applications.service"
+  for desktop in com.nodalix.Applications.desktop com.nodalix.AppInstaller.desktop; do
+    install -Dm644 "$srcdir/nodalix-apps/library/$desktop" "$pkgdir/usr/share/applications/$desktop"
+  done
+  install -Dm644 "$srcdir/nodalix-apps/library/nodalix-app.xml" "$pkgdir/usr/share/mime/packages/nodalix-app.xml"
+  install -Dm644 "$srcdir/nodalix-apps/library/com.nodalix.apps.policy" "$pkgdir/usr/share/polkit-1/actions/com.nodalix.apps.policy"
+
   install -d "$pkgdir/usr/share/nodalix-apps/bin"
   install -d "$pkgdir/usr/share/nodalix-apps/apps"
 

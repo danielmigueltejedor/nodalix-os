@@ -97,11 +97,14 @@ dock=Gio.Settings.new_full(source.lookup('org.gnome.shell.extensions.dash-to-doc
 assert not dock.get_boolean('dock-fixed') and dock.get_boolean('autohide') and dock.get_boolean('intellihide')
 source=Gio.SettingsSchemaSource.new_from_directory('/usr/share/gnome-shell/extensions/blur-my-shell@aunetx/schemas',Gio.SettingsSchemaSource.get_default(),False)
 blur=Gio.Settings.new_full(source.lookup('org.gnome.shell.extensions.blur-my-shell',False),None,None)
-assert blur.get_boolean('rounded-blur-found')
+assert blur.get_int('settings-version')>=8
+assert not source.lookup('org.gnome.shell.extensions.blur-my-shell',False).has_key('rounded-blur-found')
+panel=Gio.Settings.new_full(source.lookup('org.gnome.shell.extensions.blur-my-shell.panel',False),None,None)
+assert panel.get_boolean('blur')
 video_preferences=Gio.Settings.new('io.github.jeffshee.hanabi-extension')
 assert video_preferences.get_boolean('enable-va') and not video_preferences.get_boolean('prefer-clappersink')
 assert Path.home().joinpath('.config/xdg-terminals.list').read_text().strip()=='com.mitchellh.ghostty.desktop'
-print('GNOME profile, private schemas, rounded blur, shortcuts and repeated user migration passed')
+print('GNOME profile, official blur schemas, native panel blur, shortcuts and repeated user migration passed')
 deadline=time.monotonic()+90
 while time.monotonic()<deadline:
     try:

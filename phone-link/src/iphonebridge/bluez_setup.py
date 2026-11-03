@@ -126,7 +126,7 @@ class _AncsAdvert(dbus.service.Object):
     @dbus.service.method("org.bluez.LEAdvertisement1",
                          in_signature="", out_signature="")
     def Release(self) -> None:
-        return None
+        _reset_advert_registration()
 
     @dbus.service.method("org.freedesktop.DBus.Properties",
                          in_signature="s", out_signature="a{sv}")
@@ -163,45 +163,63 @@ class _AncsAdvert(dbus.service.Object):
 
 
 _advert_instance: _AncsAdvert | None = None
+_advert_owner_watch = None
+_advert_state = {'registered': False, 'pending': False, 'generation': 0}
+
+
+def _reset_advert_registration(*_args) -> None:
+    _advert_state.update(registered=False, pending=False,
+                         generation=_advert_state['generation']+1)
 
 
 def register_advert() -> bool:
-    """Register the BLE advertisement on the system bus.
+    """Start registration without blocking BlueZ's callback to GetAll."""
+    global _advert_instance, _advert_owner_watch
+    if _advert_state['registered']:
+        return True
+    if _advert_state['pending']:
+        return False
+    generation = _advert_state['generation']
 
-    Idempotent — calling twice is harmless because BlueZ will reject the
-    second registration and we treat that as success.
-    """
-    global _advert_instance
+    def registered(*_args):
+        if generation == _advert_state['generation']:
+            _advert_state.update(registered=True, pending=False)
+            log.info("BLE ANCS solicitation advert registered")
+
+    def failed(error):
+        if generation != _advert_state['generation']:
+            return
+        name = error.get_dbus_name()
+        if name == "org.bluez.Error.AlreadyExists":
+            registered()
+            return
+        _advert_state['pending'] = False
+        log.warning("BLE ANCS solicitation not registered (%s); will retry", name)
+
     try:
         if _advert_instance is None:
             _advert_instance = _AncsAdvert(system_bus, _AncsAdvert.PATH)
-        ad_mgr = bluez(f"/org/bluez/{config.ADAPTER}", "org.bluez.LEAdvertisingManager1")
-        # BlueZ's RegisterAdvertisement frequently NoReply-timeouts even
-        # though it actually registers. Retry after NoReply; only an explicit
-        # AlreadyExists response confirms that our advertisement is present.
-        # python-dbus cannot infer a signature from an empty Python dict when
-        # introspection is temporarily unavailable (common just after an HCI
-        # firmware reset).  Give BlueZ the explicit a{sv} it expects.
-        options = dbus.Dictionary({}, signature="sv")
-        ad_mgr.RegisterAdvertisement(_AncsAdvert.PATH, options, timeout=10.0)
-        log.info("BLE advert registered: %s", _AncsAdvert.PATH)
-        return True
-    except dbus.exceptions.DBusException as e:
-        name = e.get_dbus_name()
-        if name == "org.bluez.Error.AlreadyExists":
-            log.info("BLE advert already registered")
-            return True
-        if name in {"org.bluez.Error.NotPermitted", "org.bluez.Error.Failed",
-                    "org.freedesktop.DBus.Error.NoReply"}:
-            log.warning("BLE advertising temporarily unavailable (%s); will retry without stopping phone services", name)
-            return False
-        log.error("RegisterAdvertisement failed: %s: %s",
-                  name, e.get_dbus_message())
-        return False
+        if _advert_owner_watch is None:
+            _advert_owner_watch = system_bus.add_signal_receiver(
+                _reset_advert_registration, signal_name='NameOwnerChanged',
+                dbus_interface='org.freedesktop.DBus', bus_name='org.freedesktop.DBus',
+                path='/org/freedesktop/DBus', arg0='org.bluez')
+        manager = bluez(f"/org/bluez/{config.ADAPTER}", "org.bluez.LEAdvertisingManager1")
+        _advert_state['pending'] = True
+        manager.RegisterAdvertisement(_AncsAdvert.PATH, dbus.Dictionary({}, signature="sv"),
+                                      reply_handler=registered, error_handler=failed, timeout=15.0)
+    except dbus.exceptions.DBusException as error:
+        failed(error)
+    return _advert_state['registered']
 
 
 def unregister_advert() -> None:
     """Best-effort unregister; safe to call on shutdown."""
+    global _advert_owner_watch
+    _reset_advert_registration()
+    if _advert_owner_watch is not None:
+        _advert_owner_watch.remove()
+        _advert_owner_watch = None
     try:
         ad_mgr = bluez(f"/org/bluez/{config.ADAPTER}",
                        "org.bluez.LEAdvertisingManager1")

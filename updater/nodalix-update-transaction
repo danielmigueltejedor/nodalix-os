@@ -29,7 +29,7 @@ def recommend_reboot(before,after,path=Path('/run/nodalix-updater/reboot-recomme
 COMMANDS = {'nodalix': [['/usr/bin/nodalix-updater','update','--json']],
             'system': [['/usr/bin/pacman','-Syu','--noconfirm']],
             'firmware': [['/usr/bin/fwupdmgr','refresh','--force'],['/usr/bin/fwupdmgr','update','-y','--no-reboot-check']],
-            'flatpak': [['/usr/bin/flatpak','update','--system','--noninteractive','-y']]}
+            'flatpak': [['/usr/bin/python','/usr/lib/nodalix-updater/flatpak_updates.py','update','--scope','system']]}
 
 
 class PackageManagerBusy(RuntimeError):

@@ -1,0 +1,47 @@
+#!/usr/bin/python3
+"""Remove only the package owning a trusted system GUI launcher, without deps."""
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+
+PROTECTED = {'base', 'base-devel', 'glibc', 'filesystem', 'bash', 'systemd', 'pacman',
+             'polkit', 'gnome-shell', 'mutter', 'gdm', 'gnome-session', 'nautilus',
+             'gnome-settings-daemon', 'networkmanager'}
+
+
+def package_for_desktop(ident, runner=subprocess.run):
+    if not re.fullmatch(r'[\w.+@ -]+\.desktop', ident) or '/' in ident:
+        raise ValueError('Identificador inválido')
+    path = Path('/usr/share/applications')/ident
+    if not path.is_file():
+        raise ValueError('No es una aplicación instalada por el sistema')
+    for ancestor in [path, *path.parents]:
+        status = ancestor.stat()
+        if status.st_uid != 0 or status.st_mode & 0o022:
+            raise ValueError('El lanzador debe pertenecer al sistema')
+    result = runner(['/usr/bin/pacman', '-Qqo', '--', str(path)], capture_output=True, text=True, check=True)
+    package = result.stdout.strip()
+    if not re.fullmatch(r'[a-zA-Z0-9@+_.-]+', package):
+        raise ValueError('Paquete inválido')
+    if package in PROTECTED or package.startswith(('nodalix-', 'linux', 'systemd')):
+        raise ValueError('Esta aplicación es un componente necesario de Nodalix')
+    return package
+
+
+def main():
+    if os.geteuid() != 0 or len(sys.argv) != 2:
+        raise SystemExit('Se requiere autenticación de administrador')
+    try:
+        package = package_for_desktop(sys.argv[1])
+        # -R (not -Rns): preserve configuration and never remove dependencies
+        # or other applications. Pacman refuses packages still required by OS.
+        return subprocess.run(['/usr/bin/pacman', '-R', '--noconfirm', '--', package]).returncode
+    except (OSError, ValueError, subprocess.SubprocessError) as error:
+        print(error, file=sys.stderr)
+        return 1
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

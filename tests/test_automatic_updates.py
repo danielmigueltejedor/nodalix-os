@@ -104,7 +104,8 @@ class AutomaticUpdatesTests(unittest.TestCase):
         self.assertIn('--no-reboot-check',transaction)
         self.assertNotIn("'reboot'",transaction)
         user=(ROOT/'updater/nodalix-update-flatpak-user@.service').read_text()
-        self.assertIn('User=%i',user);self.assertIn('--user --noninteractive',user)
+        self.assertIn('User=%i',user);self.assertIn('flatpak_updates.py update --scope user',user)
+        self.assertIn("'--noninteractive'", (ROOT/'updater/flatpak_updates.py').read_text())
 
     def test_scheduled_critical_changes_recommend_reboot_without_restarting(self):
         loader=SourceFileLoader('update_transaction',str(ROOT/'updater/nodalix-update-transaction'))

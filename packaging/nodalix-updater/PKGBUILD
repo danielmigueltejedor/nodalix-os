@@ -1,17 +1,18 @@
 pkgname=nodalix-updater
 pkgver=0.4.0
-pkgrel=3
+pkgrel=5
 pkgdesc="Nodalix GitHub Releases update service"
 arch=('any')
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=('GPL-3.0-or-later')
-depends=('python' 'pacman' 'polkit' 'minisign' 'timeshift' 'rsync' 'btrfs-progs')
+depends=('python' 'python-gobject' 'pacman' 'polkit' 'minisign' 'timeshift' 'rsync' 'btrfs-progs')
 backup=('etc/nodalix/updater.json')
 install=nodalix-updater.install
 source=("nodalix-updater-$pkgver.tar.zst")
 sha256sums=('SKIP')
 
 package() {
+  install -Dm644 "$srcdir/updater/flatpak_updates.py" "$pkgdir/usr/lib/nodalix-updater/flatpak_updates.py"
   install -Dm755 "$srcdir/updater/nodalix-update-transaction" "$pkgdir/usr/lib/nodalix-updater/update-transaction"
   for unit in nodalix-update-flatpak.timer nodalix-update-flatpak.service nodalix-update-flatpak-user@.timer nodalix-update-flatpak-user@.service; do
     install -Dm644 "$srcdir/updater/$unit" "$pkgdir/usr/lib/systemd/system/$unit"
