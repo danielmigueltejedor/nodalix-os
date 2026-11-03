@@ -32,6 +32,15 @@ try:
         if (GUEST_HOME/'.local/state/nodalix/migrations/gnome-0.3.1.done').exists() and Path('/run/user/'+GUEST_UID+'/bus').exists():break
         time.sleep(2)
     else:raise AssertionError('GNOME first-login migration did not finish')
+    # Only the disposable QEMU guest: keep the *user* session active while
+    # software-emulated GNOME, Hanabi and video decoding run for many minutes.
+    # Otherwise GNOME locks the screen and disables extensions restricted to
+    # sessionModes=['user'], yielding false negatives with state=2.
+    if not LIVE:
+        user_script("""from gi.repository import Gio
+Gio.Settings.new('org.gnome.desktop.session').set_uint('idle-delay', 0)
+Gio.Settings.new('org.gnome.desktop.screensaver').set_boolean('lock-enabled', False)
+""")
     assert 'active'==run('systemctl','is-active','gdm').strip()
     assert 'active'==run('systemctl','is-active','cups.socket').strip()
     assert not Path('/run/nodalix-updater/reboot-required').exists()
@@ -143,10 +152,21 @@ state=json.loads(bus.call_sync('com.nodalix.Settings','/com/nodalix/Settings','c
 assert state['available'] and state['requested'] and state['path']==str(video),state
 wait_renderer()
 print('Animated wallpaper renderer active')
-# A portal owns its bus name before every asynchronous backend interface is
-# ready. Under TCG the renderer/GTK can activate it while Shell is still
-# starting. Require the real screenshot interfaces; never bypass the portal,
-# restart it to hide a failure, or accept an absent screenshot implementation.
+# The serial systemd verifier is not launched from the graphical session.
+# Make the real Wayland session available to portal backends in this disposable
+# guest before testing screenshots; do not bypass the screenshot assertion.
+os.environ.setdefault('WAYLAND_DISPLAY','wayland-0')
+os.environ.setdefault('XDG_SESSION_TYPE','wayland')
+subprocess.run(['dbus-update-activation-environment','--systemd',
+                'XDG_CURRENT_DESKTOP','XDG_SESSION_TYPE','WAYLAND_DISPLAY'],
+               check=True,timeout=20)
+# Request a fresh backend after the real GNOME login finished. Otherwise the
+# portal may have started before WAYLAND_DISPLAY was exported, exposing no
+# Screenshot interface and returning UnknownMethod in a healthy GNOME session.
+subprocess.run(['systemctl','--user','restart','xdg-desktop-portal-gnome.service'],
+               check=True,timeout=30)
+subprocess.run(['systemctl','--user','restart','xdg-desktop-portal.service'],
+               check=True,timeout=30)
 def wait_portal_interface(name,interface):
     deadline=time.monotonic()+180
     last=None
