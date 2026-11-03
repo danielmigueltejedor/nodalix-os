@@ -46,7 +46,7 @@ This also agrees with the existing [technical investigation on #15](https://gith
 
 ## Local validation
 
-- 263 unit/integration tests passed on the actual PC, including real GJS/GIO tests and the upstream ZRAM generator fixtures.
+- 293 unit/integration tests passed on the actual PC, including real GJS/GIO tests and the upstream ZRAM generator fixtures.
 - CI/release native validation is pinned to Ubuntu 26.04 with Nautilus GIR 4.1. The previous `ubuntu-latest` setup requested the removed GIR 4.0 package and failed before executing tests. The existing Nautilus bridge supports both API versions; this PC validates its real 4.1 typelib.
 - Previous revision: five changed packages built locally: `nodalix-updater`, `nodalix-gnome`, `nodalix-integrations`, `nodalix-settings` 0.4.0-2 and `nodalix-control-center` 51.0.0-8; updater and GNOME are also 0.4.0-2, integrations remains 0.4.0-1. The last package compiles the complete pinned Control Center and its native additions.
 - A private GNOME Shell 51.1 Wayland session tests two virtual 1280×720 monitors. It has a separate bus, home, configuration and runtime directory, and does not replace the user's desktop.
@@ -207,3 +207,42 @@ selecting a number preserves its stored country prefix. Names are read from
 vCard attributes because the untyped contact getter exposes pointers in current
 GI. Native widget tests use synthetic contacts and a fake dial backend; no real
 call was placed. The desktop integration reads existing address books only.
+
+## Applications, storage and Flatpak
+
+Files presents installed desktop applications in the localized Applications
+folder with a themed folder icon and the supplied app icons. Existing AppImages
+are adopted with compatibility paths and a private backup. New supported files
+can open the installer or be dropped into Applications. Registered descriptors
+launch their actual desktop app. A verified Trash move from Applications asks
+the appropriate provider to uninstall it; renames and moves elsewhere are not
+uninstall requests, and personal data is preserved. The native test installs,
+opens and uninstalls a disposable AppImage using a real GIO Trash move. The user
+also confirmed FilmCraft opens from its Applications entry after the Flatpak
+document portal recovered. The launcher checks that mount before opening Flatpak.
+
+Storage is a native subpage of Applications. It scans on demand in a separate
+process and shows volume usage, apps ordered by installed size, large documents,
+music, photos/video, downloads and common development outputs and caches. The
+file inventory stays within selected personal folders, avoids following links,
+and labels partial results. Native widget and filesystem tests exercise sorting
+and both Trash routes with disposable data. No personal files were removed.
+
+Flatpak checks separate installed origins and scopes. An obsolete local remote
+no longer blocks Flathub, and bundles without an update repository are disclosed.
+The existing Flatpak preference on the test PC was repaired; both scheduled
+services and the Settings check completed successfully. The prior clean-boot VM
+checks aborted before reaching the screenshot test on an obsolete Blur My Shell
+key. The new checks verify the official schema and active panel blur, and retain
+real portal readiness and PNG capture checks.
+
+## Phone notification connection
+
+BlueZ can request advertisement properties during registration, so synchronous
+registration could leave the advertisement inactive. Asynchronous registration
+keeps the callback available and survives owner changes. A live ANCS subscription
+is authoritative even when the experimental LE bearer property is false. Address
+resolution is applied to paired iPhones before ANCS discovery, preserving other
+controller flags. The adapter now sets A/V Hands-Free using the correct fields.
+The active advertisement, address resolution and controller class were observed
+on the test PC; phone-side notification delivery remains a separate live check.

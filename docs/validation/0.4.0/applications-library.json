@@ -1,0 +1,9 @@
+{
+  "real_appimage_import": true,
+  "upstream_exec_not_executed": true,
+  "registered_activation": true,
+  "native_gio_trash_uninstalls": true,
+  "rename_does_not_uninstall": true,
+  "user_data_preserved": true,
+  "live_user_apps_removed": false
+}

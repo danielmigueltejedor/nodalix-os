@@ -1,40 +1,52 @@
 {
   "built_and_payload_checked": [
     {
-      "name": "nodalix-updater",
-      "version": "0.4.0-2",
-      "file": "nodalix-updater-0.4.0-2-any.pkg.tar.zst",
-      "sha256": "135bb893485edf8524ca0c420cc20f4264e4e65156845273c8f3ebf1039fe01a"
-    },
-    {
-      "name": "nodalix-gnome",
-      "version": "0.4.0-11",
-      "file": "nodalix-gnome-0.4.0-11-any.pkg.tar.zst",
-      "sha256": "5c83755dec85b1e9d35bb3e802ba5661b7d8a4ab0c653ffc67cf99c9772fca67"
-    },
-    {
       "name": "nodalix-integrations",
       "version": "0.4.0-3",
       "file": "nodalix-integrations-0.4.0-3-any.pkg.tar.zst",
       "sha256": "57421ec4eb0311a3733d655587bb0de950f5833c52484303be922465ec4d4b36"
     },
     {
-      "name": "nodalix-settings",
-      "version": "0.4.0-3",
-      "file": "nodalix-settings-0.4.0-3-any.pkg.tar.zst",
-      "sha256": "61ba4fef55a52ee4fc3676862448aeb4c4dee0117588c4da4dfa1fdc7c6d11bd"
-    },
-    {
-      "name": "nodalix-control-center",
-      "version": "51.0.0-9",
-      "file": "nodalix-control-center-51.0.0-9-x86_64.pkg.tar.zst",
-      "sha256": "ac7f39310609dc3bb68ffd64a9d509e81f82c9854f56c21ab69898012c9fb3bb"
-    },
-    {
       "name": "nodalix-video-wallpapers",
       "version": "0.4.0-3",
       "file": "nodalix-video-wallpapers-0.4.0-3-any.pkg.tar.zst",
       "sha256": "ab2d0892d99c516176b3b11b0f112f18d7761a373d8f52a0b397120a5a9d34a5"
+    },
+    {
+      "name": "nodalix-apps",
+      "version": "0.4.0-4",
+      "file": "nodalix-apps-0.4.0-4-any.pkg.tar.zst",
+      "sha256": "39c7c7bb60188ae35d385a28f04c0e538045f825ea1062b64810bd70e2b34411"
+    },
+    {
+      "name": "nodalix-control-center",
+      "version": "51.0.0-12",
+      "file": "nodalix-control-center-51.0.0-12-x86_64.pkg.tar.zst",
+      "sha256": "4bbe6941136127e4d0ede46eee58c88b853bbee613ba0a0f9c1003012cc3c72b"
+    },
+    {
+      "name": "nodalix-gnome",
+      "version": "0.4.0-12",
+      "file": "nodalix-gnome-0.4.0-12-any.pkg.tar.zst",
+      "sha256": "278ca1865a8c546a12fcd5b74f75011c368d034579d30f094b4b013264eac5c2"
+    },
+    {
+      "name": "nodalix-phone-link",
+      "version": "0.2.5-7",
+      "file": "nodalix-phone-link-0.2.5-7-any.pkg.tar.zst",
+      "sha256": "e4f3530b7d8abfd075b653efae09586519b59ba907ffb6688df2f73dbef3d65e"
+    },
+    {
+      "name": "nodalix-settings",
+      "version": "0.4.0-7",
+      "file": "nodalix-settings-0.4.0-7-any.pkg.tar.zst",
+      "sha256": "d1cb5584612e5b28f58a5d45c66eb09ea5595471031d1933adc6c77dff9f7156"
+    },
+    {
+      "name": "nodalix-updater",
+      "version": "0.4.0-5",
+      "file": "nodalix-updater-0.4.0-5-any.pkg.tar.zst",
+      "sha256": "394a891e67b4a47eb2a44a6bfe7a6bafd1d22fe506df877c62d3f40231b351a6"
     }
   ]
 }

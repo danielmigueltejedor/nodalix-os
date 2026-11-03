@@ -1,5 +1,5 @@
 {
-  "unit_integration_tests": 275,
+  "unit_integration_tests": 293,
   "result": "passed",
   "date": "2026-11-03",
   "native_shell": "GNOME Shell 51.1",
@@ -51,5 +51,15 @@
   "gnome_contact_picker": true,
   "gnome_contacts_read_only": true,
   "contact_calls_tested_with_fake_backend_only": true,
-  "updater_status_labels_localized": true
+  "updater_status_labels_localized": true,
+  "native_restart_page": true,
+  "applications_native_trash_uninstall": true,
+  "application_folder_theme_icon": true,
+  "craft_flatpak_launch_confirmed_on_pc": true,
+  "flatpak_both_automatic_jobs": "success",
+  "storage_native_widgets": true,
+  "storage_file_cleanup_tested_only_with_fixtures": true,
+  "phone_ancs_advertisement_registered_on_pc": true,
+  "phone_adapter_handsfree_class_verified_on_pc": true,
+  "phone_notifications_live_delivery": "pending physical verification"
 }

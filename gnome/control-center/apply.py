@@ -97,3 +97,27 @@ p=root/'panels/system/about/cc-about-page.blp';t=p.read_text()
 t=t.replace('maximum-size: 192;', 'maximum-size: 96;').replace('tightening-threshold: 192;', 'tightening-threshold: 96;')
 t=t.replace('can-shrink: false;', 'can-shrink: true;\n              height-request: 96;')
 p.write_text(t)
+
+# Storage management is a native Applications subpage and scans on demand.
+for name in ('cc-nodalix-storage.c', 'cc-nodalix-storage.h'):
+    shutil.copy2(source/name, root/'panels/applications'/name)
+p = root/'panels/applications/meson.build'; t = p.read_text()
+t = t.replace("  'cc-applications-panel.c',", "  'cc-applications-panel.c',\n  'cc-nodalix-storage.c',")
+t = t.replace('deps = common_deps + [keyboard_shortcuts_dep]', "deps = common_deps + [keyboard_shortcuts_dep, dependency('json-glib-1.0')]")
+p.write_text(t)
+p = root/'panels/applications/cc-applications-panel.c'; t = p.read_text()
+t = t.replace('#include "cc-applications-panel.h"', '#include "cc-applications-panel.h"\n#include "cc-nodalix-storage.h"')
+t = t.replace('    gtk_widget_init_template (GTK_WIDGET (self));', '    gtk_widget_init_template (GTK_WIDGET (self));\n    cc_panel_add_static_subpage (CC_PANEL (self), "storage", CC_TYPE_NODALIX_STORAGE_PAGE);')
+p.write_text(t)
+p = root/'panels/applications/cc-applications-panel.blp'; t = p.read_text()
+anchor = '              action-target: "\'default-apps\'";\n            }'
+assert anchor in t
+p.write_text(t.replace(anchor, anchor + '''
+            $CcListRow {
+              icon-name: "drive-harddisk-symbolic";
+              show-arrow: true;
+              title: "Almacenamiento";
+              subtitle: "Revisa aplicaciones y archivos por tamaño";
+              action-name: "navigation.push";
+              action-target: "'storage'";
+            }''', 1))
