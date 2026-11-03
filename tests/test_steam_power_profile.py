@@ -125,6 +125,17 @@ class SteamProfileTests(unittest.TestCase):
         self.hold.sync(False)
         self.assertEqual([2], self.bus.releases)
 
+    def test_first_daemon_activation_keeps_the_hold(self):
+        self.hold.sync(True)
+        self.hold._owner_changed(
+            None, None, None, None, None,
+            Variant((steam.PROFILE_BUS, "", ":1.20")), None,
+        )
+        self.hold.sync(True)
+        self.hold.sync(False)
+        self.assertEqual([1], self.bus.holds)
+        self.assertEqual([1], self.bus.releases)
+
     def test_missing_profile_does_not_crash_gamemode(self):
         self.bus.fail_hold = True
         self.hold.sync(True)

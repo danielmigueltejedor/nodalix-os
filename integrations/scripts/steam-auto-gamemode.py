@@ -44,8 +44,10 @@ class PerformanceProfileHold:
     def _owner_changed(self, _conn, _sender, _path, _iface, _signal, params, _data):
         name, old_owner, new_owner = params.unpack()
         if name == PROFILE_BUS and old_owner != new_owner:
-            # Holds belong to the old daemon instance and are no longer valid.
-            self.cookie = None
+            # A first activation can be signalled after HoldProfile returns.
+            # Only the loss of an existing daemon invalidates its holds.
+            if old_owner:
+                self.cookie = None
             self.retry_after = 0.0
 
     def _connect(self):
