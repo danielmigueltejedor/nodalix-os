@@ -11,6 +11,121 @@ PROC = Path('/proc')
 running = True
 lib = None
 
+# Hold a temporary GNOME performance profile on the system bus, rather than
+# setting ActiveProfile permanently. The daemon automatically restores the
+# user's selected profile when the hold is released or this process exits.
+PROFILE_BUS = 'org.freedesktop.UPower.PowerProfiles'
+PROFILE_PATH = '/org/freedesktop/UPower/PowerProfiles'
+PROFILE_IFACE = 'org.freedesktop.UPower.PowerProfiles'
+
+
+class PerformanceProfileHold:
+    """One D-Bus profile reservation while any tracked Steam game is running.
+
+    A manual user profile switch cancels the hold. Do not override that choice
+    again until all games from the current gaming session have exited.
+    """
+
+    def __init__(self):
+        self.bus = None
+        self.gio = None
+        self.glib = None
+        self.cookie = None
+        self.user_overrode = False
+        self.retry_after = 0.0
+
+    def _profile_released(self, _conn, _sender, _path, _iface, _signal, params, _data):
+        (cookie,) = params.unpack()
+        if cookie == self.cookie:
+            self.cookie = None
+            self.user_overrode = True
+            print('User changed power profile; automatic performance paused for this game session', flush=True)
+
+    def _owner_changed(self, _conn, _sender, _path, _iface, _signal, params, _data):
+        name, old_owner, new_owner = params.unpack()
+        if name == PROFILE_BUS and old_owner != new_owner:
+            # Holds belong to the old daemon instance and are no longer valid.
+            self.cookie = None
+            self.retry_after = 0.0
+
+    def _connect(self):
+        if self.bus is not None:
+            return
+        # python-gobject is already a dependency of nodalix-integrations.
+        from gi.repository import Gio, GLib
+
+        bus = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+        bus.signal_subscribe(
+            PROFILE_BUS, PROFILE_IFACE, 'ProfileReleased', PROFILE_PATH,
+            None, Gio.DBusSignalFlags.NONE, self._profile_released,
+        )
+        bus.signal_subscribe(
+            'org.freedesktop.DBus', 'org.freedesktop.DBus', 'NameOwnerChanged',
+            '/org/freedesktop/DBus', PROFILE_BUS,
+            Gio.DBusSignalFlags.NONE, self._owner_changed,
+        )
+        self.bus = bus
+        self.gio = Gio
+        self.glib = GLib
+
+    def _dispatch_signals(self):
+        if self.glib is None:
+            return
+        context = self.glib.MainContext.default()
+        # The detector runs without a GLib main loop; process D-Bus events
+        # without blocking each polling cycle.
+        for _ in range(32):
+            if not context.pending():
+                break
+            context.iteration(False)
+
+    def sync(self, games_active):
+        self._dispatch_signals()
+        if not games_active:
+            self.release()
+            self.user_overrode = False
+            self.retry_after = 0.0
+            return
+        if self.cookie is not None or self.user_overrode:
+            return
+        if time.monotonic() < self.retry_after:
+            return
+        try:
+            self._connect()
+            result = self.bus.call_sync(
+                PROFILE_BUS, PROFILE_PATH, PROFILE_IFACE, 'HoldProfile',
+                self.glib.Variant('(sss)', (
+                    'performance', 'Steam game running', 'com.nodalix.SteamAutoGameMode',
+                )),
+                self.glib.VariantType('(u)'), self.gio.DBusCallFlags.NONE,
+                3000, None,
+            )
+            self.cookie = result.unpack()[0]
+            print('GNOME power profile: performance hold enabled', flush=True)
+        except Exception as error:
+            # GameMode still works even if the power-profile service is absent.
+            self.retry_after = time.monotonic() + 30
+            print(f'GNOME performance hold unavailable: {error}', flush=True)
+
+    def release(self):
+        self._dispatch_signals()
+        cookie = self.cookie
+        self.cookie = None
+        if cookie is None or self.bus is None:
+            return
+        try:
+            self.bus.call_sync(
+                PROFILE_BUS, PROFILE_PATH, PROFILE_IFACE, 'ReleaseProfile',
+                self.glib.Variant('(u)', (cookie,)), None,
+                self.gio.DBusCallFlags.NONE, 3000, None,
+            )
+            print('GNOME power profile: performance hold released', flush=True)
+        except Exception as error:
+            # The daemon may have restarted or the user may have switched
+            # profiles before its ProfileReleased signal was dispatched.
+            print(f'GNOME performance hold release skipped: {error}', flush=True)
+
+
 def load_gamemode():
     lib = ctypes.CDLL('libgamemode.so.0')
     for name in ('request_start_for', 'request_end_for', 'query_status_for'):
@@ -76,17 +191,18 @@ def stop(_signum, _frame):
 def main():
     global lib
     lib = load_gamemode()
-    tracked = {}
+    tracked = {}  # PID -> (kernel start time, GameMode registration owned by us)
+    power = PerformanceProfileHold()
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
     print('Automatic GameMode for Steam games started', flush=True)
     try:
         while running:
-            for pid, stamp in list(tracked.items()):
+            for pid, (stamp, owned) in list(tracked.items()):
                 try:
                     if identity(PROC / str(pid)) == stamp:
-                        # Re-register if the GameMode daemon was restarted.
-                        if lib.real_gamemode_query_status_for(pid) != 2:
+                        # Re-register only requests this helper owns.
+                        if owned and lib.real_gamemode_query_status_for(pid) != 2:
                             lib.real_gamemode_request_start_for(pid)
                         continue
                 except (OSError, IndexError):
@@ -107,18 +223,25 @@ def main():
                     continue
                 pid = int(p.name)
                 if lib.real_gamemode_query_status_for(pid) == 2:
-                    # A game using gamemoderun already owns its registration.
+                    # Also track games launched with gamemoderun, but do not
+                    # modify a GameMode registration owned by another process.
+                    tracked[pid] = (stamp, False)
+                    print(f'GameMode already active: app {info[0]}, {info[1]}, PID {pid}', flush=True)
                     continue
                 if lib.real_gamemode_request_start_for(pid) == 0:
-                    tracked[pid] = stamp
+                    tracked[pid] = (stamp, True)
                     print(f'GameMode enabled: app {info[0]}, {info[1]}, PID {pid}', flush=True)
                 else:
                     print(f'GameMode request failed: {lib.real_gamemode_error_string()!r}', flush=True)
+            power.sync(bool(tracked))
             time.sleep(5)
     finally:
-        for pid, stamp in tracked.items():
+        # Release the profile even when this service is stopped while a game
+        # is running; the system bus also releases it if our process crashes.
+        power.release()
+        for pid, (stamp, owned) in tracked.items():
             try:
-                if identity(PROC / str(pid)) == stamp:
+                if owned and identity(PROC / str(pid)) == stamp:
                     lib.real_gamemode_request_end_for(pid)
             except (OSError, IndexError):
                 pass
