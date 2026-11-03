@@ -245,4 +245,6 @@ is authoritative even when the experimental LE bearer property is false. Address
 resolution is applied to paired iPhones before ANCS discovery, preserving other
 controller flags. The adapter now sets A/V Hands-Free using the correct fields.
 The active advertisement, address resolution and controller class were observed
-on the test PC; phone-side notification delivery remains a separate live check.
+on the test PC. After pairing with the corrected class, iOS offered notification
+sharing, ANCS subscribed, and new notifications arrived from the actual iPhone.
+No notification content or phone identifiers are included in the evidence.

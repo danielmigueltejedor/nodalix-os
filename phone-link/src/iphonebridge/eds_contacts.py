@@ -51,7 +51,10 @@ def contact_numbers(contact) -> list[DialContact]:
     name=vcard_value(contact,'FN') or vcard_value(contact,'X-EVOLUTION-FILE-AS') or 'Sin nombre'
     result=[]
     labels={'CELL':'Móvil','HOME':'Casa','WORK':'Trabajo','MAIN':'Principal'}
-    for attribute in contact.get_attributes():
+    # Older EContact bindings shadow EVCard.get_attributes with the
+    # field-specific method. Call the base API to read the complete vCard.
+    from gi.repository import EBookContacts
+    for attribute in EBookContacts.VCard.get_attributes(contact):
         if attribute.get_name().upper()!='TEL':continue
         types=[str(t).upper() for t in attribute.get_param('TYPE') or []]
         label=next((labels[t] for t in types if t in labels),'Teléfono')

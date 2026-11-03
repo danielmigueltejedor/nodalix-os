@@ -32,9 +32,9 @@
     },
     {
       "name": "nodalix-phone-link",
-      "version": "0.2.5-7",
-      "file": "nodalix-phone-link-0.2.5-7-any.pkg.tar.zst",
-      "sha256": "e4f3530b7d8abfd075b653efae09586519b59ba907ffb6688df2f73dbef3d65e"
+      "version": "0.2.5-8",
+      "file": "nodalix-phone-link-0.2.5-8-any.pkg.tar.zst",
+      "sha256": "83590a1389ae347ab4c271fb5f58ead196fd6c3409f7f6a6660f4ae87476147c"
     },
     {
       "name": "nodalix-settings",

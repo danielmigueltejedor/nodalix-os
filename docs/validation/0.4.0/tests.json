@@ -61,5 +61,6 @@
   "storage_file_cleanup_tested_only_with_fixtures": true,
   "phone_ancs_advertisement_registered_on_pc": true,
   "phone_adapter_handsfree_class_verified_on_pc": true,
-  "phone_notifications_live_delivery": "pending physical verification"
+  "phone_notifications_live_delivery": "real new ANCS events received after corrected pairing",
+  "gnome_contact_vcard_api_uses_base_class": true
 }
