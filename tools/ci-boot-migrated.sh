@@ -3,6 +3,11 @@
 set -euo pipefail
 [[ ${NODALIX_CI_CONTAINER:-} == 1 ]] || exit 1
 pacman -S --needed --noconfirm linux mkinitcpio qemu-system-x86 qemu-ui-opengl qemu-hw-display-virtio-gpu qemu-hw-display-virtio-vga e2fsprogs
+# There are no further package transactions in this disposable container.
+# Free the downloads before holding both the staged root and its disk image.
+if [[ -f /.dockerenv || -f /run/.containerenv ]]; then
+    find /var/cache/pacman/pkg -maxdepth 1 -type f -name '*.pkg.tar.*' -delete
+fi
 qa=${NODALIX_QA_VM_DIR:-/src/dist/vm-candidate}
 [[ ! -e "$qa" ]] || { echo 'Choose a fresh disposable VM directory'; exit 1; }
 mkdir -p "$qa"
