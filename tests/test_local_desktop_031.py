@@ -143,6 +143,19 @@ class MigrationTests(unittest.TestCase):
             self.assertFalse(source.exists())
             self.assertTrue((root / 'backup/extensions/test@example/extension.js').exists())
 
+    def test_old_organizer_service_adopts_packaged_helper(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);units=root/'config/systemd/user';units.mkdir(parents=True)
+            name='nodalix-app-organizer.service'
+            prototype='[Unit]\nDescription=Nodalix automatic application organizer\nAfter=graphical-session.target\n\n[Service]\nType=oneshot\nExecStart=%h/.local/bin/nodalix-organize-apps\n\n[Install]\nWantedBy=default.target\n'
+            (units/name).write_text(prototype)
+            wants=units/'default.target.wants';wants.mkdir();(wants/name).symlink_to(units/name)
+            custom=units/'nodalix-app-organizer.path';custom.write_text('[Path]\nPathChanged=/my/custom/apps\n')
+            retired=MIGRATION.retire_local_units(root/'config',root/'backup')
+            self.assertEqual(retired,[name]);self.assertTrue(custom.exists())
+            self.assertFalse((units/name).exists());self.assertFalse((wants/name).is_symlink())
+            self.assertEqual((root/'backup/units'/name).read_text(),prototype)
+
     def test_disabled_extension_is_preserved(self):
         settings = mock.Mock()
         settings.get_strv.side_effect = lambda key: (

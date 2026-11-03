@@ -87,6 +87,18 @@ def main():
             runpy.run_path(str(cleanup))['restore_default_extensions'](home,Gio.Settings.new('org.gnome.shell'))
             Gio.Settings.sync()
             defaults_marker.write_text('0.4.0\n')
+    folders_marker=root/'gnome-0.4.0-app-folders-v2.done'
+    if not folders_marker.exists() and Path('/usr/bin/nodalix-organize-apps').is_file():
+        adoption=runpy.run_path(str(Path(__file__).with_name('user-031.py')))
+        backup=root/'gnome-0.4.0-app-folders-v2'
+        config=Path(os.environ.get('XDG_CONFIG_HOME',home/'.config'))
+        adoption['retire_local_units'](config,backup)
+        adoption['retire_organizer_helper'](home,backup)
+        subprocess.run(['systemctl','--user','daemon-reload'],check=True,timeout=15)
+        subprocess.run(['systemctl','--user','try-restart','nodalix-app-organizer.path'],check=True,timeout=15)
+        subprocess.run(['systemctl','--user','enable','--now','nodalix-app-organizer.path'],check=True,timeout=15)
+        subprocess.run(['systemctl','--user','start','nodalix-app-organizer.service'],check=True,timeout=30)
+        folders_marker.write_text('0.4.0\n')
     if marker.exists():return
     prototypes=Path('/usr/share/nodalix/gnome-extension-prototypes-040.json')
     if prototypes.is_file():

@@ -120,7 +120,9 @@ nodalix-integrations 0.4.0-2.
 Application folders discover publisher namespaces and ArtCraft metadata rather
 than a closed product list. System and Flatpak applications follow desktop-file
 precedence, hidden overrides and categories. Custom user folders are retained;
-ArtCraft suite membership takes priority. Folder changes have a private backup
+ArtCraft suite membership is additional to the app's purpose folder, so CADCraft
+and SolidCraft also appear in Engineering and the document tools also appear in
+Office. Personal folder contents and exclusions are not rewritten. Folder changes have a private backup
 and directory events coalesce without polling or repeated gsettings subprocesses.
 
 The default appearance uses GNOME's native panel plus Blur My Shell. Global Menu
@@ -168,3 +170,20 @@ restored, and coverage pause/reveal still works. After loading the fix in a fres
 physical session, the user confirmed the panel is correct. GNOME Shell's 389
 packaged files remain unmodified. The follow-up package also restores Global
 Menu and Rounded Window Corners as requested system defaults.
+
+## ArtCraft folders and supplied application icons
+
+The old per-user organizer service shadowed the packaged helper and still used a
+closed list of tools. A one-time migration archives only the exact known service,
+watcher and helper prototypes, switches to the packaged event-driven organizer
+and preserves customized units. Current and future suite apps use publisher
+namespaces or explicit suite metadata, independently of their standard category.
+The same desktop ID is present in both native folders; no extra launcher or Shell
+extension is created. A real GNOME app-grid check verifies the shared membership.
+
+The icon resolver also uses the suite namespaces rather than a closed name list.
+It resolves TextureCraft, Craft Anything, FigCraft, SolidCraft and future apps to
+their supplied hicolor assets, retaining launch commands, actions and personal
+icon choices. The local SolidCraft launcher was also corrected to its installed
+AppImage version; this local launcher repair does not claim to implement a
+general AppImage update manager.

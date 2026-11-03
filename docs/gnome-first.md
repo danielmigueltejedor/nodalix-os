@@ -220,6 +220,15 @@ GNOME 51 y no requiere la antigua biblioteca `gnome-rounded-blur`. Su migración
 oficial elimina los efectos manuales de esquinas de las configuraciones antiguas;
 Nodalix no añade efectos ni modifica los shaders de la extensión.
 
+El organizador usa carpetas nativas y permite la misma aplicación en ArtCraft
+y en su categoría: CADCraft/SolidCraft en Ingeniería, WordCraft/DeckCraft/GridCraft/
+PdfCraft en Oficina y las herramientas gráficas en Multimedia. Conserva las
+carpetas personales. Los publicadores y metadatos detectan también futuras apps;
+el reparador resuelve sus iconos oficiales instalados sin cambiar los comandos
+de lanzamiento ni los iconos personales. Los prototipos antiguos del organizador
+que ocultaban el servicio empaquetado se archivan únicamente si coinciden con
+sus hashes conocidos.
+
 El fondo animado debe entregar la imagen completa también bajo el panel
 transparente. El recorte del área de trabajo se aplica solo a las miniaturas
 redondeadas de Actividades: excluir los 32 píxeles superiores del escritorio

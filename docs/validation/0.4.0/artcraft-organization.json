@@ -1,0 +1,94 @@
+{
+  "date": "2026-11-03",
+  "installed": [
+    "nodalix-gnome 0.4.0-11",
+    "nodalix-integrations 0.4.0-3"
+  ],
+  "folders": {
+    "nodalix-craft": [
+      "ai.storyteller.artcraft-launcher.desktop",
+      "ai.storyteller.cadcraft.desktop",
+      "ai.storyteller.craft-anything.desktop",
+      "ai.storyteller.deckcraft.desktop",
+      "ai.storyteller.designcraft.desktop",
+      "ai.storyteller.effectcraft.desktop",
+      "ai.storyteller.figcraft.desktop",
+      "ai.storyteller.filmcraft.desktop",
+      "ai.storyteller.gridcraft.desktop",
+      "ai.storyteller.lightcraft.desktop",
+      "ai.storyteller.pdfcraft.desktop",
+      "ai.storyteller.photocraft.desktop",
+      "ai.storyteller.soundcraft.desktop",
+      "ai.storyteller.texturecraft.desktop",
+      "ai.storyteller.vectorcraft.desktop",
+      "ai.storyteller.wordcraft.desktop",
+      "io.tangencylabs.solidcraft.desktop"
+    ],
+    "engineering": [
+      "ai.storyteller.cadcraft.desktop",
+      "io.tangencylabs.solidcraft.desktop"
+    ],
+    "office": [
+      "ai.storyteller.deckcraft.desktop",
+      "ai.storyteller.gridcraft.desktop",
+      "ai.storyteller.pdfcraft.desktop",
+      "ai.storyteller.wordcraft.desktop"
+    ],
+    "multimedia": [
+      "ai.storyteller.designcraft.desktop",
+      "ai.storyteller.effectcraft.desktop",
+      "ai.storyteller.figcraft.desktop",
+      "ai.storyteller.filmcraft.desktop",
+      "ai.storyteller.lightcraft.desktop",
+      "ai.storyteller.photocraft.desktop",
+      "ai.storyteller.soundcraft.desktop",
+      "ai.storyteller.texturecraft.desktop",
+      "ai.storyteller.vectorcraft.desktop"
+    ],
+    "development": [
+      "ai.storyteller.craft-anything.desktop"
+    ]
+  },
+  "icons": {
+    "ai.storyteller.figcraft.desktop": {
+      "file": "ai.storyteller.figcraft.svg",
+      "size": [
+        512,
+        512
+      ],
+      "native_decode": true
+    },
+    "ai.storyteller.texturecraft.desktop": {
+      "file": "ai.storyteller.texturecraft.png",
+      "size": [
+        128,
+        128
+      ],
+      "native_decode": true
+    },
+    "ai.storyteller.craft-anything.desktop": {
+      "file": "ai.storyteller.craft-anything.png",
+      "size": [
+        128,
+        128
+      ],
+      "native_decode": true
+    },
+    "io.tangencylabs.solidcraft.desktop": {
+      "file": "io.tangencylabs.solidcraft.png",
+      "size": [
+        512,
+        512
+      ],
+      "native_decode": true
+    }
+  },
+  "organizer_units": {
+    "nodalix-app-organizer.service": "/usr/lib/systemd/user/nodalix-app-organizer.service",
+    "nodalix-app-organizer.path": "/usr/lib/systemd/user/nodalix-app-organizer.path"
+  },
+  "old_helper_archived": true,
+  "new_login_required": false,
+  "solidcraft_launch_repaired_to_installed_version": "0.30.1",
+  "organizer_watch_enabled": "enabled"
+}

@@ -14,7 +14,7 @@ FOLDERS = {
 }
 CRAFT_PUBLISHERS = ('ai.storyteller.', 'com.storytold.', 'io.tangencylabs.')
 ENGINEERING_PATTERNS = ('matlab','simulink','octave','paraview','opencad','freecad',
-    'openscad','gmsh','salome','ansys','comsol','openfoam')
+    'openscad','gmsh','salome','ansys','comsol','openfoam','cadcraft','solidcraft')
 
 
 def read_entry(path):
@@ -26,17 +26,20 @@ def read_entry(path):
     except (OSError,UnicodeError,configparser.Error):return None
 
 
-def classify(desktop_id,entry):
+def is_craft(desktop_id,entry):
     categories=set(filter(None,entry.get('Categories','').split(';')))
     identity=desktop_id.casefold()
     # Publisher namespaces and suite metadata cover new tools without a fixed
     # product-name list. An unrelated game containing "craft" stays a game.
-    if (identity.startswith(CRAFT_PUBLISHERS)
+    return bool(identity.startswith(CRAFT_PUBLISHERS)
             or entry.get('X-ArtCraft-App','').lower()=='true'
-            or categories & {'ArtCraft','X-ArtCraft'}):
-        return 'nodalix-craft'
+            or categories & {'ArtCraft','X-ArtCraft'})
+
+
+def classify(desktop_id,entry):
+    categories=set(filter(None,entry.get('Categories','').split(';')))
     searchable=' '.join((desktop_id,entry.get('Name',''),entry.get('Exec',''))).casefold()
-    if any(word in searchable for word in ENGINEERING_PATTERNS) or 'Engineering' in categories:
+    if any(word in searchable for word in ENGINEERING_PATTERNS) or categories & {'Engineering','CAD'}:
         return 'engineering'
     if desktop_id=='com.nodalix.PhoneLink.desktop' or entry.get('Name','').casefold() in {'enlace móvil','phone link','sesiones','sessions'}:
         return 'utilities'
@@ -95,8 +98,8 @@ def organize(home=None,directories=None):
     custom=[folder for folder in current if folder not in managed]
     folders={folder:Gio.Settings.new_with_path('org.gnome.desktop.app-folders.folder',
         '/org/gnome/desktop/app-folders/folders/'+folder+'/') for folder in current}
-    # A native user folder remains authoritative for its own explicit apps and
-    # category rules; suite membership is the user's explicit ArtCraft policy.
+    # Ordinary apps already in a personal folder stay there. ArtCraft suite
+    # membership is additional to an app's purpose and any personal folders.
     reserved=set()
     for folder in custom:
         prefs=folders[folder]
@@ -107,14 +110,15 @@ def organize(home=None,directories=None):
             if app not in excluded and categories.intersection(entry.get('Categories','').split(';')))
     groups={folder:[] for folder in FOLDERS}
     for app,entry in entries.items():
-        folder=classify(app,entry)
-        if app not in reserved or folder=='nodalix-craft':groups[folder].append(app)
+        craft=is_craft(app,entry)
+        if craft:groups['nodalix-craft'].append(app)
+        if app not in reserved or craft:groups[classify(app,entry)].append(app)
     groups={key:sorted(set(apps)) for key,apps in groups.items() if apps}
     snapshot={folder:{key:prefs.get_value(key).unpack() for key in ('name','translate','apps','categories','excluded-apps')}
         for folder,prefs in folders.items()}
     state=Path(os.environ.get('XDG_STATE_HOME',str(home/'.local/state')))/'nodalix/app-folders'
     state.mkdir(parents=True,exist_ok=True,mode=0o700)
-    backup=state/'before-040-dynamic.json'
+    backup=state/'before-040-multiple-folders.json'
     if not backup.exists():
         backup.write_text(json.dumps({'children':current,'folders':snapshot},ensure_ascii=False,indent=2)+'\n')
         backup.chmod(0o600)
@@ -126,17 +130,6 @@ def organize(home=None,directories=None):
             'excluded-apps':GLib.Variant('as',[])}
         for key,value in values.items():
             if prefs.get_value(key)!=value:prefs.set_value(key,value)
-    # Prevent native custom category folders from displaying a suite app twice.
-    suite=set(groups.get('nodalix-craft',[]))
-    for folder in custom:
-        prefs=folders[folder];apps=prefs.get_strv('apps')
-        retained=[app for app in apps if app not in suite]
-        if retained!=apps:prefs.set_strv('apps',retained)
-        categories=set(prefs.get_strv('categories'))
-        if categories:
-            excluded=set(prefs.get_strv('excluded-apps'))
-            extra={app for app in suite if categories.intersection(entries[app].get('Categories','').split(';'))}
-            if extra-excluded:prefs.set_strv('excluded-apps',sorted(excluded|extra))
     children=list(groups)+custom
     if children!=current:settings.set_strv('folder-children',children)
     Gio.Settings.sync()

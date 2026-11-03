@@ -1,5 +1,5 @@
 {
-  "unit_integration_tests": 268,
+  "unit_integration_tests": 270,
   "result": "passed",
   "date": "2026-11-03",
   "native_shell": "GNOME Shell 51.1",
@@ -40,5 +40,10 @@
   "secondary_panel_destroyed_notification_handlers_fixed": true,
   "live_wallpaper_input_under_panel": true,
   "static_and_dynamic_live_wallpaper_blur": true,
-  "physical_panel_after_new_login_user_confirmed": true
+  "physical_panel_after_new_login_user_confirmed": true,
+  "artcraft_and_category_native_folders": true,
+  "preserve_personal_folder_memberships": true,
+  "future_suite_icons": true,
+  "texturecraft_and_craft_anything_native_icon_decode": true,
+  "obsolete_organizer_prototype_migrated": true
 }

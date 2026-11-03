@@ -9,7 +9,8 @@ import subprocess
 
 
 UNITS = ('steam-auto-gamemode.service', 'steam-desktop-sync.service',
-         'steam-desktop-sync.timer', 'nodalix-craft-gnome.service')
+         'steam-desktop-sync.timer', 'nodalix-craft-gnome.service',
+         'nodalix-app-organizer.service','nodalix-app-organizer.path')
 
 
 # SHA-256 of the original prototypes, with the home path normalised to %h.
@@ -17,7 +18,9 @@ PROTOTYPES = {
     "steam-auto-gamemode.service": "39399a6ed53e6328464ebd0fa5a20d54e850be53a01002974e05eda374ad3ea8",
     "steam-desktop-sync.service": "b7a23c3787ee385e706f00f6d09a49d095988e651e4b0f6a718a14e2ae37a088",
     "steam-desktop-sync.timer": "141afd689c664a3049633222a1bf27eaa7f3f83b4f32225e40904957f127a4c1",
-    "nodalix-craft-gnome.service": "035ccb0e28404bebcd07395f31c122357262960293b6c4314bf92d9d712fd66e"
+    "nodalix-craft-gnome.service": "035ccb0e28404bebcd07395f31c122357262960293b6c4314bf92d9d712fd66e",
+    "nodalix-app-organizer.service": "4e703d69c60c936a3c50258031a1f5705504296113bb0e760ae2a4a4dd6efbdf",
+    "nodalix-app-organizer.path": "2c2c64bb9d3e2cf35527adb7f3cc7662fa4225a994e79f91d597a1ea8b080a7e"
 }
 
 
@@ -68,6 +71,19 @@ def enable_startup_cursor(settings):
     enabled = list(settings.get_strv('enabled-extensions'))
     if uuid not in enabled and uuid not in settings.get_strv('disabled-extensions'):
         settings.set_strv('enabled-extensions', enabled + [uuid])
+
+
+def retire_organizer_helper(home,backup):
+    """Retire only the exact old closed-list organizer prototype."""
+    source=home/'.local/bin/nodalix-organize-apps'
+    if not source.is_file() or source.is_symlink():return
+    if hashlib.sha256(source.read_bytes()).hexdigest()!='233ef9f37f3b5a1d1bb0cd0efad2d39e021729592acfda129a5fd881aaac3402':return
+    target=backup/'helpers/nodalix-organize-apps'
+    target.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
+    if target.exists():
+        if target.read_bytes()!=source.read_bytes():raise RuntimeError('Conflicting organizer backup')
+        source.unlink()
+    else:shutil.move(str(source),str(target))
 
 
 def retire_extension_prototypes(data, backup, prototypes):

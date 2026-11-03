@@ -83,6 +83,26 @@ class Organization(unittest.TestCase):
         sync=lambda: icons.synchronize(self.home,[],[self.home/'themes'])
         sync(); icon.unlink(); sync(); self.assertEqual(target.read_text(),original)
 
+    def test_current_and_future_craft_icons_use_supplied_assets(self):
+        apps=self.home/'.local/share/applications';apps.mkdir(parents=True)
+        images=self.home/'.local/share/icons/hicolor/128x128/apps';images.mkdir(parents=True)
+        names=['ai.storyteller.texturecraft','ai.storyteller.craft-anything',
+               'ai.storyteller.figcraft','io.tangencylabs.solidcraft','com.storytold.future-tool']
+        for name in names:
+            (images/(name+'.png')).write_bytes(b'official icon')
+            (apps/(name+'.desktop')).write_text('[Desktop Entry]\nType=Application\nName='+name+
+                '\nExec=/usr/bin/true %F\nIcon='+name+'\n[Desktop Action test]\nIcon=personal-action\nExec=/usr/bin/true\n')
+        sync=lambda:icons.synchronize(self.home,[],[])
+        chosen=sync()
+        for name in names:
+            self.assertEqual(chosen[name+'.desktop'],str(images/(name+'.png')))
+            text=(apps/(name+'.desktop')).read_text()
+            self.assertIn('Exec=/usr/bin/true %F',text)
+            self.assertIn('[Desktop Action test]\nIcon=personal-action',text)
+        self.assertEqual(sync(),chosen)
+        custom=apps/(names[0]+'.desktop');text=custom.read_text().replace('Icon='+chosen[custom.name],'Icon=/personal/my-icon.svg');custom.write_text(text)
+        sync();self.assertEqual(custom.read_text(),text)
+
     def test_settings_panels_restore_managed_overrides_and_stay_symbolic(self):
         import json
         system=self.home/'system'; apps=system/'applications'; apps.mkdir(parents=True)

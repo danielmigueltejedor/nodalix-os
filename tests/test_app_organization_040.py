@@ -16,8 +16,9 @@ class AppOrganization(unittest.TestCase):
     def test_future_suite_apps_and_standard_categories(self):
         for app in ('ai.storyteller.future-tool.desktop','io.tangencylabs.solidcraft.desktop',
                     'com.storytold.future.desktop'):
-            self.assertEqual(organizer.classify(app,{'Categories':'Graphics;'}),'nodalix-craft')
-        self.assertEqual(organizer.classify('new.desktop',{'X-ArtCraft-App':'true'}),'nodalix-craft')
+            self.assertTrue(organizer.is_craft(app,{'Categories':'Graphics;'}))
+        self.assertTrue(organizer.is_craft('new.desktop',{'X-ArtCraft-App':'true'}))
+        self.assertFalse(organizer.is_craft('minecraft.desktop',{'Categories':'Game;'}))
         self.assertEqual(organizer.classify('minecraft.desktop',{'Categories':'Game;'}),'games')
         self.assertEqual(organizer.classify('editor.desktop',{'Categories':'Utility;TextEditor;'}),'utilities')
         self.assertEqual(organizer.classify('browser.desktop',{'Categories':'Network;WebBrowser;'}),'internet')
@@ -36,6 +37,12 @@ def entry(folder,name,categories='Utility;',extra=''):
     path.write_text('[Desktop Entry]\nType=Application\nName='+name+'\nExec=/usr/bin/true\nCategories='+categories+'\n'+extra)
 entry(low,'ai.storyteller.future.desktop','Graphics;')
 entry(high,'io.tangencylabs.solidcraft.desktop','Graphics;')
+entry(high,'ai.storyteller.cadcraft.desktop','Graphics;Engineering;')
+entry(high,'ai.storyteller.wordcraft.desktop','Office;WordProcessor;')
+entry(high,'ai.storyteller.deckcraft.desktop','Office;Presentation;')
+entry(high,'ai.storyteller.figcraft.desktop','Graphics;VectorGraphics;')
+entry(high,'ai.storyteller.texturecraft.desktop','Graphics;3DGraphics;')
+entry(high,'ai.storyteller.craft-anything.desktop','Development;Debugger;')
 entry(low,'hidden.desktop');entry(high,'hidden.desktop',extra='Hidden=true\n')
 entry(low,'editor.desktop','Utility;TextEditor;')
 entry(low,'personal.desktop','Graphics;')
@@ -50,19 +57,24 @@ custom.set_strv('categories',['Graphics'])
 suite=Gio.Settings.new_with_path('org.gnome.desktop.app-folders.folder','/org/gnome/desktop/app-folders/folders/nodalix-craft/')
 suite.set_strv('excluded-apps',['ai.storyteller.future.desktop'])
 groups=m['organize'](home,[low,high])
-assert groups['nodalix-craft']==['ai.storyteller.future.desktop','io.tangencylabs.solidcraft.desktop'],groups
+suite_apps=['ai.storyteller.'+name+'.desktop' for name in ('cadcraft','craft-anything','deckcraft','figcraft','future','texturecraft','wordcraft')]+['io.tangencylabs.solidcraft.desktop']
+assert groups['nodalix-craft']==sorted(suite_apps),groups
+assert groups['engineering']==['ai.storyteller.cadcraft.desktop','io.tangencylabs.solidcraft.desktop'],groups
+assert groups['office']==['ai.storyteller.deckcraft.desktop','ai.storyteller.wordcraft.desktop'],groups
+assert groups['development']==['ai.storyteller.craft-anything.desktop'],groups
+assert all('ai.storyteller.'+n+'.desktop' in groups['multimedia'] for n in ('figcraft','texturecraft','future')),groups
 assert groups['internet']==['nested-tool.desktop'],groups
 assert groups['utilities']==['editor.desktop'],groups
 assert custom.get_string('name')=='Mi carpeta'
-assert custom.get_strv('apps')==['personal.desktop']
-assert set(custom.get_strv('excluded-apps'))==set(groups['nodalix-craft'])
+assert custom.get_strv('apps')==['personal.desktop','ai.storyteller.future.desktop']
+assert custom.get_strv('excluded-apps')==[]
 assert suite.get_strv('excluded-apps')==[]
 first=settings.get_strv('folder-children');assert 'my-folder' in first
 assert m['organize'](home,[low,high])==groups
 assert settings.get_strv('folder-children')==first
 entry(high,'ai.storyteller.brand-new.desktop','Development;')
 assert 'ai.storyteller.brand-new.desktop' in m['organize'](home,[low,high])['nodalix-craft']
-backup=home/'.local/state/nodalix/app-folders/before-040-dynamic.json'
+backup=home/'.local/state/nodalix/app-folders/before-040-multiple-folders.json'
 assert backup.stat().st_mode & 0o777==0o600
 assert json.loads(backup.read_text())['children']==['my-folder','nodalix-craft']
 '''

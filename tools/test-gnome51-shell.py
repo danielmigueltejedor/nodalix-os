@@ -98,6 +98,11 @@ def main():
             source=Gio.SettingsSchemaSource.new_from_directory(str(directory),Gio.SettingsSchemaSource.get_default(),False)
             Gio.Settings.new_full(source.lookup('org.gnome.shell.extensions.glocalsend',False),None,None).set_boolean('start-on-login',False)
         shell.set_strv('enabled-extensions',profile);Gio.Settings.sync()
+        if not args.greeter and not args.alternatives:
+            apps=data/'applications';apps.mkdir(exist_ok=True)
+            for slug,categories in [('cadcraft','Graphics;Engineering;'),('wordcraft','Office;WordProcessor;'),('texturecraft','Graphics;3DGraphics;')]:
+                (apps/('ai.storyteller.'+slug+'.desktop')).write_text('[Desktop Entry]\nType=Application\nName='+slug+' QA\nExec=/usr/bin/true\nIcon=utilities-terminal\nCategories='+categories+'\n')
+            subprocess.run([sys.executable,str(ROOT/'integrations/scripts/nodalix-organize-apps.py')],check=True,stdout=subprocess.DEVNULL)
         with (args.evidence/'gnome-shell.log').open('w') as log:
             process=subprocess.Popen(['gnome-shell',*(['--mode=gdm'] if args.greeter else []),'--headless','--wayland','--no-x11','--debug-control',*(['--virtual-monitor','1280x720']*args.monitors)],stdout=log,stderr=log)
             try:
@@ -126,6 +131,14 @@ def main():
                     print('GNOME 51 greeter: own background actors enabled on both monitors')
                     return 0
                 before=evaluate('Main.panel.statusArea.quickSettings.menu._grid.get_children().length')
+                if not args.alternatives:
+                    # GNOME renders the same real desktop ID in independent
+                    # native folders; no duplicate launchers or Shell patches.
+                    folders=evaluate("(() => {const d=Main.overview._overview._controls._appDisplay;d._redisplay();return Object.fromEntries(d._folderIcons.map(i=>[i.id,i.getAppIds()]));})()")
+                    for slug,category in [('cadcraft','engineering'),('wordcraft','office'),('texturecraft','multimedia')]:
+                        appid='ai.storyteller.'+slug+'.desktop'
+                        assert appid in folders.get('nodalix-craft',[]) and appid in folders.get(category,[]),folders
+                    (args.evidence/'native-app-folders.json').write_text(json.dumps({key:[app for app in value if app.startswith('ai.storyteller.')] for key,value in folders.items() if key in ('nodalix-craft','engineering','office','multimedia')},indent=2))
                 blur_pipelines=evaluate('Object.fromEntries(Object.entries(global.blur_my_shell._pipelines_manager.pipelines).map(([key,p])=>[key,p.effects.map(e=>e.type)]))')
                 assert all('corner' not in types for types in blur_pipelines.values()),blur_pipelines
                 (args.evidence/'official-blur-pipelines.json').write_text(json.dumps(blur_pipelines,indent=2))
