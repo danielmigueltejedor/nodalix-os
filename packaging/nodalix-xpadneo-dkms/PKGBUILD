@@ -1,0 +1,55 @@
+# Nodalix xpadneo fork: pin the tested upstream commit and carry a reversible,
+# scoped HID identity fix until the native-ID support lands upstream.
+pkgname=nodalix-xpadneo-dkms
+pkgver=0.10.5
+pkgrel=1
+pkgdesc="Nodalix Xbox Bluetooth controller support (xpadneo DKMS with native BLE identification)"
+arch=('any')
+url="https://github.com/atar-axis/xpadneo"
+license=('GPL-2.0-only' 'GPL-3.0-or-later')
+depends=('bluez' 'dkms')
+makedepends=('git' 'patch')
+optdepends=(
+  'linux-headers: DKMS builds for the standard Arch kernel'
+  'linux-cachyos-headers: DKMS builds for the CachyOS kernel'
+)
+provides=("xpadneo-dkms=${pkgver}")
+conflicts=('xpadneo-dkms')
+# Pin the complete upstream source commit; changing this requires reviewing
+# and revalidating the patch against the new driver and updating tests.
+_upstream_commit=e8f103a77f777c2c54536dd947969cf228699c13
+source=(
+  "xpadneo::git+https://github.com/atar-axis/xpadneo.git#commit=${_upstream_commit}"
+  'preserve-ble-identity.patch'
+  '99-nodalix-xpadneo-real-id.conf'
+)
+sha256sums=(
+  'SKIP' # Git checkout is pinned to _upstream_commit; not a moving branch/tag.
+  'ab4f270d4d0bc9acff860cdb7c2f4b0e164511264f197da3da54fc30acac82bc'
+  '0ca2eb8d69bf01b433a263344043c367b572fa6c1c6a35f6b86a3e674c167f60'
+)
+
+prepare() {
+  cd "${srcdir}/xpadneo"
+  patch --fuzz=0 -Np1 -i "${srcdir}/preserve-ble-identity.patch"
+}
+
+package() {
+  cd "${srcdir}/xpadneo"
+  make VERSION="v${pkgver}" build
+
+  local dkms_src="${pkgdir}/usr/src/hid-xpadneo-v${pkgver}"
+  install -dm755 "${dkms_src}"
+  cp -a hid-xpadneo/src "${dkms_src}/"
+  install -m644 hid-xpadneo/dkms.conf "${dkms_src}/dkms.conf"
+  install -m755 hid-xpadneo/dkms.post_install "${dkms_src}/dkms.post_install"
+  install -m755 hid-xpadneo/dkms.post_remove "${dkms_src}/dkms.post_remove"
+
+  install -Dm644 hid-xpadneo/etc-modprobe.d/xpadneo.conf     "${pkgdir}/usr/lib/modprobe.d/xpadneo.conf"
+  for rule in hid-xpadneo/etc-udev-rules.d/*.rules; do
+    install -Dm644 "${rule}" "${pkgdir}/usr/lib/udev/rules.d/${rule##*/}"
+  done
+  install -Dm644 "${srcdir}/99-nodalix-xpadneo-real-id.conf"     "${pkgdir}/usr/lib/modprobe.d/99-nodalix-xpadneo-real-id.conf"
+  install -Dm644 LICENSES/LICENSE.gpl-2.0.txt     "${pkgdir}/usr/share/licenses/${pkgname}/GPL-2.0.txt"
+  install -Dm644 LICENSES/LICENSE.gpl-3.0.txt     "${pkgdir}/usr/share/licenses/${pkgname}/GPL-3.0.txt"
+}
