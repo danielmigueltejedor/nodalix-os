@@ -1,10 +1,11 @@
 # Upstream attribution
 
-The Nodalix cursor theme packages **Bibata Modern Classic v2.0.7** by
-Abdulkaiz Khatri (ful1e5), distributed under GPL-3.0-or-later.
+The default Nodalix cursor theme uses the dark artwork from
+[Capitaine Cursors r4](https://github.com/keeferrourke/capitaine-cursors/tree/r4)
+by Keefer Rourke and contributors, based on KDE Breeze and licensed under
+LGPL-3.0-or-later.
 
-Upstream source:
-https://github.com/ful1e5/Bibata_Cursor/tree/v2.0.7
-
-Nodalix changes the installed theme name and package metadata only. The cursor
-artwork is otherwise kept as distributed by the upstream release.
+The package builds from the original SVGs, hotspots and animation timings.
+The scalable format is used by GNOME Shell 51 and the Xcursor format includes
+an exact 28 px rendition for applications using raster cursors. The stable
+Nodalix theme identifier preserves the existing default selection on upgrades.

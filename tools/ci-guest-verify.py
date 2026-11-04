@@ -94,6 +94,16 @@ if os.environ.get('NODALIX_CI_FRESH')!='1':
     assert Gio.Settings.new('org.gnome.shell').get_strv('favorite-apps')==['org.gnome.Nautilus.desktop']
 assert Gio.Settings.new('org.gnome.desktop.interface').get_string('clock-format')=='24h'
 assert Gio.Settings.new('org.gnome.desktop.input-sources').get_value('sources').unpack()
+interface=Gio.Settings.new('org.gnome.desktop.interface')
+assert interface.get_default_value('cursor-theme').unpack()=='Nodalix'
+assert interface.get_default_value('cursor-size').unpack()==28
+cursor=Path('/usr/share/icons/Nodalix')
+assert 'Capitaine Cursors' in (cursor/'index.theme').read_text()
+for shape in ('default','pointer','grab','grabbing'):
+    scalable=cursor/'cursors_scalable'/shape
+    frames=json.loads((scalable/'metadata.json').read_text())
+    assert frames and all((scalable/frame['filename']).is_file() for frame in frames)
+    assert (cursor/'cursors'/shape).read_bytes()[:4]==b'Xcur'
 preferences=[('org.gnome.desktop.input-sources','sources'),('org.gnome.desktop.wm.preferences','focus-mode'),('org.gnome.settings-daemon.plugins.media-keys','custom-keybindings')]
 before=[Gio.Settings.new(schema).get_value(key).unpack() for schema,key in preferences]
 import subprocess
@@ -197,9 +207,18 @@ while time.monotonic()<deadline:
     time.sleep(.5)
 else:raise AssertionError('The Applications folder did not acquire its native Settings entry')
 assert subprocess.check_output(['systemctl','--user','is-active','nodalix-applications.service'],text=True).strip()=='active'
-results=bus.call_sync('org.gnome.Settings.SearchProvider','/org/gnome/Settings/SearchProvider',
-    'org.gnome.Shell.SearchProvider2','GetInitialResultSet',GLib.Variant('(as)',(['documentos','grandes'],)),
-    None,Gio.DBusCallFlags.NONE,30000,None).unpack()[0]
+# The first query can activate Settings on a busy software-rendered VM.
+deadline=time.monotonic()+90
+while True:
+    try:
+        results=bus.call_sync('org.gnome.Settings.SearchProvider','/org/gnome/Settings/SearchProvider',
+            'org.gnome.Shell.SearchProvider2','GetInitialResultSet',GLib.Variant('(as)',(['documentos','grandes'],)),
+            None,Gio.DBusCallFlags.NONE,30000,None).unpack()[0]
+        break
+    except GLib.Error as error:
+        if time.monotonic()>=deadline or not (error.matches(Gio.io_error_quark(),Gio.IOErrorEnum.TIMED_OUT)
+                or error.matches(Gio.dbus_error_quark(),Gio.DBusError.NO_REPLY)):
+            raise
 assert 'nodalix-storage' in results,results
 print('Applications folder and native Settings search are available')
 # Register this QA process explicitly; the systemd verifier otherwise supplies
