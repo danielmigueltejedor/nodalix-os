@@ -14,7 +14,7 @@ SPEC.loader.exec_module(MODULE)
 
 
 def fixture(path: Path, version: str = "51.1") -> None:
-    (path / "js/ui").mkdir(parents=True)
+    (path / "js/ui").mkdir(parents=True, exist_ok=True)
     (path / "js/meson.build").write_text("subdir('misc')\n")
     (path / "meson.build").write_text(
         f"project('gnome-shell', 'c',\n  version: '{version}',\n)\n"
