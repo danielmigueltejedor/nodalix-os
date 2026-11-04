@@ -25,7 +25,7 @@ on:
         default: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   test:
@@ -447,6 +447,8 @@ jobs:
           if-no-files-found: error
 
   publish:
+    permissions:
+      contents: write
     needs:
       - test
       - build

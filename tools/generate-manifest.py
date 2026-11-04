@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -14,7 +15,8 @@ if str(ROOT / "tools") not in sys.path:
 from versioning import canonical_version, to_pkgver, VERSION_PATTERN  # noqa: E402
 
 
-SHA256_RE = __import__("re").compile(r"^[0-9a-f]{64}$")
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+PACKAGE_RE = re.compile(r"[A-Za-z0-9_@+][A-Za-z0-9_@+.-]*")
 
 
 class ManifestError(RuntimeError):
@@ -37,11 +39,13 @@ def version(path: Path) -> str:
 
 
 def unique_package_asset(directory: Path, package: str, component_version: str) -> Path:
+    if not PACKAGE_RE.fullmatch(package):
+        raise ManifestError(f"invalid package name: {package!r}")
     pkgver = to_pkgver(component_version)
     matches = [
         path
         for path in sorted(directory.glob(f"{package}-{pkgver}-*.pkg.tar.zst"))
-        if "-debug-" not in path.name and not path.name.endswith(".sig")
+        if path.is_file() and not path.is_symlink() and "-debug-" not in path.name
     ]
     if len(matches) != 1:
         names = ", ".join(path.name for path in matches) or "none"

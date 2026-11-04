@@ -26,7 +26,7 @@ work=$(mktemp -d -t nodalix-install.XXXXXX)
 trap 'rm -rf -- "$work"' EXIT
 
 say "Buscando la versión más reciente de Nodalix ($channel)…"
-curl -fsSL -H 'Accept: application/vnd.github+json' \
+curl -fsSL --proto '=https' --proto-redir '=https' -H 'Accept: application/vnd.github+json' \
     "https://api.github.com/repos/$repo/releases?per_page=30" \
     -o "$work/releases.json"
 
@@ -50,7 +50,32 @@ PY
 release_tag=${selection%%$'\t'*}
 manifest_url=${selection#*$'\t'}
 say "Descargando Nodalix $release_tag…"
-curl -fsSL "$manifest_url" -o "$work/nodalix-manifest.json"
+curl -fsSL --proto '=https' --proto-redir '=https' "$manifest_url" -o "$work/nodalix-manifest.json"
+
+signature_required=$(python3 - "$work/nodalix-manifest.json" <<'PY'
+import json, pathlib, sys
+
+manifest = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
+managed_kernel = any(item.get("package") == "linux-nodalix" for item in manifest.get("components", []))
+if managed_kernel or manifest.get("signing"):
+    if manifest.get("signing") != {"algorithm": "minisign", "signature_asset": "nodalix-manifest.json.minisig"}:
+        raise SystemExit("Invalid release signature metadata")
+    print("yes")
+else:
+    print("no")
+PY
+) || die "El manifiesto no contiene una firma válida para este lanzamiento."
+if [[ "$signature_required" == yes ]]; then
+    release_key=$(realpath -e -- "${NODALIX_RELEASE_PUBLIC_KEY_FILE:-/usr/share/nodalix/keys/release.pub}") \
+        || die "Falta la clave pública de confianza de Nodalix."
+    [[ -f "$release_key" ]] || die "La clave pública de Nodalix no es un archivo."
+    command -v minisign >/dev/null || die "Falta minisign para comprobar la firma de Nodalix."
+    curl -fsSL --proto '=https' --proto-redir '=https' \
+        "https://github.com/$repo/releases/download/$release_tag/nodalix-manifest.json.minisig" \
+        -o "$work/nodalix-manifest.json.minisig"
+    minisign -Vm "$work/nodalix-manifest.json" -p "$release_key" \
+        || die "No se pudo verificar la firma de Nodalix."
+fi
 
 python3 - "$work/nodalix-manifest.json" "$work/assets.tsv" <<'PY'
 import json, pathlib, platform, re, subprocess, sys
@@ -62,14 +87,17 @@ if manifest.get("arch", "x86_64") not in ("any", platform.machine()):
     raise SystemExit("The release architecture does not match this computer")
 lines = []
 for item in manifest.get("components", []):
+    package = str(item.get("package", ""))
+    if not re.fullmatch(r"[A-Za-z0-9_@+][A-Za-z0-9_@+.-]*", package):
+        raise SystemExit("Unsafe package name in release manifest")
     if not item.get("required") and subprocess.run(
-        ["pacman", "-Q", str(item.get("package", ""))],
+        ["pacman", "-Q", "--", package],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     ).returncode != 0:
         continue
     asset = str(item.get("asset", ""))
     digest = str(item.get("sha256", "")).lower()
-    if not asset or "/" in asset or "\\" in asset or not re.fullmatch(r"[0-9a-f]{64}", digest):
+    if not re.fullmatch(r"[A-Za-z0-9_@+.-]+\.pkg\.tar\.zst", asset) or not re.fullmatch(r"[0-9a-f]{64}", digest):
         raise SystemExit("Unsafe component metadata in release manifest")
     lines.append(f"{asset}\t{digest}")
 if not lines:
@@ -80,7 +108,8 @@ PY
 packages=()
 while IFS=$'\t' read -r asset digest; do
     destination="$work/$asset"
-    curl -fL "https://github.com/$repo/releases/download/$release_tag/$asset" -o "$destination"
+    curl -fL --proto '=https' --proto-redir '=https' \
+        "https://github.com/$repo/releases/download/$release_tag/$asset" -o "$destination"
     printf '%s  %s\n' "$digest" "$destination" | sha256sum --check --status \
         || die "La verificación de $asset ha fallado."
     packages+=("$destination")

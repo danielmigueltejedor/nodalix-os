@@ -84,13 +84,14 @@ export default class ShakePointerExtension extends Extension {
     }
 
     _loadArtwork() {
-        const size = this._settings.get_int('cursor-size') * MAGNIFICATION;
+        const cursorSize = this._settings.get_int('cursor-size');
+        const size = cursorSize * MAGNIFICATION;
         // Render once at the largest monitor's physical size. Moving between
         // monitors can then reuse the texture without upscaling or decoding.
         const scale = Math.max(1, ...Main.layoutManager.monitors.map(
             ({index}) => global.display.get_monitor_scale(index)));
         const pixels = Math.ceil(size * scale);
-        if (this._artwork?.pixels === pixels && this._artwork.size === size)
+        if (this._artwork?.pixels === pixels && this._artwork.cursorSize === cursorSize)
             return this._artwork;
 
         const [ok, bytes] = GLib.file_get_contents(`${CURSOR_DIRECTORY}/metadata.json`);
@@ -103,7 +104,7 @@ export default class ShakePointerExtension extends Extension {
         const height = pixbuf.get_height();
         const texture = Cogl.Texture2D.new_from_data(this._backend.get_cogl_context(),
             width, height, Cogl.PixelFormat.RGBA_8888, pixbuf.get_rowstride(), pixbuf.get_pixels());
-        this._artwork = {texture, pixels, size, width: width * size / pixels,
+        this._artwork = {texture, pixels, cursorSize, size, width: width * size / pixels,
             height: height * size / pixels, hotX: frame.hotspot_x * size / frame.nominal_size,
             hotY: frame.hotspot_y * size / frame.nominal_size};
         return this._artwork;

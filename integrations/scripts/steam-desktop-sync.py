@@ -290,7 +290,7 @@ def sync(roots, apps, icons, state):
         except OSError as exc:
             print(f'Icon cache: {exc}', flush=True)
     if changed:
-        subprocess.run(['update-desktop-database', str(apps)], check=True)
+        subprocess.run(['update-desktop-database', '--', str(apps.resolve())], check=True)
         print(f'Updated {len(changed)} launchers; {len(games)} installed games.', flush=True)
     return games, changed
 

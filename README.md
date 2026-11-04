@@ -103,6 +103,10 @@ bash /tmp/nodalix-install.sh
 ```
 
 The installer downloads the release manifest from GitHub, verifies package checksums, installs the required dependencies and performs the Nodalix package transaction.
+Releases that include the Nodalix kernel also require Minisign and a trusted
+Nodalix release public key. The installer reads the installed key from
+`/usr/share/nodalix/keys/release.pub`. For an Arch installation without that
+key, set `NODALIX_RELEASE_PUBLIC_KEY_FILE` to the trusted key file.
 
 ## Updates
 

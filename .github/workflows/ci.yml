@@ -19,7 +19,6 @@ on:
 
 permissions:
   contents: read
-  actions: read
 
 concurrency:
   group: candidate-v2-${{ github.ref }}-${{ inputs.candidate_run || 'new' }}
@@ -46,6 +45,9 @@ jobs:
       ref: ${{ github.sha }}
   packages:
     needs: [validate, kernel]
+    permissions:
+      contents: read
+      actions: read
     runs-on: ubuntu-24.04
     timeout-minutes: 55
     steps:
@@ -110,6 +112,9 @@ jobs:
           path: dist/migration-evidence/*
   iso:
     needs: packages
+    permissions:
+      contents: read
+      actions: read
     runs-on: ubuntu-24.04
     timeout-minutes: 70
     steps:
