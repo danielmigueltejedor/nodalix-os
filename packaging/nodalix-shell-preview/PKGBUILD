@@ -33,8 +33,11 @@ provides=("gnome-shell=1:$_gnomever")
 conflicts=('gnome-shell')
 # No replaces(): a normal pacman upgrade must never silently install the preview.
 source=("git+https://github.com/GNOME/gnome-shell.git#commit=$_upstream_commit"
+        'gvc::git+https://gitlab.gnome.org/GNOME/libgnome-volume-control.git#commit=0a4eda0cdc2deb352bebc70ec697c42af46094e4'
+        'git+https://github.com/ptomato/jasmine-gjs.git#commit=856465dddbd92e82e574891e1ebc79e17d7b708a'
+        'git+https://gitlab.gnome.org/GNOME/libshew.git#commit=d16afc40412b565d2bbecf80335f54a19a978009'
         'nodalix-shell-overlays.tar.zst')
-sha256sums=('SKIP' 'AUTO_OVERLAY_SHA256')
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'AUTO_OVERLAY_SHA256')
 
 prepare() {
   python3 "$srcdir/tools/prepare-nodalix-shell.py" "$srcdir/gnome-shell" \
@@ -42,12 +45,24 @@ prepare() {
 }
 
 build() {
-  arch-meson gnome-shell build -Dgtk_doc=false
+  local upstream_tests=false
+  # Arch's regular Mutter package does not ship its private test library.
+  if pkg-config --exists libmutter-test-51; then
+    upstream_tests=true
+  fi
+  MESON_PACKAGE_CACHE_DIR="$srcdir" arch-meson gnome-shell build -Dgtk_doc=false -Dtests="$upstream_tests"
   meson compile -C build
 }
 
 check() {
-  meson test -C build --print-errorlogs
+  local module
+  for module in main connect; do
+    gresource extract build/src/libshell-51.so "/org/gnome/shell/nodalix/$module.js" |
+      cmp - "$srcdir/gnome/nodalix-shell/$module.js"
+  done
+  if pkg-config --exists libmutter-test-51; then
+    meson test -C build --print-errorlogs
+  fi
 }
 
 package() {

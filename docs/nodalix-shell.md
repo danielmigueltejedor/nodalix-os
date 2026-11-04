@@ -49,6 +49,11 @@ Wayland, bloqueo/desbloqueo, suspender/reanudar, varios monitores y registros.
 Probar también una VM sin el servicio Phone Link y otra con el UUID antiguo
 habilitado en dconf para detectar duplicados.
 
+El paquete comprueba que los dos módulos de Nodalix se hayan incorporado
+a los recursos compilados. Los tests de Meson de GNOME Shell requieren
+la biblioteca privada `libmutter-test-51`, que el paquete habitual de
+Mutter en Arch no incluye.
+
 **Reversión en la VM:** desde TTY o sesión de recuperación, reinstalar el
 paquete Arch `gnome-shell` compatible (con actualización coherente del
 sistema), cerrar sesión y entrar de nuevo. Nunca sustituir binarios de la
