@@ -1,6 +1,7 @@
 [Unit]
 Description=Organize installed applications into Nodalix folders
-After=graphical-session.target
+Wants=nodalix-app-icons.service
+After=graphical-session.target nodalix-app-icons.service
 StartLimitIntervalSec=0
 [Service]
 Type=oneshot
