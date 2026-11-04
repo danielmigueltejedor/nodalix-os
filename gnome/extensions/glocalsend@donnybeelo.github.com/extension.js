@@ -133,7 +133,6 @@ const TextPromptDialog = GObject.registerClass({ GTypeName: "GLocalSend_TextProm
         });
         this._content = new St.BoxLayout({
             orientation: Clutter.Orientation.VERTICAL,
-            orientation: Clutter.Orientation.VERTICAL,
             x_expand: true,
             y_expand: true,
             style_class: "prompt-dialog-content",
@@ -303,7 +302,6 @@ const IncomingTransferDialog = GObject.registerClass({ GTypeName: "GLocalSend_In
             destroyOnClose: false,
         });
         this._content = new St.BoxLayout({
-            orientation: Clutter.Orientation.VERTICAL,
             orientation: Clutter.Orientation.VERTICAL,
             x_expand: true,
             y_expand: true,

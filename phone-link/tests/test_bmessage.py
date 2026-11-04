@@ -56,6 +56,10 @@ class TestBasicParsing:
         # body might be empty string or None depending on regex behavior — both OK
         assert p.body in ("", None)
 
+    def test_truncated_message_with_many_body_markers(self):
+        blob = "BEGIN:MSG\r\n" * 10000
+        assert parse(blob).body is None
+
     def test_no_vcard(self):
         # bMessage without originator VCARD (degenerate but possible)
         blob = (

@@ -23,6 +23,14 @@ export function set_uniform(effect, name, value) {
     effect.queue_repaint();
 }
 
+export function update_float_property(effect, name, value, offset = 0) {
+    const property = `_${name}`;
+    if (effect[property] === value)
+        return;
+    effect[property] = value;
+    set_uniform(effect, name, value + offset);
+}
+
 export function mark_dirty(effect) {
     if (effect._bms_uniforms)
         effect._bms_uniforms_dirty = true;

@@ -13,7 +13,7 @@ makedepends=("meson" "ninja" "glib2-devel" "git")
 source=("control-center-51.0.tar.zst" "nodalix-control-center-$pkgver.tar.zst")
 sha256sums=("SKIP" "SKIP")
 prepare() {
-  python "$srcdir/gnome/control-center/apply.py" "$srcdir/control-center"
+  (cd "$srcdir/control-center" && python "$srcdir/gnome/control-center/apply.py")
 }
 build() {
   export PYTHONPATH="$srcdir/control-center/subprojects/blueprint-compiler"

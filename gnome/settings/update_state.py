@@ -38,7 +38,7 @@ def identity_label(release=Path('/etc/nodalix-release'), config=Path('/etc/nodal
 
 
 def sanitize(text):
-    text = re.sub(r'(https?://)[^\s/@]+:[^\s/@]+@', r'\1[redacted]@', text)
+    text = re.sub(r'(https?://)[^\s/@:]+:[^\s/@]*@', r'\1[redacted]@', text)
     text = re.sub(r'/home/[^/\s]+', '/home/[user]', text)
     return re.sub(r'(?i)(token|password|authorization)([=: ]+)\S+', r'\1\2[redacted]', text)
 

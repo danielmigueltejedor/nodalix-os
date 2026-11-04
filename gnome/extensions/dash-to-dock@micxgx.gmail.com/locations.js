@@ -300,7 +300,9 @@ export const LocationAppInfo = GObject.registerClass({
         return icons;
     }
 
-    async _updateLocationIcon(params = {standard: true, custom: true}) {
+    async _updateLocationIcon(params) {
+        if (params === undefined)
+            params = {standard: true, custom: true};
         const cancellable = new Utils.CancellableChild(this.cancellable);
 
         try {
@@ -551,7 +553,7 @@ class MountableVolumeAppInfo extends LocationAppInfo {
         if (this.mount || files?.length)
             return super.vfunc_launch(files, context);
 
-        this.mountAndLaunch(files, context);
+        this.mountAndLaunch(files, context).catch(error => logError(error));
         return true;
     }
 
@@ -776,7 +778,7 @@ class TrashAppInfo extends LocationAppInfo {
                 return;
             logError(e, 'Impossible to monitor trash');
         }
-        this._updateTrash();
+        this._updateTrash().catch(error => logError(error));
 
         this.connect('notify::empty', () => this._updateLocationIcon());
         this.notify('empty');
@@ -819,7 +821,7 @@ class TrashAppInfo extends LocationAppInfo {
         this._schedUpdateId = GLib.timeout_add(GLib.PRIORITY_LOW,
             UPDATE_TRASH_DELAY, () => {
                 this._schedUpdateId = 0;
-                this._updateTrash();
+                this._updateTrash().catch(error => logError(error));
                 return GLib.SOURCE_REMOVE;
             });
     }

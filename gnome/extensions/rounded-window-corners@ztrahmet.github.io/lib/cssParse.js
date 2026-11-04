@@ -95,17 +95,18 @@ function matchBrace(css, open) {
 
 function mediaMatches(query, env) {
     return splitTop(query, ',').some(clause => {
-        const terms = clause.split(/\s+and\s+/i).map(t => t.trim()).filter(Boolean);
+        const terms = clause.split(/(?<!\s)\s+and\s+/i).map(t => t.trim()).filter(Boolean);
         return terms.length > 0 && terms.every(term => {
             const t = term.toLowerCase();
             if (t === 'screen' || t === 'all')
                 return true;
 
-            const m = /^\(\s*([\w-]+)\s*:\s*([^)]+?)\s*\)$/.exec(t);
+            const m = /^\(\s*([\w-]+)\s*:([^)]+)\)$/.exec(t);
             if (!m)
                 return false;
 
-            const [, feature, value] = m;
+            const [, feature, rawValue] = m;
+            const value = rawValue.trim();
             if (feature === 'prefers-color-scheme')
                 return value === (env.dark ? 'dark' : 'light');
             if (feature === 'prefers-contrast')
@@ -165,7 +166,7 @@ function parseDeclarations(body) {
         if (colon < 0)
             continue;
         const prop = part.slice(0, colon).trim().toLowerCase();
-        const value = part.slice(colon + 1).replace(/\s*!\s*important\s*$/i, '').trim();
+        const value = part.slice(colon + 1).trimEnd().replace(/!\s*important$/i, '').trim();
         if (prop)
             decls.set(prop, value);
     }

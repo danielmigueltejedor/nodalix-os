@@ -102,7 +102,7 @@ const ColorEffectClass = utils.IS_IN_PREFERENCES ? null : class ColorEffect exte
             if (this._red !== red) {
                 this._red = red;
 
-                uniforms.set_uniform(this, 'red', parseFloat(this._red - 1e-6));
+                uniforms.set_uniform(this, 'red', Number.parseFloat(this._red - 1e-6));
             }
         }
 
@@ -115,7 +115,7 @@ const ColorEffectClass = utils.IS_IN_PREFERENCES ? null : class ColorEffect exte
             if (this._green !== green) {
                 this._green = green;
 
-                uniforms.set_uniform(this, 'green', parseFloat(this._green - 1e-6));
+                uniforms.set_uniform(this, 'green', Number.parseFloat(this._green - 1e-6));
             }
         }
 
@@ -128,7 +128,7 @@ const ColorEffectClass = utils.IS_IN_PREFERENCES ? null : class ColorEffect exte
             if (this._blue !== blue) {
                 this._blue = blue;
 
-                uniforms.set_uniform(this, 'blue', parseFloat(this._blue - 1e-6));
+                uniforms.set_uniform(this, 'blue', Number.parseFloat(this._blue - 1e-6));
             }
         }
 
@@ -141,7 +141,7 @@ const ColorEffectClass = utils.IS_IN_PREFERENCES ? null : class ColorEffect exte
             if (this._blend !== blend) {
                 this._blend = blend;
 
-                uniforms.set_uniform(this, 'blend', parseFloat(this._blend - 1e-6));
+                uniforms.set_uniform(this, 'blend', Number.parseFloat(this._blend - 1e-6));
                 this.set_enabled(this.blend > 0);
             }
         }
@@ -168,7 +168,7 @@ const ColorEffectClass = utils.IS_IN_PREFERENCES ? null : class ColorEffect exte
             if (this._opacity_factor !== opacityFactor) {
                 this._opacity_factor = opacityFactor;
 
-                uniforms.set_uniform(this, 'opacity_factor', parseFloat(this._opacity_factor));
+                uniforms.set_uniform(this, 'opacity_factor', Number.parseFloat(this._opacity_factor));
             }
         }
 

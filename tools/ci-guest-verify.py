@@ -11,6 +11,10 @@ def run(*args,**kwargs):
         result.check_returncode()
     return result.stdout
 
+def require(condition, message):
+    if not condition:
+        raise RuntimeError(message)
+
 GUEST_USER=os.environ.get('NODALIX_CI_USER','migration-test')
 GUEST_HOME=Path('/home')/GUEST_USER
 GUEST_UID=run('id','-u',GUEST_USER).strip()
@@ -41,16 +45,19 @@ try:
 Gio.Settings.new('org.gnome.desktop.session').set_uint('idle-delay', 0)
 Gio.Settings.new('org.gnome.desktop.screensaver').set_boolean('lock-enabled', False)
 """)
-    assert 'active'==run('systemctl','is-active','gdm').strip()
-    assert 'active'==run('systemctl','is-active','cups.socket').strip()
-    assert not Path('/run/nodalix-updater/reboot-required').exists()
+    require(run('systemctl','is-active','gdm').strip() == 'active', 'GDM is inactive')
+    require(run('systemctl','is-active','cups.socket').strip() == 'active', 'CUPS is inactive')
+    require(not Path('/run/nodalix-updater/reboot-required').exists(), 'Stale restart marker')
     installed=set(run('pacman','-Qq').splitlines())
-    assert not installed.intersection({'hyprland','hypridle','hyprlock','hyprpaper','hyprutils','quickshell','greetd','greetd-regreet','uwsm','aquamarine','mpvpaper','xdg-desktop-portal-hyprland'})
-    assert not (GUEST_HOME/'.config/hypr').exists()
+    legacy = installed.intersection({'hyprland','hypridle','hyprlock','hyprpaper','hyprutils','quickshell','greetd','greetd-regreet','uwsm','aquamarine','mpvpaper','xdg-desktop-portal-hyprland'})
+    require(not legacy, f'Legacy desktop packages remain: {sorted(legacy)}')
+    require(not (GUEST_HOME/'.config/hypr').exists(), 'Legacy Hyprland configuration remains')
     if not LIVE:
         expected_version=os.environ['NODALIX_CI_VERSION']
-        assert f'VERSION_ID="{expected_version}"' in Path('/etc/nodalix-release').read_text()
-        assert not json.loads(run('nodalix-updater','status','--json'))['reboot_mandatory']
+        require(f'VERSION_ID="{expected_version}"' in Path('/etc/nodalix-release').read_text(),
+                f'Installed Nodalix version does not match {expected_version}')
+        require(not json.loads(run('nodalix-updater','status','--json'))['reboot_mandatory'],
+                'Updater still requests a restart')
     fresh=os.environ.get('NODALIX_CI_FRESH')=='1'
     print(user_script('''
 import json,time
@@ -247,7 +254,8 @@ screenshot=Path(unquote(urlparse(responses[0][1]['uri']).path))
 assert screenshot.read_bytes().startswith(bytes([137,80,78,71]))
 print('Real GNOME screenshot portal produced a PNG')
 '''))
-    assert {'xdg-desktop-portal','xdg-desktop-portal-gnome','xdg-desktop-portal-gtk'}.issubset(installed)
+    missing = {'xdg-desktop-portal','xdg-desktop-portal-gnome','xdg-desktop-portal-gtk'} - installed
+    require(not missing, f'Missing desktop portals: {sorted(missing)}')
     print(user_script("print(__import__('subprocess').check_output(['systemctl','--user','is-active','xdg-desktop-portal.service','xdg-desktop-portal-gnome.service'],text=True))"))
     print('NODALIX_VM_MIGRATION_PASS',flush=True)
 except Exception:

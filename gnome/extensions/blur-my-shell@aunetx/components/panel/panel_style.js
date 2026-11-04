@@ -76,7 +76,8 @@ export function update_panel_border_radius(actors, target_class, settings) {
         ? `border-radius: ${top}px ${top}px ${bottom}px ${bottom}px;`
         : null;
 
-    const others = (panel.get_style() ?? '').replace(actors.radius_style ?? '', '').replace(/[\s;]+$/, '');
+    const others = (panel.get_style() ?? '').replace(actors.radius_style ?? '', '')
+        .replace(/(?<![\s;])[\s;]+$/, '');
     actors.radius_style = new_radius_style;
     const target_style = [others, new_radius_style].filter(Boolean).join('; ') || null;
     if (panel.get_style() === target_style)

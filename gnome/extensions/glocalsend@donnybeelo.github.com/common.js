@@ -18,19 +18,17 @@ export const CERT_DIR = GLib.build_filenamev([
 ]);
 export const CERT_PATH = GLib.build_filenamev([CERT_DIR, "cert.pem"]);
 export const KEY_PATH = GLib.build_filenamev([CERT_DIR, "key.pem"]);
-export var ProtocolType;
-(function (ProtocolType) {
-    ProtocolType["Http"] = "http";
-    ProtocolType["Https"] = "https";
-})(ProtocolType || (ProtocolType = {}));
-export var DeviceType;
-(function (DeviceType) {
-    DeviceType["Mobile"] = "mobile";
-    DeviceType["Desktop"] = "desktop";
-    DeviceType["Web"] = "web";
-    DeviceType["Headless"] = "headless";
-    DeviceType["Server"] = "server";
-})(DeviceType || (DeviceType = {}));
+export const ProtocolType = {
+    Http: "http",
+    Https: "https",
+};
+export const DeviceType = {
+    Mobile: "mobile",
+    Desktop: "desktop",
+    Web: "web",
+    Headless: "headless",
+    Server: "server",
+};
 export function makeDefaultAlias() {
     return GLib.get_host_name() || "LocalSend";
 }

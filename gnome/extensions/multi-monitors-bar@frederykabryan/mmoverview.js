@@ -971,7 +971,7 @@ export const MultiMonitorsControlsManager = GObject.registerClass(
         }
 
         _filterAppGrid(searchText) {
-            this._syncAppGridState(searchText);
+            this._syncAppGridState(searchText).catch(error => logError(error));
         }
 
         _refreshNativeAppDisplay() {
@@ -1388,7 +1388,7 @@ export const MultiMonitorsControlsManager = GObject.registerClass(
             // Called when overview is shown
             this._visible = true;
             this._connectOverviewStateWatcher();
-            this._syncAppGridState();
+            this._syncAppGridState().catch(error => logError(error));
 
             // Check if cursor is on this monitor and focus search entry
             const [x, y] = global.get_pointer();
@@ -1429,7 +1429,7 @@ export const MultiMonitorsControlsManager = GObject.registerClass(
             this._appDisplayVisible = false;
             this._resetWorkspacesViewTransform();
             this._lastWorkspaceTransformKey = null;
-            this._syncAppGridState('');
+            this._syncAppGridState('').catch(error => logError(error));
             // Clear the first visible app reference
             this._firstVisibleApp = null;
         }

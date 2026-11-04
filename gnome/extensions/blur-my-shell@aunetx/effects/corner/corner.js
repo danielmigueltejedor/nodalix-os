@@ -104,7 +104,7 @@ const CornerEffectClass = utils.IS_IN_PREFERENCES ? null : class CornerEffect ex
             if (Number.isFinite(this._clip_height) && this._clip_height >= 0)
                 radius = Math.min(radius, this._clip_height / 2);
 
-            uniforms.set_uniform(this, 'radius', parseFloat(radius - 1e-6));
+            uniforms.set_uniform(this, 'radius', Number.parseFloat(radius - 1e-6));
         }
 
         get width() {
@@ -116,7 +116,7 @@ const CornerEffectClass = utils.IS_IN_PREFERENCES ? null : class CornerEffect ex
             if (this._width !== v) {
                 this._width = v;
 
-                uniforms.set_uniform(this, 'width', parseFloat(this._width));
+                uniforms.set_uniform(this, 'width', Number.parseFloat(this._width));
                 this.update_radius();
             }
         }
@@ -130,7 +130,7 @@ const CornerEffectClass = utils.IS_IN_PREFERENCES ? null : class CornerEffect ex
             if (this._height !== v) {
                 this._height = v;
 
-                uniforms.set_uniform(this, 'height', parseFloat(this._height));
+                uniforms.set_uniform(this, 'height', Number.parseFloat(this._height));
                 this.update_radius();
             }
         }
@@ -197,10 +197,10 @@ const CornerEffectClass = utils.IS_IN_PREFERENCES ? null : class CornerEffect ex
                 DEFAULT_PARAMS.clip[index]
             ));
             [this._clip_x0, this._clip_y0, this._clip_width, this._clip_height] = clip;
-            uniforms.set_uniform(this, 'clip_x0', parseFloat(this._clip_x0 - 1e-6));
-            uniforms.set_uniform(this, 'clip_y0', parseFloat(this._clip_y0 - 1e-6));
-            uniforms.set_uniform(this, 'clip_width', parseFloat(this._clip_width <= 0 ? -1 : this._clip_width));
-            uniforms.set_uniform(this, 'clip_height', parseFloat(this._clip_height <= 0 ? -1 : this._clip_height));
+            uniforms.set_uniform(this, 'clip_x0', Number.parseFloat(this._clip_x0 - 1e-6));
+            uniforms.set_uniform(this, 'clip_y0', Number.parseFloat(this._clip_y0 - 1e-6));
+            uniforms.set_uniform(this, 'clip_width', Number.parseFloat(this._clip_width <= 0 ? -1 : this._clip_width));
+            uniforms.set_uniform(this, 'clip_height', Number.parseFloat(this._clip_height <= 0 ? -1 : this._clip_height));
             this.update_radius();
         }
 

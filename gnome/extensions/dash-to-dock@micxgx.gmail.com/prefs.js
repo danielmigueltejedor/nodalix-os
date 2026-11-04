@@ -1071,7 +1071,7 @@ const DockSettings = GObject.registerClass({
         this._builder.get_object('customize_opacity_combo').connect(
             'changed',
             widget => {
-                this._settings.set_enum('transparency-mode', parseInt(widget.get_active_id()));
+                this._settings.set_enum('transparency-mode', Number.parseInt(widget.get_active_id()));
             }
         );
 

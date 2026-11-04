@@ -67,7 +67,7 @@ async function readStylesheet(path, seen, depth = 0) {
         return text;
 
     const dir = GLib.path_get_dirname(path);
-    const pattern = /@import\s+(?:url\(\s*)?["']?([^"')\s]+)["']?\s*\)?\s*;/g;
+    const pattern = /@import\s+(?:url\(\s*)?["']?([^"')\s]+)["']?\s*(?:\)\s*)?;/g;
     const parts = [];
     let cursor = 0;
     let match;
@@ -150,7 +150,7 @@ export class StyleResolver {
             return;
         this._idleId = GLib.idle_add(GLib.PRIORITY_DEFAULT_IDLE, () => {
             this._idleId = 0;
-            this._refresh();
+            this._refresh().catch(error => logError(error));
             return GLib.SOURCE_REMOVE;
         });
     }
@@ -375,7 +375,7 @@ export class StyleResolver {
                     return;
                 sessionCache.adwCss = stdout;
                 sessionCache.styles.clear();
-                this._refresh();
+                this._refresh().catch(error => logError(error));
             } catch {
                 // Ignore probe failure and retain fallback styles.
             }

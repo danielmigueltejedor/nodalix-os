@@ -85,9 +85,20 @@ class MigrationTests(unittest.TestCase):
             with self.assertRaises(UPDATER.ManifestError):UPDATER.candidate_info(path,{})
 
 class BridgeTests(unittest.TestCase):
-    def fixture(self,path):
-        asset='nodalix-updater-0.3.0-1-any.pkg.tar.zst';(path/asset).write_bytes(b'bridge')
-        return {'schema_version':1,'version':'0.3.0','components':[{'package':'nodalix-updater','version':'0.3.0','asset':asset,'sha256':hashlib.sha256(b'bridge').hexdigest()}]}
+    def fixture(self,path,version='0.3.0'):
+        asset=f'nodalix-updater-{version}-1-any.pkg.tar.zst';(path/asset).write_bytes(b'bridge')
+        return {'schema_version':1,'version':version,'components':[{'package':'nodalix-updater','version':version,'asset':asset,'sha256':hashlib.sha256(b'bridge').hexdigest()}]}
+    def test_bridge_accepts_stable_nodalix_050(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp)
+            data = self.fixture(path, '0.5.0')
+            runner = mock.Mock(return_value=subprocess.CompletedProcess(
+                [], 0, stdout='pkgname = nodalix-updater\npkgver = 0.5.0-1\n'))
+            BRIDGE.install_bridge(data, path, runner, offline=True)
+            self.assertEqual(runner.call_args_list[1].args[0][-1],
+                             str(path / 'nodalix-updater-0.5.0-1-any.pkg.tar.zst'))
+            self.assertEqual(runner.call_args_list[2].args[0][-2:], ['--assets', str(path)])
+
     def test_bridge_installs_only_updater_before_full_update(self):
         with tempfile.TemporaryDirectory() as temp:
             path=Path(temp);data=self.fixture(path)
@@ -119,6 +130,15 @@ class CLIErrorTests(unittest.TestCase):
             self.assertEqual(json.loads((Path(temp)/'status').read_text())['status'],'update_busy')
 
 class BridgePolicyTests(unittest.TestCase):
+    def test_bridge_rejects_remote_unsigned_nodalix_kernel_even_with_an_old_client(self):
+        import types
+        client = types.SimpleNamespace(validate_manifest=mock.Mock(), current_version=lambda: '0.2.4',
+                                       compare_versions=UPDATER.compare_versions)
+        manifest = {'components': [{'package': 'linux-nodalix'}]}
+        with mock.patch.object(BRIDGE.importlib.util,'spec_from_loader',return_value=types.SimpleNamespace(loader=mock.Mock())), mock.patch.object(BRIDGE.importlib.util,'module_from_spec',return_value=client):
+            with self.assertRaisesRegex(ValueError, 'requiere un manifiesto firmado'):
+                BRIDGE.verify_bridge_policy(b'{}', manifest, base='https://example.invalid/')
+
     def test_signature_refusal_prevents_bootstrap_install(self):
         import types,sys
         with tempfile.TemporaryDirectory() as temp:
@@ -244,6 +264,22 @@ class RetirementTests(unittest.TestCase):
             self.assertEqual((ext/'extension.js').read_text(),'old module')
 
 class InstallerOverlayTests(unittest.TestCase):
+    def test_control_center_overlay_rejects_links_before_writing(self):
+        with tempfile.TemporaryDirectory() as temp:
+            outside = Path(temp) / 'outside'
+            outside.write_text('leave this file alone')
+            tree = Path(temp) / 'control-center'
+            panel = tree / 'panels/system'
+            panel.mkdir(parents=True)
+            (tree / 'meson.build').write_text("project('gnome-control-center', version : '51.0')\n")
+            (panel / 'cc-system-panel.c').symlink_to(outside)
+            result = subprocess.run(['/usr/bin/python3', str(ROOT / 'gnome/control-center/apply.py')],
+                                    cwd=tree, capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Unsafe Control Center overlay path', result.stderr)
+            self.assertEqual(outside.read_text(), 'leave this file alone')
+            self.assertFalse((panel / 'cc-nodalix-pages.c').exists())
+
     def test_only_verified_unowned_session_is_retired(self):
         original=subprocess.check_output(['git','show','0.2.4:iso/overlay/usr/share/wayland-sessions/nodalix.desktop'],cwd=ROOT)
         for owned,content,removed in [(None,original,True),('custom',original,False),(None,b'custom session',False)]:

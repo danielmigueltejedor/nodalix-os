@@ -121,7 +121,7 @@ function collectDuplicateShortcuts(mapping, warnings) {
 				walk(item.items, itemPath);
 			} else if (item.shortcut) {
 				const normalized = parseAccelerator(item.shortcut)
-					.map(chord => [...chord.modifiers].sort().concat(chord.keyval).join('+'))
+					.map(chord => [...chord.modifiers].sort((a, b) => a - b).concat(chord.keyval).join('+'))
 					.join(' ');
 				if (!byAccel.has(normalized))
 					byAccel.set(normalized, []);
@@ -300,7 +300,7 @@ export class ShortcutStore {
 				names.push(info.get_name());
 		}
 		enumerator.close(null);
-		names.sort();
+		names.sort((a, b) => a < b ? -1 : a > b ? 1 : 0);
 		for (const name of names) {
 			const raw = readJson(appsDir.get_child(name), warnings);
 			if (!raw)

@@ -57,7 +57,7 @@ const WaveEffectClass = utils.IS_IN_PREFERENCES ? null : class WaveEffect extend
             if (this._frequency !== frequency) {
                 this._frequency = frequency;
 
-                uniforms.set_uniform(this, "frequency", parseFloat(this._frequency / 100));
+                uniforms.set_uniform(this, "frequency", Number.parseFloat(this._frequency / 100));
             }
         }
 
@@ -70,7 +70,7 @@ const WaveEffectClass = utils.IS_IN_PREFERENCES ? null : class WaveEffect extend
             if (this._amplitude !== amplitude) {
                 this._amplitude = amplitude;
 
-                uniforms.set_uniform(this, "amplitude", parseFloat(this._amplitude / 100));
+                uniforms.set_uniform(this, "amplitude", Number.parseFloat(this._amplitude / 100));
             }
         }
 
@@ -109,7 +109,7 @@ const WaveEffectClass = utils.IS_IN_PREFERENCES ? null : class WaveEffect extend
             if (this._vapor_speed !== vapor_speed) {
                 this._vapor_speed = vapor_speed;
 
-                uniforms.set_uniform(this, "vapor_speed", parseFloat(this._vapor_speed));
+                uniforms.set_uniform(this, "vapor_speed", Number.parseFloat(this._vapor_speed));
             }
         }
 
@@ -122,7 +122,7 @@ const WaveEffectClass = utils.IS_IN_PREFERENCES ? null : class WaveEffect extend
             if (this._grain !== grain) {
                 this._grain = grain;
 
-                uniforms.set_uniform(this, "grain", parseFloat(this._grain / 100));
+                uniforms.set_uniform(this, "grain", Number.parseFloat(this._grain / 100));
             }
         }
 
@@ -135,7 +135,7 @@ const WaveEffectClass = utils.IS_IN_PREFERENCES ? null : class WaveEffect extend
             if (this._zoom !== zoom) {
                 this._zoom = zoom;
 
-                uniforms.set_uniform(this, "zoom", parseFloat(this._zoom));
+                uniforms.set_uniform(this, "zoom", Number.parseFloat(this._zoom));
             }
         }
 
@@ -148,7 +148,7 @@ const WaveEffectClass = utils.IS_IN_PREFERENCES ? null : class WaveEffect extend
             if (this._dispersion !== dispersion) {
                 this._dispersion = dispersion;
 
-                uniforms.set_uniform(this, "dispersion", parseFloat(this._dispersion / 100));
+                uniforms.set_uniform(this, "dispersion", Number.parseFloat(this._dispersion / 100));
             }
         }
 
@@ -161,7 +161,7 @@ const WaveEffectClass = utils.IS_IN_PREFERENCES ? null : class WaveEffect extend
             if (this._saturation !== saturation) {
                 this._saturation = saturation;
 
-                uniforms.set_uniform(this, "saturation", parseFloat(this._saturation));
+                uniforms.set_uniform(this, "saturation", Number.parseFloat(this._saturation));
             }
         }
 
@@ -174,7 +174,7 @@ const WaveEffectClass = utils.IS_IN_PREFERENCES ? null : class WaveEffect extend
             if (this._brightness !== brightness) {
                 this._brightness = brightness;
 
-                uniforms.set_uniform(this, "brightness", parseFloat(this._brightness));
+                uniforms.set_uniform(this, "brightness", Number.parseFloat(this._brightness));
             }
         }
 
@@ -318,7 +318,7 @@ const WaveEffectClass = utils.IS_IN_PREFERENCES ? null : class WaveEffect extend
             if (this._width !== clamped) {
                 this._width = clamped;
 
-                uniforms.set_uniform(this, 'width', parseFloat(this._width));
+                uniforms.set_uniform(this, 'width', Number.parseFloat(this._width));
                 this._resize_animation_start();
             }
         }
@@ -332,7 +332,7 @@ const WaveEffectClass = utils.IS_IN_PREFERENCES ? null : class WaveEffect extend
             if (this._height !== clamped) {
                 this._height = clamped;
 
-                uniforms.set_uniform(this, 'height', parseFloat(this._height));
+                uniforms.set_uniform(this, 'height', Number.parseFloat(this._height));
                 this._resize_animation_start();
             }
         }
@@ -348,10 +348,10 @@ const WaveEffectClass = utils.IS_IN_PREFERENCES ? null : class WaveEffect extend
                 ? value
                 : DEFAULT_PARAMS.clip;
             [this._clip_x0, this._clip_y0, this._clip_width, this._clip_height] = clip;
-            uniforms.set_uniform(this, 'clip_x0', parseFloat(this._clip_x0 - 1e-6));
-            uniforms.set_uniform(this, 'clip_y0', parseFloat(this._clip_y0 - 1e-6));
-            uniforms.set_uniform(this, 'clip_width', parseFloat(this._clip_width <= 0 ? -1 : this._clip_width));
-            uniforms.set_uniform(this, 'clip_height', parseFloat(this._clip_height <= 0 ? -1 : this._clip_height));
+            uniforms.set_uniform(this, 'clip_x0', Number.parseFloat(this._clip_x0 - 1e-6));
+            uniforms.set_uniform(this, 'clip_y0', Number.parseFloat(this._clip_y0 - 1e-6));
+            uniforms.set_uniform(this, 'clip_width', Number.parseFloat(this._clip_width <= 0 ? -1 : this._clip_width));
+            uniforms.set_uniform(this, 'clip_height', Number.parseFloat(this._clip_height <= 0 ? -1 : this._clip_height));
             this._resize_animation_start();
         }
 

@@ -741,7 +741,7 @@ export class Rect {
         const individualLeftOvers = rects.map(r => this.minus(r));
 
         // Get the final result by intersecting all leftover rects.
-        return individualLeftOvers.reduce((result, currLeftOvers) => {
+        return individualLeftOvers.slice(1).reduce((result, currLeftOvers) => {
             const intersections = [];
 
             for (const leftOver of currLeftOvers) {
@@ -752,7 +752,7 @@ export class Rect {
             }
 
             return intersections;
-        });
+        }, individualLeftOvers[0]);
     }
 
     /**

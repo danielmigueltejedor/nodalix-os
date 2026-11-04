@@ -23,15 +23,20 @@ def main():
     parser.add_argument('--panels-only',action='store_true')
     parser.add_argument('--monitors',type=int,choices=range(2,5),default=2)
     parser.add_argument('--evidence',type=Path,default=ROOT/'dist/shell-evidence')
-    args=parser.parse_args();args.evidence.mkdir(parents=True,exist_ok=True)
-    if os.environ.get('NODALIX_PRIVATE_SHELL_TEST')!='1':
+    private = os.environ.get('NODALIX_PRIVATE_SHELL_TEST') == '1'
+    args = parser.parse_args(json.load(sys.stdin) if private else None)
+    args.evidence.mkdir(parents=True, exist_ok=True)
+    if not private:
         with tempfile.TemporaryDirectory(prefix='nodalix-private-bus-',ignore_cleanup_errors=True) as directory:
             home=Path(directory);runtime=home/'runtime';runtime.mkdir(mode=0o700)
-            env={key:value for key,value in os.environ.items() if key not in ('DBUS_SESSION_BUS_ADDRESS','DISPLAY','WAYLAND_DISPLAY','XDG_SESSION_ID','GDK_BACKEND','GNOME_SETUP_DISPLAY')}
+            env={key:value for key,value in os.environ.items() if key not in (
+                'DBUS_SESSION_BUS_ADDRESS','DISPLAY','WAYLAND_DISPLAY','WAYLAND_SOCKET',
+                'XDG_SESSION_ID','GDK_BACKEND','GNOME_SETUP_DISPLAY','GNOME_KEYRING_CONTROL')}
             env.update(NODALIX_PRIVATE_SHELL_TEST='1',NODALIX_QA_HOME=directory,HOME=directory,GTK_A11Y='none',
                 XDG_RUNTIME_DIR=str(runtime),XDG_CONFIG_HOME=str(home/'config'),XDG_DATA_HOME=str(home/'data'),
                 XDG_STATE_HOME=str(home/'state'),XDG_CACHE_HOME=str(home/'cache'))
-            result=subprocess.run(['dbus-run-session','--',sys.executable,__file__,'--evidence',str(args.evidence.resolve()),*(['--greeter'] if args.greeter else []),*(['--alternatives'] if args.alternatives else []),*(['--without-phone'] if args.without_phone else []),*(['--panels-only'] if args.panels_only else []),'--monitors',str(args.monitors)],env=env)
+            result = subprocess.run(['dbus-run-session', '--', sys.executable, __file__],
+                                    input=json.dumps(sys.argv[1:]), text=True, env=env)
             for name in ('doc','gvfs'):
                 subprocess.run(['fusermount3','-uz',str(runtime/name)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             return result.returncode

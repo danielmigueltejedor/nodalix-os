@@ -224,7 +224,7 @@ let reservedCache = new Set();
 let reservedCacheTime = 0;
 function acceleratorIdentity(accel) {
  const parsed = parseAccelerator(accel);
- return parsed?.length === 1 ? JSON.stringify([parsed[0].keyval,[...parsed[0].modifiers].sort()]) : null;
+ return parsed?.length === 1 ? JSON.stringify([parsed[0].keyval,[...parsed[0].modifiers].sort((a, b) => a - b)]) : null;
 }
 export function isSystemShortcut(accel, refresh = false) {
  const now = GLib.get_monotonic_time();

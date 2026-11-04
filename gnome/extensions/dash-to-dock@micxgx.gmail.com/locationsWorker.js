@@ -82,7 +82,7 @@ async function mainAsync(argv) {
 function main(args) {
     let ret;
     const loop = new GLib.MainLoop(null, false);
-    mainAsync(args).then(r => (ret = r)).catch(logError).finally(() => loop.quit());
+    void mainAsync(args).then(r => (ret = r)).catch(error => logError(error)).finally(() => loop.quit());
     loop.run();
 
     return ret;

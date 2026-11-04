@@ -14,7 +14,8 @@ function sanitizeAppId(text) {
 		.toLowerCase()
 		.replace(/\.desktop$/, '')
 		.replace(/[^a-z0-9-]+/g, '-')
-		.replace(/^-+|-+$/g, '')
+		.replace(/^-+/, '')
+		.replace(/(?<!-)-+$/, '')
 		.replace(/-{2,}/g, '-') || 'app';
 }
 

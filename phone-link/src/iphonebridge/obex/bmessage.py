@@ -34,9 +34,8 @@ from dataclasses import dataclass
 _VCARD_RE = re.compile(
     r"BEGIN:VCARD(?P<body>.*?)END:VCARD", re.DOTALL | re.IGNORECASE
 )
-_MSG_BODY_RE = re.compile(
-    r"BEGIN:MSG\s*\r?\n(?P<body>.*?)\s*END:MSG", re.DOTALL | re.IGNORECASE
-)
+_MSG_BEGIN_RE = re.compile(r"BEGIN:MSG[^\S\r\n]*\r?\n", re.IGNORECASE)
+_MSG_END_RE = re.compile(r"END:MSG", re.IGNORECASE)
 _BMSG_STATUS_RE = re.compile(r"^STATUS:(?P<v>\S+)", re.MULTILINE | re.IGNORECASE)
 _BMSG_TYPE_RE   = re.compile(r"^TYPE:(?P<v>\S+)",   re.MULTILINE | re.IGNORECASE)
 _BMSG_FOLDER_RE = re.compile(r"^FOLDER:(?P<v>\S+)", re.MULTILINE | re.IGNORECASE)
@@ -77,8 +76,9 @@ def parse(blob: str) -> ParsedBMessage:
                 if val.strip() and sender_phone is None:
                     sender_phone = val.strip()
 
-    body_m = _MSG_BODY_RE.search(blob)
-    body = body_m.group("body").strip("\r\n ") if body_m else None
+    start = _MSG_BEGIN_RE.search(blob)
+    end = _MSG_END_RE.search(blob, start.end()) if start else None
+    body = blob[start.end():end.start()].lstrip("\r\n ").rstrip() if start and end else None
     # Strip MAP byte-stuffing (the leading space convention for lines that
     # would otherwise start with `END:`).
     if body:

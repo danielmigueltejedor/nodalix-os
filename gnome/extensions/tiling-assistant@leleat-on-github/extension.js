@@ -354,7 +354,7 @@ export default class TilingAssistantExtension extends Extension {
         }
         if (!states?.tileGroups || !states?.windows)
             return;
-        const keysAsNumbers = entries => entries.map(([key, value]) => [parseInt(key), value]);
+        const keysAsNumbers = entries => entries.map(([key, value]) => [Number.parseInt(key), value]);
         const tileGroups = new Map(keysAsNumbers(Object.entries(states.tileGroups)));
         const tileStates = new Map(keysAsNumbers(Object.entries(states.windows)));
         const openWindows = global.display.list_all_windows();
