@@ -22,10 +22,10 @@ const PhoneToggle = GObject.registerClass(
 
 export class NodalixConnect {
     constructor(quickSettings, notifyError) {
-        this._indicator = new QuickSettings.SystemIndicator();
+        const indicator = new QuickSettings.SystemIndicator();
         this._toggle = new PhoneToggle(notifyError);
-        this._indicator.quickSettingsItems.push(this._toggle);
-        quickSettings.addExternalIndicator(this._indicator);
+        indicator.quickSettingsItems.push(this._toggle);
+        quickSettings.addExternalIndicator(indicator);
 
         // The shell only reflects the service state; Bluetooth stays in Phone Link.
         this._watchId = Gio.bus_watch_name(
@@ -47,9 +47,7 @@ export class NodalixConnect {
             Gio.bus_unwatch_name(this._watchId);
             this._watchId = 0;
         }
-        this._toggle?.destroy();
+        // Quick Settings owns and destroys the actors during Shell shutdown.
         this._toggle = null;
-        this._indicator?.destroy();
-        this._indicator = null;
     }
 }
