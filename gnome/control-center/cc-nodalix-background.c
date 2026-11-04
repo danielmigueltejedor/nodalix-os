@@ -5,6 +5,8 @@
 #define BUS "com.nodalix.Settings"
 #define OBJECT "/com/nodalix/Settings"
 #define IFACE "com.nodalix.Settings1"
+#define HANABI "io.github.jeffshee.HanabiRenderer"
+#define HANABI_UUID "hanabi-extension@jeffshee.github.io"
 #define WIDTH 144
 #define HEIGHT 108
 
@@ -14,8 +16,8 @@ struct _CcNodalixBackgroundChooser {
   GCancellable *cancel;
   GtkFlowBox *gallery;
   GtkLabel *status;
-  guint timer;
-  gboolean fetching, busy, operation_error;
+  guint subscriptions[3];
+  gboolean connecting, fetching, refresh_pending, busy, operation_error;
 };
 G_DEFINE_TYPE (CcNodalixBackgroundChooser, cc_nodalix_background_chooser, GTK_TYPE_BOX)
 
@@ -49,15 +51,37 @@ static void state_ready (GObject *source, GAsyncResult *result, gpointer data)
     g_dbus_error_strip_remote_error(error);
     gtk_label_set_text(self->status,error->message);
   }
+  if (self->refresh_pending)
+    fetch_state (self);
   g_object_unref(self);
 }
 static void fetch_state (CcNodalixBackgroundChooser *self)
 {
-  if (!self->proxy||self->fetching) return;
+  self->refresh_pending = FALSE;
+  if (!self->proxy || !gtk_widget_get_mapped (GTK_WIDGET (self)))
+    return;
+  if (self->fetching) {
+    self->refresh_pending = TRUE;
+    return;
+  }
   self->fetching=TRUE;
   g_dbus_proxy_call(self->proxy,"GetWallpaperState",NULL,G_DBUS_CALL_FLAGS_NONE,4000,self->cancel,state_ready,g_object_ref(self));
 }
-static gboolean poll_state (gpointer data) {fetch_state(data);return G_SOURCE_CONTINUE;}
+static void
+wallpaper_signal (GDBusConnection *connection, const gchar *sender_name,
+                  const gchar *object_path, const gchar *interface_name,
+                  const gchar *signal_name, GVariant *parameters, gpointer data)
+{
+  fetch_state (data);
+}
+
+static void
+settings_signal (GDBusProxy *proxy, const gchar *sender_name, const gchar *signal_name,
+                 GVariant *parameters, CcNodalixBackgroundChooser *self)
+{
+  if (g_str_equal (signal_name, "WallpaperChanged"))
+    fetch_state (self);
+}
 static void wallpaper_done (GObject *source,GAsyncResult *result,gpointer data)
 {
   CcNodalixBackgroundChooser *self=data;g_autoptr(GError) error=NULL;
@@ -129,21 +153,55 @@ static void gallery_ready (GObject *source,GAsyncResult *result,gpointer data)
 static void proxy_ready (GObject *source,GAsyncResult *result,gpointer data)
 {
   CcNodalixBackgroundChooser *self=data;g_autoptr(GError) error=NULL;
+  self->connecting = FALSE;
   self->proxy=g_dbus_proxy_new_for_bus_finish(result,&error);
-  if (self->proxy) g_dbus_proxy_call(self->proxy,"GetWallpapers",NULL,G_DBUS_CALL_FLAGS_NONE,4000,self->cancel,gallery_ready,g_object_ref(self));
-  else if (!g_error_matches(error,G_IO_ERROR,G_IO_ERROR_CANCELLED)) gtk_label_set_text(self->status,error->message);
+  if (self->proxy) {
+    GDBusConnection *connection = g_dbus_proxy_get_connection (self->proxy);
+    g_signal_connect_object (self->proxy, "g-signal", G_CALLBACK (settings_signal), self, 0);
+    self->subscriptions[0] = g_dbus_connection_signal_subscribe (connection,
+        "org.gnome.Shell", "org.gnome.Shell.Extensions", "ExtensionStateChanged",
+        "/org/gnome/Shell", HANABI_UUID, G_DBUS_SIGNAL_FLAGS_NONE, wallpaper_signal, self, NULL);
+    self->subscriptions[1] = g_dbus_connection_signal_subscribe (connection,
+        "org.freedesktop.DBus", "org.freedesktop.DBus", "NameOwnerChanged",
+        "/org/freedesktop/DBus", HANABI, G_DBUS_SIGNAL_FLAGS_NONE, wallpaper_signal, self, NULL);
+    self->subscriptions[2] = g_dbus_connection_signal_subscribe (connection,
+        HANABI, HANABI, "isPlayingChanged", "/io/github/jeffshee/HanabiRenderer",
+        NULL, G_DBUS_SIGNAL_FLAGS_NONE, wallpaper_signal, self, NULL);
+    g_dbus_proxy_call(self->proxy,"GetWallpapers",NULL,G_DBUS_CALL_FLAGS_NONE,4000,self->cancel,gallery_ready,g_object_ref(self));
+  } else if (!g_error_matches(error,G_IO_ERROR,G_IO_ERROR_CANCELLED)) gtk_label_set_text(self->status,error->message);
   g_object_unref(self);
 }
 static void chooser_dispose (GObject *object)
 {
   CcNodalixBackgroundChooser *self=CC_NODALIX_BACKGROUND_CHOOSER(object);
-  if(self->timer){g_source_remove(self->timer);self->timer=0;}
+  if (self->proxy) {
+    GDBusConnection *connection = g_dbus_proxy_get_connection (self->proxy);
+    for (guint i = 0; i < G_N_ELEMENTS (self->subscriptions); i++)
+      g_dbus_connection_signal_unsubscribe (connection, self->subscriptions[i]);
+  }
   if(self->cancel)g_cancellable_cancel(self->cancel);
   g_clear_object(&self->cancel);g_clear_object(&self->proxy);
   G_OBJECT_CLASS(cc_nodalix_background_chooser_parent_class)->dispose(object);
 }
+static void
+chooser_map (GtkWidget *widget)
+{
+  CcNodalixBackgroundChooser *self = CC_NODALIX_BACKGROUND_CHOOSER (widget);
+  GTK_WIDGET_CLASS (cc_nodalix_background_chooser_parent_class)->map (widget);
+  if (self->proxy) {
+    fetch_state (self);
+  } else if (!self->connecting) {
+    self->connecting = TRUE;
+    g_dbus_proxy_new_for_bus (G_BUS_TYPE_SESSION, G_DBUS_PROXY_FLAGS_NONE, NULL,
+        BUS, OBJECT, IFACE, self->cancel, proxy_ready, g_object_ref (self));
+  }
+}
+
 static void cc_nodalix_background_chooser_class_init (CcNodalixBackgroundChooserClass *klass)
-{G_OBJECT_CLASS(klass)->dispose=chooser_dispose;}
+{
+  G_OBJECT_CLASS (klass)->dispose = chooser_dispose;
+  GTK_WIDGET_CLASS (klass)->map = chooser_map;
+}
 static void cc_nodalix_background_chooser_init (CcNodalixBackgroundChooser *self)
 {
   self->cancel=g_cancellable_new();gtk_orientable_set_orientation(GTK_ORIENTABLE(self),GTK_ORIENTATION_VERTICAL);
@@ -158,33 +216,4 @@ static void cc_nodalix_background_chooser_init (CcNodalixBackgroundChooser *self
   gtk_widget_add_css_class(GTK_WIDGET(self->status),"dim-label");widgets[1]=GTK_WIDGET(self->status);
   for(guint i=0;i<2;i++){gtk_widget_set_margin_start(widgets[i],12);gtk_widget_set_margin_end(widgets[i],12);gtk_widget_set_margin_top(widgets[i],12);gtk_widget_set_margin_bottom(widgets[i],12);gtk_box_append(GTK_BOX(self),widgets[i]);}
   g_signal_connect_object(self->gallery,"child-activated",G_CALLBACK(thumbnail_activated),self,0);
-  self->timer=g_timeout_add_seconds(3,poll_state,self);
-  g_dbus_proxy_new_for_bus(G_BUS_TYPE_SESSION,G_DBUS_PROXY_FLAGS_NONE,NULL,BUS,OBJECT,IFACE,self->cancel,proxy_ready,g_object_ref(self));
-}
-
-struct _CcNodalixWallpaperPage {
-  AdwNavigationPage parent_instance;
-};
-
-G_DEFINE_TYPE (CcNodalixWallpaperPage, cc_nodalix_wallpaper_page, ADW_TYPE_NAVIGATION_PAGE)
-
-static void
-cc_nodalix_wallpaper_page_class_init (CcNodalixWallpaperPageClass *klass)
-{
-}
-
-static void
-cc_nodalix_wallpaper_page_init (CcNodalixWallpaperPage *self)
-{
-  adw_navigation_page_set_title (ADW_NAVIGATION_PAGE (self), "Fondos animados");
-  GtkWidget *toolbar = adw_toolbar_view_new ();
-  adw_toolbar_view_add_top_bar (ADW_TOOLBAR_VIEW (toolbar), adw_header_bar_new ());
-  GtkWidget *page = adw_preferences_page_new ();
-  AdwPreferencesGroup *group = ADW_PREFERENCES_GROUP (adw_preferences_group_new ());
-  GtkWidget *chooser = g_object_new (CC_TYPE_NODALIX_BACKGROUND_CHOOSER, NULL);
-  gtk_widget_set_hexpand (chooser, TRUE);
-  adw_preferences_group_add (group, chooser);
-  adw_preferences_page_add (ADW_PREFERENCES_PAGE (page), group);
-  adw_toolbar_view_set_content (ADW_TOOLBAR_VIEW (toolbar), page);
-  adw_navigation_page_set_child (ADW_NAVIGATION_PAGE (self), toolbar);
 }

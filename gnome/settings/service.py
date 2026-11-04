@@ -35,6 +35,7 @@ XML = '''<node><interface name="com.nodalix.Settings1">
 <method name="RefreshLocalSend"/>
 <method name="SetLocalSendFavorite"><arg type="s" direction="in"/><arg type="b" direction="in"/></method>
 <signal name="Changed"/>
+<signal name="WallpaperChanged"/>
 </interface></node>'''
 KINDS = ('nodalix', 'system', 'apps', 'flatpak', 'firmware')
 TITLES = {'nodalix': 'Nodalix', 'system': 'Programas y kernel', 'apps': 'Aplicaciones Nodalix',
@@ -512,12 +513,18 @@ class SettingsService:
             if info and info.get('state')!=1:self.extension('EnableExtension')
         except GLib.Error:
             pass
-        self.changed()
+        self.wallpaper_changed()
+
+    def wallpaper_changed(self):
+        if self.connection:
+            self.connection.emit_signal(None, PATH, INTERFACE, 'WallpaperChanged', None)
 
     def stop_wallpaper(self):
         request_wallpaper(False)
-        self.extension('DisableExtension')
-        self.changed()
+        try:
+            self.extension('DisableExtension')
+        finally:
+            self.wallpaper_changed()
 
     def method_call(self, connection, sender, object_path, interface, method, parameters, invocation):
         try:

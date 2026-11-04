@@ -127,6 +127,19 @@ class LocalSendBridgeTests(unittest.TestCase):
             self.assertIn('PASS:',result.stdout)
 
 class WallpaperActivationTests(unittest.TestCase):
+    def test_stop_notifies_the_gallery_even_when_shell_is_unavailable(self):
+        from unittest.mock import MagicMock
+
+        service = settings.SettingsService()
+        service.connection = MagicMock()
+        with patch.object(settings, 'request_wallpaper') as request, \
+             patch.object(service, 'extension', side_effect=settings.GLib.Error('Shell unavailable')):
+            with self.assertRaises(settings.GLib.Error):
+                service.stop_wallpaper()
+        request.assert_called_once_with(False)
+        service.connection.emit_signal.assert_called_once_with(
+            None, settings.PATH, settings.INTERFACE, 'WallpaperChanged', None)
+
     def test_request_keeps_other_extensions_and_cancels_pending_video(self):
         from unittest.mock import MagicMock
         prefs=MagicMock();values={'enabled-extensions':['OTHER'], 'disabled-extensions':['DISABLED',settings.HANABI_UUID]}
