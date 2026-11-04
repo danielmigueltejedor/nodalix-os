@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -63,6 +64,14 @@ class PointerAndSearchTests(unittest.TestCase):
         spawn.assert_called_once_with(
             [*command.split(), '--new-tab', 'https://duckduckgo.com/?q=acci%C3%B3n+A%26B'],
             provider.Gio.SubprocessFlags.NONE)
+
+    def test_new_installation_reads_the_xdg_profile(self):
+        with (tempfile.TemporaryDirectory() as directory,
+              patch.object(provider.Path, 'home', return_value=Path(directory)),
+              patch.dict(os.environ, {'XDG_CONFIG_HOME': directory, 'MOZ_LEGACY_HOME': ''})):
+            self.write_profile(Path(directory), 'zen', {'appDefaultEngineId': 'bing'})
+            self.assertEqual(provider.gecko_search_url('zen.desktop', ['zen'], 'dos palabras'),
+                             'https://www.bing.com/search?q=dos+palabras')
 
     def test_unknown_engine_still_uses_native_search_with_one_safe_argument(self):
         browser = Mock()

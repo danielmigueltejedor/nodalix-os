@@ -3,6 +3,7 @@
 import configparser
 import ctypes
 import json
+import os
 import sys
 from pathlib import Path
 from urllib.parse import urlencode
@@ -67,11 +68,22 @@ def gecko_search_url(browser_id, command, value):
            {'profile', 'p', 'profilemanager', 'private', 'private-window', 'no-remote', 'new-instance'}
            for argument in command[1:]):
         return None
-    root = Path.home()
+    home = Path.home()
+    relative_root = GECKO_BROWSERS[browser_id]
     if Path(command[0]).name == 'flatpak':
-        root = root / '.var/app' / browser_id.removesuffix('.desktop')
+        home = home / '.var/app' / browser_id.removesuffix('.desktop')
+        config = home / 'config'
+    else:
+        config = Path(os.environ.get('XDG_CONFIG_HOME', ''))
+        if not config.is_absolute():
+            config = home / '.config'
     try:
-        profile = gecko_profile(root / GECKO_BROWSERS[browser_id])
+        root = home / relative_root
+        # Recent Gecko builds create new profiles under XDG_CONFIG_HOME and
+        # keep using the legacy directory on existing installations.
+        if not root.exists() and not os.environ.get('MOZ_LEGACY_HOME', '').startswith('1'):
+            root = config / relative_root.lstrip('.')
+        profile = gecko_profile(root)
         if profile is None:
             return None
         with (profile / 'search.json.mozlz4').open('rb') as settings_file:
