@@ -26,15 +26,15 @@
     },
     {
       "name": "nodalix-gnome",
-      "version": "0.4.0-22",
-      "file": "nodalix-gnome-0.4.0-22-any.pkg.tar.zst",
-      "sha256": "a8cb55f32a5b0acc71c5711d683499f25c7e0551d8cf2ee178bfabdf0a0020d2"
+      "version": "0.4.0-23",
+      "file": "nodalix-gnome-0.4.0-23-any.pkg.tar.zst",
+      "sha256": "ce40c72c017d06af7aedccecfa8cad5ad42e9e2ca764b9f23eae4edfcf79c49e"
     },
     {
       "name": "nodalix-cursor-theme",
-      "version": "0.4.0-3",
-      "file": "nodalix-cursor-theme-0.4.0-3-any.pkg.tar.zst",
-      "sha256": "2ce6215a31554e646988b075f7ec917beba0d1a52851901d04ef9c7cc50f81fd"
+      "version": "0.4.0-4",
+      "file": "nodalix-cursor-theme-0.4.0-4-any.pkg.tar.zst",
+      "sha256": "b33266852b8c26f207c0abf7db9f500d2b7b83b4cd435fe1ce7438f34942615f"
     },
     {
       "name": "nodalix-phone-link",

@@ -96,7 +96,7 @@ assert Gio.Settings.new('org.gnome.desktop.interface').get_string('clock-format'
 assert Gio.Settings.new('org.gnome.desktop.input-sources').get_value('sources').unpack()
 interface=Gio.Settings.new('org.gnome.desktop.interface')
 assert interface.get_default_value('cursor-theme').unpack()=='Nodalix'
-assert interface.get_default_value('cursor-size').unpack()==28
+assert interface.get_default_value('cursor-size').unpack()==30
 cursor=Path('/usr/share/icons/Nodalix')
 assert 'Capitaine Cursors' in (cursor/'index.theme').read_text()
 for shape in ('default','pointer','grab','grabbing'):

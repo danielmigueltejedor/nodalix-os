@@ -12,7 +12,7 @@ def build(source, target):
     scalable = target / 'cursors_scalable'
     raster.mkdir(parents=True, exist_ok=True)
     scalable.mkdir(parents=True, exist_ok=True)
-    sizes = (24, 28, 32, 36, 40, 48, 60, 72, 96, 120, 144)
+    sizes = (24, 28, 30, 32, 36, 40, 48, 60, 72, 96, 120, 144)
     for spec in sorted((source / 'config').glob('*/*.spec')):
         name = spec.stem
         x, y, *animation = map(int, spec.read_text().split())

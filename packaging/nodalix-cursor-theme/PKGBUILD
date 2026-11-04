@@ -1,6 +1,6 @@
 pkgname=nodalix-cursor-theme
 pkgver=0.4.0
-pkgrel=3
+pkgrel=4
 options=("!strip")
 pkgdesc="Capitaine Cursors with scalable GNOME and Xcursor formats"
 arch=("any")
@@ -12,8 +12,8 @@ install=nodalix-cursor-theme.install
 source=("Capitaine-r4.tar.gz::https://codeload.github.com/keeferrourke/capitaine-cursors/tar.gz/refs/tags/r4"
         "build-capitaine.py" "nodalix-cursor.conf" "UPSTREAM.md" "migrate-cursor-theme")
 sha256sums=("41f66e9f4d41729dc5e9185aab3bc4a719fdcca939e6f3f590b6b811b28dedd2"
-            "6a2bb6443d1246e9267ec7a49d0a911671d7b0c48834e5f7e552083a270f97f5" "49c2c418688b7b7a1eafe779c73e80f5a9fc5b9a4bc18d0dff9fca72b6bf82e3"
-            "15743a071476ce78ea78f831ec73c3717b9806f6c8f7378ba9ecbf9450401832" "SKIP")
+            "cac3601ecaa4ec40782955e64f2c0c9e73ba0073b8085763db196259ec501ff5" "13e803b4485e583bd08135fdbe06026bff486993bc579489f0c069d65984c741"
+            "a4515335422ed26ddd5f85d597368e568fcf4d2754193b637e6d0c5dcc0d5236" "SKIP")
 
 build() {
     python build-capitaine.py capitaine-cursors-r4/src "$srcdir/Nodalix"

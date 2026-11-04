@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=com.nodalix.WebSearch
+Exec=/usr/lib/nodalix/web-search-provider

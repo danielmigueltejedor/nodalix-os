@@ -1,5 +1,5 @@
 {
-  "unit_integration_tests": 307,
+  "unit_integration_tests": 310,
   "result": "passed",
   "date": "2026-11-03",
   "native_shell": "GNOME Shell 51.1",
@@ -70,7 +70,9 @@
   "terminal_logo_pty": "Exact artwork with live system card alongside or below, plain and colored layouts, small viewports, local TTY guards, and safe retirement of the legacy Arch greeting and prompt",
   "terminal_logo_native_ghostty": "Gradient and live system card verified with full, compact and stacked artwork in a private GNOME Wayland session on the test PC",
   "adwaita_window_control_icons": "GTK 4 resolved all four default control symbols to upstream Adwaita on a package-only theme search path",
-  "system_cursor": "Capitaine r4 at 28 px. Verified exact Xcursor dimensions, hotspot bounds, alias resolution and SVG metadata, including all 24 frames of the wait and progress cursors.",
+  "system_cursor": "Capitaine r4. Verified exact Xcursor dimensions, hotspot bounds, alias resolution and SVG metadata, including all 24 frames of the wait and progress cursors. Default size is 30 px.",
+  "shake_pointer": "Real GNOME Wayland pointer motion ignored a straight sweep, magnified the live sprite on direction reversals and restored normal visibility on timeout and disable.",
+  "overview_web_search": "GNOME Shell loaded the provider and launched the private profile's default HTTPS handler with the expected encoded search URL.",
   "steam_energy_profile": "The real system bus switched from balanced to performance and restored balanced after release. Seven regression tests cover first activation, multiple games, a manual profile change, daemon restart and a missing backend.",
   "vm_portal_activation": "Preserved the graphical user-manager environment. With the GNOME backend deliberately delayed by 95 seconds in the disposable ISO session, the ordered startup and extended startup timeout provided the real Screenshot portal and returned a PNG."
 }

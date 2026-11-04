@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Search the Web
+Name[es]=Buscar en la web
+Exec=gio open https://duckduckgo.com/
+Icon=web-browser
+Categories=Network;
+OnlyShowIn=GNOME;
