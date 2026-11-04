@@ -1,6 +1,8 @@
 import importlib.util
+import json
 from pathlib import Path
 import subprocess
+import tempfile
 import unittest
 from unittest.mock import Mock, patch
 
@@ -16,26 +18,75 @@ class PointerAndSearchTests(unittest.TestCase):
     def test_shake_ignores_small_slow_or_unidirectional_motion(self):
         subprocess.run(['gjs', '-m', str(ROOT / 'tests/shake-pointer.js')], check=True)
 
-    def test_zen_uses_the_native_search_command(self):
+    def write_profile(self, home, profile_root, metadata):
+        root = home / profile_root
+        profile = root / 'profile'
+        profile.mkdir(parents=True)
+        (root / 'profiles.ini').write_text(
+            '[Install1234]\nDefault=profile\n[Profile0]\nDefault=1\nPath=old-profile\n')
+        data = json.dumps({'metaData': metadata}).encode()
+        # A single literal run is a valid LZ4 block.
+        self.assertLess(len(data), 270)
+        compressed = bytes([0xF0, len(data) - 15]) + data
+        (profile / 'search.json.mozlz4').write_bytes(
+            b'mozLz40\0' + len(data).to_bytes(4, 'little') + compressed)
+        return profile
+
+    def test_zen_opens_a_tab_with_the_selected_engine_and_encodes_the_query(self):
         browser = Mock()
         browser.get_id.return_value = 'zen.desktop'
         browser.get_commandline.return_value = '"/opt/Zen Browser/zen-bin" %u'
-        with (patch.object(provider.Gio.AppInfo, 'get_default_for_uri_scheme', return_value=browser),
+        with (tempfile.TemporaryDirectory() as directory,
+              patch.object(provider.Path, 'home', return_value=Path(directory)),
+              patch.object(provider.Gio.AppInfo, 'get_default_for_uri_scheme', return_value=browser),
               patch.object(provider.Gio.Subprocess, 'new') as spawn):
-            provider.open_search('acción A&B')
-        spawn.assert_called_once_with(['/opt/Zen Browser/zen-bin', '--search', 'acción A&B'],
-                                      provider.Gio.SubprocessFlags.NONE)
+            self.write_profile(Path(directory), '.zen',
+                               {'appDefaultEngineId': 'ddg', 'defaultEngineId': 'google'})
+            provider.open_search('-- acción A&B')
+        spawn.assert_called_once_with(
+            ['/opt/Zen Browser/zen-bin', '--new-tab', 'https://www.google.com/search?q=--+acci%C3%B3n+A%26B'],
+            provider.Gio.SubprocessFlags.NONE)
 
-    def test_firefox_flatpak_gets_one_search_term_instead_of_a_browser_flag(self):
+    def test_firefox_flatpak_reads_its_own_profile(self):
         browser = Mock()
         browser.get_id.return_value = 'org.mozilla.firefox.desktop'
         command = '/usr/bin/flatpak run --file-forwarding org.mozilla.firefox'
         browser.get_commandline.return_value = command + ' @@u %u @@'
-        with (patch.object(provider.Gio.AppInfo, 'get_default_for_uri_scheme', return_value=browser),
+        with (tempfile.TemporaryDirectory() as directory,
+              patch.object(provider.Path, 'home', return_value=Path(directory)),
+              patch.object(provider.Gio.AppInfo, 'get_default_for_uri_scheme', return_value=browser),
               patch.object(provider.Gio.Subprocess, 'new') as spawn):
+            self.write_profile(Path(directory), '.mozilla/firefox', {'appDefaultEngineId': 'bing'})
+            self.write_profile(Path(directory), '.var/app/org.mozilla.firefox/.mozilla/firefox',
+                               {'appDefaultEngineId': 'ddg'})
+            provider.open_search('acción A&B')
+        spawn.assert_called_once_with(
+            [*command.split(), '--new-tab', 'https://duckduckgo.com/?q=acci%C3%B3n+A%26B'],
+            provider.Gio.SubprocessFlags.NONE)
+
+    def test_unknown_engine_still_uses_native_search_with_one_safe_argument(self):
+        browser = Mock()
+        browser.get_id.return_value = 'firefox.desktop'
+        browser.get_commandline.return_value = '/usr/bin/firefox %u'
+        with (tempfile.TemporaryDirectory() as directory,
+              patch.object(provider.Path, 'home', return_value=Path(directory)),
+              patch.object(provider.Gio.AppInfo, 'get_default_for_uri_scheme', return_value=browser),
+              patch.object(provider.Gio.Subprocess, 'new') as spawn):
+            self.write_profile(Path(directory), '.mozilla/firefox',
+                               {'appDefaultEngineId': 'google', 'defaultEngineId': 'custom'})
             provider.open_search('--private-window')
-        spawn.assert_called_once_with([*command.split(), '--search', ' --private-window'],
+        spawn.assert_called_once_with(['/usr/bin/firefox', '--search', ' --private-window'],
                                       provider.Gio.SubprocessFlags.NONE)
+
+    def test_corrupt_profile_and_multiple_install_defaults_fall_back(self):
+        with (tempfile.TemporaryDirectory() as directory,
+              patch.object(provider.Path, 'home', return_value=Path(directory))):
+            profile = self.write_profile(Path(directory), '.zen', {'appDefaultEngineId': 'google'})
+            (profile / 'search.json.mozlz4').write_bytes(b'mozLz40\0' + b'\xff' * 4)
+            self.assertIsNone(provider.gecko_search_url('zen.desktop', ['zen'], 'example'))
+            (profile.parent / 'profiles.ini').write_text(
+                '[Install1]\nDefault=profile\n[Install2]\nDefault=other\n')
+            self.assertIsNone(provider.gecko_profile(profile.parent))
 
     def test_empty_search_opens_the_browser_without_a_search_page(self):
         browser = Mock()
