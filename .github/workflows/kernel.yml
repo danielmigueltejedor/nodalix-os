@@ -1,0 +1,53 @@
+name: Build the Nodalix kernel
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Ref or commit being validated
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 160
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Restore the kernel built from these inputs
+        id: kernel-cache
+        uses: actions/cache@v4
+        with:
+          path: dist/kernel
+          key: nodalix-kernel-v1-${{ runner.arch }}-${{ hashFiles('packaging/linux-nodalix/PKGBUILD', 'packaging/nodalix-xpadneo-dkms/preserve-ble-identity.patch', 'tools/build-nodalix-kernel.sh', 'tools/ci-build-kernel.sh') }}
+      - name: Reserve disk space for the kernel build
+        if: steps.kernel-cache.outputs.cache-hit != 'true'
+        run: |
+          sudo rm -rf -- /usr/local/lib/android /usr/share/dotnet /opt/ghc
+          df -h /
+      - name: Build the generic kernel in Arch Linux
+        if: steps.kernel-cache.outputs.cache-hit != 'true'
+        run: docker run --rm -e NODALIX_CI_CONTAINER=1 -v "$PWD":/src -w /src archlinux:latest bash tools/ci-build-kernel.sh
+      - name: Verify the packaged kernel and integrated driver
+        run: |
+          set -euo pipefail
+          cd dist/kernel
+          sha256sum --check SHA256SUMS
+          config=$(tar --zstd -xOf linux-nodalix-*.pkg.tar.zst usr/share/doc/linux-nodalix/config)
+          grep -Fxq 'CONFIG_X86_64_VERSION=1' <<<"$config"
+          grep -Fxq 'CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY=y' <<<"$config"
+          members=$(tar --zstd -tf linux-nodalix-*.pkg.tar.zst)
+          builtin=$(grep -E '^usr/lib/modules/[^/]+/modules\.builtin$' <<<"$members")
+          drivers=$(tar --zstd -xOf linux-nodalix-*.pkg.tar.zst "$builtin")
+          grep -Fxq 'kernel/drivers/hid/xpadneo/hid-xpadneo.ko' <<<"$drivers"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nodalix-kernel
+          path: dist/kernel/
+          if-no-files-found: error
+          retention-days: 14

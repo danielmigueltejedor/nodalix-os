@@ -5,7 +5,9 @@ import subprocess
 from pathlib import Path
 
 
-def hardware_policy(profile, virtual):
+def hardware_policy(profile, virtual, managed_kernel=False):
+    if managed_kernel:
+        return {'optimized': False, 'kernel': 'linux-nodalix', 'reason': 'Nodalix release kernel'}
     optimized = not virtual and profile['tier'] in {'znver4', 'x86-64-v4', 'x86-64-v3'}
     return {'optimized': optimized, 'kernel': profile['kernel'] if optimized else 'linux',
             'reason': 'virtual machine' if virtual else profile['reason']}
@@ -14,7 +16,10 @@ def hardware_policy(profile, virtual):
 def main():
     profile = json.loads(subprocess.check_output(['nodalix-hardware-profile', 'detect', '--json'], text=True))
     virtual = subprocess.run(['systemd-detect-virt', '--vm', '--quiet']).returncode == 0
-    policy = hardware_policy(profile, virtual)
+    managed_kernel = subprocess.run(
+        ['pacman', '-Q', 'linux-nodalix'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+    ).returncode == 0
+    policy = hardware_policy(profile, virtual, managed_kernel)
     if subprocess.run(['pacman', '-Q', 'nvidia-open'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0:
         policy = {'optimized': False, 'kernel': 'linux', 'reason': 'NVIDIA module tied to the standard kernel'}
     report = {'detected': profile, 'selection': policy, 'optimization_applied': False}
@@ -29,6 +34,12 @@ def main():
     if Path('/boot/grub/grub.cfg').exists():
         subprocess.run(['grub-mkconfig', '-o', '/boot/grub/grub.cfg'], check=True)
     subprocess.run(['mkinitcpio', '-P'], check=True)
+    if policy['kernel'] == 'linux-nodalix' and Path('/boot/loader/entries').is_dir():
+        result = subprocess.run(['nodalix-kernel-boot', 'stage'])
+        report['nodalix_kernel_trial'] = result.returncode == 0
+        if result.returncode:
+            report['warning'] = 'The Nodalix kernel trial could not be staged. The recovery entry remains available.'
+            print(report['warning'])
     destination = Path('/var/log/nodalix-installer/hardware.json')
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(json.dumps(report, indent=2) + '\n')

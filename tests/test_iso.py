@@ -23,6 +23,11 @@ class IsoPolicyTests(unittest.TestCase):
         profile = {'tier': 'x86-64-v3', 'kernel': 'linux-cachyos-deckify', 'reason': 'handheld'}
         self.assertEqual(policy(profile, False)['kernel'], 'linux-cachyos-deckify')
 
+    def test_nodalix_kernel_supersedes_architecture_profile(self):
+        profile = {'tier': 'znver4', 'kernel': 'linux-cachyos', 'reason': 'Zen 4'}
+        self.assertEqual(policy(profile, False, managed_kernel=True),
+                         {'optimized': False, 'kernel': 'linux-nodalix', 'reason': 'Nodalix release kernel'})
+
     def test_release_definition_matches_actual_package_recipes(self):
         import sys
         sys.path.insert(0, str(ROOT / 'tools'))

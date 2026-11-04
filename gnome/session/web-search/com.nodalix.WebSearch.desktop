@@ -2,7 +2,7 @@
 Type=Application
 Name=Search the Web
 Name[es]=Buscar en la web
-Exec=gio open https://duckduckgo.com/
+Exec=/usr/lib/nodalix/web-search-provider --open
 Icon=web-browser
 Categories=Network;
 OnlyShowIn=GNOME;

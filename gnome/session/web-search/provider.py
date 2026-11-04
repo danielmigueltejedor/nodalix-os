@@ -1,5 +1,6 @@
 #!/usr/bin/python3
-"""GNOME Overview web results opened through the default HTTPS handler."""
+"""Open Overview searches in the default browser."""
+import sys
 from urllib.parse import urlencode
 
 from gi.repository import Gio, GLib
@@ -7,6 +8,11 @@ from gi.repository import Gio, GLib
 
 BUS = 'com.nodalix.WebSearch'
 PATH = '/com/nodalix/WebSearch'
+GECKO_BROWSERS = {
+    'zen.desktop', 'zen-browser.desktop', 'app.zen_browser.zen.desktop',
+    'firefox.desktop', 'firefox-esr.desktop', 'org.mozilla.firefox.desktop',
+}
+DESKTOP_FILE_ARGUMENTS = {'%f', '%F', '%u', '%U', '@@', '@@u'}
 INTERFACE = Gio.DBusNodeInfo.new_for_xml('''
 <node><interface name="org.gnome.Shell.SearchProvider2">
   <method name="GetInitialResultSet"><arg type="as" direction="in"/><arg type="as" direction="out"/></method>
@@ -23,11 +29,22 @@ def query(terms):
 
 
 def open_search(value):
+    browser = Gio.AppInfo.get_default_for_uri_scheme('https')
+    if not value and browser:
+        browser.launch([], None)
+        return
+    if browser and browser.get_id() in GECKO_BROWSERS:
+        _, command = GLib.shell_parse_argv(browser.get_commandline())
+        command = [argument for argument in command if argument not in DESKTOP_FILE_ARGUMENTS]
+        # Gecko rejects a search parameter that starts with a dash.
+        term = ' ' + value if value.startswith('-') else value
+        Gio.Subprocess.new([*command, '--search', term], Gio.SubprocessFlags.NONE)
+        return
+
     url = 'https://duckduckgo.com/'
     if value:
         url += '?' + urlencode({'q': value})
     Gio.AppInfo.launch_default_for_uri(url, None)
-
 
 class Provider:
     def __init__(self, loop):
@@ -67,6 +84,10 @@ class Provider:
 
 
 def main():
+    if sys.argv[1:] == ['--open']:
+        open_search('')
+        return
+
     loop = GLib.MainLoop()
     provider = Provider(loop)
     owner = Gio.bus_own_name(Gio.BusType.SESSION, BUS, Gio.BusNameOwnerFlags.NONE,

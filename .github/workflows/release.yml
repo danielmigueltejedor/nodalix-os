@@ -118,9 +118,16 @@ jobs:
             iso/installer/nodalix_profile.py \
             iso/installer/nodalix-install
 
+  kernel:
+    needs: test
+    uses: ./.github/workflows/kernel.yml
+    with:
+      ref: ${{ needs.test.outputs.release_tag }}
+
   build:
     needs:
       - test
+      - kernel
 
     runs-on: ubuntu-latest
 
@@ -129,6 +136,11 @@ jobs:
         with:
           ref: ${{ needs.test.outputs.release_tag }}
           fetch-depth: 0
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: nodalix-kernel
+          path: dist/kernel
 
       - name: Build Arch packages
         env:
@@ -493,11 +505,28 @@ jobs:
       - name: Include the verified ISO downloader
         run: cp tools/nodalix-download-iso.py dist/release/nodalix-download-iso.py
 
-      - name: Finalize manifest and checksums
+      - name: Sign the release manifest and finalize checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NODALIX_RELEASE_MINISIGN_KEY: ${{ secrets.NODALIX_RELEASE_MINISIGN_KEY }}
         run: |
-          python3 \
-            tools/finalize-release.py \
-            --assets-dir dist/release
+          set -euo pipefail
+          umask 077
+          test -s updater/release.pub
+          previous=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)
+          if ! git show "$previous:updater/release.pub" | cmp --silent - updater/release.pub; then
+            echo 'The previous stable updater must ship the trusted Nodalix release key.' >&2
+            exit 1
+          fi
+          : "${NODALIX_RELEASE_MINISIGN_KEY:?Configure the Nodalix release signing secret}"
+          key=$(mktemp)
+          trap 'unlink "$key"' EXIT
+          printf '%s\n' "$NODALIX_RELEASE_MINISIGN_KEY" > "$key"
+          unset NODALIX_RELEASE_MINISIGN_KEY
+          sudo apt-get update
+          sudo apt-get install -y minisign
+          python3 tools/finalize-release.py --assets-dir dist/release \
+            --signing-key "$key" --public-key updater/release.pub
 
       - name: Publish GitHub Release
         env:

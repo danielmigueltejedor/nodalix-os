@@ -11,6 +11,14 @@ useradd -m builder
 echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 mkdir -p /src/dist
 chown -R builder:builder /src/dist
-su builder -c 'bash /src/tools/build-packages.sh /src/dist/packages'
+if [[ -d /src/dist/kernel ]]; then
+  (cd /src/dist/kernel && sha256sum --check SHA256SUMS)
+  kernel_assets=(/src/dist/kernel/linux-nodalix-*.pkg.tar.zst)
+  [[ ${#kernel_assets[@]} == 1 && -f ${kernel_assets[0]} ]]
+  runuser -u builder -- env NODALIX_KERNEL_ASSET="${kernel_assets[0]}" \
+    bash /src/tools/build-packages.sh /src/dist/packages
+else
+  su builder -c 'bash /src/tools/build-packages.sh /src/dist/packages'
+fi
 
 python tools/build-iso.py --assets dist/packages --work dist/iso-candidate --output dist/iso-output --prepare-only

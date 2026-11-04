@@ -26,7 +26,7 @@ case "$mode" in
             exit 77
         }
         require_network
-        pacman -Syu --noconfirm
+        pacman -Syu --noconfirm --ignore linux-nodalix
         ;;
     privileged-firmware)
         [ "$(id -u)" -eq 0 ] || {
@@ -41,7 +41,7 @@ case "$mode" in
             exit 77
         }
         nodalix-updater update
-        pacman -Syu --noconfirm
+        pacman -Syu --noconfirm --ignore linux-nodalix
         update_firmware
         ;;
     user-apps)

@@ -1,0 +1,124 @@
+#!/usr/bin/python3
+"""Stage and confirm a Nodalix kernel on an existing systemd-boot installation."""
+import argparse
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import tempfile
+
+ENTRY = 'nodalix-linux.conf'
+LINUX = '/vmlinuz-linux-nodalix'
+INITRAMFS = '/initramfs-linux-nodalix.img'
+CHECKS = ('org.fwupd.hsi.Kernel.Lockdown', 'org.fwupd.hsi.Kernel.Tainted')
+
+
+def render_entry(original):
+    rows = original.splitlines()
+    images = [match[1] for row in rows
+              if (match := re.fullmatch(r'linux\s+(/vmlinuz-[a-zA-Z0-9_.+-]+)', row))]
+    if (len(images) != 1 or images[0] == LINUX
+            or sum(bool(re.match(r'^linux\s+', row)) for row in rows) != 1
+            or any(re.match(r'^efi\s+', row) for row in rows)):
+        raise ValueError('Select an existing conventional kernel entry as the recovery source')
+    old_initramfs = '/initramfs-' + images[0].removeprefix('/vmlinuz-') + '.img'
+    if sum(bool(re.fullmatch(r'initrd\s+' + re.escape(old_initramfs), row)) for row in rows) != 1:
+        raise ValueError('The recovery entry must identify its normal initramfs')
+    if sum(row.startswith('options ') for row in rows) != 1:
+        raise ValueError('The recovery entry must contain one kernel options line')
+
+    output = ['title Nodalix OS (Linux Nodalix)']
+    for row in rows:
+        if re.match(r'^title\s+', row):
+            continue
+        if re.fullmatch(r'linux\s+' + re.escape(images[0]), row):
+            row = 'linux ' + LINUX
+        elif re.fullmatch(r'initrd\s+' + re.escape(old_initramfs), row):
+            row = 'initrd ' + INITRAMFS
+        output.append(row)
+    return '\n'.join(output) + '\n'
+
+
+def boot_status():
+    return subprocess.check_output(['bootctl', 'status', '--no-pager'],
+                                   text=True, env={**os.environ, 'LC_ALL': 'C'})
+
+
+def stage(source):
+    if source and (not re.fullmatch(r'[a-zA-Z0-9_.+-]+\.conf', source) or source == ENTRY):
+        raise ValueError('Invalid recovery entry name')
+    if not Path('/sys/firmware/efi').is_dir():
+        raise ValueError('The boot trial requires UEFI and systemd-boot')
+    esp = Path(subprocess.check_output(['bootctl', '--print-esp-path'], text=True).strip())
+    if esp != Path('/boot'):
+        raise ValueError('The boot trial expects the installed kernel and ESP at /boot')
+    entries = esp / 'loader/entries'
+    target = entries / ENTRY
+    if not source:
+        source = next((entry.name for entry in sorted(entries.glob('*.conf'))
+                       if re.search(r'^linux\s+/vmlinuz-linux\s*$', entry.read_text(), re.MULTILINE)
+                       and re.search(r'^initrd\s+/initramfs-linux\.img\s*$', entry.read_text(), re.MULTILINE)), None)
+        if not source:
+            raise ValueError('No conventional Arch recovery entry was found')
+    data = render_entry((entries / source).read_text())
+    if target.exists() and target.read_text() != data:
+        raise ValueError(f'An administrator already configured {target}')
+    subprocess.run(['pacman', '-Q', 'linux-nodalix'], check=True, stdout=subprocess.DEVNULL)
+    kernel = esp / LINUX.removeprefix('/')
+    initramfs = esp / INITRAMFS.removeprefix('/')
+    if not kernel.stat().st_size or not initramfs.stat().st_size:
+        raise ValueError('The installed kernel and initramfs must be present before staging')
+    status = boot_status()
+    if 'systemd-boot' not in status:
+        raise ValueError('The boot trial requires systemd-boot')
+    if re.search(r'Secure Boot:\s+enabled', status):
+        subprocess.run(['sbctl', 'sign', '--save', str(kernel)], check=True)
+        verified = json.loads(subprocess.check_output(['sbctl', 'verify', '--json', str(kernel)], text=True))
+        if not any(row.get('file_name') == str(kernel) and row.get('is_signed') == 1 for row in verified):
+            raise ValueError('The installed kernel failed the Secure Boot signature check')
+
+    with tempfile.NamedTemporaryFile(dir=entries, mode='w', delete=False) as handle:
+        temporary = Path(handle.name)
+        try:
+            handle.write(data)
+            handle.flush()
+            os.fchmod(handle.fileno(), 0o644)
+            temporary.replace(target)
+        finally:
+            temporary.unlink(missing_ok=True)
+    subprocess.run(['bootctl', 'set-oneshot', ENTRY], check=True)
+
+
+def promote():
+    if not os.uname().release.endswith('-nodalix') or not re.search(
+            r'Current Entry:\s+' + re.escape(ENTRY) + r'\s*$', boot_status(), re.MULTILINE):
+        raise ValueError('Boot the Nodalix kernel trial before making it the default')
+    report = json.loads(subprocess.check_output(['fwupdmgr', 'security', '--json'], text=True))
+    passed = {row['AppstreamId'] for row in report['SecurityAttributes']
+              if 'success' in (row.get('Flags') or [])}
+    if not all(check in passed for check in CHECKS):
+        raise ValueError('Both Linux kernel security checks must pass before promotion')
+    subprocess.run(['bootctl', 'set-default', ENTRY], check=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    commands = parser.add_subparsers(dest='action', required=True)
+    trial = commands.add_parser('stage')
+    trial.add_argument('--from-entry', help='Existing recovery entry filename')
+    commands.add_parser('promote')
+    args = parser.parse_args()
+    if os.geteuid() != 0:
+        parser.exit(1, 'Run as root.\n')
+    try:
+        if args.action == 'stage':
+            stage(args.from_entry)
+        else:
+            promote()
+    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+        parser.exit(1, str(error) + '\n')
+
+
+if __name__ == '__main__':
+    main()
