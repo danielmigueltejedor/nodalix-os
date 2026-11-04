@@ -67,21 +67,25 @@ t=t.replace('    g_signal_handlers_block_by_func (self->settings, on_settings_ch
                             G_DBUS_CALL_FLAGS_NONE, 2000, NULL, NULL, NULL);
     g_signal_handlers_block_by_func (self->settings, on_settings_changed, self);''',1)
 p.write_text(t)
-p=root/'panels/background/cc-background-panel.c';t=p.read_text()
-t=t.replace('    gtk_widget_init_template (GTK_WIDGET (self));', '    gtk_widget_init_template (GTK_WIDGET (self));\n    cc_panel_add_static_subpage (CC_PANEL (self), "animated-wallpapers", CC_TYPE_NODALIX_WALLPAPER_PAGE);')
-p.write_text(t)
-p=root/'panels/background/cc-background-panel.blp';t=p.read_text();pos=t.rfind('        };');t=t[:pos]+'''          Adw.PreferencesGroup {
-            Adw.ActionRow {
-              title: "Fondos animados";
-              subtitle: "Elige un vídeo para el escritorio";
-              activatable: true;
-              action-name: "navigation.push";
-              action-target: "'animated-wallpapers'";
-              [suffix]
-              Image { icon-name: "go-next-symbolic"; }
+p=root/'panels/background/cc-background-panel.blp';t=p.read_text()
+pos=t.rfind('        };')
+assert pos != -1
+p.write_text(t[:pos]+'''          Adw.PreferencesGroup {
+            title: "Fondos animados";
+
+            Adw.Bin {
+              styles ["card"]
+              accessibility {
+                label: "Fondos animados";
+              }
+              accessible-role: group;
+
+              $CcNodalixBackgroundChooser {
+                hexpand: true;
+              }
             }
           }
-'''+t[pos:];p.write_text(t)
+'''+t[pos:])
 
 p=root/'panels/sharing/cc-sharing-panel.c';t=p.read_text().replace('#include "cc-sharing-panel.h"','#include "cc-sharing-panel.h"\n#include "../system/cc-nodalix-pages.h"')
 t=t.replace('    gtk_widget_init_template (GTK_WIDGET (self));','    gtk_widget_init_template (GTK_WIDGET (self));\n    cc_panel_add_static_subpage (CC_PANEL (self), "localsend", CC_TYPE_NODALIX_LOCALSEND_PAGE);')
@@ -141,13 +145,14 @@ search_sections = (
      'version;nodalix;system;about;information;', 'versión;nodalix;sistema;acerca;información;'),
     ('localsend', 'LocalSend', 'LocalSend', 'sharing', 'localsend', 'send-to-symbolic',
      'localsend;share;files;nearby;transfer;', 'localsend;compartir;archivos;cercanos;transferir;'),
-    ('wallpapers', 'Animated Wallpapers', 'Fondos animados', 'background', 'animated-wallpapers', 'preferences-desktop-wallpaper-symbolic',
+    ('wallpapers', 'Animated Wallpapers', 'Fondos animados', 'background', None, 'preferences-desktop-wallpaper-symbolic',
      'wallpaper;wallpapers;animated;video;appearance;background;', 'fondo;fondos;animados;vídeo;apariencia;escritorio;'),
 )
 files = []
 for slug, english, spanish, panel, subpage, icon, keywords, localized in search_sections:
     filename = f'gnome-nodalix-{slug}-panel.desktop'
     files.append(filename)
+    subpage_entry = f'X-Nodalix-Subpage={subpage}\n' if subpage else ''
     (root/'search-provider'/filename).write_text(f'''[Desktop Entry]
 Type=Application
 Name={english}
@@ -162,8 +167,7 @@ Categories=GNOME;GTK;Settings;X-GNOME-Settings-Panel;X-GNOME-SystemSettings;
 Keywords={keywords}{localized}
 Keywords[es]={localized}{keywords}
 X-Nodalix-Parent={panel}
-X-Nodalix-Subpage={subpage}
-''')
+{subpage_entry}''')
 p=root/'search-provider/meson.build';t=p.read_text()
 p.write_text(t+'\ninstall_data('+', '.join(repr(filename) for filename in files)+',\n             install_dir: control_center_desktopdir)\n')
 p=root/'shell/cc-panel-loader.c';t=p.read_text();anchor='    { CC_CATEGORY_SYSTEM, "about" },'
@@ -186,11 +190,13 @@ t=t.replace('    if (category == CC_CATEGORY_SYSTEM) {','''    if (g_str_has_pre
             nodalix_subpage = g_desktop_app_info_get_string (G_DESKTOP_APP_INFO (entry_info), "X-Nodalix-Subpage");
         }
     }
-    if (nodalix_parent && nodalix_subpage) {
-        GVariantBuilder arguments;
-        g_variant_builder_init (&arguments, G_VARIANT_TYPE ("av"));
-        g_variant_builder_add (&arguments, "v", g_variant_new_string (nodalix_subpage));
-        system_param_overwrite = g_variant_ref_sink (g_variant_builder_end (&arguments));
+    if (nodalix_parent) {
+        if (nodalix_subpage) {
+            GVariantBuilder arguments;
+            g_variant_builder_init (&arguments, G_VARIANT_TYPE ("av"));
+            g_variant_builder_add (&arguments, "v", g_variant_new_string (nodalix_subpage));
+            system_param_overwrite = g_variant_ref_sink (g_variant_builder_end (&arguments));
+        }
         start_id = nodalix_parent;
     } else if (category == CC_CATEGORY_SYSTEM) {''',1)
 p.write_text(t)
