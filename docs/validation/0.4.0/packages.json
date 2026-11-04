@@ -2,9 +2,9 @@
   "built_and_payload_checked": [
     {
       "name": "nodalix-integrations",
-      "version": "0.4.0-3",
-      "file": "nodalix-integrations-0.4.0-3-any.pkg.tar.zst",
-      "sha256": "57421ec4eb0311a3733d655587bb0de950f5833c52484303be922465ec4d4b36"
+      "version": "0.4.0-4",
+      "file": "nodalix-integrations-0.4.0-4-any.pkg.tar.zst",
+      "sha256": "0f01cfd12eaec63985ba927208e9b6c97932e31684c3c82cfc0b39c84c6496ec"
     },
     {
       "name": "nodalix-video-wallpapers",
@@ -26,9 +26,15 @@
     },
     {
       "name": "nodalix-gnome",
-      "version": "0.4.0-20",
-      "file": "nodalix-gnome-0.4.0-20-any.pkg.tar.zst",
-      "sha256": "a05538eb699f8f4a53d3de5c1043b9b96e5f4d755ca34fe3f903f7972382b9d4"
+      "version": "0.4.0-23",
+      "file": "nodalix-gnome-0.4.0-23-any.pkg.tar.zst",
+      "sha256": "ce40c72c017d06af7aedccecfa8cad5ad42e9e2ca764b9f23eae4edfcf79c49e"
+    },
+    {
+      "name": "nodalix-cursor-theme",
+      "version": "0.4.0-4",
+      "file": "nodalix-cursor-theme-0.4.0-4-any.pkg.tar.zst",
+      "sha256": "b33266852b8c26f207c0abf7db9f500d2b7b83b4cd435fe1ce7438f34942615f"
     },
     {
       "name": "nodalix-phone-link",

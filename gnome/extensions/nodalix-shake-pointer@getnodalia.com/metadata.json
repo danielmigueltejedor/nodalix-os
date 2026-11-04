@@ -1,0 +1,7 @@
+{
+  "uuid": "nodalix-shake-pointer@getnodalia.com",
+  "name": "Shake to Find Pointer",
+  "description": "Temporarily enlarge the current pointer after a quick shake.",
+  "shell-version": ["51"],
+  "session-modes": ["user"]
+}

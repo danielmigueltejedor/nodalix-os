@@ -111,6 +111,26 @@ def main():
     if not controls_marker.exists() and Path('/usr/bin/nodalix-shell-symbols').is_file():
         subprocess.run(['/usr/bin/nodalix-shell-symbols','--refresh-window-controls'],check=True,timeout=30)
         controls_marker.write_text('0.4.0\n')
+    shake_marker=root/'gnome-0.4.0-shake-pointer.done'
+    shake='nodalix-shake-pointer@getnodalia.com'
+    if not shake_marker.exists() and (Path('/usr/share/gnome-shell/extensions')/shake/'metadata.json').is_file():
+        from gi.repository import Gio
+        settings=Gio.Settings.new('org.gnome.shell')
+        enabled=settings.get_strv('enabled-extensions')
+        if shake not in enabled and shake not in settings.get_strv('disabled-extensions'):
+            settings.set_strv('enabled-extensions',enabled+[shake])
+        Gio.Settings.sync()
+        shake_marker.write_text('0.4.0\n')
+    web_marker=root/'gnome-0.4.0-web-search.done'
+    if not web_marker.exists() and Path('/usr/share/gnome-shell/search-providers/com.nodalix.WebSearch.ini').is_file():
+        from gi.repository import Gio
+        settings=Gio.Settings.new('org.gnome.desktop.search-providers')
+        browser='org.gnome.Epiphany.desktop'
+        disabled=settings.get_strv('disabled')
+        if browser not in disabled and browser not in settings.get_strv('enabled'):
+            settings.set_strv('disabled',disabled+[browser])
+        Gio.Settings.sync()
+        web_marker.write_text('0.4.0\n')
     if marker.exists():return
     prototypes=Path('/usr/share/nodalix/gnome-extension-prototypes-040.json')
     if prototypes.is_file():

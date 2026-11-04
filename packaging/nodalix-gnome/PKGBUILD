@@ -1,6 +1,6 @@
 pkgname=nodalix-gnome
 pkgver=0.4.0
-pkgrel=20
+pkgrel=23
 pkgdesc="GNOME Shell, GDM and native desktop integration for Nodalix"
 arch=("any")
 install=nodalix-gnome.install
@@ -15,6 +15,11 @@ source=("nodalix-gnome-$pkgver.tar.zst")
 sha256sums=("SKIP")
 
 package() {
+    local web="$srcdir/gnome/session/web-search"
+    install -Dm755 "$web/provider.py" "$pkgdir/usr/lib/nodalix/web-search-provider"
+    install -Dm644 "$web/com.nodalix.WebSearch.desktop" "$pkgdir/usr/share/applications/com.nodalix.WebSearch.desktop"
+    install -Dm644 "$web/com.nodalix.WebSearch.ini" "$pkgdir/usr/share/gnome-shell/search-providers/com.nodalix.WebSearch.ini"
+    install -Dm644 "$web/com.nodalix.WebSearch.service" "$pkgdir/usr/share/dbus-1/services/com.nodalix.WebSearch.service"
     install -Dm644 "$srcdir/gnome/session/terminal/nodalix-logo.txt" "$pkgdir/usr/share/nodalix/terminal-logo.txt"
     install -Dm644 "$srcdir/gnome/session/terminal/nodalix-logo-compact.txt" "$pkgdir/usr/share/nodalix/terminal-logo-compact.txt"
     install -Dm755 "$srcdir/gnome/session/terminal/nodalix-terminal-logo" "$pkgdir/usr/bin/nodalix-terminal-logo"
@@ -41,6 +46,7 @@ package() {
     install -Dm644 "$srcdir/gnome/session/gnome-portals.conf" "$pkgdir/etc/xdg/xdg-desktop-portal/gnome-portals.conf"
     install -Dm644 "$srcdir/gnome/session/gnome-session-portals.conf" "$pkgdir/usr/lib/systemd/user/gnome-session.target.d/90-nodalix-portals.conf"
     install -Dm644 "$srcdir/gnome/session/xdg-desktop-portal-order.conf" "$pkgdir/usr/lib/systemd/user/xdg-desktop-portal.service.d/90-nodalix-gnome-order.conf"
+    install -Dm644 "$srcdir/gnome/session/xdg-desktop-portal-gnome-timeout.conf" "$pkgdir/usr/lib/systemd/user/xdg-desktop-portal-gnome.service.d/90-nodalix-start-timeout.conf"
     install -Dm644 "$srcdir/gnome/session/90-nodalix.gschema.override" "$pkgdir/usr/share/glib-2.0/schemas/90-nodalix.gschema.override"
     install -Dm644 "$srcdir/gnome/session/index.theme" "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/index.theme"
     install -d "$pkgdir/usr/share/icons/Nodalix-Adwaita-Symbols/symbolic"
@@ -70,7 +76,7 @@ package() {
     install -Dm644 "$srcdir/gnome/session/extension-defaults.json" "$pkgdir/usr/share/nodalix/gnome-extension-defaults.json"
     install -Dm644 "$srcdir/gnome/session/extension-prototypes.json" "$pkgdir/usr/share/nodalix/gnome-extension-prototypes.json"
     install -Dm644 "$srcdir/gnome/session/extension-prototypes-040.json" "$pkgdir/usr/share/nodalix/gnome-extension-prototypes-040.json"
-    for uuid in nodalix-startup-cursor@local global-menu@unmade.space nodalix-auto-tiling@getnodalia.com multi-monitors-bar@frederykabryan tiling-assistant@leleat-on-github glocalsend@donnybeelo.github.com nodalix-connect@getnodalia.com dash-to-dock@micxgx.gmail.com blur-my-shell@aunetx rounded-window-corners@ztrahmet.github.io; do
+    for uuid in nodalix-startup-cursor@local nodalix-shake-pointer@getnodalia.com global-menu@unmade.space nodalix-auto-tiling@getnodalia.com multi-monitors-bar@frederykabryan tiling-assistant@leleat-on-github glocalsend@donnybeelo.github.com nodalix-connect@getnodalia.com dash-to-dock@micxgx.gmail.com blur-my-shell@aunetx rounded-window-corners@ztrahmet.github.io; do
         install -d "$pkgdir/usr/share/gnome-shell/extensions/$uuid"
         cp -a --no-preserve=ownership "$srcdir/gnome/extensions/$uuid/." "$pkgdir/usr/share/gnome-shell/extensions/$uuid/"
     done
