@@ -12,7 +12,6 @@ import signal
 import subprocess
 import sys
 import tempfile
-import time
 
 SLUGS = ('photocraft','vectorcraft','filmcraft','lightcraft','pdfcraft','effectcraft',
          'designcraft','wordcraft','deckcraft','gridcraft','cadcraft','soundcraft','figcraft','artcraft-launcher')
@@ -300,7 +299,7 @@ class FrameGuard:
         self.d = display.Display()
         self.root = self.d.screen().root
         self.atoms = {n:self.d.intern_atom(n) for n in (
-            '_NET_CLIENT_LIST','_NET_WM_WINDOW_TYPE','_NET_WM_WINDOW_TYPE_NORMAL',
+            'WM_CLASS','_NET_CLIENT_LIST','_NET_WM_WINDOW_TYPE','_NET_WM_WINDOW_TYPE_NORMAL',
             '_MOTIF_WM_HINTS','_GTK_HIDE_TITLEBAR_WHEN_MAXIMIZED','_NET_WM_PID','_NET_FRAME_EXTENTS')}
         self.root.change_attributes(event_mask=X.PropertyChangeMask|X.SubstructureNotifyMask)
         self.original = {}
@@ -314,14 +313,17 @@ class FrameGuard:
         kind = win.get_full_property(self.atoms['_NET_WM_WINDOW_TYPE'], self.Xatom.ATOM)
         return kind is None or self.atoms['_NET_WM_WINDOW_TYPE_NORMAL'] in kind.value
 
-    def apply(self, win):
+    def apply(self, win, watch=False):
         from Xlib import error
         try:
-            if not self.is_craft(win):
+            craft = self.is_craft(win)
+            if not craft and not watch:
                 return False
             if win.id not in self.tracked:
                 win.change_attributes(event_mask=self.X.PropertyChangeMask|self.X.StructureNotifyMask)
                 self.tracked.add(win.id)
+            if not craft:
+                return False
             motif = self.atoms['_MOTIF_WM_HINTS']
             hide = self.atoms['_GTK_HIDE_TITLEBAR_WHEN_MAXIMIZED']
             p = win.get_full_property(motif, self.X.AnyPropertyType)
@@ -352,7 +354,7 @@ class FrameGuard:
             self.tracked.intersection_update(live)
             self.original = {k:v for k,v in self.original.items() if k in live}
             for xid in live:
-                self.apply(self.d.create_resource_object('window',xid))
+                self.apply(self.d.create_resource_object('window',xid), watch=True)
         self.d.flush()
 
     def events(self):
@@ -361,7 +363,8 @@ class FrameGuard:
             while self.d.pending_events():
                 ev = self.d.next_event()
                 if ev.type == self.X.PropertyNotify and ev.window.id in self.tracked:
-                    if ev.atom in (self.atoms['_MOTIF_WM_HINTS'], self.atoms['_GTK_HIDE_TITLEBAR_WHEN_MAXIMIZED']):
+                    if ev.atom in (self.atoms['WM_CLASS'], self.atoms['_NET_WM_WINDOW_TYPE'],
+                                   self.atoms['_MOTIF_WM_HINTS'], self.atoms['_GTK_HIDE_TITLEBAR_WHEN_MAXIMIZED']):
                         self.apply(ev.window)
                 elif ev.type in (self.X.MapNotify,self.X.CreateNotify):
                     self.apply(ev.window)
@@ -390,44 +393,77 @@ def daemon():
     from gi.repository import Gio, GLib, GLibUnix
     loop = GLib.MainLoop()
     frame = None
-    last_scan = 0.0
-    next_connect = 0.0
+    reconcile_source = 0
     monitors = []
+
+    def reconcile_pending():
+        nonlocal reconcile_source
+        reconcile_source = 0
+        reconcile()
+        return GLib.SOURCE_REMOVE
+
+    def changed(*_):
+        nonlocal reconcile_source
+        if not reconcile_source:
+            reconcile_source = GLib.timeout_add(250, reconcile_pending)
+
     for folder in [Path(os.environ.get('XDG_DATA_HOME', Path.home()/'.local/share'))/'applications',Path(os.environ.get('XDG_CONFIG_HOME', Path.home()/'.config'))/'autostart']:
         folder.mkdir(parents=True,exist_ok=True)
         monitor = Gio.File.new_for_path(str(folder)).monitor_directory(Gio.FileMonitorFlags.NONE,None)
-        def changed(*_):
-            GLib.timeout_add(250, lambda: (reconcile(),False)[1])
         monitor.connect('changed',changed)
         monitors.append(monitor)
     reconcile()
-    def tick():
-        nonlocal frame, last_scan, next_connect
-        now = time.monotonic()
-        if frame is None:
-            if now < next_connect:
-                return True
-            refresh_graphical_environment()
-            next_connect = now + 15
-        if 'GNOME' in os.environ.get('XDG_CURRENT_DESKTOP','').upper():
-            try:
-                if frame is None:
-                    frame = FrameGuard()
-                frame.events()
-                if now - last_scan >= 2:
-                    frame.scan(); last_scan = now
-            except Exception as exc:
-                LOG.warning('Window-frame connection unavailable; retrying: %s', exc)
-                frame = None
-                next_connect = time.monotonic() + 15
-        return True
-    tick()
-    GLib.timeout_add(200,tick)
-    GLib.timeout_add_seconds(10,lambda: (reconcile(),True)[1])
-    def stop(*_):
+
+    disconnected = GLib.IOCondition.ERR | GLib.IOCondition.HUP | GLib.IOCondition.NVAL
+
+    def connection_failed(exc):
+        nonlocal frame
+        LOG.warning('Window-frame connection unavailable; retrying: %s', exc)
         if frame is not None:
-            frame.restore()
-        loop.quit()
+            try:
+                frame.d.close()
+            except Exception as close_error:
+                LOG.debug('X11 connection was already closed: %s', close_error)
+        frame = None
+
+    def on_x11_ready(_source, condition):
+        try:
+            if condition & disconnected:
+                raise OSError('X11 socket disconnected')
+            frame.events()
+            return GLib.SOURCE_CONTINUE
+        except Exception as exc:
+            connection_failed(exc)
+            GLib.timeout_add_seconds(15, connect)
+            return GLib.SOURCE_REMOVE
+
+    def connect():
+        nonlocal frame
+        refresh_graphical_environment()
+        if 'GNOME' not in os.environ.get('XDG_CURRENT_DESKTOP','').upper():
+            return GLib.SOURCE_CONTINUE
+        try:
+            frame = FrameGuard()
+            frame.events()
+            GLib.io_add_watch(frame.d.fileno(), GLib.PRIORITY_DEFAULT,
+                              GLib.IOCondition.IN | disconnected, on_x11_ready)
+        except Exception as exc:
+            connection_failed(exc)
+            return GLib.SOURCE_CONTINUE
+        return GLib.SOURCE_REMOVE
+
+    if connect():
+        GLib.timeout_add_seconds(15, connect)
+    # Keep a fallback for preferences written by apps outside the watched folders.
+    GLib.timeout_add_seconds(60, lambda: (reconcile(), GLib.SOURCE_CONTINUE)[1])
+
+    def stop(*_):
+        try:
+            if frame is not None:
+                frame.restore()
+        finally:
+            loop.quit()
+        return GLib.SOURCE_REMOVE
     GLibUnix.signal_add(GLib.PRIORITY_DEFAULT,signal.SIGTERM,stop)
     GLibUnix.signal_add(GLib.PRIORITY_DEFAULT,signal.SIGINT,stop)
     LOG.info('Persistent Craft GNOME policy active')

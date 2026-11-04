@@ -161,8 +161,12 @@ def synchronize(home, data_roots=None, theme_roots=None):
         destination = apps / identifier
         if not source.exists() and destination.exists() and digest(destination.read_text()) == previous.get('written_hash'):
             destination.unlink()
-    manifest.write_text(json.dumps(updated, ensure_ascii=False, indent=2) + '\n')
-    (state / 'resolved.json').write_text(json.dumps(chosen, ensure_ascii=False) + '\n')
+    for path, text in (
+        (manifest, json.dumps(updated, ensure_ascii=False, indent=2) + '\n'),
+        (state / 'resolved.json', json.dumps(chosen, ensure_ascii=False) + '\n'),
+    ):
+        if not path.is_file() or path.read_text() != text:
+            path.write_text(text)
     return chosen
 
 

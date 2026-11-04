@@ -74,7 +74,12 @@ class Organization(unittest.TestCase):
         sync(); target=self.home/'.local/share/applications/matlab.desktop'
         self.assertIn('Exec=matlab -desktop %F',target.read_text())
         self.assertIn('[Desktop Action test]\nIcon=other',target.read_text())
-        sync(); source.unlink(); sync(); self.assertFalse(target.exists())
+        state=self.home/'.local/state/nodalix/icons'
+        manifests=[state/'overrides.json',state/'resolved.json']
+        timestamps=[path.stat().st_mtime_ns for path in manifests]
+        sync()
+        self.assertEqual([path.stat().st_mtime_ns for path in manifests],timestamps)
+        source.unlink(); sync(); self.assertFalse(target.exists())
     def test_user_icon_restored_when_theme_removed(self):
         apps=self.home/'.local/share/applications'; apps.mkdir(parents=True)
         theme=self.home/'themes/Colloid-Teal/apps/scalable'; theme.mkdir(parents=True)
