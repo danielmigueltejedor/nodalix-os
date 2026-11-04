@@ -147,8 +147,10 @@ def game_info(p):
     try:
         if p.stat().st_uid != UID:
             return None
-        env = dict(item.split(b'=', 1) for item in
-                   (p / 'environ').read_bytes().split(b'\0') if b'=' in item)
+        raw_env = (p / 'environ').read_bytes()
+        if not (raw_env.startswith(b'SteamAppId=') or b'\0SteamAppId=' in raw_env):
+            return None
+        env = dict(item.split(b'=', 1) for item in raw_env.split(b'\0') if b'=' in item)
         appid = env.get(b'SteamAppId', b'')
         if not appid.isdigit() or appid == b'0':
             return None

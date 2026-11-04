@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import runpy
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -71,6 +73,17 @@ class ManifestTests(unittest.TestCase):
         with self.assertRaisesRegex(MODULE.ManifestError, "expected one package"):
             MODULE.generate(self.root / "VERSION", self.root / "components.json", self.root)
 
+    def test_component_package_cannot_expand_a_glob_or_escape_the_assets_directory(self) -> None:
+        for name in ("../nodalix-release", "nodalix-*", "/tmp/nodalix-release"):
+            with self.subTest(name=name), self.assertRaisesRegex(MODULE.ManifestError, "invalid package"):
+                MODULE.unique_package_asset(self.root, name, "0.2.0")
+
+    def test_package_asset_must_not_be_a_symlink(self) -> None:
+        name = "nodalix-release-0.2.0-1-any.pkg.tar.zst"
+        (self.root / name).symlink_to(self.root / "VERSION")
+        with self.assertRaisesRegex(MODULE.ManifestError, "expected one package"):
+            MODULE.unique_package_asset(self.root, "nodalix-release", "0.2.0")
+
     def test_rejects_ambiguous_assets(self) -> None:
         for release in (1, 2):
             (self.root / f"nodalix-release-0.2.0-{release}-any.pkg.tar.zst").write_bytes(b"x")
@@ -83,6 +96,14 @@ class ManifestTests(unittest.TestCase):
         (self.root / "nodalix-release-0.2.0-1-any.pkg.tar.zst").write_bytes(b"x")
         with self.assertRaisesRegex(MODULE.ManifestError, "duplicate component"):
             MODULE.generate(self.root / "VERSION", self.root / "components.json", self.root)
+
+    def test_candidate_reuse_validates_source_sha_before_calling_git(self) -> None:
+        tool = runpy.run_path(str(ROOT / "tools/ci-reuse-artifacts.py"))
+        run = {"head_repository": {"full_name": tool["REPO"]}, "head_sha": "--no-index"}
+        with patch("subprocess.check_output") as command:
+            with self.assertRaisesRegex(ValueError, "Invalid source commit SHA"):
+                tool["verify_source"](run)
+        command.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -5,6 +5,9 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
+import subprocess
+from tempfile import TemporaryDirectory
 from release_iso import iso_metadata
 from pathlib import Path
 
@@ -162,6 +165,39 @@ def regenerate_checksums(
     )
 
 
+def write_manifest(directory, manifest, secret_key=None, public_key=None):
+    target = directory / "nodalix-manifest.json"
+    signature_name = "nodalix-manifest.json.minisig"
+    kernel = any(item["package"] == "linux-nodalix" for item in manifest["components"])
+    if kernel or manifest.get("signing") or secret_key or public_key:
+        if not secret_key or not public_key:
+            raise RuntimeError("A kernel release requires a signing key and a trusted public key")
+        secret_key = secret_key.resolve(strict=True)
+        public_key = public_key.resolve(strict=True)
+        if secret_key.is_relative_to(directory.resolve()):
+            raise RuntimeError("The private signing key must be outside the release assets")
+        manifest["signing"] = {"algorithm": "minisign", "signature_asset": signature_name}
+
+    contents = json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    if not secret_key:
+        target.write_text(contents, encoding="utf-8")
+        return
+
+    with TemporaryDirectory(dir=directory) as scratch, TemporaryDirectory() as credentials:
+        keys = Path(credentials)
+        (keys / "release.key").symlink_to(secret_key)
+        (keys / "release.pub").symlink_to(public_key)
+        candidate = Path(scratch) / target.name
+        signature = Path(scratch) / signature_name
+        candidate.write_text(contents, encoding="utf-8")
+        subprocess.run(["minisign", "-Sm", str(candidate), "-x", str(signature), "-s", "release.key"],
+                       cwd=keys, check=True)
+        subprocess.run(["minisign", "-Vm", str(candidate), "-x", str(signature), "-p", "release.pub"],
+                       cwd=keys, check=True)
+        candidate.replace(target)
+        signature.replace(directory / signature_name)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
 
@@ -171,6 +207,8 @@ def main() -> None:
         required=True,
     )
 
+    parser.add_argument("--signing-key", type=Path, default=os.environ.get("NODALIX_RELEASE_SIGNING_KEY_FILE"))
+    parser.add_argument("--public-key", type=Path, default=os.environ.get("NODALIX_RELEASE_PUBLIC_KEY_FILE"))
     args = parser.parse_args()
 
     directory = (
@@ -199,16 +237,7 @@ def main() -> None:
         manifest,
     )
 
-    manifest_path.write_text(
-        json.dumps(
-            manifest,
-            ensure_ascii=False,
-            indent=2,
-            sort_keys=True,
-        )
-        + "\n",
-        encoding="utf-8",
-    )
+    write_manifest(directory, manifest, args.signing_key, args.public_key)
 
     regenerate_checksums(
         directory,

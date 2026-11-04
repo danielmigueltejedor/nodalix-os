@@ -204,6 +204,22 @@ class ManifestValidationTests(unittest.TestCase):
     def test_accepts_release_manifest(self) -> None:
         UPDATER.validate_manifest(manifest())
 
+    def test_remote_nodalix_kernel_requires_a_signature(self) -> None:
+        value = manifest([component(), component("linux-nodalix", version="7.3.1")])
+        release = gh_release("0.2.0", assets=["nodalix-manifest.json"])
+        config = {"manifest_asset": "nodalix-manifest.json", "require_signature": False}
+        with mock.patch.object(UPDATER, "request", return_value=(json.dumps(value).encode(), {})):
+            with self.assertRaisesRegex(UPDATER.IntegrityError, "not signed"):
+                UPDATER.manifest_for(release, config)
+
+    def test_explicit_local_kernel_candidate_retains_offline_mode(self) -> None:
+        value = manifest([component(), component("linux-nodalix", version="7.3.1")])
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "nodalix-manifest.json").write_text(json.dumps(value))
+            info = UPDATER.candidate_info(root, {"require_signature": False})
+        self.assertEqual(info["_manifest"], value)
+
     def test_rejects_path_traversal_asset(self) -> None:
         value = manifest()
         value["components"][0]["asset"] = "../package.pkg.tar.zst"

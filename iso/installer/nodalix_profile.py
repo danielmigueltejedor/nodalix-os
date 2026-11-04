@@ -89,10 +89,9 @@ def verified_packages(
             continue
         name = item["asset"]
 
-        if (
-            Path(name).name != name
-            or not name.startswith(("nodalix-", "gnome-rounded-blur-"))
-        ):
+        kernel = item.get("package") == "linux-nodalix"
+        allowed_prefixes = ("linux-nodalix-",) if kernel else ("nodalix-", "gnome-rounded-blur-")
+        if Path(name).name != name or not name.startswith(allowed_prefixes):
             raise ValueError(
                 f"Invalid package path: {name}"
             )

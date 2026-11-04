@@ -29,6 +29,17 @@ def iso_label(version: str) -> str:
     return f"NODALIX_{token}"[:32]
 
 
+def safe_package_filename(package: str, name: str) -> bool:
+    if Path(name).name != name:
+        return False
+    if package == "linux-nodalix":
+        return re.fullmatch(
+            r"linux-nodalix-[0-9]+\.[0-9]+\.[0-9]+-[0-9]+(?:\.[0-9]+)?-x86_64\.pkg\.tar\.zst",
+            name,
+        ) is not None
+    return name.startswith(("nodalix-", "gnome-rounded-blur-"))
+
+
 def prepare(assets: Path, work: Path) -> tuple[Path, str]:
     if work.exists():
         raise ValueError(
@@ -55,7 +66,7 @@ def prepare(assets: Path, work: Path) -> tuple[Path, str]:
             continue
         name = entry["asset"]
 
-        if Path(name).name != name or not name.startswith(("nodalix-", "gnome-rounded-blur-")):
+        if not safe_package_filename(entry.get("package", ""), name):
             raise ValueError(f"Unsafe package filename: {name}")
 
         package = assets / name

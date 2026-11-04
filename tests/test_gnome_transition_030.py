@@ -76,7 +76,8 @@ class MigrationTests(unittest.TestCase):
         rows={'gnome':{'pkgname':['nodalix-gnome'],'depend':['gnome-shell','gnome-control-center','nodalix-integrations>=0.3.0']},'cc':{'pkgname':['nodalix-control-center'],'provides':['gnome-control-center=51.0']},'integrations':{'pkgname':['nodalix-integrations']}}
         with mock.patch.object(UPDATER,'package_metadata',side_effect=lambda p:rows[p]),mock.patch.object(UPDATER,'ensure_pacman_available'),mock.patch.object(UPDATER,'set_status'),mock.patch.object(UPDATER,'current_version',return_value='0.2.4'),mock.patch.object(UPDATER,'atomic_text'),mock.patch.object(UPDATER.subprocess,'run',return_value=subprocess.CompletedProcess([],0,stdout='ok')) as run:
             UPDATER.prepare_gnome_dependencies(list(rows),'0.3.0')
-            self.assertEqual(run.call_args.args[0],['pacman','-Syu','--needed','--noconfirm','gnome-shell'])
+            self.assertEqual(run.call_args.args[0],
+                             ['pacman','-Syu','--needed','--noconfirm','--ignore','linux-nodalix','gnome-shell'])
     def test_candidate_uses_full_manifest_validation(self):
         with tempfile.TemporaryDirectory() as temp:
             path=Path(temp);data=manifest(version='0.3.0');data['components'][0]['asset']='../../bad.pkg.tar.zst'

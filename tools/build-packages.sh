@@ -9,6 +9,23 @@ outdir=${1:-"$root/dist/packages"}
 srcdir="$root/dist/src"
 workdir="$root/dist/build"
 cachedir="$root/dist/cache"
+components="$root/release/components.json"
+
+kernel_version=$(python3 - "$components" <<'PYTHON'
+import json, sys
+with open(sys.argv[1], encoding="utf-8") as stream:
+    rows = json.load(stream)["components"]
+print(next((row["version"] for row in rows if row["package"] == "linux-nodalix"), ""))
+PYTHON
+)
+if [[ -n "$kernel_version" ]]; then
+  kernel_asset=${NODALIX_KERNEL_ASSET:?build the Nodalix kernel and supply its package in NODALIX_KERNEL_ASSET}
+  read -r package_name package_version < <(pacman -Qp -- "$kernel_asset")
+  if [[ "$package_name" != linux-nodalix || "${package_version%-*}" != "$kernel_version" ]]; then
+    printf 'Kernel package does not match the release component\n' >&2
+    exit 1
+  fi
+fi
 
 rm -rf "$srcdir" "$workdir"
 mkdir -p "$outdir" "$srcdir" "$workdir" "$cachedir"
@@ -154,9 +171,13 @@ if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
   find "$workdir" -mindepth 2 -maxdepth 2 -type f -name '*.pkg.tar.zst' ! -name '*-debug-*' -exec cp {} "$outdir/" \;
 fi
 
+if [[ -n "$kernel_version" && ! "$kernel_asset" -ef "$outdir/${kernel_asset##*/}" ]]; then
+  cp -- "$kernel_asset" "$outdir/"
+fi
+
 python3 "$root/tools/generate-manifest.py" \
   --version-file "$root/VERSION" \
-  --components "$root/release/components.json" \
+  --components "$components" \
   --assets-dir "$outdir" \
   --output "$outdir/nodalix-manifest.json"
 

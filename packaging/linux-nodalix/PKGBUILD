@@ -1,0 +1,86 @@
+pkgname=linux-nodalix
+pkgver=7.3.1
+pkgrel=1
+pkgdesc='Nodalix kernel based on CachyOS with integrity lockdown and xpadneo'
+arch=('x86_64')
+url='https://github.com/danielmigueltejedor/nodalix-os'
+license=('GPL-2.0-only')
+depends=('coreutils' 'kmod' 'mkinitcpio')
+optdepends=('linux-firmware: firmware for supported hardware' 'sbctl: sign with the enrolled Secure Boot keys on this computer')
+makedepends=('bc' 'clang' 'cpio' 'flex' 'bison' 'git' 'libelf' 'lld' 'llvm' 'openssl' 'pahole' 'patch' 'perl' 'rust' 'rust-bindgen' 'rust-src' 'zstd')
+options=('!strip' '!debug' '!lto')
+
+# The CachyOS tag cachyos-7.3.1-1 points to this signed revision.
+_kernel_commit=36ae4c219cfbd02576048c7ca1d366cea5db8034
+_config_commit=66666177b78f29c32670ba4f78f882bc0b9cc03d
+_xpadneo_commit=e8f103a77f777c2c54536dd947969cf228699c13
+source=(
+  "cachyos-${pkgver}.tar.gz::https://codeload.github.com/CachyOS/linux/tar.gz/${_kernel_commit}"
+  "cachyos.config::https://raw.githubusercontent.com/CachyOS/linux-cachyos/${_config_commit}/linux-cachyos/config"
+  "xpadneo::git+https://github.com/atar-axis/xpadneo.git#commit=${_xpadneo_commit}"
+  'preserve-ble-identity.patch'
+)
+sha256sums=(
+  'ee5f3f2dd4a04bfae77c10a603857c1d99a3af20270b424ae018b98426f8d9f6'
+  '81fb56fe326612a0dc4705fc5ec309d04bcfffb487db0cb5843918fe92951927'
+  'SKIP' # Git checkout is pinned to an immutable commit.
+  '67383a24e884464b285cf936abafae2151eb94a2cab5f550d1707e168980668f'
+)
+
+prepare() {
+  patch --directory="$srcdir/xpadneo" --fuzz=0 -Np1 -i "$srcdir/preserve-ble-identity.patch"
+  cd "$srcdir/linux-${_kernel_commit}"
+  install -dm755 drivers/hid/xpadneo
+  install -m644 "$srcdir/xpadneo"/hid-xpadneo/src/xpadneo/*.[ch] drivers/hid/xpadneo/
+  sed -e 's/$(VERSION)/v0.10.5/' -e 's/^obj-m /obj-$(CONFIG_HID_XPADNEO) /' -e 's|xpadneo/||g' \
+    "$srcdir/xpadneo/hid-xpadneo/src/Makefile" > drivers/hid/xpadneo/Makefile
+  printf '\nobj-$(CONFIG_HID_XPADNEO) += xpadneo/\n' >> drivers/hid/Makefile
+  cat >> drivers/hid/Kconfig <<'KCONFIG'
+
+config HID_XPADNEO
+	bool "Nodalix xpadneo Xbox Bluetooth controller"
+	depends on HID=y
+	select CRC16
+	select INPUT_FF_MEMLESS
+	help
+	  Support Xbox Bluetooth controllers with the Nodalix xpadneo driver.
+KCONFIG
+
+  # Preserve the native identifier for the known BLE model from the first
+  # connection. The module parameter still allows a boot-time override.
+  sed -i 's/^static bool param_disable_pid_spoofing;$/static bool param_disable_pid_spoofing = true;/' \
+    drivers/hid/xpadneo/core.c
+  grep -Fxq 'static bool param_disable_pid_spoofing = true;' drivers/hid/xpadneo/core.c
+
+  cp "$srcdir/cachyos.config" .config
+  scripts/config --set-str LOCALVERSION "-${pkgrel}-nodalix" --disable LOCALVERSION_AUTO \
+    --enable HID_XPADNEO --enable UHID --enable MODULE_SIG_ALL \
+    --enable LOCK_DOWN_KERNEL_FORCE_INTEGRITY --disable LOCK_DOWN_KERNEL_FORCE_NONE
+  make LLVM=1 olddefconfig
+  for config in CONFIG_GENERIC_CPU=y CONFIG_X86_64_VERSION=1 CONFIG_HID_XPADNEO=y \
+      CONFIG_UHID=y CONFIG_RUST=y CONFIG_MODULE_SIG_ALL=y CONFIG_LOCK_DOWN_KERNEL_FORCE_INTEGRITY=y; do
+    grep -Fxq "$config" .config
+  done
+}
+
+build() {
+  cd "$srcdir/linux-${_kernel_commit}"
+  # The module key is generated per build and stays in the private build tree.
+  # This key is separate from the release signature and Secure Boot key.
+  umask 077
+  make LLVM=1 bzImage modules
+}
+
+package() {
+  cd "$srcdir/linux-${_kernel_commit}"
+  local release
+  release=$(make -s LLVM=1 kernelrelease)
+  [[ "$release" = "$pkgver-$pkgrel-nodalix" ]]
+  local modules="$pkgdir/usr/lib/modules/$release"
+  make LLVM=1 modules_install MODLIB="$modules" INSTALL_MOD_STRIP=1 DEPMOD=true
+  grep -Fxq 'kernel/drivers/hid/xpadneo/hid-xpadneo.ko' "$modules/modules.builtin"
+  install -Dm644 arch/x86/boot/bzImage "$modules/vmlinuz"
+  printf '%s\n' "$pkgbase" > "$modules/pkgbase"
+  install -Dm644 .config "$pkgdir/usr/share/doc/$pkgname/config"
+  install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+}

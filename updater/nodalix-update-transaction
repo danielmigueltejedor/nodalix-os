@@ -27,7 +27,7 @@ def recommend_reboot(before,after,path=Path('/run/nodalix-updater/reboot-recomme
         path.parent.mkdir(parents=True,exist_ok=True)
         path.write_text(json.dumps({'packages':changed}))
 COMMANDS = {'nodalix': [['/usr/bin/nodalix-updater','update','--json']],
-            'system': [['/usr/bin/pacman','-Syu','--noconfirm']],
+            'system': [['/usr/bin/pacman','-Syu','--noconfirm','--ignore','linux-nodalix']],
             'firmware': [['/usr/bin/fwupdmgr','refresh','--force'],['/usr/bin/fwupdmgr','update','-y','--no-reboot-check']],
             'flatpak': [['/usr/bin/python','/usr/lib/nodalix-updater/flatpak_updates.py','update','--scope','system']]}
 

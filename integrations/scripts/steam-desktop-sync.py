@@ -165,37 +165,59 @@ def cached_icon(root, appid, icons, previous, updated):
 
 
 def window_classes(games):
-    """Recognize native X11 games too, using Steam's process environment."""
+    """Read X11 window classes over one connection."""
+    if not os.environ.get('DISPLAY'):
+        return {}
+    from Xlib import Xatom, display, error
+
     result = {}
-    if not os.environ.get('DISPLAY') or not shutil_available('xprop'):
-        return result
     try:
-        root = subprocess.run(['xprop', '-root', '_NET_CLIENT_LIST'],
-                              capture_output=True, text=True, timeout=3).stdout
-        for window in re.findall(r'0x[0-9a-fA-F]+', root):
-            props = subprocess.run(['xprop', '-id', window, 'WM_CLASS', '_NET_WM_PID', 'WM_TRANSIENT_FOR'],
-                                   capture_output=True, text=True, timeout=2).stdout
-            pid = re.search(r'_NET_WM_PID\(CARDINAL\) = (\d+)', props)
-            cls = re.search(r'WM_CLASS\(STRING\) = "[^"]*", "([^"]+)"', props)
-            if not pid or not cls or 'WM_TRANSIENT_FOR(WINDOW)' in props:
-                continue
+        connection = display.Display()
+    except (OSError, error.DisplayError):
+        return result
+
+    try:
+        client_list = connection.intern_atom('_NET_CLIENT_LIST', only_if_exists=True)
+        wm_pid = connection.intern_atom('_NET_WM_PID', only_if_exists=True)
+        if not client_list or not wm_pid:
+            return result
+        clients = connection.screen().root.get_full_property(client_list, Xatom.WINDOW)
+        if clients is None:
+            return result
+        appids = {}
+        for window_id in clients.value:
             try:
-                env = (Path('/proc') / pid[1] / 'environ').read_bytes().split(b'\0')
-            except OSError:
+                window = connection.create_resource_object('window', window_id)
+                pid = window.get_full_property(wm_pid, Xatom.CARDINAL)
+                wm_class = window.get_wm_class()
+                if not pid or not len(pid.value) or not wm_class or len(wm_class) != 2 or not wm_class[1]:
+                    continue
+                if window.get_wm_transient_for() is not None:
+                    continue
+            except error.XError:
+                # A window can disappear after the window manager lists it.
                 continue
-            appid = next((item[11:].decode() for item in env if item.startswith(b'SteamAppId=')), '')
-            name = cls[1]
-            if appid in games and name.lower() not in ('steam', 'explorer.exe', 'steamwebhelper'):
-                result.setdefault(appid, name)
-    except (OSError, subprocess.TimeoutExpired):
+            name = wm_class[1]
+            if name.lower() in ('steam', 'explorer.exe', 'steamwebhelper'):
+                continue
+            owner = int(pid.value[0])
+            if owner not in appids:
+                try:
+                    env = (Path('/proc') / str(owner) / 'environ').read_bytes().split(b'\0')
+                    appids[owner] = next((item[11:].decode('ascii') for item in env
+                                         if item.startswith(b'SteamAppId=') and item[11:].isdigit()), '')
+                except OSError:
+                    appids[owner] = ''
+            if appids[owner] in games:
+                result.setdefault(appids[owner], name)
+    except (OSError, error.ConnectionClosedError, error.XError):
         pass
+    finally:
+        try:
+            connection.close()
+        except error.ConnectionClosedError:
+            pass
     return result
-
-
-def shutil_available(command):
-    from shutil import which
-    return which(command) is not None
-
 
 def sync(roots, apps, icons, state):
     games = installed(roots)
@@ -268,7 +290,7 @@ def sync(roots, apps, icons, state):
         except OSError as exc:
             print(f'Icon cache: {exc}', flush=True)
     if changed:
-        subprocess.run(['update-desktop-database', str(apps)], check=True)
+        subprocess.run(['update-desktop-database', '--', str(apps.resolve())], check=True)
         print(f'Updated {len(changed)} launchers; {len(games)} installed games.', flush=True)
     return games, changed
 
