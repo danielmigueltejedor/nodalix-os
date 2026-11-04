@@ -20,6 +20,12 @@ if 'system-db:gdm' not in content.splitlines():
 config = Path('/etc/dconf/db/gdm.d/90-nodalix-branding')
 config.parent.mkdir(parents=True, exist_ok=True)
 shutil.copyfile('/usr/lib/nodalix/gdm-branding', config)
+# The greeter has its own dconf profile. Supersede old greeter preferences
+# without locking the cursor setting in anyone's desktop session.
+locks = config.parent / 'locks' / '90-nodalix-greeter-cursor'
+locks.parent.mkdir(exist_ok=True)
+locks.write_text('/org/gnome/desktop/interface/cursor-theme\n'
+                 '/org/gnome/desktop/interface/cursor-size\n')
 subprocess.run(['/usr/bin/dconf', 'update'], check=True)
 
 # Read only the greeter's system databases, preserving other configured extensions.

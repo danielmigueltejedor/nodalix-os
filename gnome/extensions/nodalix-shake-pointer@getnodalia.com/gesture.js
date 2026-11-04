@@ -3,6 +3,7 @@ export default class ShakeGesture {
         this.sample = null;
         this.direction = null;
         this.turns = [];
+        this.fast = false;
     }
 
     constructor() {
@@ -10,6 +11,7 @@ export default class ShakeGesture {
     }
 
     push(x, y, now) {
+        this.fast = false;
         const previous = this.sample;
         if (!previous || now - previous.time > 150) {
             this.reset();
@@ -24,6 +26,12 @@ export default class ShakeGesture {
             return false;
 
         this.sample = {x, y, time: now};
+        this.fast = length >= (now - previous.time) * 0.55;
+        if (!this.fast) {
+            this.direction = null;
+            this.turns = [];
+            return false;
+        }
         const direction = {x: dx / length, y: dy / length};
         const previousDirection = this.direction;
         this.direction = direction;

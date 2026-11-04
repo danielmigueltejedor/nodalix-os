@@ -1,6 +1,6 @@
 pkgname=nodalix-cursor-theme
-pkgver=0.4.0
-pkgrel=4
+pkgver=0.4.1
+pkgrel=1
 options=("!strip")
 pkgdesc="Capitaine Cursors with scalable GNOME and Xcursor formats"
 arch=("any")

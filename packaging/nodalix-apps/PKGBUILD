@@ -1,6 +1,6 @@
 pkgname=nodalix-apps
-pkgver=0.4.0
-pkgrel=6
+pkgver=0.4.1
+pkgrel=1
 pkgdesc="Nodalix official applications manager"
 arch=("any")
 url="https://github.com/danielmigueltejedor/nodalix-os"

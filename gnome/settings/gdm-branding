@@ -1,2 +1,6 @@
 [org/gnome/login-screen]
 logo='/usr/share/pixmaps/nodalix-login-logo.svg'
+
+[org/gnome/desktop/interface]
+cursor-theme='Nodalix'
+cursor-size=30
