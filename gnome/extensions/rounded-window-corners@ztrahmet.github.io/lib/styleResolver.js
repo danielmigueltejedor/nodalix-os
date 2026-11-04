@@ -67,7 +67,7 @@ async function readStylesheet(path, seen, depth = 0) {
         return text;
 
     const dir = GLib.path_get_dirname(path);
-    const pattern = /@import\s+(?:url\(\s*)?["']?([^"')\s]+)["']?\s*\)?\s*;/g;
+    const pattern = /@import\s+(?:url\(\s*)?["']?([^"')\s]+)["']?\s*(?:\)\s*)?;/g;
     const parts = [];
     let cursor = 0;
     let match;

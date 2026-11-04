@@ -83,12 +83,8 @@ const UpscaleEffectClass = utils.IS_IN_PREFERENCES ? null : class UpscaleEffect 
         }
 
         set opacity_factor(value) {
-            const opacityFactor = utils.clamp(value, 0, 1, DEFAULT_PARAMS.opacity_factor);
-            if (this._opacity_factor !== opacityFactor) {
-                this._opacity_factor = opacityFactor;
-
-                uniforms.set_uniform(this, 'opacity_factor', Number.parseFloat(this._opacity_factor));
-            }
+            const opacity = utils.clamp(value, 0, 1, DEFAULT_PARAMS.opacity_factor);
+            uniforms.update_float_property(this, 'opacity_factor', opacity);
         }
 
         get width() {
@@ -96,12 +92,8 @@ const UpscaleEffectClass = utils.IS_IN_PREFERENCES ? null : class UpscaleEffect 
         }
 
         set width(value) {
-            const v = utils.clamp(value, 1, Number.MAX_SAFE_INTEGER, 1);
-            if (this._width !== v) {
-                this._width = v;
-
-                uniforms.set_uniform(this, 'width', Number.parseFloat(this._width - 1e-6));
-            }
+            const width = utils.clamp(value, 1, Number.MAX_SAFE_INTEGER, 1);
+            uniforms.update_float_property(this, 'width', width, -1e-6);
         }
 
         get height() {
@@ -109,12 +101,8 @@ const UpscaleEffectClass = utils.IS_IN_PREFERENCES ? null : class UpscaleEffect 
         }
 
         set height(value) {
-            const v = utils.clamp(value, 1, Number.MAX_SAFE_INTEGER, 1);
-            if (this._height !== v) {
-                this._height = v;
-
-                uniforms.set_uniform(this, 'height', Number.parseFloat(this._height - 1e-6));
-            }
+            const height = utils.clamp(value, 1, Number.MAX_SAFE_INTEGER, 1);
+            uniforms.update_float_property(this, 'height', height, -1e-6);
         }
 
         vfunc_paint_target(paint_node, paint_context) {

@@ -58,7 +58,7 @@ export const get_shader_source = (Shell, shader_filename, self_uri) => {
 
 /// Splits a fragment shader into its declarations and the body of its `main` function.
 function split_fragment_shader(source) {
-    const main_index = source.search(/void\s+main\s*(?:\(\s*(?:void)?\s*\))?\s*\{/);
+    const main_index = source.search(/void\s+main\s*(?:\(\s*(?:void\s*)?\)\s*)?\{/);
     const brace_index = source.indexOf('{', main_index);
 
     let depth = 0;
