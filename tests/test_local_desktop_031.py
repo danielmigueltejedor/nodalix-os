@@ -58,6 +58,43 @@ class SteamTests(unittest.TestCase):
             self.assertEqual(changed, [])
             self.assertEqual(entry.read_text(), original)
 
+    def test_no_games_skips_the_x11_scan(self):
+        with mock.patch.object(STEAM, 'window_classes') as window_classes:
+            self.assertEqual(STEAM.sync([], None, None, None), ({}, []))
+        window_classes.assert_not_called()
+
+    def test_icon_cache_invalidates_when_an_image_changes_or_disappears(self):
+        import gi
+        gi.require_version('GdkPixbuf', '2.0')
+        from gi.repository import GdkPixbuf
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = root / 'appcache/librarycache/7_icon.png'
+            source.parent.mkdir(parents=True)
+            icons = root / 'icons'
+            pixbuf = GdkPixbuf.Pixbuf.new(GdkPixbuf.Colorspace.RGB, True, 8, 32, 32)
+            pixbuf.fill(0xff0000ff)
+            pixbuf.savev(str(source), 'png', [], [])
+            first = {}
+            target = Path(STEAM.cached_icon(root, '7', icons, {}, first))
+            with mock.patch.object(GdkPixbuf.Pixbuf, 'new_from_file') as decode:
+                second = {}
+                self.assertEqual(STEAM.cached_icon(root, '7', icons, first, second), str(target))
+                decode.assert_not_called()
+            self.assertEqual(first, second)
+
+            pixbuf.fill(0x0000ffff)
+            pixbuf.savev(str(source), 'png', [], [])
+            revised = {}
+            self.assertEqual(STEAM.cached_icon(root, '7', icons, second, revised), str(target))
+            self.assertEqual(GdkPixbuf.Pixbuf.new_from_file(str(target)).get_pixels()[:4],
+                             b'\x00\x00\xff\xff')
+            target.unlink()
+            self.assertEqual(STEAM.cached_icon(root, '7', icons, revised, {}), str(target))
+            source.unlink()
+            self.assertIsNone(STEAM.cached_icon(root, '7', icons, revised, {}))
+
     def test_native_game_and_proton_helper_classification(self):
         with tempfile.TemporaryDirectory() as temp:
             proc = Path(temp)

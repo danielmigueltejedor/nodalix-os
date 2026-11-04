@@ -3,6 +3,7 @@
 import argparse
 import configparser
 import fcntl
+import json
 import os
 from pathlib import Path
 import re
@@ -121,24 +122,42 @@ def installed(roots):
     return games
 
 
-def cached_icon(root, appid, icons):
+def file_signature(path):
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    return [stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns]
+
+
+def cached_icon(root, appid, icons, previous, updated):
     cache = root / 'appcache/librarycache'
     candidates = list((cache / appid).glob('*.jpg'))
     candidates += list((cache / appid).glob('*.png'))
     candidates += list(cache.glob(f'{appid}_icon.*'))
+    sources = [[str(path), signature] for path in sorted(set(candidates))
+               if (signature := file_signature(path)) is not None]
+    if not sources:
+        return None
+    target = icons / f'steam_icon_{appid}.png'
+    signature = file_signature(target)
+    if signature is not None and previous.get(appid) == [sources, signature]:
+        updated[appid] = previous[appid]
+        return str(target)
+
     # Steam's game icons are small and square. Ignore library artwork.
     import gi
     gi.require_version('GdkPixbuf', '2.0')
     from gi.repository import GdkPixbuf
-    for candidate in sorted(candidates):
+    for candidate, _ in sources:
         try:
-            pixbuf = GdkPixbuf.Pixbuf.new_from_file(str(candidate))
+            pixbuf = GdkPixbuf.Pixbuf.new_from_file(candidate)
             if pixbuf.get_width() != pixbuf.get_height() or pixbuf.get_width() > 512:
                 continue
-            target = icons / f'steam_icon_{appid}.png'
             ok, data = pixbuf.save_to_bufferv('png', [], [])
             if ok:
                 atomic_write(target, bytes(data))
+                updated[appid] = [sources, file_signature(target)]
                 return str(target)
         except Exception as exc:
             print(f'Icon {appid}: {exc}', flush=True)
@@ -180,6 +199,16 @@ def shutil_available(command):
 
 def sync(roots, apps, icons, state):
     games = installed(roots)
+    if not games:
+        return games, []
+    cache = state / 'icon-sources.json'
+    try:
+        previous = json.loads(cache.read_text())
+    except (OSError, ValueError):
+        previous = {}
+    if not isinstance(previous, dict):
+        previous = {}
+    updated = {}
     observed = window_classes(games)
     existing = {}
     for path in apps.glob('*.desktop'):
@@ -194,7 +223,7 @@ def sync(roots, apps, icons, state):
             continue
     changed = []
     for appid, (name, root) in sorted(games.items(), key=lambda item: int(item[0])):
-        icon = cached_icon(root, appid, icons)
+        icon = cached_icon(root, appid, icons, previous, updated)
         paths = existing.get(appid, [apps / f'steam_app_{appid}.desktop'])
         for path in paths:
             try:
@@ -233,6 +262,11 @@ def sync(roots, apps, icons, state):
                         changed.append(path.name)
             except (OSError, configparser.Error) as exc:
                 print(f'Launcher {path.name}: {exc}', flush=True)
+    if updated != previous:
+        try:
+            atomic_write(cache, json.dumps(updated, sort_keys=True).encode())
+        except OSError as exc:
+            print(f'Icon cache: {exc}', flush=True)
     if changed:
         subprocess.run(['update-desktop-database', str(apps)], check=True)
         print(f'Updated {len(changed)} launchers; {len(games)} installed games.', flush=True)
