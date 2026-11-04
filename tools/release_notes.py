@@ -97,7 +97,7 @@ def git(*args: str) -> str:
 def is_ancestor(older: str, newer: str) -> bool:
     return (
         subprocess.run(
-            ["git", "merge-base", "--is-ancestor", older, newer],
+            ["git", "merge-base", "--is-ancestor", "refs/tags/" + older, "refs/tags/" + newer],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         ).returncode
@@ -156,13 +156,15 @@ def commit_lines(
     tag: str,
     repository_url: str,
 ) -> list[str]:
-    revision = f"{base}..{tag}" if base else tag
+    revision = f"refs/tags/{base}..refs/tags/{tag}" if base else f"refs/tags/{tag}"
 
     log = git(
         "log",
         "--reverse",
         "--format=%H%x09%s",
+        "--end-of-options",
         revision,
+        "--",
     )
 
     lines: list[str] = []

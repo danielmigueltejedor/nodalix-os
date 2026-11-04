@@ -4,7 +4,7 @@
 A manual CI retry can change the disposable guest verifier without rebuilding
 identical release binaries. The subsequent jobs still boot and test those bytes.
 """
-import argparse, hashlib, json, os, subprocess, time
+import argparse, hashlib, json, os, re, subprocess, time
 from pathlib import Path
 
 QA_FILES = {'.github/workflows/ci.yml', 'tools/ci-boot-migrated.sh',
@@ -21,8 +21,12 @@ def api(path):
 def verify_source(run):
     if run['head_repository']['full_name'] != REPO:
         raise ValueError('Artifacts must originate in this repository')
+    commit = run['head_sha']
+    if not re.fullmatch(r'[0-9a-f]{40}', commit):
+        raise ValueError('Invalid source commit SHA')
     changed = set(subprocess.check_output(
-        ['git', 'diff', '--name-only', run['head_sha'], 'HEAD'], text=True).splitlines())
+        ['git', 'diff', '--name-only', '--end-of-options', commit, 'HEAD', '--'],
+        text=True).splitlines())
     if changed - QA_FILES:
         raise ValueError('Release sources changed: '+', '.join(sorted(changed-QA_FILES)))
 
@@ -50,27 +54,40 @@ def main():
     parser.add_argument('run_id')
     parser.add_argument('output',type=Path)
     args=parser.parse_args()
-    if not args.run_id.isdecimal():raise ValueError('Numeric source run ID required')
+    if not re.fullmatch(r'[0-9]+', args.run_id):
+        raise ValueError('Numeric source run ID required')
     run=api(f'actions/runs/{args.run_id}')
     verify_source(run)
     require_job(args.run_id,'packages' if args.kind=='packages' else 'iso',wait=args.kind=='iso')
     version=Path('VERSION').read_text().strip()
-    name=f'nodalix-{version}-candidate' if args.kind=='packages' else f'nodalix-{version}-installable-iso'
-    args.output.mkdir(parents=True,exist_ok=True)
-    subprocess.run(['gh','run','download',args.run_id,'--repo',REPO,'--name',name,'--dir',str(args.output)],check=True)
-    version=Path('VERSION').read_text().strip()
+    suffix = 'candidate' if args.kind == 'packages' else 'installable-iso'
+    name = f'nodalix-{version}-{suffix}'
+    artifacts = api(f'actions/runs/{args.run_id}/artifacts?per_page=100')['artifacts']
+    if not any(artifact['name'] == name and not artifact['expired'] for artifact in artifacts):
+        # The older CI workflow labels its candidates 0.4.0 for every version.
+        name = f'nodalix-0.4.0-{suffix}'
+    output = args.output.resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    subprocess.run(['gh', 'run', 'download', '--repo', REPO, '--name', name,
+                    '--dir', str(output), '--', args.run_id], check=True)
     if args.kind=='packages':
-        manifest=json.loads((args.output/'nodalix-manifest.json').read_text())
-        assert manifest['version']==version
+        manifest=json.loads((output/'nodalix-manifest.json').read_text())
+        if manifest['version'] != version:
+            raise ValueError('Downloaded manifest belongs to another version')
         expected=json.loads(Path('release/components.json').read_text())['components']
-        assert {r['id'] for r in manifest['components']}=={r['id'] for r in expected}
+        if {r['id'] for r in manifest['components']} != {r['id'] for r in expected}:
+            raise ValueError('Downloaded manifest has unexpected components')
         for row in manifest['components']:
-            assert Path(row['asset']).name==row['asset']
-            path=args.output/row['asset']
-            assert path.stat().st_size==row['size'] and digest(path)==row['sha256']
+            name = row['asset']
+            if not re.fullmatch(r'[A-Za-z0-9_@+.-]+\.pkg\.tar\.zst', name):
+                raise ValueError('Unsafe filename in downloaded manifest')
+            path = output / name
+            if path.is_symlink() or path.stat().st_size != row['size'] or digest(path) != row['sha256']:
+                raise ValueError(f'Invalid package artifact: {name}')
     else:
-        path=args.output/f'nodalix-{version}-x86_64.iso'
-        assert path.with_suffix('.iso.sha256').read_text().strip()==f'{digest(path)}  {path.name}'
+        path=output/f'nodalix-{version}-x86_64.iso'
+        if path.with_suffix('.iso.sha256').read_text().strip() != f'{digest(path)}  {path.name}':
+            raise ValueError('Invalid ISO artifact checksum')
     print(f'Reused verified {args.kind} from run {args.run_id}; all release sources are unchanged',flush=True)
 
 if __name__=='__main__':main()
