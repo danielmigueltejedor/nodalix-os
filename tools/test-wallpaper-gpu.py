@@ -47,8 +47,10 @@ def main():
     parser.add_argument('--seconds',type=int,default=12)
     parser.add_argument('--offload',action='store_true')
     parser.add_argument('--shell-blur',action='store_true',help='Test live wallpaper inputs to official Blur My Shell and native monitor panels')
-    args=parser.parse_args();args.output.mkdir(parents=True,exist_ok=True)
-    if os.environ.get('NODALIX_GPU_PRIVATE')!='1':
+    private = os.environ.get('NODALIX_GPU_PRIVATE') == '1'
+    args = parser.parse_args(json.load(sys.stdin) if private else None)
+    args.output.mkdir(parents=True, exist_ok=True)
+    if not private:
         with tempfile.TemporaryDirectory(prefix='nodalix-gpu-',ignore_cleanup_errors=True) as directory:
             root=Path(directory);runtime=root/'runtime';runtime.mkdir(mode=0o700)
             env={k:v for k,v in os.environ.items() if k not in (
@@ -56,15 +58,8 @@ def main():
                 'XDG_SESSION_ID','GDK_BACKEND','GNOME_KEYRING_CONTROL')}
             env.update(NODALIX_GPU_PRIVATE='1',NODALIX_GPU_HOME=directory,HOME=directory,XDG_RUNTIME_DIR=str(runtime),
                 XDG_CONFIG_HOME=str(root/'config'),XDG_DATA_HOME=str(root/'data'),XDG_STATE_HOME=str(root/'state'),XDG_CACHE_HOME=str(root/'cache'),XDG_DATA_DIRS='/usr/local/share:/usr/share',XDG_CURRENT_DESKTOP='GNOME',GTK_A11Y='none')
-            command = ['dbus-run-session', '--', sys.executable, __file__,
-                       f'--extension={args.extension.resolve()}', f'--video={args.video.resolve()}',
-                       f'--label={args.label}', f'--output={args.output.resolve()}',
-                       f'--seconds={args.seconds}']
-            if args.offload:
-                command.append('--offload')
-            if args.shell_blur:
-                command.append('--shell-blur')
-            result=subprocess.run(command, env=env)
+            result = subprocess.run(['dbus-run-session', '--', sys.executable, __file__],
+                                    input=json.dumps(sys.argv[1:]), text=True, env=env)
             for name in ('doc','gvfs'):
                 subprocess.run(['fusermount3','-uz',str(runtime/name)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
             return result.returncode

@@ -1,4 +1,5 @@
 import GObject from 'gi://GObject';
+import {register_texture_effect} from './texture_properties.js';
 
 import * as utils from '../../conveniences/utils.js';
 import * as uniforms from '../../render/shader/uniforms.js';
@@ -78,33 +79,6 @@ const UpscaleEffectClass = utils.IS_IN_PREFERENCES ? null : class UpscaleEffect 
             }
         }
 
-        get opacity_factor() {
-            return this._opacity_factor;
-        }
-
-        set opacity_factor(value) {
-            const opacity = utils.clamp(value, 0, 1, DEFAULT_PARAMS.opacity_factor);
-            uniforms.update_float_property(this, 'opacity_factor', opacity);
-        }
-
-        get width() {
-            return this._width;
-        }
-
-        set width(value) {
-            const width = utils.clamp(value, 1, Number.MAX_SAFE_INTEGER, 1);
-            uniforms.update_float_property(this, 'width', width, -1e-6);
-        }
-
-        get height() {
-            return this._height;
-        }
-
-        set height(value) {
-            const height = utils.clamp(value, 1, Number.MAX_SAFE_INTEGER, 1);
-            uniforms.update_float_property(this, 'height', height, -1e-6);
-        }
-
         vfunc_paint_target(paint_node, paint_context) {
             uniforms.upload_uniforms(this);
 
@@ -124,4 +98,4 @@ const UpscaleEffectClass = utils.IS_IN_PREFERENCES ? null : class UpscaleEffect 
 
 export const UpscaleEffect = utils.IS_IN_PREFERENCES
     ? { default_params: DEFAULT_PARAMS }
-    : GObject.registerClass(UPSCALE_EFFECT_META, UpscaleEffectClass);
+    : register_texture_effect(UPSCALE_EFFECT_META, UpscaleEffectClass);
