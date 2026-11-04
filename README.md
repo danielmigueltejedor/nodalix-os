@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://raw.githubusercontent.com/danielmigueltejedor/nodalix-os/main/docs/images/nodalix-logo.png" width="192" height="192" alt="Nodalix OS">
+  <img src="./docs/images/nodalix-readme-logo.svg" width="192" height="192" alt="Nodalix OS">
   <h1>Nodalix OS</h1>
   <p><strong>An integrated Arch Linux desktop built around GNOME Shell and Mutter.</strong></p>
 
