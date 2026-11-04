@@ -39,6 +39,38 @@ class KernelBootTests(unittest.TestCase):
 
 
 class KernelSigningTests(unittest.TestCase):
+    def test_fixed_minisign_arguments_and_preservation_on_failed_verification(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            assets = root / 'assets'
+            assets.mkdir()
+            target = assets / 'nodalix-manifest.json'
+            target.write_text('previous manifest')
+            secret = root / '-s'
+            public = root / '-p'
+            secret.touch()
+            public.touch()
+            manifest = {'components': [{'package': 'linux-nodalix'}]}
+
+            def minisign(command, *, cwd, check):
+                self.assertTrue(check)
+                self.assertFalse(cwd.is_relative_to(assets))
+                if command[1] == '-Sm':
+                    self.assertEqual(command[-2:], ['-s', 'release.key'])
+                    self.assertEqual((cwd / 'release.key').resolve(), secret)
+                    Path(command[4]).write_text('signature')
+                else:
+                    self.assertEqual(command[-2:], ['-p', 'release.pub'])
+                    self.assertEqual((cwd / 'release.pub').resolve(), public)
+                    raise RuntimeError('Verification failed')
+
+            with patch('subprocess.run', side_effect=minisign) as command:
+                with self.assertRaisesRegex(RuntimeError, 'Verification failed'):
+                    FINALIZE['write_manifest'](assets, manifest, secret, public)
+            self.assertEqual(command.call_count, 2)
+            self.assertEqual(list(assets.iterdir()), [target])
+            self.assertEqual(target.read_text(), 'previous manifest')
+
     def test_cannot_finalize_a_kernel_release_without_keys(self):
         with TemporaryDirectory() as directory:
             path = Path(directory)

@@ -183,12 +183,17 @@ def write_manifest(directory, manifest, secret_key=None, public_key=None):
         target.write_text(contents, encoding="utf-8")
         return
 
-    with TemporaryDirectory(dir=directory) as scratch:
+    with TemporaryDirectory(dir=directory) as scratch, TemporaryDirectory() as credentials:
+        keys = Path(credentials)
+        (keys / "release.key").symlink_to(secret_key)
+        (keys / "release.pub").symlink_to(public_key)
         candidate = Path(scratch) / target.name
         signature = Path(scratch) / signature_name
         candidate.write_text(contents, encoding="utf-8")
-        subprocess.run(["minisign", "-Sm", str(candidate), "-x", str(signature), "-s", str(secret_key)], check=True)
-        subprocess.run(["minisign", "-Vm", str(candidate), "-x", str(signature), "-p", str(public_key)], check=True)
+        subprocess.run(["minisign", "-Sm", str(candidate), "-x", str(signature), "-s", "release.key"],
+                       cwd=keys, check=True)
+        subprocess.run(["minisign", "-Vm", str(candidate), "-x", str(signature), "-p", "release.pub"],
+                       cwd=keys, check=True)
         candidate.replace(target)
         signature.replace(directory / signature_name)
 

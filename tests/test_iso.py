@@ -6,9 +6,20 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 policy = runpy.run_path(str(ROOT / 'iso/installer/finish-hardware.py'))['hardware_policy']
+safe_package_filename = runpy.run_path(str(ROOT / 'tools/build-iso.py'))['safe_package_filename']
 
 
 class IsoPolicyTests(unittest.TestCase):
+    def test_iso_accepts_only_the_managed_kernel_archive(self):
+        name = 'linux-nodalix-7.3.1-1-x86_64.pkg.tar.zst'
+        self.assertTrue(safe_package_filename('linux-nodalix', name))
+        self.assertTrue(safe_package_filename('nodalix-gnome', 'nodalix-gnome-0.5.0-1-any.pkg.tar.zst'))
+        for invalid in (f'../{name}', f'{name}.sig', name.replace('x86_64', 'any'),
+                        name.replace('linux-nodalix', 'linux-cachyos')):
+            with self.subTest(invalid=invalid):
+                self.assertFalse(safe_package_filename('linux-nodalix', invalid))
+        self.assertFalse(safe_package_filename('linux', name))
+
     def test_vm_never_inherits_hosts_optimized_kernel(self):
         profile = {'tier': 'znver4', 'kernel': 'linux-cachyos', 'reason': 'Zen 4'}
         result = policy(profile, True)
