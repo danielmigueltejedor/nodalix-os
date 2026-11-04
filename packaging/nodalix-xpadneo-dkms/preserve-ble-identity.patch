@@ -1,0 +1,45 @@
+diff --git a/hid-xpadneo/src/xpadneo/core.c b/hid-xpadneo/src/xpadneo/core.c
+--- a/hid-xpadneo/src/xpadneo/core.c
++++ b/hid-xpadneo/src/xpadneo/core.c
+@@ -34,6 +34,11 @@ MODULE_VERSION(XPADNEO_VERSION);
+-MODULE_SOFTDEP("pre: uhid");
++MODULE_SOFTDEP("pre: uhid");
+-
++
+-static DEFINE_IDA(xpadneo_core_device_id_allocator);
++static DEFINE_IDA(xpadneo_core_device_id_allocator);
++
++/* Opt-in; preserve only the verified Microsoft BLE PID, not third-party pads. */
++static bool param_disable_pid_spoofing;
++module_param_named(disable_pid_spoofing, param_disable_pid_spoofing, bool, 0444);
++MODULE_PARM_DESC(disable_pid_spoofing, "Keep native HID ID for Microsoft BLE 045E:0B20");
+-
++
+-#ifndef USB_VENDOR_ID_MICROSOFT
++#ifndef USB_VENDOR_ID_MICROSOFT
+-#define USB_VENDOR_ID_MICROSOFT 0x045e
++#define USB_VENDOR_ID_MICROSOFT 0x045e
+@@ -229,9 +234,14 @@ static int core_probe(struct hid_device *hdev, const struct hid_device_id *id)
+-	xdata->original_vendor = hdev->vendor;
++	xdata->original_vendor = hdev->vendor;
+-	xdata->original_product = hdev->product;
++	xdata->original_product = hdev->product;
+-	xdata->original_version = hdev->version;
++	xdata->original_version = hdev->version;
+-	hdev->vendor = USB_VENDOR_ID_MICROSOFT;
+-	hdev->product = 0x028E;
+-	hdev->version = 0x00001130;
++	/* Other controllers keep upstream's compatibility mapping. */
++	if (!(param_disable_pid_spoofing &&
++	      hdev->vendor == USB_VENDOR_ID_MICROSOFT &&
++	      hdev->product == 0x0B20)) {
++		hdev->vendor = USB_VENDOR_ID_MICROSOFT;
++		hdev->product = 0x028E;
++		hdev->version = 0x00001130;
++	}
+-
++
+-	if ((hdev->vendor != xdata->original_vendor) || (hdev->product != xdata->original_product))
++	if ((hdev->vendor != xdata->original_vendor) || (hdev->product != xdata->original_product))
+-		hid_info(hdev,
++		hid_info(hdev,

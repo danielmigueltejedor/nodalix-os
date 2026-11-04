@@ -58,6 +58,7 @@ Nodalix is designed to feel like a complete operating system while retaining the
 | **Nodalix Release** | Version identity and definition of the core Nodalix system |
 | **Nodalix Installer** | Installation flow for both the Nodalix ISO and supported Arch systems |
 | **Nodalix Wallpapers** | Curated wallpapers and desktop visual assets |
+| **Nodalix Xbox Driver** | Versioned xpadneo DKMS driver for Bluetooth Xbox controllers, with a scoped native-ID fix; see [Xbox controller support](docs/xbox-controller.md) |
 
 ## Phone Link
 
