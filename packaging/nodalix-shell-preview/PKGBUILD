@@ -1,0 +1,59 @@
+# OPT-IN PREVIEW ONLY. Not part of the mandatory Nodalix release manifest.
+# Rebuild and validate this fork for every Nodalix and GNOME update.
+pkgname=nodalix-shell-preview
+pkgver=0.4.1
+pkgrel=1
+epoch=1
+_gnomever=51.1
+_upstream_commit=33da06854e229c256afd5872fedd83c28cbfa176
+pkgdesc="Nodalix-maintained GNOME Shell 51.1 with first-party native modules (preview)"
+arch=('x86_64')
+url='https://github.com/danielmigueltejedor/nodalix-os'
+license=('GPL-3.0-or-later')
+depends=(
+  'accountsservice' 'at-spi2-core' 'bash' 'cairo' 'dconf' 'gcr-4'
+  'gdk-pixbuf2' 'gjs' 'glib2' 'glibc' 'gnome-autoar' 'gnome-desktop-4'
+  'gnome-session' 'gnome-settings-daemon' 'graphene' 'gsettings-desktop-schemas'
+  'gtk4' 'hicolor-icon-theme' 'ibus' 'json-glib' 'libadwaita'
+  'libcanberra' 'libgdm' 'libglvnd' 'libgweather-4' 'libical'
+  'mutter>=51' 'mutter<52' 'libnm' 'libnma-gtk4' 'libpipewire'
+  'libpulse' 'libsecret' 'libsoup3' 'libx11' 'libxext'
+  'libxfixes' 'pango' 'polkit' 'systemd-libs' 'unzip' 'upower'
+  'webkitgtk-6.0'
+)
+makedepends=(
+  'git' 'meson' 'ninja' 'python' 'asciidoc' 'bash-completion'
+  'evolution-data-server' 'gi-docgen' 'glib2-devel'
+  'gnome-keybindings' 'gobject-introspection' 'python-docutils' 'sassc'
+)
+optdepends=('evolution-data-server: calendar' 'gnome-bluetooth-3.0: Bluetooth'
+  'gnome-extensions-app: optional third-party GNOME extensions'
+  'gst-plugin-pipewire: screen recording' 'gst-plugins-good: screen recording')
+provides=("gnome-shell=1:$_gnomever")
+conflicts=('gnome-shell')
+# No replaces(): a normal pacman upgrade must never silently install the preview.
+source=("git+https://github.com/GNOME/gnome-shell.git#commit=$_upstream_commit"
+        'nodalix-shell-overlays.tar.zst')
+sha256sums=('SKIP' 'AUTO_OVERLAY_SHA256')
+
+prepare() {
+  python3 "$srcdir/tools/prepare-nodalix-shell.py" "$srcdir/gnome-shell" \
+    --overlay "$srcdir/gnome/nodalix-shell"
+}
+
+build() {
+  arch-meson gnome-shell build -Dgtk_doc=false
+  meson compile -C build
+}
+
+check() {
+  meson test -C build --print-errorlogs
+}
+
+package() {
+  DESTDIR="$pkgdir" meson install -C build
+  install -d "$pkgdir/usr/share/nodalix"
+  printf 'NODALIX_OS_VERSION=%s\nGNOME_SHELL_VERSION=%s\nUPSTREAM_COMMIT=%s\n' \
+    "$pkgver" "$_gnomever" "$_upstream_commit" \
+    > "$pkgdir/usr/share/nodalix/shell-build"
+}
