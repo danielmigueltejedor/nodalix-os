@@ -25,7 +25,7 @@ source=(
 )
 sha256sums=(
   'SKIP' # Git checkout is pinned to _upstream_commit; not a moving branch/tag.
-  'ab4f270d4d0bc9acff860cdb7c2f4b0e164511264f197da3da54fc30acac82bc'
+  '67383a24e884464b285cf936abafae2151eb94a2cab5f550d1707e168980668f'
   '0ca2eb8d69bf01b433a263344043c367b572fa6c1c6a35f6b86a3e674c167f60'
 )
 
