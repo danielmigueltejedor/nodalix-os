@@ -19,4 +19,4 @@ Cada migración registra origen y destino y conserva la configuración XDG anter
 
 El idioma soportado actualmente es español o inglés, como la shell. Las carpetas del sistema (/usr, /etc, /var) mantienen sus nombres estándar. Las rutas técnicas de datos, estado y caché no cambian de idioma.
 
-`nodalix-user-layout` muestra el plan sin modificar archivos; `--apply` lo ejecuta. `--compatibility` conserva también enlaces de los proyectos heredados. Las unidades de usuario `nodalix-user-layout.timer` y `nodalix-app-icons.timer` realizan la revisión periódica.
+`nodalix-user-layout` muestra el plan sin modificar archivos. `--apply` lo ejecuta y `--compatibility` conserva también los enlaces de proyectos heredados. El organizador actualiza los iconos al cambiar los lanzadores. `nodalix-app-icons.timer`, cuando está activado, los vuelve a comprobar cada 30 minutos.
