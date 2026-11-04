@@ -1,6 +1,25 @@
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import {SharingBridge} from '../gnome/extensions/glocalsend@donnybeelo.github.com/sharingBridge.js';
+import {LocalSendService} from '../gnome/extensions/glocalsend@donnybeelo.github.com/localsend.js';
+import {ProtocolType} from '../gnome/extensions/glocalsend@donnybeelo.github.com/common.js';
+
+const certificate = {certificate: new Uint8Array([1, 2, 3])};
+const fingerprint = GLib.compute_checksum_for_data(GLib.ChecksumType.SHA256, certificate.certificate);
+let acceptsCertificate;
+const message = {
+    connect(signal, callback) {
+        if (signal === 'accept-certificate')
+            acceptsCertificate = callback;
+    },
+    set_tls_client_certificate() {},
+};
+LocalSendService.prototype._configurePeerTls.call({}, message, {protocol: ProtocolType.Https, fingerprint});
+if (!acceptsCertificate(message, certificate))
+    throw Error('LocalSend rejected the discovered certificate');
+if (acceptsCertificate(message, {certificate: new Uint8Array([1, 2, 4])}))
+    throw Error('LocalSend accepted a certificate with a different fingerprint');
+
 let refreshed = false, toggled = 0, applied = null, changed = null, disconnected = false;
 const service={enabled:true, alias:'Test', fingerprint:'SELF', httpPort:53317,
     peers:[{alias:'A',fingerprint:'OTHER'},{alias:'Z',fingerprint:'FAVORITE'}],

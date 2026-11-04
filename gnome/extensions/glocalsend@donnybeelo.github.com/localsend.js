@@ -708,22 +708,31 @@ export class LocalSendService {
     async _requestJson(method, peer, path, payload) {
         const message = Soup.Message.new(method, this._buildUrl(peer, path));
         message.set_request_body_from_bytes("application/json", encodeJson(payload));
-        if (peer.protocol === ProtocolType.Https) {
-            message.connect("accept-certificate", () => true);
-            message.set_tls_client_certificate(this._clientCert);
-        }
+        this._configurePeerTls(message, peer);
         return this._sendAndRead(message);
     }
     async _requestBinary(method, peer, path, bytes) {
         const message = Soup.Message.new(method, this._buildUrl(peer, path));
         message.set_request_body_from_bytes("application/octet-stream", GLib.Bytes.new(bytes));
-        if (peer.protocol === ProtocolType.Https) {
-            message.connect("accept-certificate", () => true);
-            message.set_tls_client_certificate(this._clientCert);
-        }
+        this._configurePeerTls(message, peer);
         const response = await this._sendAndRead(message);
         if (response.status !== 200)
             throw new Error(`La subida mediante LocalSend falló con HTTP ${response.status}.`);
+    }
+    _configurePeerTls(message, peer) {
+        if (peer.protocol !== ProtocolType.Https)
+            return;
+
+        // LocalSend HTTPS peers advertise the SHA-256 of their certificate.
+        // Accept a self-signed peer only if it matches that identity.
+        const expected = peer.fingerprint.replace(/:/g, "").toUpperCase();
+        if (!/^[0-9A-F]{64}$/.test(expected))
+            throw new Error("La identidad TLS del receptor LocalSend no es válida");
+        message.connect("accept-certificate", (_message, certificate) => {
+            const actual = GLib.compute_checksum_for_data(GLib.ChecksumType.SHA256, certificate.certificate);
+            return actual.toUpperCase() === expected;
+        });
+        message.set_tls_client_certificate(this._clientCert);
     }
     _buildUrl(peer, path) {
         const protocol = peer.protocol === ProtocolType.Https ? "https" : "http";

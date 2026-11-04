@@ -1,9 +1,40 @@
 #!/usr/bin/python3
 """Apply the bounded Nodalix additions to GNOME Control Center 51.0."""
 from pathlib import Path
+import re
 import shutil
-import sys
-root=Path(sys.argv[1]);source=Path(__file__).resolve().parent
+root = Path.cwd().resolve()
+source = Path(__file__).resolve().parent
+
+
+def target(relative):
+    path = root / relative
+    if path.resolve() != path:
+        raise SystemExit(f"Unsafe Control Center overlay path: {relative}")
+    return path
+
+
+# Validate every directory and existing file that the overlay may modify before
+# any write, including files supplied by a previous build.
+if not re.search(r"\bversion\s*:\s*'51\.0'", target("meson.build").read_text()):
+    raise SystemExit("The overlay requires GNOME Control Center 51.0")
+for directory, files in {
+    "panels/system": ("cc-system-panel.c", "cc-system-panel.blp", "meson.build",
+                      "cc-nodalix-pages.h", "cc-nodalix-pages.c", "cc-nodalix-localsend.c",
+                      "cc-nodalix-diagnostics.c", "cc-nodalix-release.c", "cc-nodalix-release.h"),
+    "panels/system/about": ("cc-about-page.c", "cc-about-page.blp"),
+    "panels/background": ("meson.build", "cc-background-panel.c", "cc-background-panel.blp",
+                          "cc-nodalix-background.c", "cc-nodalix-background.h"),
+    "panels/sharing": ("cc-sharing-panel.c", "cc-sharing-panel.blp"),
+    "panels/applications": ("meson.build", "cc-applications-panel.c", "cc-applications-panel.blp",
+                            "cc-nodalix-storage.c", "cc-nodalix-storage.h"),
+    "search-provider": ("meson.build", *(f"gnome-nodalix-{name}-panel.desktop" for name in
+                       ("storage", "updates", "diagnostics", "version", "localsend", "wallpapers"))),
+    "shell": ("cc-panel-loader.c", "cc-window.c"),
+}.items():
+    for filename in files:
+        target(f"{directory}/{filename}")
+
 if 'cc_nodalix_updates_page' in (root/'panels/system/cc-system-panel.c').read_text():
     raise SystemExit('Already patched')
 for name in ['cc-nodalix-pages.h','cc-nodalix-pages.c','cc-nodalix-localsend.c','cc-nodalix-diagnostics.c','cc-nodalix-release.c','cc-nodalix-release.h']:

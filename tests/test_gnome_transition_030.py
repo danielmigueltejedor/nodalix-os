@@ -244,6 +244,22 @@ class RetirementTests(unittest.TestCase):
             self.assertEqual((ext/'extension.js').read_text(),'old module')
 
 class InstallerOverlayTests(unittest.TestCase):
+    def test_control_center_overlay_rejects_links_before_writing(self):
+        with tempfile.TemporaryDirectory() as temp:
+            outside = Path(temp) / 'outside'
+            outside.write_text('leave this file alone')
+            tree = Path(temp) / 'control-center'
+            panel = tree / 'panels/system'
+            panel.mkdir(parents=True)
+            (tree / 'meson.build').write_text("project('gnome-control-center', version : '51.0')\n")
+            (panel / 'cc-system-panel.c').symlink_to(outside)
+            result = subprocess.run(['/usr/bin/python3', str(ROOT / 'gnome/control-center/apply.py')],
+                                    cwd=tree, capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('Unsafe Control Center overlay path', result.stderr)
+            self.assertEqual(outside.read_text(), 'leave this file alone')
+            self.assertFalse((panel / 'cc-nodalix-pages.c').exists())
+
     def test_only_verified_unowned_session_is_retired(self):
         original=subprocess.check_output(['git','show','0.2.4:iso/overlay/usr/share/wayland-sessions/nodalix.desktop'],cwd=ROOT)
         for owned,content,removed in [(None,original,True),('custom',original,False),(None,b'custom session',False)]:

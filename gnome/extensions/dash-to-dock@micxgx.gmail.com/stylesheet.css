@@ -79,7 +79,6 @@
     #dashtodockContainer.bottom #dash .dash-item-container .overview-tile .app-grid-running-dot {
       margin-bottom: 2px; }
     #dashtodockContainer.bottom #dash .dash-item-container > StButton {
-      transition-duration: 250;
       background-size: contain; }
 
 #dashtodockContainer.bottom.fixed #dash .dash-background {
@@ -162,7 +161,6 @@
     #dashtodockContainer.bottom.shrink #dash .dash-item-container .overview-tile .app-grid-running-dot {
       margin-bottom: 2px; }
     #dashtodockContainer.bottom.shrink #dash .dash-item-container > StButton {
-      transition-duration: 250;
       background-size: contain; }
 
 #dashtodockContainer.bottom.shrink.fixed #dash .dash-background {
@@ -253,7 +251,6 @@
     #dashtodockContainer.bottom.extended #dash .dash-item-container .overview-tile .app-grid-running-dot {
       margin-bottom: 2px; }
     #dashtodockContainer.bottom.extended #dash .dash-item-container > StButton {
-      transition-duration: 250;
       background-size: contain; }
 
 #dashtodockContainer.bottom.extended.fixed #dash .dash-background {
@@ -344,7 +341,6 @@
     #dashtodockContainer.bottom.extended.shrink #dash .dash-item-container .overview-tile .app-grid-running-dot {
       margin-bottom: 2px; }
     #dashtodockContainer.bottom.extended.shrink #dash .dash-item-container > StButton {
-      transition-duration: 250;
       background-size: contain; }
 
 #dashtodockContainer.bottom.extended.shrink.fixed #dash .dash-background {
@@ -434,7 +430,6 @@
     #dashtodockContainer.top #dash .dash-item-container .overview-tile .app-grid-running-dot {
       margin-bottom: 2px; }
     #dashtodockContainer.top #dash .dash-item-container > StButton {
-      transition-duration: 250;
       background-size: contain; }
 
 #dashtodockContainer.top.fixed #dash .dash-background {
@@ -517,7 +512,6 @@
     #dashtodockContainer.top.shrink #dash .dash-item-container .overview-tile .app-grid-running-dot {
       margin-bottom: 2px; }
     #dashtodockContainer.top.shrink #dash .dash-item-container > StButton {
-      transition-duration: 250;
       background-size: contain; }
 
 #dashtodockContainer.top.shrink.fixed #dash .dash-background {
@@ -608,7 +602,6 @@
     #dashtodockContainer.top.extended #dash .dash-item-container .overview-tile .app-grid-running-dot {
       margin-bottom: 2px; }
     #dashtodockContainer.top.extended #dash .dash-item-container > StButton {
-      transition-duration: 250;
       background-size: contain; }
 
 #dashtodockContainer.top.extended.fixed #dash .dash-background {
@@ -699,7 +692,6 @@
     #dashtodockContainer.top.extended.shrink #dash .dash-item-container .overview-tile .app-grid-running-dot {
       margin-bottom: 2px; }
     #dashtodockContainer.top.extended.shrink #dash .dash-item-container > StButton {
-      transition-duration: 250;
       background-size: contain; }
 
 #dashtodockContainer.top.extended.shrink.fixed #dash .dash-background {
@@ -785,7 +777,6 @@
     #dashtodockContainer.left #dash .dash-item-container .overview-tile .app-grid-running-dot {
       margin-bottom: 2px; }
     #dashtodockContainer.left #dash .dash-item-container > StButton {
-      transition-duration: 250;
       background-size: contain; }
 
 #dashtodockContainer.left.fixed #dash .dash-background {
@@ -864,7 +855,6 @@
     #dashtodockContainer.left.shrink #dash .dash-item-container .overview-tile .app-grid-running-dot {
       margin-bottom: 2px; }
     #dashtodockContainer.left.shrink #dash .dash-item-container > StButton {
-      transition-duration: 250;
       background-size: contain; }
 
 #dashtodockContainer.left.shrink.fixed #dash .dash-background {
@@ -951,7 +941,6 @@
     #dashtodockContainer.left.extended #dash .dash-item-container .overview-tile .app-grid-running-dot {
       margin-bottom: 2px; }
     #dashtodockContainer.left.extended #dash .dash-item-container > StButton {
-      transition-duration: 250;
       background-size: contain; }
 
 #dashtodockContainer.left.extended.fixed #dash .dash-background {
@@ -1038,7 +1027,6 @@
     #dashtodockContainer.left.extended.shrink #dash .dash-item-container .overview-tile .app-grid-running-dot {
       margin-bottom: 2px; }
     #dashtodockContainer.left.extended.shrink #dash .dash-item-container > StButton {
-      transition-duration: 250;
       background-size: contain; }
 
 #dashtodockContainer.left.extended.shrink.fixed #dash .dash-background {
@@ -1124,7 +1112,6 @@
     #dashtodockContainer.right #dash .dash-item-container .overview-tile .app-grid-running-dot {
       margin-bottom: 2px; }
     #dashtodockContainer.right #dash .dash-item-container > StButton {
-      transition-duration: 250;
       background-size: contain; }
 
 #dashtodockContainer.right.fixed #dash .dash-background {
@@ -1203,7 +1190,6 @@
     #dashtodockContainer.right.shrink #dash .dash-item-container .overview-tile .app-grid-running-dot {
       margin-bottom: 2px; }
     #dashtodockContainer.right.shrink #dash .dash-item-container > StButton {
-      transition-duration: 250;
       background-size: contain; }
 
 #dashtodockContainer.right.shrink.fixed #dash .dash-background {
@@ -1290,7 +1276,6 @@
     #dashtodockContainer.right.extended #dash .dash-item-container .overview-tile .app-grid-running-dot {
       margin-bottom: 2px; }
     #dashtodockContainer.right.extended #dash .dash-item-container > StButton {
-      transition-duration: 250;
       background-size: contain; }
 
 #dashtodockContainer.right.extended.fixed #dash .dash-background {
@@ -1377,7 +1362,6 @@
     #dashtodockContainer.right.extended.shrink #dash .dash-item-container .overview-tile .app-grid-running-dot {
       margin-bottom: 2px; }
     #dashtodockContainer.right.extended.shrink #dash .dash-item-container > StButton {
-      transition-duration: 250;
       background-size: contain; }
 
 #dashtodockContainer.right.extended.shrink.fixed #dash .dash-background {

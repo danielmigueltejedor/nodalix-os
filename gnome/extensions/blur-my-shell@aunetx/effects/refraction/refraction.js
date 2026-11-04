@@ -45,7 +45,7 @@ const RefractionEffectClass = utils.IS_IN_PREFERENCES ? null : class RefractionE
             if (this._strength !== strength) {
                 this._strength = strength;
 
-                uniforms.set_uniform(this, 'strength', parseFloat(this._strength));
+                uniforms.set_uniform(this, 'strength', Number.parseFloat(this._strength));
             }
         }
 
@@ -86,7 +86,7 @@ const RefractionEffectClass = utils.IS_IN_PREFERENCES ? null : class RefractionE
             if (this._falloff !== falloff) {
                 this._falloff = falloff;
 
-                uniforms.set_uniform(this, 'falloff', parseFloat(this._falloff - 1e-6));
+                uniforms.set_uniform(this, 'falloff', Number.parseFloat(this._falloff - 1e-6));
 
             }
         }
@@ -100,7 +100,7 @@ const RefractionEffectClass = utils.IS_IN_PREFERENCES ? null : class RefractionE
             if (this._refraction_style !== refractionStyle) {
                 this._refraction_style = refractionStyle;
 
-                uniforms.set_uniform(this, 'refraction_style', parseFloat(this._refraction_style - 1e-6));
+                uniforms.set_uniform(this, 'refraction_style', Number.parseFloat(this._refraction_style - 1e-6));
 
             }
         }
@@ -152,7 +152,7 @@ const RefractionEffectClass = utils.IS_IN_PREFERENCES ? null : class RefractionE
             if (this._rim_width !== rim_width) {
                 this._rim_width = rim_width;
 
-                uniforms.set_uniform(this, 'rim_width', parseFloat(this._rim_width - 1e-6));
+                uniforms.set_uniform(this, 'rim_width', Number.parseFloat(this._rim_width - 1e-6));
 
             }
         }
@@ -168,7 +168,7 @@ const RefractionEffectClass = utils.IS_IN_PREFERENCES ? null : class RefractionE
             if (this._rgb_fringing !== rgbFringing) {
                 this._rgb_fringing = rgbFringing;
 
-                uniforms.set_uniform(this, 'rgb_fringing', parseFloat(this._rgb_fringing - 1e-6));
+                uniforms.set_uniform(this, 'rgb_fringing', Number.parseFloat(this._rgb_fringing - 1e-6));
             }
         }
 
@@ -181,7 +181,7 @@ const RefractionEffectClass = utils.IS_IN_PREFERENCES ? null : class RefractionE
             if (this._gloss !== gloss) {
                 this._gloss = gloss;
 
-                uniforms.set_uniform(this, 'gloss', parseFloat(this._gloss - 1e-6));
+                uniforms.set_uniform(this, 'gloss', Number.parseFloat(this._gloss - 1e-6));
             }
         }
 
@@ -199,7 +199,7 @@ const RefractionEffectClass = utils.IS_IN_PREFERENCES ? null : class RefractionE
                 uniforms.set_uniform(
                     this,
                     'fresnel_angle',
-                    parseFloat((this._fresnel_angle + 90.0) * Math.PI / 180.0)
+                    Number.parseFloat((this._fresnel_angle + 90.0) * Math.PI / 180.0)
                 );
             }
         }
@@ -215,7 +215,7 @@ const RefractionEffectClass = utils.IS_IN_PREFERENCES ? null : class RefractionE
             if (this._fresnel_width !== fresnelWidth) {
                 this._fresnel_width = fresnelWidth;
 
-                uniforms.set_uniform(this, 'fresnel_width', parseFloat(this._fresnel_width - 1e-6));
+                uniforms.set_uniform(this, 'fresnel_width', Number.parseFloat(this._fresnel_width - 1e-6));
             }
         }
             get specular_strength() {
@@ -232,7 +232,7 @@ const RefractionEffectClass = utils.IS_IN_PREFERENCES ? null : class RefractionE
                 uniforms.set_uniform(
                     this,
                     'specular_strength',
-                    parseFloat(this._specular_strength - 1e-6)
+                    Number.parseFloat(this._specular_strength - 1e-6)
                 );
             }
         }
@@ -246,7 +246,7 @@ const RefractionEffectClass = utils.IS_IN_PREFERENCES ? null : class RefractionE
             if (this._tint !== tint) {
                 this._tint = tint;
 
-                uniforms.set_uniform(this, 'tint', parseFloat(this._tint - 1e-6));
+                uniforms.set_uniform(this, 'tint', Number.parseFloat(this._tint - 1e-6));
             }
         }
 
@@ -259,7 +259,7 @@ const RefractionEffectClass = utils.IS_IN_PREFERENCES ? null : class RefractionE
             if (this._tint_red !== red) {
                 this._tint_red = red;
 
-                uniforms.set_uniform(this, 'tint_r', parseFloat(this._tint_red - 1e-6));
+                uniforms.set_uniform(this, 'tint_r', Number.parseFloat(this._tint_red - 1e-6));
             }
         }
 
@@ -272,7 +272,7 @@ const RefractionEffectClass = utils.IS_IN_PREFERENCES ? null : class RefractionE
             if (this._tint_green !== green) {
                 this._tint_green = green;
 
-                uniforms.set_uniform(this, 'tint_g', parseFloat(this._tint_green - 1e-6));
+                uniforms.set_uniform(this, 'tint_g', Number.parseFloat(this._tint_green - 1e-6));
             }
         }
 
@@ -285,7 +285,7 @@ const RefractionEffectClass = utils.IS_IN_PREFERENCES ? null : class RefractionE
             if (this._tint_blue !== blue) {
                 this._tint_blue = blue;
 
-                uniforms.set_uniform(this, 'tint_b', parseFloat(this._tint_blue - 1e-6));
+                uniforms.set_uniform(this, 'tint_b', Number.parseFloat(this._tint_blue - 1e-6));
             }
         }
 
@@ -298,7 +298,7 @@ const RefractionEffectClass = utils.IS_IN_PREFERENCES ? null : class RefractionE
             if (this._tint_alpha !== alpha) {
                 this._tint_alpha = alpha;
 
-                uniforms.set_uniform(this, 'tint_a', parseFloat(this._tint_alpha - 1e-6));
+                uniforms.set_uniform(this, 'tint_a', Number.parseFloat(this._tint_alpha - 1e-6));
             }
         }
 
@@ -327,7 +327,7 @@ const RefractionEffectClass = utils.IS_IN_PREFERENCES ? null : class RefractionE
             if (this._backdrop_zoom !== backdropZoom) {
                 this._backdrop_zoom = backdropZoom;
 
-                uniforms.set_uniform(this, 'backdrop_zoom', parseFloat(this._backdrop_zoom - 1e-6));
+                uniforms.set_uniform(this, 'backdrop_zoom', Number.parseFloat(this._backdrop_zoom - 1e-6));
             }
         }
 
@@ -340,7 +340,7 @@ const RefractionEffectClass = utils.IS_IN_PREFERENCES ? null : class RefractionE
             if (this._shadow !== shadow) {
                 this._shadow = shadow;
 
-                uniforms.set_uniform(this, 'shadow', parseFloat(this._shadow - 1e-6));
+                uniforms.set_uniform(this, 'shadow', Number.parseFloat(this._shadow - 1e-6));
             }
         }
 
@@ -355,7 +355,7 @@ const RefractionEffectClass = utils.IS_IN_PREFERENCES ? null : class RefractionE
             if (this._opacity_factor !== opacityFactor) {
                 this._opacity_factor = opacityFactor;
 
-                uniforms.set_uniform(this, 'opacity_factor', parseFloat(this._opacity_factor));
+                uniforms.set_uniform(this, 'opacity_factor', Number.parseFloat(this._opacity_factor));
             }
         }
 
@@ -388,7 +388,7 @@ const RefractionEffectClass = utils.IS_IN_PREFERENCES ? null : class RefractionE
             if (this._width !== width) {
                 this._width = width;
 
-                uniforms.set_uniform(this, 'width', parseFloat(this._width - 1e-6));
+                uniforms.set_uniform(this, 'width', Number.parseFloat(this._width - 1e-6));
                 this.update_scaled_uniforms();
 
             }
@@ -403,7 +403,7 @@ const RefractionEffectClass = utils.IS_IN_PREFERENCES ? null : class RefractionE
             if (this._height !== height) {
                 this._height = height;
 
-                uniforms.set_uniform(this, 'height', parseFloat(this._height - 1e-6));
+                uniforms.set_uniform(this, 'height', Number.parseFloat(this._height - 1e-6));
                 this.update_scaled_uniforms();
 
             }
@@ -427,10 +427,10 @@ const RefractionEffectClass = utils.IS_IN_PREFERENCES ? null : class RefractionE
             ));
             [this._clip_x0, this._clip_y0, this._clip_width, this._clip_height] = clip;
 
-            uniforms.set_uniform(this, 'clip_x0', parseFloat(clip[0] - 1e-6));
-            uniforms.set_uniform(this, 'clip_y0', parseFloat(clip[1] - 1e-6));
-            uniforms.set_uniform(this, 'clip_width', parseFloat(clip[2] - 1e-6));
-            uniforms.set_uniform(this, 'clip_height', parseFloat(clip[3] - 1e-6));
+            uniforms.set_uniform(this, 'clip_x0', Number.parseFloat(clip[0] - 1e-6));
+            uniforms.set_uniform(this, 'clip_y0', Number.parseFloat(clip[1] - 1e-6));
+            uniforms.set_uniform(this, 'clip_width', Number.parseFloat(clip[2] - 1e-6));
+            uniforms.set_uniform(this, 'clip_height', Number.parseFloat(clip[3] - 1e-6));
             this.update_scaled_uniforms();
         }
 
@@ -444,8 +444,8 @@ const RefractionEffectClass = utils.IS_IN_PREFERENCES ? null : class RefractionE
             const edge_size = Math.min(this.edge_size * scale_factor, max_edge);
             const corner_radius = Math.min(this.corner_radius * scale_factor, max_edge);
 
-            uniforms.set_uniform(this, 'edge_size', parseFloat(edge_size - 1e-6));
-            uniforms.set_uniform(this, 'corner_radius', parseFloat(corner_radius - 1e-6));
+            uniforms.set_uniform(this, 'edge_size', Number.parseFloat(edge_size - 1e-6));
+            uniforms.set_uniform(this, 'corner_radius', Number.parseFloat(corner_radius - 1e-6));
         }
 
         vfunc_set_actor(actor) {

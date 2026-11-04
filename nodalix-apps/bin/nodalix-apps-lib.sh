@@ -17,7 +17,7 @@ nodalix_ensure_overlay_remote() {
         local current
         current="$(git remote get-url "$remote")"
 
-        if [ "$current" != "$url" ]; then
+        if [[ "$current" != "$url" ]]; then
             git remote set-url "$remote" "$url"
         fi
     else
@@ -59,7 +59,7 @@ nodalix_overlay_hash() {
         nodalix_overlay_commits "$upstream_ref" "$overlay_ref"
     )
 
-    if [ "${#commits[@]}" -eq 0 ]; then
+    if [[ "${#commits[@]}" -eq 0 ]]; then
         printf "none\n"
         return
     fi
@@ -78,7 +78,7 @@ nodalix_overlay_hash() {
             | awk "{print \$1}"
         )"
 
-        if [ -z "$patchid" ]; then
+        if [[ -z "$patchid" ]]; then
             patchid="$commit"
         fi
 
@@ -98,7 +98,7 @@ nodalix_show_overlay() {
         nodalix_overlay_commits "$upstream_ref" "$overlay_ref"
     )
 
-    if [ "${#commits[@]}" -eq 0 ]; then
+    if [[ "${#commits[@]}" -eq 0 ]]; then
         echo "    Ningún cambio local pendiente."
         return
     fi
@@ -121,7 +121,7 @@ nodalix_apply_git_overlay() {
         nodalix_overlay_commits "$upstream_ref" "$overlay_ref"
     )
 
-    if [ "${#commits[@]}" -eq 0 ]; then
+    if [[ "${#commits[@]}" -eq 0 ]]; then
         echo "==> No hay cambios Nodalix pendientes de upstream."
         return 0
     fi
@@ -146,7 +146,7 @@ nodalix_apply_git_overlay() {
 }
 
 nodalix_finish_update() {
-    if [ "${NODALIX_APPS_DEFER_FINISH:-0}" = "1" ]; then
+    if [[ "${NODALIX_APPS_DEFER_FINISH:-0}" = "1" ]]; then
         return 0
     fi
 
@@ -168,7 +168,7 @@ NODALIX_OVERLAY_HASH="none"
 NODALIX_OVERLAY_ID="none"
 
 nodalix_overlay_hash_commits() {
-    if [ "$#" -eq 0 ]; then
+    if [[ "$#" -eq 0 ]]; then
         printf "none\n"
         return 0
     fi
@@ -184,7 +184,7 @@ nodalix_overlay_hash_commits() {
             awk "{print \$1}"
         )"
 
-        if [ -z "$patch_id" ]; then
+        if [[ -z "$patch_id" ]]; then
             patch_id="$commit"
         fi
 
@@ -216,7 +216,7 @@ nodalix_upstream_changed_files() {
 
     base="$(git merge-base "$upstream_ref" "$overlay_ref")"
 
-    if [ -z "$base" ]; then
+    if [[ -z "$base" ]]; then
         echo "ERROR: no se pudo encontrar merge-base entre upstream y overlay." >&2
         return 1
     fi
@@ -276,7 +276,7 @@ nodalix_reconcile_choice() {
     state_root="$HOME/.local/state/nodalix-apps/reconciliation/$app/$upstream_commit"
     decision_file="$state_root/$commit"
 
-    if [ -f "$decision_file" ]; then
+    if [[ -f "$decision_file" ]]; then
         decision="$(cat "$decision_file")"
 
         case "$decision" in
@@ -287,23 +287,23 @@ nodalix_reconcile_choice() {
         esac
     fi
 
-    if [ "$policy" = "upstream" ]; then
+    if [[ "$policy" = "upstream" ]]; then
         printf "upstream\n"
         return 0
     fi
 
-    if [ "$policy" = "local" ]; then
+    if [[ "$policy" = "local" ]]; then
         printf "local\n"
         return 0
     fi
 
     # auto = preguntar si tenemos terminal; si no, upstream gana.
-    if [ "$policy" = "auto" ] && [ ! -r /dev/tty ]; then
+    if [[ "$policy" = "auto" ]] && [[ ! -r /dev/tty ]]; then
         printf "upstream\n"
         return 0
     fi
 
-    if [ "$policy" = "auto" ] || [ "$policy" = "ask" ]; then
+    if [[ "$policy" = "auto" ]] || [[ "$policy" = "ask" ]]; then
         local subject=""
         local answer=""
 
@@ -370,7 +370,7 @@ nodalix_prepare_overlay() {
             "$overlay_ref"
     )
 
-    if [ "${#raw_commits[@]}" -eq 0 ]; then
+    if [[ "${#raw_commits[@]}" -eq 0 ]]; then
         return 0
     fi
 
@@ -384,7 +384,7 @@ nodalix_prepare_overlay() {
                 "$commit"
         )"
 
-        if [ -n "$overlap_text" ]; then
+        if [[ -n "$overlap_text" ]]; then
             mapfile -t overlaps <<< "$overlap_text"
 
             choice="$(
@@ -395,7 +395,7 @@ nodalix_prepare_overlay() {
                     "${overlaps[@]}"
             )"
 
-            if [ "$choice" = "local" ]; then
+            if [[ "$choice" = "local" ]]; then
                 echo "==> Conservando cambio local ${commit:0:12}" >&2
                 NODALIX_SELECTED_COMMITS+=("$commit")
             else
@@ -406,7 +406,7 @@ nodalix_prepare_overlay() {
         fi
     done
 
-    if [ "${#NODALIX_SELECTED_COMMITS[@]}" -gt 0 ]; then
+    if [[ "${#NODALIX_SELECTED_COMMITS[@]}" -gt 0 ]]; then
         NODALIX_OVERLAY_HASH="$(
             nodalix_overlay_hash_commits \
                 "${NODALIX_SELECTED_COMMITS[@]}"
@@ -417,7 +417,7 @@ nodalix_prepare_overlay() {
 }
 
 nodalix_show_prepared_overlay() {
-    if [ "${#NODALIX_SELECTED_COMMITS[@]}" -eq 0 ]; then
+    if [[ "${#NODALIX_SELECTED_COMMITS[@]}" -eq 0 ]]; then
         echo "  ninguno"
         return 0
     fi
@@ -433,7 +433,7 @@ nodalix_show_prepared_overlay() {
 }
 
 nodalix_apply_prepared_overlay() {
-    if [ "${#NODALIX_SELECTED_COMMITS[@]}" -eq 0 ]; then
+    if [[ "${#NODALIX_SELECTED_COMMITS[@]}" -eq 0 ]]; then
         echo "==> No quedan cambios locales que aplicar."
         return 0
     fi

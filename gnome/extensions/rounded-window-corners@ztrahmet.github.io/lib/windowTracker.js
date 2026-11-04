@@ -40,12 +40,12 @@ export class WindowTracker {
         this._enabled = true;
 
         for (const actor of global.get_window_actors())
-            this._track(actor);
+            this._track(actor).catch(error => logError(error));
 
         this._connectGlobal(global.display, 'window-created', (_display, win) => {
             const actor = win.get_compositor_private();
             if (actor)
-                this._track(actor);
+                this._track(actor).catch(error => logError(error));
         });
     }
 

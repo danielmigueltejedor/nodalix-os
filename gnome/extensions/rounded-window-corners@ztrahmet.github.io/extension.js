@@ -19,7 +19,7 @@ export default class RoundedWindowCornersExtension extends Extension {
         this._styles = new StyleResolver(this.path, () => this._tracker?.refreshAll());
         this._tracker = new WindowTracker(this._styles);
 
-        preloadShader().then(() => this._startTracking());
+        preloadShader().then(() => this._startTracking()).catch(error => logError(error));
     }
 
     _startTracking() {

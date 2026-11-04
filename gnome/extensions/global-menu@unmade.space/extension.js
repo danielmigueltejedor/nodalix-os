@@ -202,7 +202,7 @@ class MenuBar {
 		const data = {xid: '0'};
 		const description = win.get_description()?.match(/0x[0-9a-f]+/);
 		if (description)
-			data.xid = String(parseInt(description[0]));
+			data.xid = String(Number.parseInt(description[0]));
 
 		const gtkProps = [
 			'gtk_unique_bus_name',

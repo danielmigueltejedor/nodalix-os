@@ -4,6 +4,7 @@ import json
 import os
 import subprocess
 import sys
+from tempfile import TemporaryDirectory
 import time
 
 import shlex
@@ -38,24 +39,25 @@ snapshot=json.loads(subprocess.check_output([helper,'scan'],text=True))
 assert [x['name'] for x in snapshot['categories']['apps']]==['Large fixture app','Small fixture app']
 assert [x['name'] for x in snapshot['categories']['documents']]==[large.name]
 assert snapshot['categories']['music'] and snapshot['categories']['development']
-binary=output/'storage-fixture'
-flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','libadwaita-1','json-glib-1.0'],text=True))
-subprocess.run(['cc','-o',str(binary),'-I'+str(repo/'gnome/control-center'),str(repo/'tools/qa/test-storage-page.c'),*flags],check=True)
-ready=home/'storage-ready'
-with (output/'storage-fixture.log').open('w') as log:
-    process=subprocess.Popen([str(binary)],stdout=log,stderr=log,env={**os.environ,'STORAGE_UI_READY':str(ready)})
-    try:
-        deadline=time.monotonic()+10
-        while not ready.exists() and time.monotonic()<deadline:
-            assert process.poll() is None,'Compiled Storage page exited'
-            time.sleep(.1)
-        assert ready.exists(),'Storage page did not render fixture sizes'
-        bus=Gio.bus_get_sync(Gio.BusType.SESSION,None)
-        bus.call_sync('org.gnome.Shell','/org/gnome/Shell','org.gnome.Shell','Eval',GLib.Variant('(s)',('Main.overview.hide();true',)),None,Gio.DBusCallFlags.NONE,5000,None)
-        time.sleep(.6)
-        bus.call_sync('org.gnome.Shell.Screenshot','/org/gnome/Shell/Screenshot','org.gnome.Shell.Screenshot','Screenshot',GLib.Variant('(bbs)',(False,False,str(output/'storage-page.png'))),None,Gio.DBusCallFlags.NONE,5000,None)
-    finally:
-        process.terminate();process.wait(timeout=10)
+with TemporaryDirectory(prefix="nodalix-storage-test-") as scratch:
+    binary=Path(scratch)/'storage-fixture'
+    flags=shlex.split(subprocess.check_output(['pkg-config','--cflags','--libs','libadwaita-1','json-glib-1.0'],text=True))
+    subprocess.run(['cc','-o',str(binary),'-I'+str(repo/'gnome/control-center'),str(repo/'tools/qa/test-storage-page.c'),*flags],check=True)
+    ready=home/'storage-ready'
+    with (output/'storage-fixture.log').open('w') as log:
+        process=subprocess.Popen([str(binary)],stdout=log,stderr=log,env={**os.environ,'STORAGE_UI_READY':str(ready)})
+        try:
+            deadline=time.monotonic()+10
+            while not ready.exists() and time.monotonic()<deadline:
+                assert process.poll() is None,'Compiled Storage page exited'
+                time.sleep(.1)
+            assert ready.exists(),'Storage page did not render fixture sizes'
+            bus=Gio.bus_get_sync(Gio.BusType.SESSION,None)
+            bus.call_sync('org.gnome.Shell','/org/gnome/Shell','org.gnome.Shell','Eval',GLib.Variant('(s)',('Main.overview.hide();true',)),None,Gio.DBusCallFlags.NONE,5000,None)
+            time.sleep(.6)
+            bus.call_sync('org.gnome.Shell.Screenshot','/org/gnome/Shell/Screenshot','org.gnome.Shell.Screenshot','Screenshot',GLib.Variant('(bbs)',(False,False,str(output/'storage-page.png'))),None,Gio.DBusCallFlags.NONE,5000,None)
+        finally:
+            process.terminate();process.wait(timeout=10)
 subprocess.run([helper,'trash-file',str(large)],check=True)
 assert not large.exists() and small.exists()
 subprocess.run([helper,'trash-app','org.example.Small.desktop'],check=True)

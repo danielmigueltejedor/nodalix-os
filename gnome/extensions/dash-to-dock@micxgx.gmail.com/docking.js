@@ -1702,7 +1702,7 @@ const KeyboardShortcuts = class DashToDockKeyboardShortcuts {
         }
     }
 
-    _showOverlay({docks} = {docks: DockManager.allDocks}) {
+    _showOverlay({docks = DockManager.allDocks} = {}) {
         // Restart the counting if the shortcut is pressed again
         if (this._numberOverlayTimeoutId)
             this._hideOverlay();
@@ -1726,7 +1726,7 @@ const KeyboardShortcuts = class DashToDockKeyboardShortcuts {
             });
     }
 
-    _hideOverlay({docks} = {docks: DockManager.allDocks}) {
+    _hideOverlay({docks = DockManager.allDocks} = {}) {
         if (!this._numberOverlayTimeoutId)
             return;
 

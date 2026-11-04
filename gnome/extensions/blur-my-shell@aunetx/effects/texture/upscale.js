@@ -87,7 +87,7 @@ const UpscaleEffectClass = utils.IS_IN_PREFERENCES ? null : class UpscaleEffect 
             if (this._opacity_factor !== opacityFactor) {
                 this._opacity_factor = opacityFactor;
 
-                uniforms.set_uniform(this, 'opacity_factor', parseFloat(this._opacity_factor));
+                uniforms.set_uniform(this, 'opacity_factor', Number.parseFloat(this._opacity_factor));
             }
         }
 
@@ -100,7 +100,7 @@ const UpscaleEffectClass = utils.IS_IN_PREFERENCES ? null : class UpscaleEffect 
             if (this._width !== v) {
                 this._width = v;
 
-                uniforms.set_uniform(this, 'width', parseFloat(this._width - 1e-6));
+                uniforms.set_uniform(this, 'width', Number.parseFloat(this._width - 1e-6));
             }
         }
 
@@ -113,7 +113,7 @@ const UpscaleEffectClass = utils.IS_IN_PREFERENCES ? null : class UpscaleEffect 
             if (this._height !== v) {
                 this._height = v;
 
-                uniforms.set_uniform(this, 'height', parseFloat(this._height - 1e-6));
+                uniforms.set_uniform(this, 'height', Number.parseFloat(this._height - 1e-6));
             }
         }
 

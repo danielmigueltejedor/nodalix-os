@@ -91,7 +91,7 @@ const LuminosityEffectClass = utils.IS_IN_PREFERENCES ? null : class LuminosityE
             if (this._brightness_shift !== brightnessShift) {
                 this._brightness_shift = brightnessShift;
 
-                uniforms.set_uniform(this, 'brightness_shift', parseFloat(this._brightness_shift - 1e-6));
+                uniforms.set_uniform(this, 'brightness_shift', Number.parseFloat(this._brightness_shift - 1e-6));
             }
         }
 
@@ -110,7 +110,7 @@ const LuminosityEffectClass = utils.IS_IN_PREFERENCES ? null : class LuminosityE
                 let brightness_mul = 600.;
                 if (brightnessMultiplicator < 1.995)
                     brightness_mul = 3. * (1. / (1. - (brightnessMultiplicator / 2.) ** 2) - 1.);
-                uniforms.set_uniform(this, 'brightness_multiplicator', parseFloat(brightness_mul - 1e-6));
+                uniforms.set_uniform(this, 'brightness_multiplicator', Number.parseFloat(brightness_mul - 1e-6));
             }
         }
 
@@ -123,7 +123,7 @@ const LuminosityEffectClass = utils.IS_IN_PREFERENCES ? null : class LuminosityE
             if (this._contrast !== contrast) {
                 this._contrast = contrast;
 
-                uniforms.set_uniform(this, 'contrast', parseFloat(this._contrast - 1e-6));
+                uniforms.set_uniform(this, 'contrast', Number.parseFloat(this._contrast - 1e-6));
             }
         }
 
@@ -138,7 +138,7 @@ const LuminosityEffectClass = utils.IS_IN_PREFERENCES ? null : class LuminosityE
             if (this._contrast_center !== contrastCenter) {
                 this._contrast_center = contrastCenter;
 
-                uniforms.set_uniform(this, 'contrast_center', parseFloat(this._contrast_center - 1e-6));
+                uniforms.set_uniform(this, 'contrast_center', Number.parseFloat(this._contrast_center - 1e-6));
             }
         }
 
@@ -156,7 +156,7 @@ const LuminosityEffectClass = utils.IS_IN_PREFERENCES ? null : class LuminosityE
                 let saturation_mul = 600.;
                 if (saturationMultiplicator < 1.995)
                     saturation_mul = 3. * (1. / (1. - (saturationMultiplicator / 2.) ** 2) - 1.);
-                uniforms.set_uniform(this, 'saturation_multiplicator', parseFloat(saturation_mul - 1e-6));
+                uniforms.set_uniform(this, 'saturation_multiplicator', Number.parseFloat(saturation_mul - 1e-6));
             }
         }
 
@@ -169,7 +169,7 @@ const LuminosityEffectClass = utils.IS_IN_PREFERENCES ? null : class LuminosityE
             if (this._opacity_factor !== opacityFactor) {
                 this._opacity_factor = opacityFactor;
 
-                uniforms.set_uniform(this, 'opacity_factor', parseFloat(this._opacity_factor));
+                uniforms.set_uniform(this, 'opacity_factor', Number.parseFloat(this._opacity_factor));
             }
         }
 

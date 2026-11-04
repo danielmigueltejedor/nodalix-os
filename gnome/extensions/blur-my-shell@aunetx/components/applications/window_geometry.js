@@ -2,7 +2,7 @@ import Meta from 'gi://Meta';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 import * as Config from 'resource:///org/gnome/shell/misc/config.js';
 
-const SHELL_MAJOR_VERSION = parseInt(Config.PACKAGE_VERSION.split('.')[0]);
+const SHELL_MAJOR_VERSION = Number.parseInt(Config.PACKAGE_VERSION.split('.')[0]);
 
 /// Find the system's window scaling.
 /// If `scale-monitor-framebuffer` experimental feature if on, we don't need to manage scaling.

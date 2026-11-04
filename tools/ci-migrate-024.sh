@@ -55,11 +55,11 @@ grep -qx "VERSION_ID=\"$version\"" /etc/nodalix-release
 [[ $(readlink /etc/systemd/system/display-manager.service) == /usr/lib/systemd/system/gdm.service ]]
 pacman -Q nodalix-gnome nodalix-settings nodalix-control-center nodalix-integrations nodalix-video-wallpapers nodalix-ofono
 ! pacman -Qq | grep -E '^(hypr|quickshell|greetd|nodalix-shell$|nodalix-greeter-theme$|nodalix-hymission$|nodalix-wallpaper-engine$|xdg-desktop-portal-hyprland$)'
-! test -e /usr/share/wayland-sessions/hyprland.desktop
-! test -e /etc/xdg/quickshell
-! test -e /etc/greetd
-! test -e /etc/xdg/nodalix/hyprland.lua
-! test -e /etc/skel/.config/hypr
+! [[ -e /usr/share/wayland-sessions/hyprland.desktop ]]
+! [[ -e /etc/xdg/quickshell ]]
+! [[ -e /etc/greetd ]]
+! [[ -e /etc/xdg/nodalix/hyprland.lua ]]
+! [[ -e /etc/skel/.config/hypr ]]
 [[ $(readlink /usr/local/bin/nodalix-session) == /usr/lib/nodalix/nodalix-gnome-session ]]
 cmp /var/lib/nodalix-updater/migrations/gnome-0.3.0/files/usr/share/wayland-sessions/nodalix.desktop <(git show 0.2.4:iso/overlay/usr/share/wayland-sessions/nodalix.desktop)
 pacman -Qo /usr/lib/systemd/user/nodalix-icloud-drive.service | grep nodalix-integrations
@@ -67,7 +67,7 @@ cmp dist/migration-evidence/greetd.before /var/lib/nodalix-updater/migrations/gn
 sha256sum /var/lib/nodalix-updater/migrations/gnome-0.3.0/files/home/migration-test/.config/hypr/hyprland.conf > dist/migration-evidence/hyprland.backup
 [[ $(cut -d' ' -f1 dist/migration-evidence/hyprland.backup) == $(head -1 dist/migration-evidence/personal.before | cut -d' ' -f1) ]]
 tail -1 dist/migration-evidence/personal.before | sha256sum -c
-! test -e /home/migration-test/.config/hypr
+! [[ -e /home/migration-test/.config/hypr ]]
 nodalix-updater status --json > dist/migration-evidence/status.json
 python - <<'PY'
 import json

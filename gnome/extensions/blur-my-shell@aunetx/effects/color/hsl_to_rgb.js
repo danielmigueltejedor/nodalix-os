@@ -49,7 +49,7 @@ const HslToRgbEffectClass = utils.IS_IN_PREFERENCES ? null : class HslToRgbEffec
             if (this._opacity_factor !== opacityFactor) {
                 this._opacity_factor = opacityFactor;
 
-                uniforms.set_uniform(this, 'opacity_factor', parseFloat(this._opacity_factor));
+                uniforms.set_uniform(this, 'opacity_factor', Number.parseFloat(this._opacity_factor));
             }
         }
 

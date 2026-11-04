@@ -65,7 +65,7 @@ const NoiseEffectClass = utils.IS_IN_PREFERENCES ? null : class NoiseEffect exte
             if (this._noise !== noise) {
                 this._noise = noise;
 
-                uniforms.set_uniform(this, 'noise', parseFloat(this._noise - 1e-6));
+                uniforms.set_uniform(this, 'noise', Number.parseFloat(this._noise - 1e-6));
                 this.set_enabled(this.noise > 0. && this.lightness != 1);
             }
         }
@@ -79,7 +79,7 @@ const NoiseEffectClass = utils.IS_IN_PREFERENCES ? null : class NoiseEffect exte
             if (this._lightness !== lightness) {
                 this._lightness = lightness;
 
-                uniforms.set_uniform(this, 'lightness', parseFloat(this._lightness - 1e-6));
+                uniforms.set_uniform(this, 'lightness', Number.parseFloat(this._lightness - 1e-6));
                 this.set_enabled(this.noise > 0. && this.lightness != 1);
             }
         }
@@ -93,7 +93,7 @@ const NoiseEffectClass = utils.IS_IN_PREFERENCES ? null : class NoiseEffect exte
             if (this._opacity_factor !== opacityFactor) {
                 this._opacity_factor = opacityFactor;
 
-                uniforms.set_uniform(this, 'opacity_factor', parseFloat(this._opacity_factor));
+                uniforms.set_uniform(this, 'opacity_factor', Number.parseFloat(this._opacity_factor));
             }
         }
 

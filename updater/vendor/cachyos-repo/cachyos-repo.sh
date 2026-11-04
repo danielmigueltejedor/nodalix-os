@@ -28,12 +28,12 @@ EOF
 exit 0
 fi
 
-if [ "$EUID" -ne 0 ]; then
+if [[ "$EUID" -ne 0 ]]; then
   echo "Please, run script with sudo"
   exit 1
 fi
 
-if [ ! -f /etc/pacman.conf ]; then
+if [[ ! -f /etc/pacman.conf ]]; then
   echo "File [/etc/pacman.conf] not found!"
   exit 1
 fi
@@ -134,7 +134,7 @@ add_specific_repo() {
     local pacman_conf_path_backup="/etc/pacman.conf.bak"
 
     local is_isa_supported="$(eval ${cmd_check})"
-    if [ $is_isa_supported -eq 0 ]; then
+    if [[ $is_isa_supported -eq 0 ]]; then
         info "${isa_level} is supported"
 
         cp $pacman_conf $pacman_conf_cachyos
@@ -168,10 +168,10 @@ run_install() {
     local is_repo_commented="$(check_if_repo_was_commented)"
     local is_isa_v4_supported="$(check_supported_isa_level x86-64-v4)"
     local is_znver_supported="$(check_supported_znver45)"
-    if [ $is_repo_added -ne 0 ] || [ $is_repo_commented -ne 0 ]; then
-        if [ $is_znver_supported -eq 0 ]; then
+    if [[ $is_repo_added -ne 0 ]] || [[ $is_repo_commented -ne 0 ]]; then
+        if [[ $is_znver_supported -eq 0 ]]; then
             add_specific_repo x86-64-v4 ./install-znver4-repo.awk cachyos-znver4
-        elif [ $is_isa_v4_supported -eq 0 ]; then
+        elif [[ $is_isa_v4_supported -eq 0 ]]; then
             add_specific_repo x86-64-v4 ./install-v4-repo.awk cachyos-v4
         else
             add_specific_repo x86-64-v3 ./install-repo.awk cachyos-v3
@@ -192,7 +192,7 @@ run_remove() {
 
     local is_repo_added="$(check_if_repo_was_added)"
     local is_repo_commented="$(check_if_repo_was_commented)"
-    if [ $is_repo_added -eq 0 ] || [ $is_repo_commented -eq 0 ]; then
+    if [[ $is_repo_added -eq 0 ]] || [[ $is_repo_commented -eq 0 ]]; then
         cp $pacman_conf $pacman_conf_cachyos
         gawk -i inplace -f ./remove-repo.awk $pacman_conf_cachyos || true
 
