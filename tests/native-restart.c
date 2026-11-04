@@ -41,7 +41,10 @@ static gboolean finish(gpointer data) {
   return G_SOURCE_REMOVE;
 }
 int main(void) {
-  gtk_init();adw_init();loop=g_main_loop_new(NULL,FALSE);
+  gtk_init();adw_init();
+  /* Refuse to present a test window on the user's desktop. */
+  g_assert_true(g_str_has_prefix(gdk_display_get_name(gdk_display_get_default()), ":"));
+  loop=g_main_loop_new(NULL,FALSE);
   window=GTK_WINDOW(gtk_window_new());
   page=g_object_new(CC_TYPE_NODALIX_UPDATES_PAGE,NULL);
   gtk_window_set_child(window,GTK_WIDGET(page));gtk_window_present(window);
