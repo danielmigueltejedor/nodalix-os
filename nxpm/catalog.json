@@ -1,0 +1,31 @@
+{
+  "schema": 1,
+  "repository": "nodalix",
+  "apps": [
+    {
+      "id": "graphite",
+      "name": "Graphite",
+      "package": "nodalix-graphite"
+    },
+    {
+      "id": "hylki",
+      "name": "Hylki",
+      "package": "nodalix-hylki"
+    },
+    {
+      "id": "opencad",
+      "name": "OpenCAD Studio",
+      "package": "nodalix-opencad"
+    },
+    {
+      "id": "patchy",
+      "name": "Patchy",
+      "package": "nodalix-patchy"
+    },
+    {
+      "id": "vinilo",
+      "name": "Vinilo",
+      "package": "nodalix-vinilo"
+    }
+  ]
+}
