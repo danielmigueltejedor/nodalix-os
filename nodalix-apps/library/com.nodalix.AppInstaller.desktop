@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Install Application
-Name[es]=Instalar aplicación
-Exec=/usr/bin/nodalix-app-library install %f
-Icon=system-software-install
-NoDisplay=true
-MimeType=application/vnd.appimage;application/x-iso9660-appimage;application/vnd.flatpak;application/vnd.flatpak.ref;application/x-alpm-package;
