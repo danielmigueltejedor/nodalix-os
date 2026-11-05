@@ -9,7 +9,7 @@ with tempfile.TemporaryDirectory(prefix='nodalix-app-library-qa-') as td:
  root=Path(td); home=root/'home';home.mkdir();apps=home/'Applications';apps.mkdir()
  os.environ.update(HOME=str(home),XDG_DATA_HOME=str(home/'.local/share'),XDG_STATE_HOME=str(home/'.local/state'),XDG_CONFIG_HOME=str(home/'.config'))
  repo=Path(__file__).resolve().parents[2]
- sys.path.insert(0,str(repo/'nodalix-apps/library'));import library as lib
+ sys.path.insert(0,str(repo/'nxpm/library'));import library as lib
  fs=root/'fs';fs.mkdir()
  (fs/'usr/share/applications').mkdir(parents=True)
  (fs/'qa.desktop').symlink_to('usr/share/applications/qa.desktop')
