@@ -4,7 +4,7 @@ set -euo pipefail
 [[ ${NODALIX_CI_CONTAINER:-} == 1 ]] || { echo 'Disposable CI container required'; exit 1; }
 mkdir -p dist/migration-evidence dist/baseline-024
 pacman -Syu --noconfirm
-pacman -S --needed --noconfirm python libarchive curl diffutils glibc-locales git
+pacman -S --needed --noconfirm python libarchive curl diffutils glibc-locales git glib2-devel
 python - <<'PY'
 import hashlib,json,subprocess
 from pathlib import Path
