@@ -19,7 +19,8 @@ reliable, and maintainable while reducing legacy issues incrementally.
 3. Use the built-in **Sonar way** quality profile and new-code Quality Gate.
    Configure the New Code Definition for the project's delivery cadence.
 4. Verify analyses of the main branch **and** a pull request. If coverage data is
-   required, configure the correct language-specific coverage report in CI.
+   required, use CI-based analysis instead of automatic analysis. Configure the
+   correct language-specific coverage report in CI, and import it with the SonarScanner.
 5. After the check has passed at least once, enable the Sonar Quality Gate status
    as a required GitHub branch-protection/ruleset check if supported by the repo's
    GitHub plan. Do not require a nonexistent check.
