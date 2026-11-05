@@ -1,7 +1,7 @@
 # Rebuild and validate this fork for every Nodalix and GNOME update.
 pkgname=nodalix-gnome-shell
 pkgver=0.5.0
-pkgrel=5
+pkgrel=6
 _gnomever=51.1
 _upstream_commit=33da06854e229c256afd5872fedd83c28cbfa176
 pkgdesc="Nodalix-maintained GNOME Shell 51.1 with bundled desktop modules"
@@ -17,11 +17,11 @@ depends=(
   'mutter>=51' 'mutter<52' 'libnm' 'libnma-gtk4' 'libpipewire'
   'libpulse' 'libsecret' 'libsoup3' 'libx11' 'libxext'
   'libxfixes' 'pango' 'polkit' 'systemd-libs' 'unzip' 'upower'
-  'webkitgtk-6.0' 'nodalix-gnome>=0.5.0-4'
+  'webkitgtk-6.0' 'nodalix-gnome>=0.5.0-5'
   'nodalix-settings>=0.5.0-3' 'nodalix-video-wallpapers>=0.5.0-4'
 )
 makedepends=(
-  'git' 'meson' 'ninja' 'python' 'asciidoc' 'bash-completion'
+  'git' 'python-gobject' 'meson' 'ninja' 'python' 'asciidoc' 'bash-completion'
   'evolution-data-server' 'gi-docgen' 'glib2-devel'
   'gnome-keybindings' 'gobject-introspection' 'python-docutils' 'sassc'
 )
@@ -88,6 +88,29 @@ package() {
       glib-compile-schemas --strict "$target/${module_dir##*/}/schemas"
     fi
   done
+  # Reject a profile that names a missing key or a value its schema refuses.
+  python3 - "$srcdir/gnome/nodalix-shell/profile.json" "$target" <<'PY'
+import json, sys
+from pathlib import Path
+from gi.repository import Gio, GLib
+profile, modules = Path(sys.argv[1]), Path(sys.argv[2])
+data = json.loads(profile.read_text())
+for row in data['extensions']:
+    source = Gio.SettingsSchemaSource.new_from_directory(
+        str(modules / row['uuid'] / 'schemas'), Gio.SettingsSchemaSource.get_default(), False)
+    schema = source.lookup(row['schema'], False)
+    if schema is None:
+        sys.exit('Missing schema ' + row['schema'])
+    for key, text in row['values'].items():
+        value = GLib.Variant.parse(None, text, None, None)
+        definition = schema.get_key(key)
+        if value.get_type_string() != definition.get_value_type().dup_string() or not definition.range_check(value):
+            sys.exit('Invalid profile value ' + row['schema'] + ' ' + key)
+for uuid in data['enableModules']:
+    if not (modules / uuid / 'metadata.json').is_file():
+        sys.exit('Missing module ' + uuid)
+PY
+  install -Dm644 "$srcdir/gnome/nodalix-shell/profile.json" "$pkgdir/usr/share/nodalix/nodalix-shell-profile.json"
   printf 'NODALIX_OS_VERSION=%s\nGNOME_SHELL_VERSION=%s\nUPSTREAM_COMMIT=%s\n' \
     "$pkgver" "$_gnomever" "$_upstream_commit" \
     > "$pkgdir/usr/share/nodalix/shell-build"

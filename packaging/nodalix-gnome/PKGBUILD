@@ -1,6 +1,6 @@
 pkgname=nodalix-gnome
 pkgver=0.5.0
-pkgrel=4
+pkgrel=5
 pkgdesc="GNOME Shell, GDM and native desktop integration for Nodalix"
 arch=("any")
 install=nodalix-gnome.install
@@ -29,6 +29,7 @@ package() {
     install -Dm755 "$srcdir/gnome/migration/user-040.py" "$pkgdir/usr/lib/nodalix/migration/user-040.py"
     install -Dm644 "$srcdir/gnome/migration/desktop_040.py" "$pkgdir/usr/lib/nodalix/desktop_040.py"
     install -Dm644 "$srcdir/gnome/migration/user_preferences.py" "$pkgdir/usr/lib/nodalix/user_preferences.py"
+    install -Dm644 "$srcdir/gnome/migration/nodalix_profile.py" "$pkgdir/usr/lib/nodalix/nodalix_profile.py"
     install -Dm755 "$srcdir/gnome/session/nodalix-gnome-user-migrate" "$pkgdir/usr/lib/nodalix/nodalix-gnome-user-migrate"
     install -Dm755 "$srcdir/gnome/session/nodalix-gnome-migrate" "$pkgdir/usr/bin/nodalix-gnome-migrate"
     install -Dm644 "$srcdir/gnome/session/nodalix-gnome-migrate.desktop" "$pkgdir/etc/xdg/autostart/nodalix-gnome-migrate.desktop"
