@@ -106,7 +106,9 @@ Nodalix para no depender de ajustes manuales en cada instalación:
 - `gnome/session/90-nodalix.gschema.override` fija los valores del sistema:
   tema oscuro, acento amarillo, esquinas activas desactivadas, aceleración
   plana del ratón, `Súper+Q`/`Alt+F4` para cerrar, `Súper+F` para pantalla
-  completa y espacios de trabajo en todos los monitores.
+  completa, `Súper+Espacio` para abrir las aplicaciones (el cambio de teclado
+  conserva la tecla de teclado dedicada) y espacios de trabajo en todos los
+  monitores.
 - `gnome/nodalix-shell/profile.json` contiene los valores de los módulos
   incorporados que difieren de sus esquemas (huecos de Tiling Assistant, menú
   global, paneles secundarios, Now Playing Card, desenfoque de panel, dock y
@@ -119,10 +121,8 @@ Nodalix para no depender de ajustes manuales en cada instalación:
 
 El perfil excluye identificadores de monitores, huellas de LocalSend, rutas
 personales, aplicaciones favoritas y fondos animados, que pertenecen a cada
-usuario o a sus propios paquetes. Los ajustes `Súper+Espacio` para el lanzador
-y las tipografías Geist y JetBrainsMono Nerd Font quedan fuera hasta que
-Nodalix distribuya esas fuentes y decida cómo cambiar de distribución de
-teclado sin ese atajo.
+usuario o a sus propios paquetes. Las tipografías son las predeterminadas de
+GNOME (Adwaita Sans y Adwaita Mono).
 
 ## Definición de listo para uso diario
 

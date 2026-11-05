@@ -70,7 +70,8 @@ class ProfileContentTests(unittest.TestCase):
     def test_system_defaults_cover_the_desktop_preferences(self):
         override = (ROOT / 'gnome/session/90-nodalix.gschema.override').read_text()
         for line in ("color-scheme='prefer-dark'", "accent-color='yellow'", 'enable-hot-corners=false',
-                     "accel-profile='flat'", "close=['<Super>q', '<Alt>F4']", 'workspaces-only-on-primary=false'):
+                     "accel-profile='flat'", "close=['<Super>q', '<Alt>F4']", 'workspaces-only-on-primary=false',
+                     "toggle-application-view=['<Super>space']", "switch-input-source=['XF86Keyboard']"):
             self.assertIn(line, override)
 
 

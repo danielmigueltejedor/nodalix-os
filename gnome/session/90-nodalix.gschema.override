@@ -10,7 +10,10 @@ accel-profile='flat'
 [org.gnome.desktop.wm.keybindings]
 close=['<Super>q', '<Alt>F4']
 toggle-fullscreen=['<Super>f']
+# Super+Space opens the app view, so the layout switch keeps only its hardware key.
+switch-input-source=['XF86Keyboard']
 [org.gnome.shell.keybindings]
+toggle-application-view=['<Super>space']
 screenshot=['<Super><Shift>3']
 show-screenshot-ui=['<Super><Shift>4', 'Print']
 toggle-message-tray=['<Super>n']
