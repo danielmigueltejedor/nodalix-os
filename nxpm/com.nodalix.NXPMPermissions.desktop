@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Application Permissions
+Name[es]=Permisos de aplicaciones
+Comment=Manage Flatpak application permissions with NXPM
+Comment[es]=Gestiona los permisos Flatpak desde NXPM
+Exec=nxpm-permissions
+Icon=system-software-install
+Categories=Settings;System;
+Terminal=false
+StartupNotify=true
