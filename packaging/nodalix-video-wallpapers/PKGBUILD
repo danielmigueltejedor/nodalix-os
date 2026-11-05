@@ -1,6 +1,6 @@
 pkgname=nodalix-video-wallpapers
 pkgver=0.5.0
-pkgrel=1
+pkgrel=2
 pkgdesc="GNOME 51 animated wallpaper player and Nodalix video collection"
 arch=("any")
 url="https://github.com/danielmigueltejedor/nodalix-os"
@@ -24,6 +24,7 @@ build() {
 }
 package() {
   DESTDIR="$pkgdir" meson install -C "$srcdir/build" --no-rebuild
+  install -Dm644 "$srcdir/packaging/nodalix-video-wallpapers/90-nodalix-hanabi.gschema.override"     "$pkgdir/usr/share/glib-2.0/schemas/90-nodalix-hanabi.gschema.override"
   install -d "$pkgdir/usr/share/backgrounds/nodalix/animated" "$pkgdir/usr/share/nodalix/wallpaper-previews" "$pkgdir/usr/share/nodalix/wallpaper-stills"
   cp -a --no-preserve=ownership "$srcdir/collection/." "$pkgdir/usr/share/backgrounds/nodalix/animated/"
   cp -a --no-preserve=ownership "$srcdir/previews/." "$pkgdir/usr/share/nodalix/wallpaper-previews/"

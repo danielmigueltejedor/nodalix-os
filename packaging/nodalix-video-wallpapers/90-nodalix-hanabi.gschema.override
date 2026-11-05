@@ -1,0 +1,6 @@
+[io.github.jeffshee.hanabi-extension]
+mute=true
+show-panel-menu=false
+show-on-lock-screen=false
+pause-on-maximize-or-fullscreen=1
+pause-on-battery=2

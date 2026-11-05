@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 """Session service for native Nodalix Settings pages; no compositor dependency."""
+from concurrent.futures import ThreadPoolExecutor
 import json
 import os
 from pathlib import Path
@@ -12,6 +13,7 @@ import time
 from gi.repository import Gio, GLib
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from wallpaper_poster import poster_for, sync_login
+from wallpaper_library import WallpaperLibrary
 import update_state
 import automatic_updates
 
@@ -29,6 +31,13 @@ XML = '''<node><interface name="com.nodalix.Settings1">
 <method name="GetWallpaperState"><arg type="s" direction="out"/></method>
 <method name="SetWallpaper"><arg type="s" direction="in"/></method>
 <method name="StopWallpaper"/>
+<method name="ImportWallpapers"><arg type="as" direction="in"/><arg type="s" direction="out"/></method>
+<method name="FindWallpaperDuplicates"><arg type="as" direction="out"/></method>
+<method name="DeleteWallpapers"><arg type="as" direction="in"/><arg type="b" direction="in"/></method>
+<method name="OptimizeWallpaper"><arg type="s" direction="in"/></method>
+<method name="CancelWallpaperOptimization"/>
+<method name="FavoriteWallpaper"><arg type="s" direction="in"/><arg type="b" direction="in"/></method>
+<method name="SetWallpaperOption"><arg type="s" direction="in"/><arg type="i" direction="in"/></method>
 <method name="GetLocalSend"><arg type="s" direction="out"/></method>
 <method name="SetLocalSendOption"><arg type="s" direction="in"/><arg type="s" direction="in"/></method>
 <method name="SetLocalSendEnabled"><arg type="b" direction="in"/></method>
@@ -36,6 +45,7 @@ XML = '''<node><interface name="com.nodalix.Settings1">
 <method name="SetLocalSendFavorite"><arg type="s" direction="in"/><arg type="b" direction="in"/></method>
 <signal name="Changed"/>
 <signal name="WallpaperChanged"/>
+<signal name="WallpaperCatalogChanged"/>
 </interface></node>'''
 KINDS = ('nodalix', 'system', 'apps', 'flatpak', 'firmware')
 TITLES = {'nodalix': 'Nodalix', 'system': 'Programas y kernel', 'apps': 'Aplicaciones Nodalix',
@@ -140,6 +150,11 @@ def set_localsend_favorite(fingerprint,enabled):
 
 HANABI_SCHEMA = 'io.github.jeffshee.hanabi-extension'
 RENDERER_BUS = 'io.github.jeffshee.HanabiRenderer'
+WALLPAPER_OPTIONS = {
+    'pause-on-maximize-or-fullscreen': (0, 1, 2),
+    'enable-va': (0, 1),
+    'enable-graphics-offload': (0, 1),
+}
 
 def wallpaper_preferences():
     if not Gio.SettingsSchemaSource.get_default().lookup(HANABI_SCHEMA,True):
@@ -173,6 +188,9 @@ def wallpaper_snapshot():
         prefs=wallpaper_preferences();shell=Gio.Settings.new('org.gnome.shell')
         state.update(available=True,path=prefs.get_string('video-path'),
                      requested=HANABI_UUID in shell.get_strv('enabled-extensions'))
+        schema = prefs.props.settings_schema
+        state['options'] = {key: int(prefs.get_value(key).unpack())
+                            for key in WALLPAPER_OPTIONS if schema.has_key(key)}
         if not state['requested']:
             state['message']='Elige una miniatura para usar un fondo animado'
         else:
@@ -202,25 +220,7 @@ def wallpaper_snapshot():
 
 
 def catalog():
-    folders = [Path('/usr/share/backgrounds/nodalix/Animados'),
-               Path('/usr/share/backgrounds/nodalix/animated'),
-               Path.home()/'.local/share/backgrounds/nodalix/animated']
-    items = []
-    seen = set()
-    for folder in folders:
-        for video in sorted(folder.glob('*')):
-            if video.suffix.lower() not in ('.mp4', '.webm', '.mkv') or not video.is_file():
-                continue
-            resolved = str(video.resolve())
-            if resolved in seen:
-                continue
-            seen.add(resolved)
-            name = video.stem.removeprefix('nodalix-').removesuffix('-4k').replace('-', ' ').title()
-            preview = Path(os.environ.get('NODALIX_PREVIEW_DIR','/usr/share/nodalix/wallpaper-previews'))/(video.stem+'.jpg')
-            still = Path(os.environ.get('NODALIX_STILL_DIR','/usr/share/nodalix/wallpaper-stills'))/(video.stem+'.jpg')
-            items.append({'path': resolved, 'title': name, 'preview': str(preview) if preview.exists() else '',
-                          'still': str(still) if still.is_file() else ''})
-    return items
+    return list(WallpaperLibrary().catalog())
 
 
 class SettingsService:
@@ -238,6 +238,33 @@ class SettingsService:
         self.state.update(update_state.restore(self.state_path, self.boot_id))
         self.state.update(automatic={}, automatic_busy=False, automatic_error='')
         self._automatic_refreshing = False
+        self.wallpapers = WallpaperLibrary()
+        self.wallpaper_worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix='wallpaper')
+        self.preview_worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix='wallpaper-preview')
+        self.optimize_worker = ThreadPoolExecutor(max_workers=1, thread_name_prefix='wallpaper-optimize')
+        self.catalog_enrichment = None
+        self.wallpaper_optimization = None
+        self.wallpaper_monitor = None
+        self.catalog_timeout = 0
+
+    def monitor_wallpapers(self):
+        try:
+            self.wallpapers.personal.mkdir(mode=0o700, parents=True, exist_ok=True)
+            directory = Gio.File.new_for_path(str(self.wallpapers.personal))
+            self.wallpaper_monitor = directory.monitor_directory(Gio.FileMonitorFlags.WATCH_MOVES, None)
+            self.wallpaper_monitor.connect('changed', self.wallpaper_file_changed)
+        except (OSError, GLib.Error) as error:
+            print(f'Wallpaper catalog monitor: {error}', file=sys.stderr)
+
+    def wallpaper_file_changed(self, monitor, file, other_file, event):
+        visible = any(item and not item.get_basename().startswith('.') for item in (file, other_file))
+        if visible and not self.catalog_timeout:
+            self.catalog_timeout = GLib.timeout_add(250, self.notify_wallpaper_files)
+
+    def notify_wallpaper_files(self):
+        self.catalog_timeout = 0
+        self.catalog_changed()
+        return GLib.SOURCE_REMOVE
 
     def refresh_automatic(self):
         with self.lock:
@@ -478,19 +505,7 @@ class SettingsService:
             raise ValueError('El fondo no pertenece a la colección instalada')
         preview=poster_for(Path(path))
         settings=wallpaper_preferences()
-        settings.set_boolean('enable-va',True)
-        for option in ('enable-graphics-offload','pause-when-covered'):
-            if settings.props.settings_schema.has_key(option) and settings.get_user_value(option) is None:
-                settings.set_boolean(option,True)
-        settings.set_boolean('prefer-clappersink',False)
         settings.set_string('video-path',path)
-        settings.set_boolean('mute',True)
-        settings.set_boolean('show-panel-menu',False)
-        settings.set_boolean('show-on-lock-screen',False)
-        settings.set_boolean('change-wallpaper',False)
-        settings.set_int('startup-delay',0)
-        settings.set_int('pause-on-maximize-or-fullscreen',1)
-        settings.set_int('pause-on-battery',2)
         # Native-resolution still for the desktop; thumbnails belong to the gallery.
         if preview.is_file():
             background=Gio.Settings.new('org.gnome.desktop.background')
@@ -526,6 +541,90 @@ class SettingsService:
         finally:
             self.wallpaper_changed()
 
+    def catalog_changed(self):
+        if self.connection:
+            self.connection.emit_signal(None, PATH, INTERFACE, 'WallpaperCatalogChanged', None)
+        return GLib.SOURCE_REMOVE
+
+    def enrich_wallpaper_catalog(self):
+        if self.catalog_enrichment and not self.catalog_enrichment.done():
+            return
+        self.catalog_enrichment = self.preview_worker.submit(self.wallpapers.enrich)
+
+        def complete(future):
+            try:
+                if future.result():
+                    self.catalog_changed()
+            except (OSError, ValueError) as error:
+                print(f'Wallpaper catalog: {error}', file=sys.stderr)
+            return GLib.SOURCE_REMOVE
+
+        self.catalog_enrichment.add_done_callback(lambda future: GLib.idle_add(complete, future))
+
+    def wallpaper_operation(self, method, parameters):
+        if method == 'SetWallpaper':
+            self.wallpaper(*parameters)
+        elif method == 'StopWallpaper':
+            self.stop_wallpaper()
+        elif method == 'SetWallpaperOption':
+            key, value = parameters
+            if key not in WALLPAPER_OPTIONS or value not in WALLPAPER_OPTIONS[key]:
+                raise ValueError('Opción de fondos animados inválida')
+            settings = wallpaper_preferences()
+            if not settings.props.settings_schema.has_key(key):
+                raise ValueError('El reproductor no admite esta opción')
+            if key == 'pause-on-maximize-or-fullscreen':
+                settings.set_int(key, value)
+            else:
+                settings.set_boolean(key, bool(value))
+            self.wallpaper_changed()
+        else:
+            return self.wallpaper_library_operation(method, parameters)
+        return None
+
+    def wallpaper_library_operation(self, method, parameters):
+        if method == 'FindWallpaperDuplicates':
+            selected = wallpaper_preferences().get_string('video-path')
+            return GLib.Variant('(as)', (self.wallpapers.duplicates(selected),))
+        if method == 'ImportWallpapers':
+            result = self.wallpapers.import_videos(*parameters)
+            GLib.idle_add(self.catalog_changed)
+            return GLib.Variant('(s)', (json.dumps(result, ensure_ascii=False),))
+        if method == 'OptimizeWallpaper':
+            self.wallpapers.optimize(*parameters)
+        elif method == 'DeleteWallpapers':
+            paths, duplicates_only = parameters
+            selected = wallpaper_preferences().get_string('video-path')
+            self.wallpapers.delete(paths, selected, duplicates_only)
+        elif method == 'FavoriteWallpaper':
+            self.wallpapers.favorite(*parameters)
+        GLib.idle_add(self.catalog_changed)
+        return None
+
+    def dispatch_wallpaper_operation(self, method, parameters, invocation):
+        arguments = parameters.unpack()
+        optimizing = method == 'OptimizeWallpaper'
+        if optimizing:
+            if self.wallpaper_optimization:
+                raise ValueError('Ya se está preparando una copia a 60 FPS')
+            self.wallpaper_optimization = threading.Event()
+            arguments = (*arguments, self.wallpaper_optimization)
+        worker = self.optimize_worker if optimizing else self.wallpaper_worker
+        future = worker.submit(self.wallpaper_operation, method, arguments)
+
+        def complete(result):
+            if optimizing:
+                self.wallpaper_optimization = None
+            try:
+                invocation.return_value(result.result())
+            except (GLib.Error, OSError, ValueError, subprocess.SubprocessError) as error:
+                message = ('No se pudo procesar el vídeo' if isinstance(error, subprocess.SubprocessError)
+                           else str(error))
+                invocation.return_dbus_error(INTERFACE + '.Error', message)
+            return GLib.SOURCE_REMOVE
+
+        future.add_done_callback(lambda result: GLib.idle_add(complete, result))
+
     def method_call(self, connection, sender, object_path, interface, method, parameters, invocation):
         try:
             if method == 'GetUpdates':
@@ -540,6 +639,7 @@ class SettingsService:
                 return
             if method == 'GetWallpapers':
                 invocation.return_value(GLib.Variant('(s)',(json.dumps(catalog(),ensure_ascii=False),)))
+                self.enrich_wallpaper_catalog()
                 return
             if method == 'GetWallpaperState':
                 invocation.return_value(GLib.Variant('(s)',(wallpaper_snapshot(),)))
@@ -569,10 +669,14 @@ class SettingsService:
                               Gio.DBusCallFlags.NONE, -1, None)
             elif method == 'StartUpdate':
                 self.start(parameters.unpack()[0])
-            elif method == 'SetWallpaper':
-                self.wallpaper(parameters.unpack()[0])
-            elif method == 'StopWallpaper':
-                self.stop_wallpaper()
+            elif method == 'CancelWallpaperOptimization':
+                if self.wallpaper_optimization:
+                    self.wallpaper_optimization.set()
+            elif method in {'SetWallpaper', 'StopWallpaper', 'OptimizeWallpaper', 'ImportWallpapers',
+                            'FindWallpaperDuplicates', 'DeleteWallpapers', 'FavoriteWallpaper',
+                            'SetWallpaperOption'}:
+                self.dispatch_wallpaper_operation(method, parameters, invocation)
+                return
             else:
                 raise ValueError('Operación no admitida')
             invocation.return_value(None)
@@ -587,6 +691,7 @@ def main():
         service.connection = connection
         node = Gio.DBusNodeInfo.new_for_xml(XML)
         connection.register_object(PATH,node.interfaces[0],service.method_call,None,None)
+        service.monitor_wallpapers()
         service.refresh_automatic()
     Gio.bus_own_name(Gio.BusType.SESSION,BUS,Gio.BusNameOwnerFlags.NONE,acquired,None,
                      lambda connection,name:loop.quit())
