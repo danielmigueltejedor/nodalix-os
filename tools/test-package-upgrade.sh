@@ -101,17 +101,11 @@ cursor_payload="$ROOT/usr/share/nodalix/cursor-theme/Nodalix"
 cursor_link="$ROOT/usr/share/icons/Nodalix"
 
 if [[ -d "$cursor_payload/cursors" ]]; then
-    if [[ ! -L "$cursor_link" ]]; then
-        echo "Nodalix cursor compatibility link was not created" >&2
+    if [[ -L "$cursor_link" || ! -d "$cursor_link/cursors" ]]; then
+        echo "Nodalix cursor is not installed as a real directory" >&2
         exit 1
     fi
-
-    link_target=$(readlink "$cursor_link")
-
-    if [[ "$link_target" != "/usr/share/nodalix/cursor-theme/Nodalix" ]]; then
-        echo "Unexpected cursor link target: $link_target" >&2
-        exit 1
-    fi
+    diff -qr --no-dereference "$cursor_payload" "$cursor_link"
 fi
 
 if [[ "$SCENARIO" == "legacy-cursor" ]]; then

@@ -1,19 +1,25 @@
 pkgname=nodalix-cursor-theme
 pkgver=0.5.0
-pkgrel=1
+pkgrel=2
 options=("!strip")
 pkgdesc="Capitaine Cursors with scalable GNOME and Xcursor formats"
 arch=("any")
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("LGPL-3.0-or-later")
-depends=("adwaita-cursors")
+depends=("adwaita-cursors" "python" "glib2")
 makedepends=("python" "librsvg" "xorg-xcursorgen")
 install=nodalix-cursor-theme.install
 source=("Capitaine-r4.tar.gz::https://codeload.github.com/keeferrourke/capitaine-cursors/tar.gz/refs/tags/r4"
-        "build-capitaine.py" "nodalix-cursor.conf" "UPSTREAM.md" "migrate-cursor-theme")
+        "build-capitaine.py" "nodalix-cursor.conf" "UPSTREAM.md" "migrate-cursor-theme"
+        "sync-session-cursor.py" "nodalix-cursor-sync.desktop" "default.index.theme")
 sha256sums=("41f66e9f4d41729dc5e9185aab3bc4a719fdcca939e6f3f590b6b811b28dedd2"
-            "cac3601ecaa4ec40782955e64f2c0c9e73ba0073b8085763db196259ec501ff5" "13e803b4485e583bd08135fdbe06026bff486993bc579489f0c069d65984c741"
-            "a4515335422ed26ddd5f85d597368e568fcf4d2754193b637e6d0c5dcc0d5236" "SKIP")
+            "cac3601ecaa4ec40782955e64f2c0c9e73ba0073b8085763db196259ec501ff5"
+            "940bccb9b018c6bd360f0c18ccdd8669662e02c0ade0e4e51c44578c56eecb7a"
+            "7ab14c632c0fb0c53d58bff20516f8ac864ff2b5c5325705e0eb89ed0acf30c8"
+            "85589b27c7ed21f831d3958189a635f56c0572bdbe38308305d8eb380785e1f9"
+            "8f83d507f3428122c821ae61ffca526633b0a5b85bb0c51282753e74f41cbd1d"
+            "996a72736b47a3f3a9808a77415a5b26e3c3a6cce81269d7521cc08a767c6baf"
+            "1c0c950c7f7239c7a2c1e36ecf6b84d61048f6be2316e070089820b310a9d9eb")
 
 build() {
     python build-capitaine.py capitaine-cursors-r4/src "$srcdir/Nodalix"
@@ -25,6 +31,9 @@ package() {
     cp -a "$srcdir/Nodalix/." "$target/"
     printf '[Icon Theme]\nName=Capitaine Cursors (Nodalix)\nInherits=Adwaita\n' > "$target/index.theme"
     install -Dm755 migrate-cursor-theme "$pkgdir/usr/lib/nodalix/migrate-cursor-theme"
+    install -Dm755 sync-session-cursor.py "$pkgdir/usr/lib/nodalix/sync-session-cursor"
+    install -Dm644 nodalix-cursor-sync.desktop "$pkgdir/etc/xdg/autostart/nodalix-cursor-sync.desktop"
+    install -Dm644 default.index.theme "$pkgdir/usr/share/nodalix/cursor-theme/default/index.theme"
     install -Dm644 nodalix-cursor.conf "$pkgdir/etc/environment.d/90-nodalix-cursor.conf"
     install -Dm644 UPSTREAM.md "$pkgdir/usr/share/doc/nodalix-cursor-theme/UPSTREAM.md"
     install -Dm644 capitaine-cursors-r4/COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
