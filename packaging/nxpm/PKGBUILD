@@ -26,7 +26,5 @@ package() {
     install -Dm644 "$srcdir/nxpm/library/$desktop" "$pkgdir/usr/share/applications/$desktop"
   done
   install -Dm644 "$srcdir/nxpm/library/nodalix-app.xml" "$pkgdir/usr/share/mime/packages/nodalix-app.xml"
-  install -Dm644 "$srcdir/nxpm/library/com.nodalix.apps.policy" "$pkgdir/usr/share/polkit-1/actions/com.nodalix.apps.policy"
-  install -d "$pkgdir/usr/share/nxpm/assets"
-  cp -a --no-preserve=ownership "$srcdir/nxpm/assets/." "$pkgdir/usr/share/nxpm/assets/"
+  install -Dm644 "$srcdir/nxpm/library/com.nodalix.nxpm.policy" "$pkgdir/usr/share/polkit-1/actions/com.nodalix.apps.policy"
 }

@@ -62,7 +62,7 @@ PY
 echo "Building Nodalix $version (pkgver=$pkgver)"
 
 tar --zstd -C "$root" -cf "$srcdir/nodalix-updater-$pkgver.tar.zst" updater
-tar --zstd -C "$root" -cf "$srcdir/nodalix-apps-$pkgver.tar.zst" nodalix-apps
+tar --zstd -C "$root" -cf "$srcdir/nxpm-$pkgver.tar.zst" nxpm
 tar --zstd -C "$root" -cf "$srcdir/nodalix-phone-link-$phone_pkgver.tar.zst" \
   --exclude phone-link/src/iphonebridge/.git \
   --exclude='*/__pycache__' \
@@ -78,22 +78,22 @@ tar --zstd -C "$root" -cf "$srcdir/nodalix-gnome-$pkgver.tar.zst" \
   --exclude=gnome/settings/animated gnome
 
 updater_dir="$workdir/nodalix-updater"
-apps_dir="$workdir/nodalix-apps"
+nxpm_dir="$workdir/nxpm"
 release_dir="$workdir/nodalix-release"
 phone_link_dir="$workdir/nodalix-phone-link"
 fluent_dir="$workdir/nodalix-fluent-emoji"
 wallpaper_dir="$workdir/nodalix-wallpapers"
 colloid_dir="$workdir/nodalix-colloid-icons"
 cursor_dir="$workdir/nodalix-cursor-theme"
-mkdir -p "$updater_dir" "$apps_dir" "$release_dir" "$phone_link_dir" "$fluent_dir" "$wallpaper_dir" "$colloid_dir" "$cursor_dir"
+mkdir -p "$updater_dir" "$nxpm_dir" "$release_dir" "$phone_link_dir" "$fluent_dir" "$wallpaper_dir" "$colloid_dir" "$cursor_dir"
 
 cp "$root/packaging/nodalix-updater/PKGBUILD" "$root/packaging/nodalix-updater/nodalix-updater.install" "$updater_dir/"
 cp "$srcdir/nodalix-updater-$pkgver.tar.zst" "$updater_dir/"
 inject_sha256 "$updater_dir/PKGBUILD" "$updater_dir/nodalix-updater-$pkgver.tar.zst"
 
-cp "$root/packaging/nodalix-apps/PKGBUILD" "$apps_dir/PKGBUILD"
-cp "$srcdir/nodalix-apps-$pkgver.tar.zst" "$apps_dir/"
-inject_sha256 "$apps_dir/PKGBUILD" "$apps_dir/nodalix-apps-$pkgver.tar.zst"
+cp "$root/packaging/nxpm/PKGBUILD" "$nxpm_dir/PKGBUILD"
+cp "$srcdir/nxpm-$pkgver.tar.zst" "$nxpm_dir/"
+inject_sha256 "$nxpm_dir/PKGBUILD" "$nxpm_dir/nxpm-$pkgver.tar.zst"
 
 cp "$root/packaging/nodalix-release/PKGBUILD" "$root/packaging/nodalix-release/VERSION" "$release_dir/"
 inject_sha256 "$release_dir/PKGBUILD" "$release_dir/VERSION"
@@ -144,7 +144,7 @@ if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
   fi
   find "$root/dist/native-settings" -mindepth 2 -maxdepth 2 -type f -name "*.pkg.tar.zst" ! -name "*-debug-*" -exec cp {} "$outdir/" \;
   makepkg_one "$updater_dir"
-  makepkg_one "$apps_dir"
+  makepkg_one "$nxpm_dir"
   craft_dir="$workdir/nodalix-artcraft-launcher"
   mkdir -p "$craft_dir"
   cp "$root/packaging/nodalix-artcraft-launcher/PKGBUILD" "$craft_dir/"
