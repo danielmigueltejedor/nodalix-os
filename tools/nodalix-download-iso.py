@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Download and verify a complete Nodalix ISO, including multipart releases."""
-import argparse, hashlib, json, os, re, tempfile, urllib.parse, urllib.request
+import argparse, hashlib, json, os, re, stat, tempfile, urllib.parse, urllib.request
 from pathlib import Path
 
 REPOSITORY='danielmigueltejedor/nodalix-os'
@@ -20,10 +20,17 @@ def download_iso(manifest,base_url,output=None):
     if len({p['asset'] for p in parts})!=len(parts) or sum(p['size'] for p in parts)!=iso['size']:
         raise ValueError('Partes de ISO no válidas')
     output=Path(output) if output else Path(name)
-    if output.exists():
-        with output.open('rb') as stream:checksum=hashlib.file_digest(stream,'sha256').hexdigest()
-        if output.stat().st_size==iso['size'] and checksum==iso['sha256']:
-            print(f'ISO ya verificada: {output}');return output
+    try:
+        fd = os.open(output, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except FileNotFoundError:
+        pass
+    else:
+        with os.fdopen(fd, 'rb') as stream:
+            metadata = os.fstat(stream.fileno())
+            if (stat.S_ISREG(metadata.st_mode) and metadata.st_size == iso['size']
+                    and hashlib.file_digest(stream, 'sha256').hexdigest() == iso['sha256']):
+                print(f'ISO ya verificada: {output}')
+                return output
         raise FileExistsError(f'Ya existe un archivo diferente: {output}')
     output.parent.mkdir(parents=True,exist_ok=True)
     fd,temporary=tempfile.mkstemp(prefix='.nodalix-iso-',dir=output.parent)

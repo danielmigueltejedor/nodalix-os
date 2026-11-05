@@ -1,5 +1,10 @@
+import argparse
 import os,sys,tempfile,subprocess,json,time
 from pathlib import Path
+parser = argparse.ArgumentParser(description='Test the App Library in a disposable home')
+parser.add_argument('--artifacts', action='store_true', help='Write the report in the current directory')
+args = parser.parse_args()
+output = Path.cwd()
 with tempfile.TemporaryDirectory(prefix='nodalix-app-library-qa-') as td:
  root=Path(td); home=root/'home';home.mkdir();apps=home/'Applications';apps.mkdir()
  os.environ.update(HOME=str(home),XDG_DATA_HOME=str(home/'.local/share'),XDG_STATE_HOME=str(home/'.local/state'),XDG_CONFIG_HOME=str(home/'.config'))
@@ -37,7 +42,6 @@ with tempfile.TemporaryDirectory(prefix='nodalix-app-library-qa-') as td:
  assert (home/'.qa-app-launched').exists(),'Registered activation failed'
  if os.environ.get('NODALIX_NATIVE_UI_QA')=='1':
   from gi.repository import GLib,Gio
-  output=Path(sys.argv[1]);output.mkdir(parents=True,exist_ok=True)
   nautilus=subprocess.Popen(['nautilus','--new-window',str(apps)],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
   try:
    time.sleep(3)
@@ -60,7 +64,6 @@ with tempfile.TemporaryDirectory(prefix='nodalix-app-library-qa-') as td:
  assert not (Path(app.get_executable())).exists(),'Payload was not removed'
  assert data.read_text()=='keep','User data changed'
  result={'real_appimage_import':True,'upstream_exec_not_executed':True,'registered_activation':True,'native_gio_trash_uninstalls':True,'rename_does_not_uninstall':True,'user_data_preserved':True,'live_user_apps_removed':False}
- if len(sys.argv)>1:
-  output=Path(sys.argv[1]);target=output/'app-library-native.json' if output.is_dir() else output
-  target.write_text(json.dumps(result,indent=2)+'\n')
+ if args.artifacts:
+  (output/'app-library-native.json').write_text(json.dumps(result,indent=2)+'\n')
  print('Fixture installation, activation and native Trash uninstall passed')

@@ -115,23 +115,16 @@ def generate(version_file: Path, definition_file: Path, assets_dir: Path) -> dic
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--version-file", type=Path, default=Path("VERSION"))
-    parser.add_argument("--components", type=Path, default=Path("release/components.json"))
-    parser.add_argument("--assets-dir", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True)
-    args = parser.parse_args()
+    parser.description = "Generate a release manifest for packages in the current directory"
+    parser.parse_args()
     try:
-        manifest = generate(args.version_file, args.components, args.assets_dir)
+        manifest = generate(ROOT / "VERSION", ROOT / "release/components.json", Path.cwd())
         tag = canonical_version(os_environ_tag())
         if tag and tag != manifest["version"]:
             raise ManifestError(f"manifest {manifest['version']} does not match tag {tag}")
     except (OSError, ValueError, KeyError, ManifestError) as error:
         parser.error(str(error))
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    print(json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True))
     return 0
 
 

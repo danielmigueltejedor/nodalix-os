@@ -74,8 +74,8 @@ export const DashToDockStruts = GObject.registerClass({
 registerDestroyableType(DashToDockStruts);
 
 export class StrutsManager {
-    #monitors = new Map();
-    #frozenMonitors = Object.freeze({});
+    #monitorExtents = new Map();
+    #monitors = Object.freeze({});
     #struts = new DashToDockStruts(this);
 
     constructor() {
@@ -84,7 +84,7 @@ export class StrutsManager {
 
     /** The snapshot exposed through `this.struts.monitors`. */
     get monitors() {
-        return this.#frozenMonitors;
+        return this.#monitors;
     }
 
     /**
@@ -99,7 +99,7 @@ export class StrutsManager {
      *     affectsStruts}` in global coordinates, or `null` to drop the entry.
      */
     setMonitorExtent(monitorIndex, extent) {
-        const previous = this.#monitors.get(monitorIndex) ?? null;
+        const previous = this.#monitorExtents.get(monitorIndex) ?? null;
         const unchanged = previous !== null && extent !== null &&
             previous.side === extent.side &&
             previous.x === extent.x && previous.y === extent.y &&
@@ -110,18 +110,18 @@ export class StrutsManager {
             return;
 
         if (extent === null)
-            this.#monitors.delete(monitorIndex);
+            this.#monitorExtents.delete(monitorIndex);
         else
-            this.#monitors.set(monitorIndex, extent);
+            this.#monitorExtents.set(monitorIndex, extent);
 
         this.#publish(monitorIndex);
     }
 
     clear() {
-        if (this.#monitors.size === 0)
+        if (this.#monitorExtents.size === 0)
             return;
 
-        this.#monitors.clear();
+        this.#monitorExtents.clear();
         this.#publish(-1);
     }
 
@@ -139,7 +139,7 @@ export class StrutsManager {
      * @param {number} monitorIndex - the changed monitor, or -1 for all.
      */
     #publish(monitorIndex) {
-        this.#frozenMonitors = Object.freeze(Object.fromEntries(this.#monitors));
+        this.#monitors = Object.freeze(Object.fromEntries(this.#monitorExtents));
         this.#struts.emit('updated', monitorIndex);
     }
 }

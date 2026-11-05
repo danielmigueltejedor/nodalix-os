@@ -32,7 +32,7 @@ import { LayoutRow } from './layoutRow.js';
  */
 
 export default class {
-    constructor(settings, builder, path) {
+    constructor(settings, builder) {
         // Keep a reference to the settings for the shortcuts
         this._settings = settings;
 
@@ -67,7 +67,9 @@ export default class {
             shortcut.initialize(key, this._settings);
         });
 
-        // Finally, load the existing settings.
+    }
+
+    load(path) {
         this._loadLayouts(path);
     }
 

@@ -42,9 +42,9 @@ const WORKSPACES_ONLY_ON_PRIMARY_ID = 'workspaces-only-on-primary';
 
 const THUMBNAILS_SLIDER_POSITION_ID = 'thumbnails-slider-position';
 
-export let mmPanel = [];
+export const mmPanel = [];
 export let mmOverview = null;
-export let mmLayoutManager = null;
+let mmLayoutManager = null;
 
 const DASH_TO_DOCK_SCHEMA = 'org.gnome.shell.extensions.dash-to-dock';
 const DASH_TO_DOCK_MULTI_MONITOR_ID = 'multi-monitor';

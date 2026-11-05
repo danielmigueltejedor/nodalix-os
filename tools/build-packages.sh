@@ -175,11 +175,15 @@ if [[ -n "$kernel_version" && ! "$kernel_asset" -ef "$outdir/${kernel_asset##*/}
   cp -- "$kernel_asset" "$outdir/"
 fi
 
-python3 "$root/tools/generate-manifest.py" \
-  --version-file "$root/VERSION" \
-  --components "$components" \
-  --assets-dir "$outdir" \
-  --output "$outdir/nodalix-manifest.json"
+(
+  cd -- "$outdir"
+  manifest_tmp=$(mktemp .nodalix-manifest.XXXXXX)
+  trap 'unlink "$manifest_tmp"' EXIT
+  python3 "$root/tools/generate-manifest.py" > "$manifest_tmp"
+  chmod 644 "$manifest_tmp"
+  mv -fT -- "$manifest_tmp" nodalix-manifest.json
+  trap - EXIT
+)
 
 python3 - "$outdir" <<'PY'
 import hashlib, pathlib, sys

@@ -3,7 +3,6 @@ from pathlib import Path
 import json
 import os
 import subprocess
-import sys
 from tempfile import TemporaryDirectory
 import time
 
@@ -11,7 +10,7 @@ import shlex
 from gi.repository import Gio, GLib
 
 home = Path.home()
-output = Path(sys.argv[1])
+output = Path.cwd()
 repo = Path(__file__).resolve().parents[2]
 config = Path(os.environ['XDG_CONFIG_HOME']); config.mkdir(parents=True, exist_ok=True)
 data = Path(os.environ['XDG_DATA_HOME']); state = Path(os.environ['XDG_STATE_HOME'])

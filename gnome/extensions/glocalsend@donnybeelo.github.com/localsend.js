@@ -103,9 +103,6 @@ export class LocalSendService {
     get fingerprint() {
         return this._fingerprint;
     }
-    get port() {
-        return this._httpPort;
-    }
     applySettings(key) {
         if (key === 'alias') {
             this._alias = ensureAlias(this._settings.get_string('alias'));

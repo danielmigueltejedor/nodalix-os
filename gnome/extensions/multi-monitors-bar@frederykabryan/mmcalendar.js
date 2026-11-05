@@ -36,7 +36,7 @@ import * as MultiMonitors from './extension.js';
 import * as Common from './common.js';
 import { shellVersion } from './common.js';
 
-export let MainRef = null;
+let MainRef = null;
 export function setMainRef(m) { MainRef = m; }
 
 // TodayButton is not exported in GNOME Shell 46, so we need to implement our own
@@ -142,7 +142,7 @@ const MultiMonitorsPlaceholder = GObject.registerClass(
 
 const MultiMonitorsCalendar = Calendar.Calendar;
 
-var MultiMonitorsEventsSection = (() => {
+const MultiMonitorsEventsSection = (() => {
     let MultiMonitorsEventsSection = class MultiMonitorsEventsSection extends St.Button {
         _init() {
             super._init({
@@ -553,7 +553,7 @@ var MultiMonitorsMessagesIndicator = (() => {
     return GObject.registerClass(MultiMonitorsMessagesIndicator);
 })();
 
-var MultiMonitorsDateMenuButton = (() => {
+const MultiMonitorsDateMenuButton = (() => {
     const BaseDateMenuButton = DateMenu.DateMenuButton ?? PanelMenu.Button;
 
     let MultiMonitorsDateMenuButton = class MultiMonitorsDateMenuButton extends BaseDateMenuButton {

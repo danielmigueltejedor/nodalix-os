@@ -42,6 +42,15 @@ class ReleaseIsoPartsTests(unittest.TestCase):
         meta=iso_metadata(self.image,5000)
         result=downloader.download_iso({'iso':meta},self.serve(),self.root/'downloaded.iso')
         self.assertEqual(result.read_bytes(),self.payload)
+    def test_existing_symlink_is_never_accepted_as_a_verified_download(self):
+        output = self.root / 'downloaded.iso'
+        output.symlink_to(self.image)
+        manifest = {'iso': iso_metadata(self.image, len(self.payload))}
+        with self.assertRaises(OSError):
+            downloader.download_iso(manifest, 'http://127.0.0.1:1', output)
+        self.assertTrue(output.is_symlink())
+        self.assertEqual(self.image.read_bytes(), self.payload)
+
     def test_corrupted_part_never_creates_final_image(self):
         meta=iso_metadata(self.image,5000)
         (self.root/meta['parts'][1]['asset']).write_bytes(b'corrupt')

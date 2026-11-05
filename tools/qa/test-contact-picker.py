@@ -1,5 +1,5 @@
 """Native GTK fixture: synthetic contacts and a fake dial backend only."""
-import gi,json,sys,time
+import gi,json,time
 from pathlib import Path
 gi.require_version('Gtk','4.0');gi.require_version('Adw','1')
 from gi.repository import Adw,Gtk,GLib,Gio
@@ -33,7 +33,7 @@ until=time.monotonic()+.6
 while time.monotonic()<until:
     while GLib.MainContext.default().pending():GLib.MainContext.default().iteration(False)
     time.sleep(.01)
-output=Path(sys.argv[1]);output.mkdir(exist_ok=True)
+output=Path.cwd()
 bus=Gio.bus_get_sync(Gio.BusType.SESSION,None)
 bus.call_sync('org.gnome.Shell.Screenshot','/org/gnome/Shell/Screenshot','org.gnome.Shell.Screenshot','Screenshot',GLib.Variant('(bbs)',(False,False,str((output/'contact-picker.png').resolve()))),None,Gio.DBusCallFlags.NONE,5000,None)
 dialog._choose(dialog._filtered.get_item(1))

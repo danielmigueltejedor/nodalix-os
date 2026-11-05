@@ -54,8 +54,8 @@ class MyService(dbus.service.Object):
 	BUS_NAME = 'space.unmade.GlobalMenu'
 
 	def __init__(self):
-		self.bus_name = dbus.service.BusName(self.BUS_NAME, bus=dbus.SessionBus())
-		dbus.service.Object.__init__(self, self.bus_name, self.BUS_PATH)
+		self._bus_registration = dbus.service.BusName(self.BUS_NAME, bus=dbus.SessionBus())
+		dbus.service.Object.__init__(self, self._bus_registration, self.BUS_PATH)
 
 	@dbus.service.signal(BUS_NAME, signature='su')
 	def MenuActivated(self, menu, x):
