@@ -3,7 +3,7 @@
 
 Native packages are installed by ALPM/pacman, Flatpaks by Flatpak and portable
 AppImages by the NXPM applications integration. There is NO on-client source
-download, Git checkout, AUR compilation or makepkg fallback.
+download, Git checkout, AUR compilation or local source-build fallback.
 """
 import argparse
 import os
