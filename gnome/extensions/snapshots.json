@@ -324,7 +324,7 @@
     "version": 56,
     "files": {
       "COPYING": "aaf135472f81c5b4a0dca9367e5bb5e9750032b5bebe5442b36e4c0a47430df3",
-      "extension.js": "8cb413cccacc91d595689f5e3ef88b646c69de00d6f7eba2acb99e664164a9ae",
+      "extension.js": "06bd14da63d189f71fbf4e158674d1e50bfe0985bde42a92be5fb1c13713c874",
       "locale/cs/LC_MESSAGES/tiling-assistant@leleat-on-github.mo": "d29a84e1b2f4658b8fec00c53fa4a9804e63bdcaa2504dcc7f391d6281585fda",
       "locale/de_CH/LC_MESSAGES/tiling-assistant@leleat-on-github.mo": "9c2b72c9d2f775967141012ccc8efbf1a6d524b8f345c387bba32fcd075adb7f",
       "locale/de_DE/LC_MESSAGES/tiling-assistant@leleat-on-github.mo": "b7475f6bc2830aacc7da603f7a2ac72ad94d0b46607e95d7117480b757ffe023",
@@ -378,7 +378,7 @@
       "src/extension/tileEditingMode.js": "9019af71852375c69ab09656454dcc7f3fdf0e33c226f79c00f53cf65f4c63b8",
       "src/extension/tilingPopup.js": "a16de67fc775a64ee5ebc1b836ccccf629a7bb1b761493ede4c57c6d9fde7ab8",
       "src/extension/tilingWindowManager.js": "f8e19311ab294d0ed3ff800205ac419476d54c10e2291b02489b2e8c5a1d5c46",
-      "src/extension/utility.js": "48630287f7794ad1b8264470613d628a9a9624ac55e4a7ed7a7b1847d3772dc7",
+      "src/extension/utility.js": "84bacb20258e821f987fcced4ac601a598b0e9727d2c36f2a7a6c93f26577258",
       "src/layouts_example.json": "2402d5801a8ff5409c2368f7c9dfd6f4f5a6f481cfddb55fbb42b9aca39d9664",
       "src/prefs/layoutRow.js": "9e918f2285df7f9db98357150c323381e31841884c484648eef13af780b6674d",
       "src/prefs/layoutRowEntry.js": "bb7cdfe6f28c4804fb04c908c51daa59e5e1a7a16de83395d969b45741ac94cc",

@@ -111,7 +111,9 @@ export class DesktopModules {
             records.set(uuid, record);
             // Apply the same St stylesheet selection as the stock desktop.
             this.extensionManager._loadExtensionStylesheet(record);
-            record.stateObj.enable();
+            await record.stateObj.enable();
+            if (this.stopped || !records.has(uuid))
+                return;
             record.state = ExtensionState.ACTIVE;
             this.extensionManager.emit('extension-state-changed', record);
             console.info(`Nodalix Shell module active: ${uuid}`);

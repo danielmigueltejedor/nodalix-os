@@ -215,15 +215,19 @@ export class Util {
         try {
             const [contents] = await this._layoutsFile.load_contents_async(
                 cancellable);
-            this._layouts = contents.length
+            cancellable?.set_error_if_cancelled();
+            const layouts = contents.length
                 ? JSON.parse(new TextDecoder().decode(contents))
                 : [];
+            if (!Array.isArray(layouts))
+                throw new TypeError('Saved tiling layouts must be an array');
+            this._layouts = layouts;
         } catch (e) {
-            if (e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
-                return;
+            if (e.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
+                throw e;
 
             // A missing file just means that no layouts were defined yet
-            if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND))
+            if (!e.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND))
                 logError(e, 'Failed to load the layouts');
 
             this._layouts = [];

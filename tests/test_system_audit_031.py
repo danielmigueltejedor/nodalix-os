@@ -130,6 +130,69 @@ class PhoneReconnectTests(unittest.TestCase):
 
 
 class TilingRestoreTests(unittest.TestCase):
+    def test_layout_loading_handles_corruption_missing_files_and_cancellation(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            source = ROOT / 'gnome/extensions/tiling-assistant@leleat-on-github/src/extension/utility.js'
+            script = root / 'layouts.mjs'
+            script.write_text('''import Gio from 'gi://Gio';
+Gio._promisify(Gio.File.prototype, 'load_contents_async');
+const source = new TextDecoder().decode(Gio.File.new_for_path(ARGV[0]).load_contents(null)[1]);
+const start = source.indexOf('static async _reloadLayouts(cancellable) {');
+const end = source.indexOf('\\n    /**', start);
+const definition = source.slice(start, end);
+const logged = [];
+const logError = error => logged.push(error);
+const Util = eval('(class { ' + definition + '})');
+const file = Gio.File.new_for_path(ARGV[1]);
+Util._layoutsFile = file;
+for (const [text, count] of [['[{"name":"saved"}]', 1], ['{broken', 0], ['{}', 0]]) {
+    file.replace_contents(text, null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
+    await Util._reloadLayouts(null);
+    if (!Array.isArray(Util._layouts) || Util._layouts.length !== count)
+        throw new Error('Incorrect layout state for ' + text);
+}
+if (logged.length !== 2) throw new Error('Corrupt layout errors must be reported');
+file.delete(null);
+await Util._reloadLayouts(null);
+if (logged.length !== 2 || Util._layouts.length) throw new Error('Missing layouts must be empty');
+file.replace_contents('[]', null, false, Gio.FileCreateFlags.REPLACE_DESTINATION, null);
+const cancelled = new Gio.Cancellable();
+cancelled.cancel();
+let propagated = false;
+try {
+    await Util._reloadLayouts(cancelled);
+} catch (error) {
+    propagated = error.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED);
+}
+if (!propagated) throw new Error('Cancellation must reach enable()');
+''')
+            subprocess.run(['gjs', '-m', str(script), str(source), str(root / 'layouts.json')],
+                           check=True, capture_output=True)
+
+    def test_partial_tiling_teardown_keeps_the_original_panel_method(self):
+        source = ROOT / 'gnome/extensions/tiling-assistant@leleat-on-github/extension.js'
+        script = r"""
+const fs = require('fs');
+const assert = require('assert');
+const source = fs.readFileSync(process.argv[1], 'utf8');
+const start = source.indexOf('    disable() {');
+const end = source.indexOf('\n    /**', start);
+const method = source.slice(start, end).replace('disable()', 'function()');
+const original = () => 'original';
+const Main = {panel: {_getDraggableWindowForPosition: original}};
+const disable = new Function('Main', 'Util', 'global', 'Meta', 'logError',
+    'return ' + method)(Main, {destroy() {}},
+    {display: {get_tab_list: () => []}}, {TabList: {NORMAL: 0}}, error => {throw error;});
+disable.call({_saveBeforeSessionLock() {}});
+assert.strictEqual(Main.panel._getDraggableWindowForPosition, original);
+const replacement = () => 'replacement';
+Main.panel._getDraggableWindowForPosition = replacement;
+disable.call({_saveBeforeSessionLock() {}, _getDraggableWindowForPosition: original});
+assert.strictEqual(Main.panel._getDraggableWindowForPosition, original);
+"""
+        subprocess.run(['node', '-e', script, str(source)], check=True)
+
     def test_real_gio_restores_saved_window_state_and_ignores_corrupt_json(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

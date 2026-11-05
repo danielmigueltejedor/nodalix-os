@@ -151,11 +151,16 @@ export default class TilingAssistantExtension extends Extension {
     async enable() {
         const cancellable = new Gio.Cancellable();
         this._cancellable = cancellable;
-        this.settings = (await import('./src/common.js')).Settings;
+        const {Settings} = await import('./src/common.js');
+        if (cancellable.is_cancelled())
+            return;
+        this.settings = Settings;
         this.settings.initialize(this.getSettings(), this);
         this._settingsOverrider = new SettingsOverrider(this.settings);
 
         const twmModule = await import('./src/extension/tilingWindowManager.js');
+        if (cancellable.is_cancelled())
+            return;
 
         this._twm = twmModule.TilingWindowManager;
         this._twm.initialize();
@@ -163,11 +168,13 @@ export default class TilingAssistantExtension extends Extension {
         try {
             await Util.initialize(cancellable);
         } catch (e) {
-            if (e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
+            if (e.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
                 return;
 
             throw e;
         }
+        if (cancellable.is_cancelled())
+            return;
 
         this._moveHandler = new MoveHandler();
         this._resizeHandler = new ResizeHandler();
@@ -231,6 +238,8 @@ export default class TilingAssistantExtension extends Extension {
 
         // Restore tiled window properties after session was unlocked.
         await this._loadAfterSessionLock(cancellable);
+        if (cancellable.is_cancelled())
+            return;
 
         // Setting used for detection of a fresh install and do compatibility
         // changes if necessary...
@@ -240,7 +249,11 @@ export default class TilingAssistantExtension extends Extension {
     disable() {
         // Save tiled window properties, if the session was locked to restore
         // them after the session is unlocked again.
-        this._saveBeforeSessionLock();
+        try {
+            this._saveBeforeSessionLock();
+        } catch (error) {
+            logError(error);
+        }
 
         this._cancellable?.cancel();
         this._cancellable = null;
@@ -270,7 +283,8 @@ export default class TilingAssistantExtension extends Extension {
         this.settings = null;
 
         // Restore old functions.
-        Main.panel._getDraggableWindowForPosition = this._getDraggableWindowForPosition;
+        if (this._getDraggableWindowForPosition)
+            Main.panel._getDraggableWindowForPosition = this._getDraggableWindowForPosition;
         this._getDraggableWindowForPosition = null;
 
         // Delete custom tiling properties.
@@ -287,7 +301,7 @@ export default class TilingAssistantExtension extends Extension {
      * properties of windows before locking the screen.
      */
     _saveBeforeSessionLock() {
-        if (!Main.sessionMode.isLocked)
+        if (!Main.sessionMode.isLocked || !this._twm)
             return;
 
         this._wasLocked = true;
