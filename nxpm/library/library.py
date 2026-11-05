@@ -17,7 +17,6 @@ import subprocess
 import sys
 import tempfile
 import threading
-import tomllib
 import urllib.parse
 
 import gi
@@ -146,11 +145,6 @@ def provider(app):
     if target:
         return {'kind': 'flatpak', 'scope': target[0], 'ref': target[1]}
     text = command(app)
-    for manifest in Path('/usr/share/nodalix-apps/apps').glob('*.toml'):
-        data = tomllib.loads(manifest.read_text())
-        root = Path(data['root']).expanduser()
-        if (root/'current').exists() and (str(root) in text or data['id'] in Path(app.get_executable() or '').name):
-            return {'kind': 'nodalix', 'root': str(root), 'id': data['id']}
     steam = re.search(r'steam://rungameid/(\d+)', text)
     if steam:
         return {'kind': 'steam', 'id': steam[1]}
@@ -337,7 +331,14 @@ def uninstall(app, target, runner=subprocess.run):
         if result.returncode:
             raise RuntimeError('Flatpak no pudo desinstalar la aplicación.')
     elif kind == 'package':
-        result = runner(['/usr/bin/pkexec', '/usr/lib/nodalix-apps/remove-system-app', target['desktop_id']])
+        trusted = system_desktop(target['desktop_id'])
+        if not trusted:
+            raise RuntimeError('El lanzador no pertenece a un paquete del sistema.')
+        owner = subprocess.run(['/usr/bin/pacman', '-Qqo', '--', str(trusted)],
+                               check=True, capture_output=True, text=True).stdout.strip()
+        if not re.fullmatch(r'[A-Za-z0-9_@+][A-Za-z0-9_@+.-]*', owner):
+            raise RuntimeError('No se pudo comprobar el paquete propietario.')
+        result = runner(['/usr/bin/nxpm', 'remove', owner])
         if result.returncode:
             raise RuntimeError('Se canceló la desinstalación o el sistema necesita este paquete.')
     elif kind == 'steam':
@@ -500,10 +501,7 @@ def install_file(path, folder):
             Gio.File.new_for_path(str(path)).trash(None)
         return ''
     if '.pkg.tar.' in path.name:
-        subprocess.run(['/usr/bin/pkexec', '/usr/bin/pacman', '-U', '--noconfirm', '--', str(path.resolve())], check=True)
-        if path.parent == folder:
-            Gio.File.new_for_path(str(path)).trash(None)
-        return ''
+        raise ValueError('Los paquetes nativos se instalan desde repositorios NXPM verificados, no desde archivos sin firma.')
     raise ValueError('Formatos admitidos: AppImage, Flatpak y paquetes de Nodalix/Arch.')
 
 
