@@ -1,28 +1,28 @@
 pkgname=nodalix-cursor-theme
 pkgver=0.5.0
-pkgrel=2
+pkgrel=3
 options=("!strip")
 pkgdesc="Capitaine Cursors with scalable GNOME and Xcursor formats"
 arch=("any")
-url="https://github.com/danielmigueltejedor/nodalix-os"
+url="https://github.com/danielmigueltejedor/nodalix-icon-theme"
 license=("LGPL-3.0-or-later")
 depends=("adwaita-cursors" "python" "glib2")
 makedepends=("python" "librsvg" "xorg-xcursorgen")
 install=nodalix-cursor-theme.install
-source=("Capitaine-r4.tar.gz::https://codeload.github.com/keeferrourke/capitaine-cursors/tar.gz/refs/tags/r4"
-        "build-capitaine.py" "nodalix-cursor.conf" "UPSTREAM.md" "migrate-cursor-theme"
-        "sync-session-cursor.py" "nodalix-cursor-sync.desktop" "default.index.theme")
-sha256sums=("41f66e9f4d41729dc5e9185aab3bc4a719fdcca939e6f3f590b6b811b28dedd2"
-            "cac3601ecaa4ec40782955e64f2c0c9e73ba0073b8085763db196259ec501ff5"
+_theme_commit=5b39a53db6f49de1f05e133565824bc2319f2ae8
+source=("nodalix-icon-theme-$_theme_commit.tar.gz::https://codeload.github.com/danielmigueltejedor/nodalix-icon-theme/tar.gz/$_theme_commit"
+        "nodalix-cursor.conf" "UPSTREAM.md" "migrate-cursor-theme" "sync-session-cursor.py" "nodalix-cursor-sync.desktop" "default.index.theme")
+sha256sums=("f2466190c60cadb617812919f9fc84e2148c7bfe57b884bdb2e9af623dde8f4e"
             "940bccb9b018c6bd360f0c18ccdd8669662e02c0ade0e4e51c44578c56eecb7a"
-            "7ab14c632c0fb0c53d58bff20516f8ac864ff2b5c5325705e0eb89ed0acf30c8"
+            "61aebd040d6abdd597999f3cb6fef2ddd33074527cadeba4fbbe28eb56715c34"
             "85589b27c7ed21f831d3958189a635f56c0572bdbe38308305d8eb380785e1f9"
             "8f83d507f3428122c821ae61ffca526633b0a5b85bb0c51282753e74f41cbd1d"
             "996a72736b47a3f3a9808a77415a5b26e3c3a6cce81269d7521cc08a767c6baf"
             "1c0c950c7f7239c7a2c1e36ecf6b84d61048f6be2316e070089820b310a9d9eb")
 
 build() {
-    python build-capitaine.py capitaine-cursors-r4/src "$srcdir/Nodalix"
+    local source="$srcdir/nodalix-icon-theme-$_theme_commit/cursors/nodalix"
+    python "$source/build.py" "$source/src" "$srcdir/Nodalix"
 }
 
 package() {
@@ -36,5 +36,5 @@ package() {
     install -Dm644 default.index.theme "$pkgdir/usr/share/nodalix/cursor-theme/default/index.theme"
     install -Dm644 nodalix-cursor.conf "$pkgdir/etc/environment.d/90-nodalix-cursor.conf"
     install -Dm644 UPSTREAM.md "$pkgdir/usr/share/doc/nodalix-cursor-theme/UPSTREAM.md"
-    install -Dm644 capitaine-cursors-r4/COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+    install -Dm644 "nodalix-icon-theme-$_theme_commit/cursors/nodalix/COPYING" "$pkgdir/usr/share/licenses/$pkgname/COPYING"
 }

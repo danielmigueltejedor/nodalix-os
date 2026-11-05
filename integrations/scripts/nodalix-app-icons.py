@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Use an available Colloid application icon, preserving desktop launch behavior."""
+"""Use maintained Nodalix artwork while preserving desktop launch behavior."""
 import argparse
 import configparser
 import fcntl
@@ -9,6 +9,8 @@ import os
 from pathlib import Path
 import re
 import shlex
+
+THEME_VARIANTS = ('Colloid-Teal', 'Colloid-Teal-Dark', 'Colloid-Teal-Light', 'Colloid')
 
 
 def digest(text):
@@ -50,13 +52,69 @@ def candidates(identifier, entry):
 def icon_index(roots):
     result = {}
     for root in roots:
-        for variant in ('Colloid-Teal', 'Colloid-Teal-Dark', 'Colloid-Teal-Light', 'Colloid'):
+        for variant in THEME_VARIANTS:
             folder = root / variant / 'apps/scalable'
             if folder.is_dir():
                 for path in sorted(folder.iterdir()):
                     if path.suffix in ('.svg', '.png', '.xpm') and path.is_file():
                         result.setdefault(path.stem, str(path))
     return result
+
+
+def read_icon_catalogue(root):
+    """Read validated icon identities and hashes from the theme package."""
+    try:
+        catalogue = json.loads((root / 'nodalix/icon-theme/legacy-icons.json').read_text())
+    except (OSError, ValueError):
+        return []
+    if not isinstance(catalogue, dict) or catalogue.get('schema_version') != 1:
+        return []
+    rows = catalogue.get('icons')
+    if not isinstance(rows, list):
+        return []
+    result = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        name, checksum = row.get('icon'), row.get('sha256')
+        if (isinstance(name, str) and re.fullmatch(r'[A-Za-z0-9_.+-]+', name)
+                and isinstance(checksum, str) and re.fullmatch(r'[0-9a-f]{64}', checksum)):
+            result.append((name, checksum))
+    return result
+
+
+def packaged_icons(roots, index):
+    legacy = {}
+    for root in roots:
+        for name, checksum in read_icon_catalogue(root):
+            legacy[checksum] = name
+            for variant in THEME_VARIANTS:
+                icon = root / 'icons' / variant / 'apps/scalable' / (name + '.svg')
+                if icon.is_file():
+                    index[name] = str(icon)
+                    break
+    return legacy
+
+
+def choose_icon(identifier, entry, index, roots, home, legacy):
+    names = candidates(identifier, entry)
+    if not names:
+        return None
+    path = Path(entry['Icon'])
+    managed = [root / folder for root in roots for folder in ('icons/hicolor', 'nodalix/applications')]
+    if (path.is_absolute() and path.is_relative_to(home)
+            and not any(path.is_relative_to(root) for root in managed)):
+        try:
+            # Adopt the small generated assets whose original bytes are known.
+            if path.stat().st_size <= 2 * 1024 * 1024:
+                with path.open('rb') as stream:
+                    checksum = hashlib.file_digest(stream, 'sha256').hexdigest()
+                return index.get(legacy.get(checksum))
+        except OSError:
+            pass
+        return None
+    themed = next((index[name] for name in names if name in index), None)
+    return themed or official_craft_icon(identifier, entry, roots)
 
 
 def replace_icon(text, icon):
@@ -100,6 +158,7 @@ def synchronize(home, data_roots=None, theme_roots=None):
         data_roots += [data_home / 'flatpak/exports/share', Path('/var/lib/flatpak/exports/share')]
     roots = [data_home] + data_roots
     index = icon_index(theme_roots or [p / 'icons' for p in roots])
+    legacy = packaged_icons(roots, index)
     manifest = state / 'overrides.json'
     try:
         old = json.loads(manifest.read_text())
@@ -141,8 +200,7 @@ def synchronize(home, data_roots=None, theme_roots=None):
             continue
         if entry.get('Type') != 'Application' or not entry.get('Icon'):
             continue
-        icon = official_craft_icon(identifier, entry, roots) or next(
-            (index[name] for name in candidates(identifier, entry) if name in index), None)
+        icon = choose_icon(identifier, entry, index, roots, home, legacy)
         if not icon:
             # Restore only our unchanged output if a theme icon disappears.
             if previous and destination.exists() and digest(destination.read_text()) == previous.get('written_hash'):

@@ -1,4 +1,6 @@
 import importlib.util
+import hashlib
+import json
 import os
 from pathlib import Path
 import tempfile
@@ -107,6 +109,63 @@ class Organization(unittest.TestCase):
         self.assertEqual(sync(),chosen)
         custom=apps/(names[0]+'.desktop');text=custom.read_text().replace('Icon='+chosen[custom.name],'Icon=/personal/my-icon.svg');custom.write_text(text)
         sync();self.assertEqual(custom.read_text(),text)
+
+    def test_packaged_craft_artwork_precedes_old_theme_and_official_fallback(self):
+        system = self.home / 'system'
+        packaged = system / 'icons/Colloid-Teal/apps/scalable'
+        packaged.mkdir(parents=True)
+        identifier = 'ai.storyteller.figcraft'
+        expected = packaged / (identifier + '.svg')
+        expected.write_text('<svg>nodalix</svg>')
+        local = self.home / 'themes/Colloid-Teal/apps/scalable'
+        local.mkdir(parents=True)
+        (local / expected.name).write_text('<svg>old theme</svg>')
+        catalogue = system / 'nodalix/icon-theme/legacy-icons.json'
+        catalogue.parent.mkdir(parents=True)
+        catalogue.write_text(json.dumps({'schema_version': 1, 'icons': [
+            {'icon': identifier, 'sha256': '0' * 64}]}))
+        official = self.home / '.local/share/icons/hicolor/128x128/apps'
+        official.mkdir(parents=True)
+        (official / (identifier + '.png')).write_bytes(b'official')
+        apps = self.home / '.local/share/applications'
+        apps.mkdir(parents=True)
+        entry = apps / (identifier + '.desktop')
+        entry.write_text('[Desktop Entry]\nType=Application\nName=FigCraft\nExec=figcraft %F\nIcon=' + identifier + '\n')
+        sync = lambda: icons.synchronize(self.home, [system], [self.home / 'themes'])
+        self.assertEqual(sync()[entry.name], str(expected))
+        personal = self.home / 'my-icon.svg'
+        personal.write_text('<svg>personal</svg>')
+        text = entry.read_text().replace(str(expected), str(personal))
+        entry.write_text(text)
+        self.assertNotIn(entry.name, sync())
+        self.assertEqual(entry.read_text(), text)
+
+    def test_legacy_portable_icon_is_adopted_and_later_personal_edits_are_preserved(self):
+        system = self.home / 'system'
+        packaged = system / 'icons/Colloid-Teal/apps/scalable'
+        packaged.mkdir(parents=True)
+        expected = packaged / 'audacity4.svg'
+        expected.write_text('<svg>maintained audacity</svg>')
+        legacy = self.home / 'icons/audacity4-colloid-512.png'
+        legacy.parent.mkdir()
+        legacy.write_bytes(b'original generated icon')
+        catalogue = system / 'nodalix/icon-theme/legacy-icons.json'
+        catalogue.parent.mkdir(parents=True)
+        catalogue.write_text(json.dumps({'schema_version': 1, 'icons': [{
+            'icon': 'audacity4', 'sha256': hashlib.sha256(legacy.read_bytes()).hexdigest()}]}))
+        apps = self.home / '.local/share/applications'
+        apps.mkdir(parents=True)
+        entry = apps / 'org.audacityteam.Audacity4portable.desktop'
+        original = '[Desktop Entry]\nType=Application\nName=Audacity 4 Portable\nExec=audacity4 %F\nIcon=' + str(legacy) + '\n'
+        entry.write_text(original)
+        sync = lambda: icons.synchronize(self.home, [system], [])
+        self.assertEqual(sync()[entry.name], str(expected))
+        self.assertIn('Exec=audacity4 %F', entry.read_text())
+        self.assertEqual(sync()[entry.name], str(expected))
+        legacy.write_bytes(b'new personal artwork')
+        self.assertNotIn(entry.name, sync())
+        self.assertEqual(entry.read_text(), original)
+        self.assertEqual(legacy.read_bytes(), b'new personal artwork')
 
     def test_settings_panels_restore_managed_overrides_and_stay_symbolic(self):
         import json
