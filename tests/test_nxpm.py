@@ -55,12 +55,16 @@ class NxpmTests(unittest.TestCase):
         self.assertIn('linux-nodalix', command.call_args.args[0])
         self.assertNotIn('makepkg', str(command.call_args))
 
-    def test_remove_desktop_uses_trusted_helper(self):
-        command = Mock(return_value=0)
-        with patch.dict(G, {'execute': command}):
-            self.assertEqual(API['remove_desktop']('org.gnome.Boxes.desktop'), 0)
-        command.assert_called_once_with(
-            ['/usr/lib/nxpm/remove-system-app', 'org.gnome.Boxes.desktop'], privileged=True)
+    def test_remove_desktop_checks_ownership_and_package(self):
+        from types import SimpleNamespace
+        remover = Mock(return_value=0)
+        with patch.object(Path, "is_file", return_value=True), \
+             patch.object(Path, "is_symlink", return_value=False), \
+             patch.object(Path, "stat", return_value=SimpleNamespace(st_uid=0, st_mode=0o755)), \
+             patch.dict(G, {'output': lambda command: (0, 'inkscape\n'),
+                            'remove': remover}):
+            self.assertEqual(API['remove_desktop']('inkscape.desktop'), 0)
+        remover.assert_called_once_with('inkscape', 'native')
 
     def test_old_apps_are_absent_from_new_package(self):
         pkg = (ROOT / 'packaging/nxpm/PKGBUILD').read_text()
