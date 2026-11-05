@@ -49,11 +49,11 @@ export class DesktopModules {
         if (this.running || this.stopped)
             return;
         this.running = true;
-        this.reconcile().catch(logError).finally(() => {
+        this.reconcile().finally(() => {
             this.running = false;
             if (this.requested && !this.stopped)
                 this.schedule();
-        });
+        }).catch(error => logError(error, 'Nodalix Shell module reconciliation failed'));
     }
 
     async reconcile() {
