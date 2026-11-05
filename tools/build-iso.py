@@ -313,6 +313,7 @@ rm -rf \
 systemctl enable \
     NetworkManager \
     bluetooth \
+    cups.socket \
     gdm \
     power-profiles-daemon
 

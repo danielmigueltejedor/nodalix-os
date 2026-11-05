@@ -92,7 +92,11 @@ timeout 900 qemu-system-x86_64 -accel tcg -cpu max -m 4096 -smp 2 \
   -drive "file=$qa/migrated.raw,format=raw,if=virtio" -device virtio-vga \
   -qmp "unix:$qa/qmp.sock,server=on,wait=off" \
   -display none -serial "file:/src/dist/migration-evidence/boot.log" -monitor none -no-reboot
-wait "$wake_pid"
+# A failed guest never suspends, so the wake helper fails too. Show the logs
+# before judging either result; otherwise the job ends with no evidence.
+wake_status=0
+wait "$wake_pid" || wake_status=$?
 cat /src/dist/migration-evidence/suspend.log
-cat /src/dist/migration-evidence/boot.log
+cut -c1-600 /src/dist/migration-evidence/boot.log
 grep -q 'NODALIX_VM_MIGRATION_PASS' /src/dist/migration-evidence/boot.log
+test "$wake_status" -eq 0

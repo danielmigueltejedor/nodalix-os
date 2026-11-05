@@ -10,6 +10,15 @@ from pathlib import Path
 
 QA_ID = 'nodalix-ci-native@example.invalid'
 PHONE_ID = 'nodalix-connect@getnodalia.com'
+UNLOCK_STATE = '''JSON.stringify({
+    active: Main.screenShield.active, locked: Main.screenShield._isLocked,
+    mode: Main.sessionMode.currentMode, hasDialog: !!Main.screenShield._dialog,
+    pending: Main.screenShield._dialog?._authPrompt?._userVerifier?.hasPendingMessages ?? null,
+    transitions: Main.screenShield._lockDialogGroup.get_transition('translation_y') !== null ||
+                 Main.screenShield._lockDialogGroup.get_transition('opacity') !== null,
+    groupVisible: Main.screenShield._lockDialogGroup.visible,
+    limits: Main.timeLimitsManager?.shouldLockSession ?? null
+})'''
 
 
 def wait_for(predicate, description, timeout=120):
@@ -72,7 +81,12 @@ def verify_user():
                       Gio.DBusCallFlags.NONE, 30000, None)
         wait_for(lambda: evaluate('Main.sessionMode.currentMode === "unlock-dialog"'), 'real lock screen')
         evaluate('Main.screenShield.deactivate(false); true')
-        wait_for(lambda: evaluate('!Main.screenShield.active && Main.sessionMode.currentMode === "user"'), 'unlock transition')
+        try:
+            wait_for(lambda: evaluate('!Main.screenShield.active && Main.sessionMode.currentMode === "user"'),
+                     'unlock transition', timeout=60)
+        except RuntimeError:
+            print('Unlock diagnostics:', evaluate(UNLOCK_STATE), flush=True)
+            raise
         wait_for(active_modules, 'native modules after unlock')
         print('Native Shell lock/unlock passed', flush=True)
         # Suspend through logind so Shell and Hanabi receive PrepareForSleep.

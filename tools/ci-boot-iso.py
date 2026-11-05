@@ -69,6 +69,9 @@ def main():
                     if b'NODALIX_VM_MIGRATION_PASS\r\n' in transcript or b'NODALIX_VM_MIGRATION_PASS\n' in transcript:
                         passed = True
         if not passed:
+            # The artifact is not reachable from every environment, so keep the
+            # end of the serial transcript in the job log as well.
+            print(transcript[-24000:].decode(errors='replace')[-24000:], flush=True)
             raise RuntimeError('ISO did not complete its real GDM/user-session checks; inspect boot.log')
         print('Release ISO kernel, archiso root, GDM and GNOME session passed in QEMU')
     finally:
