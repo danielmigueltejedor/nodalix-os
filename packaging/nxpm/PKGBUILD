@@ -14,6 +14,8 @@ sha256sums=('SKIP')
 
 package() {
   install -Dm755 "$srcdir/nxpm/nxpm" "$pkgdir/usr/bin/nxpm"
+  install -Dm755 "$srcdir/nxpm/flatpak_permissions.py" "$pkgdir/usr/bin/nxpm-permissions"
+  install -Dm644 "$srcdir/nxpm/com.nodalix.NXPMPermissions.desktop" "$pkgdir/usr/share/applications/com.nodalix.NXPMPermissions.desktop"
   install -Dm644 "$srcdir/nxpm/README.md" "$pkgdir/usr/share/doc/nxpm/README.md"
   install -Dm644 "$srcdir/nxpm/library/library.py" "$pkgdir/usr/lib/nxpm/library.py"
   install -Dm644 "$srcdir/nxpm/library/install_ui.py" "$pkgdir/usr/lib/nxpm/install_ui.py"
