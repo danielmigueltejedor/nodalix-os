@@ -1,2 +1,2 @@
 #!/bin/sh
-exec /usr/bin/python /usr/lib/nodalix-apps/library.py "$@"
+exec /usr/bin/python /usr/lib/nxpm/library.py "$@"

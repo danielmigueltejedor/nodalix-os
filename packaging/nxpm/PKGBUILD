@@ -17,7 +17,6 @@ package() {
   install -Dm644 "$srcdir/nxpm/README.md" "$pkgdir/usr/share/doc/nxpm/README.md"
   install -Dm644 "$srcdir/nxpm/library/library.py" "$pkgdir/usr/lib/nxpm/library.py"
   install -Dm644 "$srcdir/nxpm/library/install_ui.py" "$pkgdir/usr/lib/nxpm/install_ui.py"
-  install -Dm755 "$srcdir/nxpm/library/remove-system-app" "$pkgdir/usr/lib/nxpm/remove-system-app"
   install -Dm755 "$srcdir/nxpm/library/nxpm-app-library" "$pkgdir/usr/bin/nxpm-app-library"
   install -Dm644 "$srcdir/nxpm/library/nxpm-applications.service" "$pkgdir/usr/lib/systemd/user/nxpm-applications.service"
   install -d "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants"

@@ -4,7 +4,7 @@ After=graphical-session.target
 PartOf=graphical-session.target
 [Service]
 Type=simple
-ExecStart=/usr/bin/nodalix-app-library watch
+ExecStart=/usr/bin/nxpm-app-library watch
 Restart=on-failure
 RestartSec=10s
 [Install]

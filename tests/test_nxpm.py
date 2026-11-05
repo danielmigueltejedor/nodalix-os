@@ -43,7 +43,7 @@ class NxpmTests(unittest.TestCase):
         with patch.dict(G, {'execute': cmd, 'flatpak_installed': lambda _: '--user'}):
             with self.assertRaises(API['NxpmError']):
                 API['permissions']('grant', 'org.gnome.Boxes', 'host')
-            self.assertEqual(API['permissions']('grant', 'org.gnome.Boxes', 'xdg-download'), None)
+            API['permissions']('grant', 'org.gnome.Boxes', 'xdg-download')
         # Mock's return value is what permissions returns.
         # Verify the requested permission is a known, bounded scope.
         self.assertEqual(cmd.call_args.args[0][-2], '--filesystem=xdg-download')
