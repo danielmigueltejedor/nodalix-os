@@ -2,11 +2,11 @@
 # Rebuild and validate this fork for every Nodalix and GNOME update.
 pkgname=nodalix-shell-preview
 pkgver=0.5.0
-pkgrel=1
+pkgrel=2
 epoch=1
 _gnomever=51.1
 _upstream_commit=33da06854e229c256afd5872fedd83c28cbfa176
-pkgdesc="Nodalix-maintained GNOME Shell 51.1 with first-party native modules (preview)"
+pkgdesc="Nodalix-maintained GNOME Shell 51.1 with bundled desktop modules (preview)"
 arch=('x86_64')
 url='https://github.com/danielmigueltejedor/nodalix-os'
 license=('GPL-3.0-or-later')
@@ -56,9 +56,9 @@ build() {
 
 check() {
   local module
-  for module in main connect; do
-    gresource extract build/src/libshell-51.so "/org/gnome/shell/nodalix/$module.js" |
-      cmp - "$srcdir/gnome/nodalix-shell/$module.js"
+  for module in main.js connect.js modules.js modules.json; do
+    gresource extract build/src/libshell-51.so "/org/gnome/shell/nodalix/$module" |
+      cmp - "$srcdir/gnome/nodalix-shell/$module"
   done
   if pkg-config --exists libmutter-test-51; then
     meson test -C build --print-errorlogs
@@ -67,7 +67,14 @@ check() {
 
 package() {
   DESTDIR="$pkgdir" meson install -C build
-  install -d "$pkgdir/usr/share/nodalix"
+  local module_dir target="$pkgdir/usr/share/gnome-shell/nodalix-modules"
+  install -d "$target" "$pkgdir/usr/share/nodalix"
+  for module_dir in "$srcdir"/gnome/extensions/*; do
+    cp -a --no-preserve=ownership "$module_dir" "$target/"
+    if [[ -d "$target/${module_dir##*/}/schemas" ]]; then
+      glib-compile-schemas --strict "$target/${module_dir##*/}/schemas"
+    fi
+  done
   printf 'NODALIX_OS_VERSION=%s\nGNOME_SHELL_VERSION=%s\nUPSTREAM_COMMIT=%s\n' \
     "$pkgver" "$_gnomever" "$_upstream_commit" \
     > "$pkgdir/usr/share/nodalix/shell-build"

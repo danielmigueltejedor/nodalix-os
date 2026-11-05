@@ -13,10 +13,17 @@ import sys
 
 GNOME_VERSION = "51.1"
 NATIVE_EXTENSION = "nodalix-connect@getnodalia.com"
+RESOURCES = ("main.js", "connect.js", "modules.js", "modules.json")
 
 MAIN_IMPORT = "import * as Panel from './panel.js';\n"
 MAIN_INITIALIZE = "    await _initializeUI();\n"
+MAIN_LAYOUT = "    layoutManager = new Layout.LayoutManager();\n"
 RESOURCE_ANCHOR = "    <file>ui/main.js</file>\n"
+EXTENSION_IMPORT = "import * as Main from './main.js';\n"
+EXTENSION_LOOKUP = "        return this._extensions.get(uuid);\n"
+EXTENSION_DISCOVERY = "            const uuid = info.get_name();\n            const existing = this.lookup(uuid);\n"
+GETTEXT_DETECTION = """        const extensionLine = stack.find(
+            line => line.includes(basePath));"""
 EXTENSION_FILTER = "        return extensions.filter(item => !disabledExtensions.includes(item));\n"
 
 
@@ -37,16 +44,23 @@ def prepare(source: Path, overlay: Path) -> None:
     main = source / "js/ui/main.js"
     resources = source / "js/js-resources.gresource.xml"
     extensions = source / "js/ui/extensionSystem.js"
+    gettext = source / "js/extensions/sharedInternals.js"
     for path, needle in (
         (main, MAIN_IMPORT),
         (main, MAIN_INITIALIZE),
+        (main, MAIN_LAYOUT),
         (resources, RESOURCE_ANCHOR),
+        (extensions, EXTENSION_IMPORT),
+        (extensions, EXTENSION_LOOKUP),
+        (extensions, EXTENSION_DISCOVERY),
         (extensions, EXTENSION_FILTER),
+        (gettext, GETTEXT_DETECTION),
+        (gettext, "extensionLine.indexOf(basePath)"),
     ):
         if path.read_text(encoding="utf-8").count(needle) != 1:
             raise ValueError(f"{path}: upstream anchor differs; port and test before building")
 
-    for name in ("main.js", "connect.js"):
+    for name in RESOURCES:
         if not (overlay / name).is_file():
             raise FileNotFoundError(overlay / name)
         if (source / "js/nodalix" / name).exists():
@@ -54,7 +68,7 @@ def prepare(source: Path, overlay: Path) -> None:
 
     destination = source / "js/nodalix"
     destination.mkdir(parents=True, exist_ok=True)
-    for name in ("main.js", "connect.js"):
+    for name in RESOURCES:
         shutil.copyfile(overlay / name, destination / name)
 
     replace_once(
@@ -63,17 +77,39 @@ def prepare(source: Path, overlay: Path) -> None:
     replace_once(
         main, MAIN_INITIALIZE,
         MAIN_INITIALIZE + "\n    // First-party Nodalix modules are initialized after GNOME UI.\n"
-        + "    Nodalix.start({panel, sessionMode, notifyError});\n")
+        + "    Nodalix.start({panel, sessionMode, extensionManager, notifyError});\n")
+    # Connect before LayoutManager registers its actor-destruction handler.
+    replace_once(
+        main, MAIN_LAYOUT,
+        "    global.connect('shutdown', Nodalix.stop);\n" + MAIN_LAYOUT)
     replace_once(
         resources, RESOURCE_ANCHOR,
-        RESOURCE_ANCHOR + "    <file>nodalix/main.js</file>\n"
-        + "    <file>nodalix/connect.js</file>\n")
+        RESOURCE_ANCHOR + "".join(f"    <file>nodalix/{name}</file>\n" for name in RESOURCES))
+    replace_once(
+        extensions, EXTENSION_IMPORT,
+        EXTENSION_IMPORT + "import * as NodalixModules from '../nodalix/modules.js';\n")
+    replace_once(
+        extensions, EXTENSION_LOOKUP,
+        "        return this._extensions.get(uuid) ?? NodalixModules.lookupModule(uuid);\n")
+    replace_once(
+        extensions, EXTENSION_DISCOVERY,
+        "            const uuid = info.get_name();\n"
+        + "            if (NodalixModules.managesModule(uuid))\n"
+        + "                return null;\n"
+        + "            const existing = this.lookup(uuid);\n")
     # Skip the old extension without changing the user's GNOME settings. The
     # standard Arch GNOME Shell will honor it again after reverting the package.
     replace_once(
         extensions, EXTENSION_FILTER,
         "        return extensions.filter(item => !disabledExtensions.includes(item) &&\n"
-        + f"            item !== '{NATIVE_EXTENSION}');\n")
+        + f"            item !== '{NATIVE_EXTENSION}' && !NodalixModules.managesModule(item));\n")
+    replace_once(
+        gettext, GETTEXT_DETECTION,
+        "        const paths = [basePath, '/gnome-shell/nodalix-modules/'];\n"
+        "        const extensionLine = stack.find(line => paths.some(path => line.includes(path)));")
+    replace_once(
+        gettext, "extensionLine.indexOf(basePath)",
+        "extensionLine.indexOf(paths.find(base => extensionLine.includes(base)))")
     print(f"Nodalix Shell native overlay applied to GNOME Shell {GNOME_VERSION}")
 
 

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -15,6 +16,10 @@ SPEC.loader.exec_module(MODULE)
 
 def fixture(path: Path, version: str = "51.1") -> None:
     (path / "js/ui").mkdir(parents=True, exist_ok=True)
+    (path / "js/extensions").mkdir(exist_ok=True)
+    (path / "js/extensions/sharedInternals.js").write_text(
+        MODULE.GETTEXT_DETECTION + "\n"
+        "        const path = extensionLine.slice(extensionLine.indexOf(basePath));\n")
     (path / "js/meson.build").write_text("subdir('misc')\n")
     (path / "meson.build").write_text(
         f"project('gnome-shell', 'c',\n  version: '{version}',\n)\n"
@@ -22,9 +27,13 @@ def fixture(path: Path, version: str = "51.1") -> None:
     (path / "js/ui/main.js").write_text(
         "import * as Panel from './panel.js';\n"
         "export async function start() {\n"
-        "    await _initializeUI();\n"
+        "    await _initializeUI();\n" + MODULE.MAIN_LAYOUT +
         "}\n")
     (path / "js/ui/extensionSystem.js").write_text(
+        "import * as Main from './main.js';\n"
+        "        return this._extensions.get(uuid);\n"
+        "            const uuid = info.get_name();\n"
+        "            const existing = this.lookup(uuid);\n"
         "        return extensions.filter(item => !disabledExtensions.includes(item));\n")
     (path / "js/js-resources.gresource.xml").write_text(
         "<gresources>\n  <gresource prefix=\"/org/gnome/shell\">\n"
@@ -45,13 +54,30 @@ class NativeShellOverlayTests(unittest.TestCase):
         main = (self.source / "js/ui/main.js").read_text()
         resources = (self.source / "js/js-resources.gresource.xml").read_text()
         extensions = (self.source / "js/ui/extensionSystem.js").read_text()
-        self.assertIn("Nodalix.start({panel, sessionMode, notifyError})", main)
+        self.assertIn("Nodalix.start({panel, sessionMode, extensionManager, notifyError})", main)
+        self.assertLess(main.index("global.connect('shutdown', Nodalix.stop)"),
+                        main.index("layoutManager = new Layout.LayoutManager()"))
         self.assertIn("nodalix/main.js", resources)
         self.assertIn("nodalix/connect.js", resources)
         self.assertIn("nodalix-connect@getnodalia.com", extensions)
+        self.assertIn("!NodalixModules.managesModule(item)", extensions)
+        self.assertIn("NodalixModules.lookupModule(uuid)", extensions)
         self.assertNotIn("set_strv", extensions)
         self.assertIn("bus_watch_name", (self.source / "js/nodalix/connect.js").read_text())
         self.assertIn("sessionMode.isGreeter", (self.source / "js/nodalix/main.js").read_text())
+
+    def test_bundled_desktop_modules_keep_their_upstream_ids(self):
+        MODULE.prepare(self.source, self.overlay)
+        manifest = self.source / "js/nodalix/modules.json"
+        module_ids = json.loads(manifest.read_text())
+        self.assertEqual(len(set(module_ids)), len(module_ids))
+        self.assertIn("blur-my-shell@aunetx", module_ids)
+        self.assertIn("tiling-assistant@leleat-on-github", module_ids)
+        self.assertIn("global-menu@unmade.space", module_ids)
+        for uuid in module_ids:
+            path = ROOT / "gnome/extensions" / uuid
+            self.assertTrue((path / "extension.js").is_file())
+            self.assertEqual(json.loads((path / "metadata.json").read_text())["uuid"], uuid)
 
     def test_unrecognized_upstream_version_fails_without_writing(self):
         fixture(self.source, "52.0")
