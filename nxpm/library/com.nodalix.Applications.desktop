@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Nodalix Applications
+Name[es]=Aplicaciones de Nodalix
+Exec=/usr/bin/nodalix-app-library open %f
+Icon=system-software-install
+NoDisplay=true
+MimeType=application/x-nodalix-app;
