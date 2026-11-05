@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Search the Web
-Name[es]=Buscar en la web
-Exec=/usr/lib/nodalix/web-search-provider --open
-Icon=web-browser
-Categories=Network;
-OnlyShowIn=GNOME;
