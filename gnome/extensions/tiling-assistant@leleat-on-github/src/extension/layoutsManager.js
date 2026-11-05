@@ -188,7 +188,10 @@ export default class TilingLayoutsManager {
         }
 
         const appId = this._currItem.appId;
-        appId ? this._openAppTiled(appId) : this._openTilingPopup().catch(logError);
+        if (appId)
+            this._openAppTiled(appId);
+        else
+            this._openTilingPopup().catch(logError);
     }
 
     _openAppTiled(appId) {

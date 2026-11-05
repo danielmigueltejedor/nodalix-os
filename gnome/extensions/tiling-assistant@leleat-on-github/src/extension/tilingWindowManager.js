@@ -844,7 +844,7 @@ export class TilingWindowManager {
         } else {
             const biggestSingle = freeRects.reduce((currBiggest, rect) => {
                 return currBiggest.area >= rect.area ? currBiggest : rect;
-            });
+            }, freeRects[0]);
             rectList.push(biggestSingle);
 
             return this.getBestFreeRect(rectList, { currRect: biggestSingle });
