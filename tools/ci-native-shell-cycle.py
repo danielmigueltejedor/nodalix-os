@@ -79,14 +79,22 @@ def verify_user():
         bus.call_sync('org.gnome.ScreenSaver', '/org/gnome/ScreenSaver',
                       'org.gnome.ScreenSaver', 'Lock', None, None,
                       Gio.DBusCallFlags.NONE, 30000, None)
-        wait_for(lambda: evaluate('Main.sessionMode.currentMode === "unlock-dialog"'), 'real lock screen')
-        evaluate('Main.screenShield.deactivate(false); true')
-        try:
-            wait_for(lambda: evaluate('!Main.screenShield.active && Main.sessionMode.currentMode === "user"'),
-                     'unlock transition', timeout=60)
-        except RuntimeError:
-            print('Unlock diagnostics:', evaluate(UNLOCK_STATE), flush=True)
-            raise
+        # The lock screen builds its dialog asynchronously, and a software
+        # rendered guest can take a long while. Unlocking before it exists is
+        # undone when the pending activation completes, so wait for the dialog.
+        wait_for(lambda: evaluate('Main.sessionMode.currentMode === "unlock-dialog" && !!Main.screenShield._dialog'),
+                 'real lock screen', timeout=120)
+        unlocked = 'Main.screenShield.active === false && Main.sessionMode.currentMode === "user"'
+        deadline = time.monotonic() + 120
+        while True:
+            evaluate('Main.screenShield.deactivate(false); true')
+            try:
+                wait_for(lambda: evaluate(unlocked), 'unlock transition', timeout=20)
+                break
+            except RuntimeError:
+                print('Unlock diagnostics:', evaluate(UNLOCK_STATE), flush=True)
+                if time.monotonic() >= deadline:
+                    raise
         wait_for(active_modules, 'native modules after unlock')
         print('Native Shell lock/unlock passed', flush=True)
         # Suspend through logind so Shell and Hanabi receive PrepareForSleep.
@@ -139,7 +147,7 @@ def main():
                            '/usr/bin/python3', str(Path(__file__).resolve())]) as process:
         try:
             wait_for(lambda: ready.is_file() or process.poll() is not None,
-                     'lock/unlock and suspend preparation', timeout=240)
+                     'lock/unlock and suspend preparation', timeout=330)
             if process.poll() is not None:
                 raise RuntimeError('Guest lock/unlock preparation failed')
             subprocess.run(['systemctl', 'suspend'], check=True, timeout=120)
