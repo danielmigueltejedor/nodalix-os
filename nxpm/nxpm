@@ -1,182 +1,219 @@
 #!/usr/bin/env python3
-"""NXPM: binary-only frontend for the signed Nodalix native repository.
+"""NXPM: one binary-only interface to Linux software on Nodalix.
 
-Never fetch source code, run makepkg, build an AUR recipe, or execute an app
-updater on an end-user machine. Native transactions currently use pacman's
-ALPM backend; a future libalpm backend must keep this CLI contract.
+Native packages are installed by ALPM/pacman, Flatpaks by Flatpak and portable
+AppImages by the NXPM applications integration. There is NO on-client source
+download, Git checkout, AUR compilation or makepkg fallback.
 """
 import argparse
-import json
 import os
 from pathlib import Path
 import re
 import subprocess
 import sys
 
-CATALOG = Path(os.environ.get("NXPM_CATALOG", "/usr/share/nxpm/catalog.json"))
 PACMAN = "/usr/bin/pacman"
+FLATPAK = "/usr/bin/flatpak"
 PKEXEC = "/usr/bin/pkexec"
-IDENT = re.compile(r"^[a-z][a-z0-9-]*$")
+PACKAGE = re.compile(r"[A-Za-z0-9_@+][A-Za-z0-9_@+.-]*\Z")
+APPID = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]*\Z")
+DESKTOP = re.compile(r"[A-Za-z0-9_@+ .-]+\.desktop\Z")
+SAFE_FILESYSTEMS = {"home", "xdg-documents", "xdg-download", "xdg-pictures",
+                    "xdg-music", "xdg-videos", "xdg-desktop"}
+CORE = {"nxpm", "nodalix-release", "nodalix-gnome", "nodalix-updater",
+        "nodalix-settings", "nodalix-control-center", "linux-nodalix",
+        "pacman", "glibc", "systemd", "gnome-shell", "mutter",
+        "filesystem", "base", "bash", "polkit", "networkmanager"}
 
 
 class NxpmError(Exception):
     pass
 
 
-def catalog():
-    try:
-        data = json.loads(CATALOG.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as error:
-        raise NxpmError(f"Catálogo NXPM no disponible: {error}") from error
-    if data.get("schema") != 1 or data.get("repository") != "nodalix":
-        raise NxpmError("Esquema o repositorio NXPM no admitido")
-    rows = data.get("apps")
-    if not isinstance(rows, list):
-        raise NxpmError("Catálogo NXPM inválido")
-    entries = {}
-    packages = set()
-    for entry in rows:
-        if not isinstance(entry, dict):
-            raise NxpmError("Entrada NXPM inválida")
-        app_id = entry.get("id")
-        package = entry.get("package")
-        if not isinstance(app_id, str) or not IDENT.fullmatch(app_id):
-            raise NxpmError("Identificador de app inválido")
-        if not isinstance(package, str) or not IDENT.fullmatch(package) or not package.startswith("nodalix-"):
-            raise NxpmError("Nombre de paquete inválido")
-        if app_id in entries or package in packages:
-            raise NxpmError("Identificador o paquete repetido")
-        if not isinstance(entry.get("name"), str) or not entry["name"]:
-            raise NxpmError("Nombre visible inválido")
-        entries[app_id] = entry
-        packages.add(package)
-    return entries
+def execute(argv, privileged=False):
+    cmd = ([PKEXEC] if privileged and os.geteuid() else []) + argv
+    return subprocess.run(cmd, check=False).returncode
 
 
-def run(args):
-    return subprocess.run(args, text=True, capture_output=True, check=False)
+def output(argv):
+    result = subprocess.run(argv, text=True, capture_output=True, check=False)
+    return result.returncode, result.stdout
+
+
+def valid(value, kind):
+    pattern = PACKAGE if kind == "package" else APPID if kind == "flatpak" else DESKTOP
+    if not pattern.fullmatch(value) or value.startswith(("-", ".")):
+        raise NxpmError("Identificador no válido")
+    return value
 
 
 def installed(package):
-    result = run([PACMAN, "-Q", "--", package])
-    return result.returncode == 0
+    return output([PACMAN, "-Q", "--", package])[0] == 0
 
 
-def legacy_present(app_id):
-    # Detection only; never remove user data or launch source-based updaters.
-    location = Path.home() / ".local/opt/nodalix/apps" / app_id / "current"
-    return location.exists() or location.is_symlink()
+def native_transaction(arguments):
+    # The release-controlled kernel is never updated through ordinary
+    # app transactions. A separate Nodalix release controls kernel versions.
+    return execute([PACMAN, "-Syu", "--ignore", "linux-nodalix",
+                    *arguments], privileged=True)
 
 
-def repository_packages():
-    result = run([PACMAN, "-Sl", "nodalix"])
-    if result.returncode:
-        raise NxpmError("Repositorio binario firmado [nodalix] no configurado o sin sincronizar.")
-    available = set()
-    for line in result.stdout.splitlines():
-        fields = line.split()
-        if len(fields) >= 3 and fields[0] == "nodalix":
-            available.add(fields[1])
-    return available
+def flatpak_installed(app_id):
+    for scope in ("--user", "--system"):
+        code, _ = output([FLATPAK, "info", scope, app_id])
+        if code == 0:
+            return scope
+    return None
 
 
-def ensure_available(package):
-    if package not in repository_packages():
-        raise NxpmError(
-            f"No existe un binario publicado para {package} en [nodalix]. "
-            "No se compilará en este equipo. La instalación actual no cambia."
-        )
+def provider(target, selected):
+    if target.startswith("flatpak:"):
+        return "flatpak", valid(target[len("flatpak:"):], "flatpak")
+    if target.startswith("aur:"):
+        raise NxpmError("AUR solo está disponible si existe un binario verificado "
+                        "en los repositorios Nodalix; no compilamos en el PC.")
+    if target.lower().endswith(".appimage"):
+        return "appimage", target
+    if selected == "flatpak":
+        return "flatpak", valid(target, "flatpak")
+    if selected == "native":
+        return "native", valid(target, "package")
+    raise NxpmError("Proveedor no admitido")
 
 
-def transaction(args):
-    command = [PACMAN] if os.geteuid() == 0 else [PKEXEC, PACMAN]
-    # Never pass user-supplied package names; only validated catalog entries.
-    completed = subprocess.run(command + args, check=False)
-    return completed.returncode
+def search(term, source):
+    if source in ("native", "all"):
+        execute([PACMAN, "-Ss", "--", term])
+    if source in ("flatpak", "all"):
+        execute([FLATPAK, "search", term])
 
 
-def choose(entries, app_id):
-    if app_id not in entries:
-        raise NxpmError(f"Aplicación desconocida: {app_id}")
-    return entries[app_id]
+def list_installed(source):
+    if source in ("native", "all"):
+        execute([PACMAN, "-Qe"])
+    if source in ("flatpak", "all"):
+        execute([FLATPAK, "list", "--app", "--columns=application,version,origin"])
 
 
-def status(entries, app_id=None):
-    rows = [(app_id, choose(entries, app_id))] if app_id else entries.items()
-    for key, item in rows:
-        native = installed(item["package"])
-        legacy = legacy_present(key)
-        state = "paquete nativo" if native else "instalación anterior" if legacy else "no instalada"
-        if native and legacy:
-            state += " + copia anterior (requiere revisión)"
-        print(f'{key:<12} {item["name"]:<22} {state}')
+def install(target, source):
+    name, value = provider(target, source)
+    if name == "native":
+        return native_transaction(["--needed", "--", value])
+    if name == "flatpak":
+        return execute([FLATPAK, "install", "--user", "--", value])
+    # AppImage is copied and indexed by NXPM; no execution/build for metadata.
+    source_path = Path(value).expanduser().resolve()
+    if not source_path.is_file() or source_path.suffix.lower() != ".appimage":
+        raise NxpmError("Selecciona un archivo AppImage local válido.")
+    return execute(["/usr/bin/nxpm-app-library", "install", str(source_path)])
+
+
+def remove(target, source):
+    name, value = provider(target, source)
+    if name == "native":
+        if value.lower() in CORE:
+            raise NxpmError("El paquete pertenece al sistema Nodalix.")
+        if not installed(value):
+            raise NxpmError("El paquete no está instalado.")
+        # -R retains app data and dependencies, refuses required dependencies.
+        return execute([PACMAN, "-R", "--", value], privileged=True)
+    if name == "flatpak":
+        scope = flatpak_installed(value)
+        if not scope:
+            raise NxpmError("Flatpak no está instalado.")
+        return execute([FLATPAK, "uninstall", scope, "--", value],
+                       privileged=scope == "--system")
+    raise NxpmError("Desinstala este AppImage desde Aplicaciones.")
+
+
+def update(target=None):
+    if target:
+        name, value = provider(target, "native")
+        if name == "flatpak":
+            scope = flatpak_installed(value)
+            if not scope:
+                raise NxpmError("Flatpak no está instalado.")
+            return execute([FLATPAK, "update", scope, "--", value],
+                           privileged=scope == "--system")
+        if name != "native" or not installed(value):
+            raise NxpmError("Solo pueden actualizarse paquetes ya instalados.")
+        return native_transaction(["--needed", "--", value])
+    status = native_transaction([])
+    if status:
+        return status
+    # Flatpak is independent of the ALPM system transaction.
+    if Path(FLATPAK).exists():
+        return execute([FLATPAK, "update", "--user"])
     return 0
 
 
-def operate(entries, verb, app_id=None, all_apps=False):
-    if all_apps and verb != "update":
-        raise NxpmError("--all solo se admite con update")
-    if verb in ("install", "remove") and not app_id:
-        raise NxpmError("Indica una aplicación")
-    if verb == "update" and not (app_id or all_apps):
-        raise NxpmError("Indica una aplicación o --all")
+def permissions(action, app_id, filesystem=None):
+    valid(app_id, "flatpak")
+    if not flatpak_installed(app_id):
+        raise NxpmError("La aplicación Flatpak no está instalada.")
+    if action == "show":
+        code = execute([FLATPAK, "info", "--show-permissions", app_id])
+        if code:
+            return code
+        return execute([FLATPAK, "override", "--user", "--show", app_id])
+    if action == "reset":
+        return execute([FLATPAK, "override", "--user", "--reset", app_id])
+    if filesystem not in SAFE_FILESYSTEMS:
+        raise NxpmError("Permiso no reconocido. Los permisos peligrosos "
+                        "requieren una gestión explícita y no se conceden por defecto.")
+    flag = "--filesystem=" if action == "grant" else "--nofilesystem="
+    return execute([FLATPAK, "override", "--user", flag + filesystem, app_id])
 
-    if all_apps:
-        packages = [item["package"] for item in entries.values() if installed(item["package"])]
-        if not packages:
-            print("No hay aplicaciones nativas NXPM instaladas.")
-            return 0
-    else:
-        entry = choose(entries, app_id)
-        package = entry["package"]
-        if verb == "remove":
-            if not installed(package):
-                raise NxpmError("NXPM no eliminará instalaciones antiguas ni datos de usuario.")
-            return transaction(["-R", "--", package])
-        if legacy_present(app_id) and not installed(package):
-            raise NxpmError(
-                f"{app_id} usa todavía una instalación anterior. "
-                "La migración de sus lanzadores y datos requiere un paquete binario "
-                "validado; NXPM no ejecutará el actualizador antiguo."
-            )
-        if verb == "update" and not installed(package):
-            raise NxpmError(f"{app_id} no está instalado mediante NXPM")
-        packages = [package]
 
-    available = repository_packages()
-    missing = [package for package in packages if package not in available]
-    if missing:
-        raise NxpmError(
-            "Faltan paquetes binarios firmados en [nodalix]: " + ", ".join(missing)
-            + ". No se compilará ni modificará ninguna instalación."
-        )
-    # A full ALPM transaction avoids Arch partial-upgrade inconsistencies.
-    return transaction(["-Syu", "--needed", "--", *packages])
+def remove_desktop(ident):
+    valid(ident, "desktop")
+    # Privileged helper derives the package from the root-owned desktop file.
+    # Never accept a caller-supplied package in this path.
+    return execute(["/usr/lib/nxpm/remove-system-app", ident], privileged=True)
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(prog="nxpm", description="NXPM - paquetes binarios de Nodalix")
-    sub = parser.add_subparsers(dest="command", required=True)
-    sub.add_parser("list")
-    p = sub.add_parser("status")
-    p.add_argument("app", nargs="?")
-    p = sub.add_parser("install")
-    p.add_argument("app")
+    parser = argparse.ArgumentParser(prog="nxpm", description="NXPM: software Linux sin compilaciones locales")
+    sub = parser.add_subparsers(dest="action", required=True)
+    p = sub.add_parser("search")
+    p.add_argument("term")
+    p.add_argument("--source", choices=("all", "native", "flatpak"), default="all")
+    p = sub.add_parser("list")
+    p.add_argument("--source", choices=("all", "native", "flatpak"), default="all")
+    for name in ("install", "remove"):
+        p = sub.add_parser(name)
+        p.add_argument("package")
+        p.add_argument("--source", choices=("native", "flatpak"), default="native")
     p = sub.add_parser("update")
-    p.add_argument("app", nargs="?")
+    p.add_argument("package", nargs="?")
     p.add_argument("--all", action="store_true")
-    p = sub.add_parser("remove")
-    p.add_argument("app")
+    p = sub.add_parser("permissions")
+    p.add_argument("operation", choices=("show", "grant", "revoke", "reset"))
+    p.add_argument("app_id")
+    p.add_argument("filesystem", nargs="?")
+    p = sub.add_parser("remove-desktop", help=argparse.SUPPRESS)
+    p.add_argument("desktop_id")
     args = parser.parse_args(argv)
     try:
-        entries = catalog()
-        if args.command in ("list", "status"):
-            return status(entries, getattr(args, "app", None))
-        return operate(entries, args.command, getattr(args, "app", None), getattr(args, "all", False))
-    except NxpmError as error:
-        print(f"NXPM: {error}", file=sys.stderr)
+        if args.action == "search":
+            return search(args.term, args.source) or 0
+        if args.action == "list":
+            return list_installed(args.source) or 0
+        if args.action == "install":
+            return install(args.package, args.source)
+        if args.action == "remove":
+            return remove(args.package, args.source)
+        if args.action == "update":
+            if args.package and args.all:
+                parser.error("Elige un paquete o --all")
+            return update(args.package)
+        if args.action == "permissions":
+            return permissions(args.operation, args.app_id, args.filesystem)
+        return remove_desktop(args.desktop_id)
+    except (NxpmError, OSError) as error:
+        print("NXPM:", error, file=sys.stderr)
         return 2
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    raise SystemExit(main())

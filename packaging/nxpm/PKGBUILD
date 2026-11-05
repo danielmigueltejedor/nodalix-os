@@ -1,15 +1,32 @@
 pkgname=nxpm
 pkgver=0.5.0
 pkgrel=1
-pkgdesc="Nodalix Package Manager - binary-only native applications"
+pkgdesc="Nodalix package manager and macOS-style Applications integration"
 arch=('any')
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=('GPL-3.0-or-later')
-depends=('python' 'pacman' 'polkit')
+depends=('python' 'python-gobject' 'gtk4' 'libadwaita' 'flatpak' 'pacman'
+         'gvfs' 'squashfs-tools' 'polkit' 'desktop-file-utils' 'libnotify')
+replaces=('nodalix-apps')
+conflicts=('nodalix-apps')
 source=("nxpm-$pkgver.tar.zst")
 sha256sums=('SKIP')
 
 package() {
   install -Dm755 "$srcdir/nxpm/nxpm" "$pkgdir/usr/bin/nxpm"
-  install -Dm644 "$srcdir/nxpm/catalog.json" "$pkgdir/usr/share/nxpm/catalog.json"
+  install -Dm644 "$srcdir/nxpm/README.md" "$pkgdir/usr/share/doc/nxpm/README.md"
+  install -Dm644 "$srcdir/nxpm/library/library.py" "$pkgdir/usr/lib/nxpm/library.py"
+  install -Dm644 "$srcdir/nxpm/library/install_ui.py" "$pkgdir/usr/lib/nxpm/install_ui.py"
+  install -Dm755 "$srcdir/nxpm/library/remove-system-app" "$pkgdir/usr/lib/nxpm/remove-system-app"
+  install -Dm755 "$srcdir/nxpm/library/nxpm-app-library" "$pkgdir/usr/bin/nxpm-app-library"
+  install -Dm644 "$srcdir/nxpm/library/nxpm-applications.service" "$pkgdir/usr/lib/systemd/user/nxpm-applications.service"
+  install -d "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants"
+  ln -s ../nxpm-applications.service "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants/nxpm-applications.service"
+  for desktop in com.nodalix.Applications.desktop com.nodalix.AppInstaller.desktop; do
+    install -Dm644 "$srcdir/nxpm/library/$desktop" "$pkgdir/usr/share/applications/$desktop"
+  done
+  install -Dm644 "$srcdir/nxpm/library/nodalix-app.xml" "$pkgdir/usr/share/mime/packages/nodalix-app.xml"
+  install -Dm644 "$srcdir/nxpm/library/com.nodalix.apps.policy" "$pkgdir/usr/share/polkit-1/actions/com.nodalix.apps.policy"
+  install -d "$pkgdir/usr/share/nxpm/assets"
+  cp -a --no-preserve=ownership "$srcdir/nxpm/assets/." "$pkgdir/usr/share/nxpm/assets/"
 }
