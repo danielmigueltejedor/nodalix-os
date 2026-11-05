@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import re
 import shlex
+import stat
 
 THEME_VARIANTS = ('Colloid-Teal', 'Colloid-Teal-Dark', 'Colloid-Teal-Light', 'Colloid')
 
@@ -100,21 +101,30 @@ def choose_icon(identifier, entry, index, roots, home, legacy):
     names = candidates(identifier, entry)
     if not names:
         return None
-    path = Path(entry['Icon'])
+    path = Path(os.path.normpath(entry['Icon']))
     managed = [root / folder for root in roots for folder in ('icons/hicolor', 'nodalix/applications')]
     if (path.is_absolute() and path.is_relative_to(home)
             and not any(path.is_relative_to(root) for root in managed)):
-        try:
-            # Adopt the small generated assets whose original bytes are known.
-            if path.stat().st_size <= 2 * 1024 * 1024:
-                with path.open('rb') as stream:
-                    checksum = hashlib.file_digest(stream, 'sha256').hexdigest()
-                return index.get(legacy.get(checksum))
-        except OSError:
-            pass
-        return None
+        return index.get(legacy_icon_name(path, legacy))
     themed = next((index[name] for name in names if name in index), None)
     return themed or official_craft_icon(identifier, entry, roots)
+
+
+def legacy_icon_name(path, legacy):
+    """Recognize small generated files without blocking on special files."""
+    limit = 2 * 1024 * 1024
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(fd, 'rb') as stream:
+            metadata = os.fstat(stream.fileno())
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > limit:
+                return None
+            content = stream.read(limit + 1)
+    except OSError:
+        return None
+    if len(content) > limit:
+        return None
+    return legacy.get(hashlib.sha256(content).hexdigest())
 
 
 def replace_icon(text, icon):

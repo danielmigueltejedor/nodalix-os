@@ -167,6 +167,22 @@ class Organization(unittest.TestCase):
         self.assertEqual(entry.read_text(), original)
         self.assertEqual(legacy.read_bytes(), b'new personal artwork')
 
+    def test_legacy_icon_recognition_reads_only_bounded_regular_files(self):
+        original = self.home / 'original.svg'
+        original.write_bytes(b'known artwork')
+        known = {hashlib.sha256(original.read_bytes()).hexdigest(): 'known-icon'}
+        self.assertEqual(icons.legacy_icon_name(original, known), 'known-icon')
+        symlink = self.home / 'link.svg'
+        symlink.symlink_to(original)
+        pipe = self.home / 'pipe.svg'
+        os.mkfifo(pipe)
+        large = self.home / 'large.svg'
+        with large.open('wb') as stream:
+            stream.truncate(2 * 1024 * 1024 + 1)
+        for path in [symlink, pipe, large, self.home / 'missing.svg']:
+            with self.subTest(path=path.name):
+                self.assertIsNone(icons.legacy_icon_name(path, known))
+
     def test_settings_panels_restore_managed_overrides_and_stay_symbolic(self):
         import json
         system=self.home/'system'; apps=system/'applications'; apps.mkdir(parents=True)
