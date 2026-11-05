@@ -19,7 +19,7 @@ for entry in (package/'usr/share/applications').glob('gnome-nodalix-*-panel.desk
 
 applications = (Path.home()/'Aplicaciones', Path.home()/'Applications')
 assert not any(folder.exists() for folder in applications)
-subprocess.run(['/usr/bin/nodalix-app-library', 'sync'], check=True)
+subprocess.run(['/usr/bin/nxpm-app-library', 'sync'], check=True)
 folder = next(folder for folder in applications if folder.is_dir())
 registry = json.loads((state_home/'nodalix/applications/registry.json').read_text())
 assert (folder/registry['org.gnome.Settings.desktop']['filename']).is_file()
@@ -30,7 +30,7 @@ layout.parent.mkdir(parents=True, exist_ok=True)
 layout.write_text(json.dumps({'applications': str(folder)}))
 old_folder = folder.with_name('Previous QA catalog')
 folder.rename(old_folder)
-subprocess.run(['/usr/bin/nodalix-app-library', 'sync'], check=True)
+subprocess.run(['/usr/bin/nxpm-app-library', 'sync'], check=True)
 entry_name = registry['org.gnome.Settings.desktop']['filename']
 assert (folder/entry_name).is_file() and (old_folder/entry_name).is_file()
 

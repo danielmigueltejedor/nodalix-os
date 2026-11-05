@@ -48,7 +48,7 @@ XML = '''<node><interface name="com.nodalix.Settings1">
 <signal name="WallpaperCatalogChanged"/>
 </interface></node>'''
 KINDS = ('nodalix', 'system', 'apps', 'flatpak', 'firmware')
-TITLES = {'nodalix': 'Nodalix', 'system': 'Programas y kernel', 'apps': 'Aplicaciones Nodalix',
+TITLES = {'nodalix': 'Nodalix', 'system': 'Programas y kernel', 'apps': 'Aplicaciones NXPM',
           'flatpak': 'Aplicaciones Flatpak', 'firmware': 'Firmware'}
 HANABI_UUID = 'hanabi-extension@jeffshee.github.io'
 
@@ -61,9 +61,9 @@ def update_commands(kind):
     if kind in ('nodalix', 'system', 'firmware'):
         return [['/usr/bin/pkexec', '/usr/lib/nodalix/updates-privileged', kind]]
     if kind == 'apps':
-        manager = program('nodalix-apps')
+        manager = program('nxpm')
         if not manager:
-            raise ValueError('No está instalado el gestor de aplicaciones Nodalix')
+            raise ValueError('NXPM no está instalado')
         return [[manager, 'update', '--all']]
     if kind == 'flatpak':
         if not program('flatpak'):
@@ -318,7 +318,7 @@ class SettingsService:
         threading.Thread(target=configure,daemon=True).start()
 
     def available(self, kind):
-        return bool(program({'nodalix':'nodalix-updater', 'system':'pacman', 'apps':'nodalix-apps',
+        return bool(program({'nodalix':'nodalix-updater', 'system':'pacman', 'apps':'nxpm',
                              'flatpak':'flatpak', 'firmware':'fwupdmgr'}[kind]))
 
     def changed(self):

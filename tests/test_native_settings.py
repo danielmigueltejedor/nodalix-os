@@ -30,12 +30,12 @@ class NativeSettingsTests(unittest.TestCase):
     def test_all_skips_uninstalled_sources_and_rejects_overlap(self):
         service = settings.SettingsService()
         with (patch.object(service,'available',side_effect=lambda k:k in ('system','apps')),
-              patch.object(settings,'program',return_value='/usr/bin/nodalix-apps'),
+              patch.object(settings,'program',return_value='/usr/bin/nxpm'),
               patch.object(settings.threading,'Thread') as worker):
             service.start('all')
             plans = worker.call_args.kwargs['args'][0]
             self.assertEqual([k for k,_ in plans],['system','apps'])
-            self.assertEqual(plans[1][1],[['/usr/bin/nodalix-apps','update','--all']])
+            self.assertEqual(plans[1][1],[['/usr/bin/nxpm','update','--all']])
             with self.assertRaises(ValueError): service.check()
             with self.assertRaises(ValueError): service.start('system')
             self.assertEqual(worker.call_count,1)
@@ -55,7 +55,7 @@ class NativeSettingsTests(unittest.TestCase):
         state=json.loads(service.snapshot())
         self.assertFalse(state['busy'])
         self.assertIn('No se completó',state['message'])
-        self.assertIn('Aplicaciones Nodalix',state['message'])
+        self.assertIn('Aplicaciones NXPM',state['message'])
         self.assertTrue(state['reboot_required'])
         self.assertIn('Programas y kernel',state['log'])
 

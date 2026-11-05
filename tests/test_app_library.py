@@ -10,7 +10,7 @@ from unittest.mock import patch, Mock
 from xml.etree import ElementTree
 
 ROOT = Path(__file__).resolve().parents[1]
-spec = importlib.util.spec_from_file_location('app_library', ROOT/'nodalix-apps/library/library.py')
+spec = importlib.util.spec_from_file_location('app_library', ROOT/'nxpm/library/library.py')
 library = importlib.util.module_from_spec(spec); spec.loader.exec_module(library)
 
 

@@ -187,7 +187,7 @@ def flatpak_sizes():
 
 
 def app_library():
-    sys.path.insert(0, '/usr/lib/nodalix-apps')
+    sys.path.insert(0, '/usr/lib/nxpm')
     import library
     return library
 

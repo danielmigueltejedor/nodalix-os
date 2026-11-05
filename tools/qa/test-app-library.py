@@ -30,10 +30,10 @@ with tempfile.TemporaryDirectory(prefix='nodalix-app-library-qa-') as td:
  assert app.get_icon() is not None
  lib.atomic_json(lib.STATE/'registry.json',registry)
  mime=lib.DATA/'mime/packages';mime.mkdir(parents=True)
- (mime/'nodalix-app.xml').write_text((repo/'nodalix-apps/library/nodalix-app.xml').read_text())
+ (mime/'nodalix-app.xml').write_text((repo/'nxpm/library/nodalix-app.xml').read_text())
  subprocess.run(['update-mime-database',str(mime.parent)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
  handler=lib.DESKTOPS/'com.nodalix.Applications.desktop'
- handler.write_text('[Desktop Entry]\nType=Application\nName=Fixture Application Handler\nNoDisplay=true\nExec=/usr/bin/python '+str(repo/'nodalix-apps/library/library.py')+' open %f\nMimeType=application/x-nodalix-app;\n')
+ handler.write_text('[Desktop Entry]\nType=Application\nName=Fixture Application Handler\nNoDisplay=true\nExec=/usr/bin/python '+str(repo/'nxpm/library/library.py')+' open %f\nMimeType=application/x-nodalix-app;\n')
  subprocess.run(['update-desktop-database',str(lib.DESKTOPS)],check=True)
  launch=lib.Gio.DesktopAppInfo.new_from_filename(str(handler));launch.set_as_default_for_type(lib.MIME)
  subprocess.run(['gio','open',(apps/'Fixture App.app').as_uri()],check=True)
