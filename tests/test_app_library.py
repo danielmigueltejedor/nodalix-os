@@ -80,12 +80,16 @@ class LibraryTrashTests(unittest.TestCase):
             library.uninstall(app,{'kind':'flatpak','scope':'--user','ref':'app/qa/x86_64/stable'},run)
         self.assertEqual(run.call_args.args[0],['/usr/bin/flatpak','uninstall','--user','--noninteractive','-y','--','app/qa/x86_64/stable'])
 
-    def test_native_uninstall_passes_id_to_fixed_helper(self):
-        run=Mock(return_value=Mock(returncode=0));app=Mock()
-        app.get_id.return_value='qa.desktop';app.get_filename.return_value='/nonexistent/qa.desktop'
-        with patch.object(library,'DESKTOPS',Path('/nonexistent')):
-            library.uninstall(app,{'kind':'package','desktop_id':'qa.desktop'},run)
-        self.assertEqual(run.call_args.args[0],['/usr/bin/pkexec','/usr/lib/nodalix-apps/remove-system-app','qa.desktop'])
+    def test_native_uninstall_resolves_package_and_uses_nxpm(self):
+        run = Mock(return_value=Mock(returncode=0))
+        app = Mock()
+        app.get_id.return_value = 'qa.desktop'
+        app.get_filename.return_value = '/nonexistent/qa.desktop'
+        with patch.object(library, 'DESKTOPS', Path('/nonexistent')), \
+             patch.object(library, 'system_desktop', return_value=Path('/usr/share/applications/qa.desktop')), \
+             patch.object(library.subprocess, 'run', return_value=Mock(stdout='qa-package\n', returncode=0)):
+            library.uninstall(app, {'kind': 'package', 'desktop_id': 'qa.desktop'}, run)
+        self.assertEqual(run.call_args.args[0], ['/usr/bin/nxpm', 'remove', 'qa-package'])
 
     def test_personal_file_and_renamed_managed_entry_are_preserved(self):
         with tempfile.TemporaryDirectory() as temp:
