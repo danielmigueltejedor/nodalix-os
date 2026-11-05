@@ -20,17 +20,18 @@ class NativeGuestCycleTests(unittest.TestCase):
         client.settimeout(3)
         server.settimeout(3)
         failures = []
+        received = []
 
         def qemu():
             try:
                 with server, server.makefile('rwb') as stream:
                     stream.write(b'{"QMP":{}}\n')
                     stream.flush()
-                    self.assertEqual(stream.readline(), b'{"execute":"qmp_capabilities"}\n')
+                    received.append(stream.readline())
                     stream.write(b'{"return":{}}\n' + events)
                     stream.flush()
                     if expected_command:
-                        self.assertEqual(stream.readline(), expected_command)
+                        received.append(stream.readline())
             except Exception as error:
                 failures.append(error)
 
@@ -44,6 +45,10 @@ class NativeGuestCycleTests(unittest.TestCase):
         self.assertFalse(worker.is_alive())
         if failures:
             raise failures[0]
+        expected = [b'{"execute":"qmp_capabilities"}\n']
+        if expected_command:
+            expected.append(expected_command)
+        self.assertEqual(received, expected)
 
     def test_actual_suspend_and_wakeup_events_are_both_required(self):
         self.exchange(b'{"event":"SUSPEND"}\n{"event":"WAKEUP"}\n',

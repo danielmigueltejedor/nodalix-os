@@ -2,7 +2,6 @@
 """Wake a disposable QEMU guest after observing an actual ACPI suspend."""
 import json
 import socket
-import sys
 import time
 from pathlib import Path
 
@@ -33,7 +32,7 @@ def wake_guest(connection, delay=5):
 
 
 def main():
-    path = Path(sys.argv[1])
+    path = Path.cwd() / 'qmp.sock'
     deadline = time.monotonic() + 30
     with socket.socket(socket.AF_UNIX) as connection:
         while True:

@@ -10,7 +10,7 @@ if [[ -f /.dockerenv || -f /run/.containerenv ]]; then
 fi
 qa=${NODALIX_QA_VM_DIR:-/src/dist/vm-candidate}
 [[ ! -e "$qa" ]] || { echo 'Choose a fresh disposable VM directory'; exit 1; }
-mkdir -p "$qa"
+mkdir -p -m 700 "$qa"
 cat > "$qa/mkinitcpio.conf" <<'CONFIG'
 MODULES=(virtio_pci virtio_blk virtio_net virtio_gpu ext4)
 BINARIES=()
@@ -83,7 +83,7 @@ ln -s ../nodalix-guest-verify.service "$guest/etc/systemd/system/graphical.targe
 ln -sf /usr/lib/systemd/system/graphical.target "$guest/etc/systemd/system/default.target"
 truncate -s 14G "$qa/migrated.raw"
 mkfs.ext4 -q -F -d "$guest" "$qa/migrated.raw"
-python /src/tools/ci-wake-guest.py "$qa/qmp.sock" > /src/dist/migration-evidence/suspend.log 2>&1 &
+(cd "$qa" && exec python /src/tools/ci-wake-guest.py) > /src/dist/migration-evidence/suspend.log 2>&1 &
 wake_pid=$!
 trap 'if kill -0 "$wake_pid" 2>/dev/null; then kill "$wake_pid"; fi' EXIT
 timeout 900 qemu-system-x86_64 -accel tcg -cpu max -m 4096 -smp 2 \
