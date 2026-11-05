@@ -1,11 +1,31 @@
 #!/usr/bin/python3
 """Retire exact packaged extension prototypes without changing user preferences."""
+import configparser
 import json
 import os
 import pwd
 from pathlib import Path
 import runpy
+import shutil
 import subprocess
+
+
+def retire_web_launcher(data, state):
+    launcher = data / 'applications/com.nodalix.WebSearch.desktop'
+    if launcher.is_symlink() or not launcher.is_file():
+        return
+    entry = configparser.ConfigParser(interpolation=None, strict=False)
+    try:
+        entry.read(launcher, encoding='utf-8')
+    except (configparser.Error, UnicodeError):
+        return
+    command = entry.get('Desktop Entry', 'Exec', fallback='')
+    if command != '/usr/lib/nodalix/web-search-provider --open':
+        return
+    backup = state / 'gnome-0.5.0-web-search'
+    backup.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if not (backup / launcher.name).exists():
+        shutil.move(launcher, backup / launcher.name)
 
 
 def main():
@@ -121,16 +141,18 @@ def main():
             settings.set_strv('enabled-extensions',enabled+[shake])
         Gio.Settings.sync()
         shake_marker.write_text('0.4.0\n')
-    web_marker=root/'gnome-0.4.0-web-search.done'
-    if not web_marker.exists() and Path('/usr/share/gnome-shell/search-providers/com.nodalix.WebSearch.ini').is_file():
+    web_marker=root/'gnome-0.5.0-web-search.done'
+    web_search='nodalix-web-search@getnodalia.com'
+    if not web_marker.exists() and (Path('/usr/share/gnome-shell/extensions')/web_search/'metadata.json').is_file():
         from gi.repository import Gio
-        settings=Gio.Settings.new('org.gnome.desktop.search-providers')
-        browser='org.gnome.Epiphany.desktop'
-        disabled=settings.get_strv('disabled')
-        if browser not in disabled and browser not in settings.get_strv('enabled'):
-            settings.set_strv('disabled',disabled+[browser])
+        settings=Gio.Settings.new('org.gnome.shell')
+        enabled=settings.get_strv('enabled-extensions')
+        if web_search not in enabled and web_search not in settings.get_strv('disabled-extensions'):
+            settings.set_strv('enabled-extensions',enabled+[web_search])
         Gio.Settings.sync()
-        web_marker.write_text('0.4.0\n')
+        data=Path(os.environ.get('XDG_DATA_HOME',home/'.local/share'))
+        retire_web_launcher(data,root)
+        web_marker.write_text('0.5.0\n')
     if marker.exists():return
     prototypes=Path('/usr/share/nodalix/gnome-extension-prototypes-040.json')
     if prototypes.is_file():

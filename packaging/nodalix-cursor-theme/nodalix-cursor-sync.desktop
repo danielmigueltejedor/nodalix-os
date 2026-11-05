@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Nodalix Cursor
+Exec=/usr/lib/nodalix/sync-session-cursor
+OnlyShowIn=GNOME;
+NoDisplay=true

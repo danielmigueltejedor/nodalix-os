@@ -242,7 +242,7 @@ index 5dc587a..564d857 100644
 
      getPlaybackStatus(): string {
 diff --git a/src/extension.ts b/src/extension.ts
-index 99dea7f..36e96f2 100644
+index 99dea7f..509c290 100644
 --- a/src/extension.ts
 +++ b/src/extension.ts
 @@ -53,6 +53,7 @@ export default class HanabiExtension extends Extension {
@@ -283,7 +283,19 @@ index 99dea7f..36e96f2 100644
                      return false;
                  }
              );
-@@ -159,6 +162,7 @@ export default class HanabiExtension extends Extension {
+@@ -154,11 +157,19 @@ export default class HanabiExtension extends Extension {
+         );
+         this.signalConnections.push([this.settings!, showOnLockScreenChangedId]);
+
++        // These options are consumed when the renderer creates its pipeline.
++        // Restart only that subprocess so new settings take effect immediately.
++        for (const key of ['enable-va', 'enable-graphics-offload']) {
++            const id = this.settings!.connect(`changed::${key}`, () => this.killCurrentProcess());
++            this.signalConnections.push([this.settings!, id]);
++        }
++
+         this.isEnabled = true;
+         if (this.launchRendererTimeoutId)
              GLib.source_remove(this.launchRendererTimeoutId);
 
          this.launchRenderer();
@@ -291,7 +303,7 @@ index 99dea7f..36e96f2 100644
      }
 
      private onSessionModeUpdated(): void {
-@@ -174,14 +178,14 @@ export default class HanabiExtension extends Extension {
+@@ -174,14 +185,14 @@ export default class HanabiExtension extends Extension {
      private suspendRenderer(): void {
          if (this.rendererSuspended)
              return;
@@ -309,7 +321,7 @@ index 99dea7f..36e96f2 100644
      }
 
      private resumeRenderer(): void {
-@@ -189,6 +193,7 @@ export default class HanabiExtension extends Extension {
+@@ -189,6 +200,7 @@ export default class HanabiExtension extends Extension {
              return;
          logger.debug('Resuming renderer');
          this.rendererSuspended = false;
@@ -317,7 +329,7 @@ index 99dea7f..36e96f2 100644
          if (this.isEnabled && !this.currentProcess)
              this.launchRenderer();
      }
-@@ -249,8 +254,15 @@ export default class HanabiExtension extends Extension {
+@@ -249,8 +261,15 @@ export default class HanabiExtension extends Extension {
      }
 
      disable(): void {

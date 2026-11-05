@@ -120,7 +120,7 @@ def main():
         collection=out/'nodalix-animated-collection.tar.zst';archive(stage,collection,['collection','previews','stills'])
         settings=out/f'nodalix-settings-{VERSION}.tar.zst';archive(ROOT,settings,['gnome/settings','docs/images/nodalix-logo.png'])
         changes=out/'nodalix-control-center-51.0.0.tar.zst';archive(ROOT,changes,['gnome/control-center'])
-        renderer=out/f'nodalix-video-wallpapers-{VERSION}.tar.zst';archive(ROOT,renderer,['gnome/settings/animated-collection.json','gnome/lib/window-coverage.js','packaging/nodalix-video-wallpapers/gnome51.patch','packaging/nodalix-video-wallpapers/pnpm-lock.yaml'])
+        renderer=out/f'nodalix-video-wallpapers-{VERSION}.tar.zst';archive(ROOT,renderer,['gnome/settings/animated-collection.json','gnome/lib/window-coverage.js','packaging/nodalix-video-wallpapers/gnome51.patch','packaging/nodalix-video-wallpapers/pnpm-lock.yaml','packaging/nodalix-video-wallpapers/90-nodalix-hanabi.gschema.override'])
         dirs=[recipe('nodalix-settings',out,[settings]),recipe('nodalix-control-center',out,[cc_archive,changes]),recipe('nodalix-video-wallpapers',out,[hanabi_archive,renderer,collection])]
     if not args.prepare_only:
         for folder in dirs:

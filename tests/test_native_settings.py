@@ -219,7 +219,8 @@ class WallpaperActivationTests(unittest.TestCase):
                 service.wallpaper('/known.mp4')
                 background.set_string.assert_any_call('picture-uri',still.as_uri())
                 background.set_string.assert_any_call('picture-uri-dark',still.as_uri())
-                video.set_int.assert_any_call('startup-delay',0)
+                video.set_int.assert_not_called()
+                video.set_boolean.assert_not_called()
                 self.assertNotIn(('picture-uri',thumbnail.as_uri()),[tuple(c.args) for c in background.set_string.call_args_list])
 
     def test_selection_persists_next_login_and_applies_the_matching_poster(self):

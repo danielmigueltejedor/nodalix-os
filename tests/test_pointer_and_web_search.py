@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import os
+import runpy
 from pathlib import Path
 import subprocess
 import tempfile
@@ -18,6 +19,23 @@ spec.loader.exec_module(provider)
 class PointerAndSearchTests(unittest.TestCase):
     def test_shake_ignores_small_slow_or_unidirectional_motion(self):
         subprocess.run(['gjs', '-m', str(ROOT / 'tests/shake-pointer.js')], check=True)
+
+    def test_only_the_legacy_standalone_web_launcher_is_retired(self):
+        migrate = runpy.run_path(str(ROOT / 'gnome/migration/user-040.py'))['retire_web_launcher']
+        with tempfile.TemporaryDirectory() as folder:
+            data, state = Path(folder) / 'data', Path(folder) / 'state'
+            launcher = data / 'applications/com.nodalix.WebSearch.desktop'
+            launcher.parent.mkdir(parents=True)
+            custom = '[Desktop Entry]\nExec=/usr/bin/firefox\n'
+            launcher.write_text(custom)
+            migrate(data, state)
+            self.assertEqual(launcher.read_text(), custom)
+            legacy = '[Desktop Entry]\nExec=/usr/lib/nodalix/web-search-provider --open\n'
+            launcher.write_text(legacy)
+            migrate(data, state)
+            self.assertFalse(launcher.exists())
+            self.assertEqual((state / 'gnome-0.5.0-web-search' / launcher.name).read_text(), legacy)
+            migrate(data, state)
 
     def write_profile(self, home, profile_root, metadata):
         root = home / profile_root

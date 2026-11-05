@@ -12,21 +12,24 @@ fija la versión de la shell y el ABI de Mutter.
 actualización en cada lanzamiento de Nodalix, sin depender de que extensiones
 de terceros se adapten a una actualización imprevista de GNOME.
 
-## Primer prototipo funcional (opt-in, GNOME Shell 51.1)
+## Vista previa de Nodalix OS 0.5.0 (GNOME Shell 51.1)
 
 - GNOME Shell 51.1 fijada al commit upstream
   `33da06854e229c256afd5872fedd83c28cbfa176` y Mutter 51.
-- `tools/prepare-nodalix-shell.py` añade `js/nodalix/main.js` y
-  `js/nodalix/connect.js` al GResource de GNOME.
+- `tools/prepare-nodalix-shell.py` integra el arranque y el registro de módulos
+  en los recursos compilados de GNOME.
+- El paquete incluye el dock, las barras en todos los monitores, Blur My
+  Shell, Tiling Assistant, el mosaico automático, el menú global, las esquinas
+  redondeadas, la búsqueda web y los dos módulos de cursor. Utiliza las implementaciones
+  mantenidas en Nodalix con sus esquemas y licencias.
 - El arranque nativo se ejecuta tras crear la interfaz. No se carga en
   GDM ni en la configuración inicial.
 - **Enlace móvil** es un módulo interno de Nodalix Shell con un acceso en
   Quick Settings y observación del servicio D-Bus existente; no replica el
   servicio Bluetooth ni el backend de Phone Link.
-- El gestor de extensiones de **esta compilación** ignora el UUID
-  `nodalix-connect@getnodalia.com` para evitar la doble activación.
-  Los ajustes GNOME del usuario no se modifican: el paquete estándar
-  vuelve a reconocer el UUID al revertir.
+- La Shell carga sus módulos desde el paquete. Conserva sus UUID y esquemas
+  para leer los ajustes existentes y evita cargar una segunda copia como
+  extensión. El gestor estándar sigue atendiendo las extensiones opcionales.
 - `nodalix-shell-preview` proporciona `gnome-shell` y entra en conflicto
   **solo** con el paquete binario stock. No usa `replaces`, no aparece en
   `release/components.json` y no se instala con el actualizador habitual.
@@ -49,8 +52,7 @@ Wayland, bloqueo/desbloqueo, suspender/reanudar, varios monitores y registros.
 Probar también una VM sin el servicio Phone Link y otra con el UUID antiguo
 habilitado en dconf para detectar duplicados.
 
-El paquete comprueba que los dos módulos de Nodalix se hayan incorporado
-a los recursos compilados. Los tests de Meson de GNOME Shell requieren
+El paquete verifica sus recursos compilados y genera los esquemas de los módulos. Los tests de Meson de GNOME Shell requieren
 la biblioteca privada `libmutter-test-51`, que el paquete habitual de
 Mutter en Arch no incluye.
 
@@ -70,21 +72,11 @@ No ejecutar actualizaciones mayores de GNOME automáticamente en el fork:
 cada salto de ABI pasa por portado de módulos, comparativa de parches,
 pruebas deterministas, paquete reproducible y lanzamiento de Nodalix.
 
-### Migración propuesta de extensiones
+### Alcance de la vista previa
 
-| Orden | Función | Estrategia |
-|---|---|---|
-| 1 | Enlace móvil (Nodalix Connect) | **Integrado en este prototipo** |
-| 2 | Cursor de arranque, agitar puntero | Convertir lógica propia a módulos nativos |
-| 3 | Mosaico automático | Portar junto a sus esquemas y reglas de ventanas |
-| 4 | Dock y multimonitor | Diseñar superficie nativa, no copiar íntegramente Dash to Dock |
-| 5 | Menú global | Integrar servicio y políticas por aplicación |
-| 6 | Blur, esquinas y fondos | Adaptar shaders/efectos a Mutter y al pipeline probado |
-| 7 | LocalSend, Tiling Assistant y otros | Auditar dependencias, código y licencias antes del port |
-
-No convertir código de terceros a código interno sin revisar licencias y
-atribución. Funciones de seguridad, portales, GDM y compositor siguen siendo
-upstream mientras no se demuestre una razón para bifurcarlas.
+Hanabi y LocalSend mantienen sus mecanismos de instalación actuales. LocalSend
+requiere una revisión de la licencia de su código de origen antes de integrarlo
+en la vista previa. Las extensiones personales se gestionan desde GNOME.
 
 ## Definición de listo para uso diario
 
@@ -96,6 +88,7 @@ upstream mientras no se demuestre una razón para bifurcarlas.
 6. Cada función nativa integrada queda sujeta a pruebas de Nodalix OS y
    se entrega únicamente en el lanzamiento de Nodalix correspondiente.
 
-**Estado:** infraestructura y primer módulo listos para revisar y compilar;
-no hay compilación, arranque real ni sustitución del escritorio verificados
-en esta propuesta inicial.
+**Validación local.** GNOME Shell 51.1 compiló y arrancó en una sesión Wayland
+aislada con dos monitores virtuales, diez módulos activos y una sola entrada
+de Enlace móvil. Quedan por probar el inicio real con GDM, las transiciones
+de bloqueo y suspensión y el paquete en una instalación completa.

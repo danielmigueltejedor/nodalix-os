@@ -1,16 +1,17 @@
 post_install() {
-    /usr/lib/nodalix/migrate-cursor-theme || true
+    /usr/lib/nodalix/migrate-cursor-theme
 }
 
 post_upgrade() {
-    /usr/lib/nodalix/migrate-cursor-theme || true
+    /usr/lib/nodalix/migrate-cursor-theme
 }
 
 post_remove() {
-    link=/usr/share/icons/Nodalix
-    target=/usr/share/nodalix/cursor-theme/Nodalix
-
-    if [ -L "$link" ] && [ "$(readlink "$link" 2>/dev/null || true)" = "$target" ]; then
-        rm -f "$link"
+    directory=/usr/share/icons/Nodalix
+    marker=/var/lib/nodalix-updater/migrations/cursor-theme-layout-v1/system-mirror
+    if [ ! -L "$directory" ] && [ -f "$marker" ] &&
+        [ "$(stat -c '%d:%i' "$directory" 2>/dev/null)" = "$(cat "$marker")" ]; then
+        rm -rf -- "$directory"
+        rm -f -- "$marker"
     fi
 }

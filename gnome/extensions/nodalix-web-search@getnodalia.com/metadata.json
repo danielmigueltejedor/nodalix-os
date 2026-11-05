@@ -1,0 +1,6 @@
+{
+  "uuid": "nodalix-web-search@getnodalia.com",
+  "name": "Nodalix Web Search",
+  "description": "Web results in GNOME Overview through the default browser",
+  "shell-version": ["51"]
+}
