@@ -89,13 +89,17 @@ package() {
     fi
   done
   # Reject a profile that names a missing key or a value its schema refuses.
-  python3 - "$srcdir/gnome/nodalix-shell/profile.json" "$target" <<'PY'
+  # Desktop packages (LocalSend, Hanabi) install their own schemas; unit tests cover those rows.
+  python3 - "$srcdir/gnome/nodalix-shell/profile.json" "$target" "$srcdir/gnome/nodalix-shell/modules.json" <<'PY'
 import json, sys
 from pathlib import Path
 from gi.repository import Gio, GLib
 profile, modules = Path(sys.argv[1]), Path(sys.argv[2])
 data = json.loads(profile.read_text())
+bundled = set(json.loads(Path(sys.argv[3]).read_text())['bundled'])
 for row in data['extensions']:
+    if row['uuid'] not in bundled:
+        continue
     source = Gio.SettingsSchemaSource.new_from_directory(
         str(modules / row['uuid'] / 'schemas'), Gio.SettingsSchemaSource.get_default(), False)
     schema = source.lookup(row['schema'], False)
