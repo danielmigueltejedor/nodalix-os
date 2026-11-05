@@ -1,17 +1,19 @@
 pkgname=nodalix-colloid-icons
 pkgver=0.5.0
-pkgrel=1
+pkgrel=2
+_theme_commit=5b39a53db6f49de1f05e133565824bc2319f2ae8
 options=("!strip")
-pkgdesc='Colloid-Teal GTK icon theme for Nodalix'
+pkgdesc='Nodalix-maintained application icons based on Colloid'
 arch=('any')
-url='https://github.com/vinceliuice/Colloid-icon-theme'
+url='https://github.com/danielmigueltejedor/nodalix-icon-theme'
 license=('GPL-3.0-only')
-makedepends=('git' 'gtk-update-icon-cache')
-source=('colloid-icon-theme::git+https://github.com/vinceliuice/Colloid-icon-theme.git#commit=ceac6608ecd0e40025cbc2ebbd32bf0e0f4ebc6a')
-sha256sums=('SKIP')
+makedepends=('gtk-update-icon-cache')
+source=("nodalix-icon-theme-$_theme_commit.tar.gz::https://codeload.github.com/danielmigueltejedor/nodalix-icon-theme/tar.gz/$_theme_commit")
+sha256sums=('f2466190c60cadb617812919f9fc84e2148c7bfe57b884bdb2e9af623dde8f4e')
 
 package() {
-    cd "$srcdir/colloid-icon-theme"
-    bash install.sh -d "$pkgdir/usr/share/icons" -t teal -b
+    cd "$srcdir/nodalix-icon-theme-$_theme_commit"
+    bash install.sh -d "$pkgdir/usr/share/icons" -n Colloid -t teal -b
+    install -Dm644 nodalix/legacy-icons.json "$pkgdir/usr/share/nodalix/icon-theme/legacy-icons.json"
     install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }
