@@ -1,0 +1,182 @@
+#!/usr/bin/env python3
+"""NXPM: binary-only frontend for the signed Nodalix native repository.
+
+Never fetch source code, run makepkg, build an AUR recipe, or execute an app
+updater on an end-user machine. Native transactions currently use pacman's
+ALPM backend; a future libalpm backend must keep this CLI contract.
+"""
+import argparse
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+
+CATALOG = Path(os.environ.get("NXPM_CATALOG", "/usr/share/nxpm/catalog.json"))
+PACMAN = "/usr/bin/pacman"
+PKEXEC = "/usr/bin/pkexec"
+IDENT = re.compile(r"^[a-z][a-z0-9-]*$")
+
+
+class NxpmError(Exception):
+    pass
+
+
+def catalog():
+    try:
+        data = json.loads(CATALOG.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise NxpmError(f"Catálogo NXPM no disponible: {error}") from error
+    if data.get("schema") != 1 or data.get("repository") != "nodalix":
+        raise NxpmError("Esquema o repositorio NXPM no admitido")
+    rows = data.get("apps")
+    if not isinstance(rows, list):
+        raise NxpmError("Catálogo NXPM inválido")
+    entries = {}
+    packages = set()
+    for entry in rows:
+        if not isinstance(entry, dict):
+            raise NxpmError("Entrada NXPM inválida")
+        app_id = entry.get("id")
+        package = entry.get("package")
+        if not isinstance(app_id, str) or not IDENT.fullmatch(app_id):
+            raise NxpmError("Identificador de app inválido")
+        if not isinstance(package, str) or not IDENT.fullmatch(package) or not package.startswith("nodalix-"):
+            raise NxpmError("Nombre de paquete inválido")
+        if app_id in entries or package in packages:
+            raise NxpmError("Identificador o paquete repetido")
+        if not isinstance(entry.get("name"), str) or not entry["name"]:
+            raise NxpmError("Nombre visible inválido")
+        entries[app_id] = entry
+        packages.add(package)
+    return entries
+
+
+def run(args):
+    return subprocess.run(args, text=True, capture_output=True, check=False)
+
+
+def installed(package):
+    result = run([PACMAN, "-Q", "--", package])
+    return result.returncode == 0
+
+
+def legacy_present(app_id):
+    # Detection only; never remove user data or launch source-based updaters.
+    location = Path.home() / ".local/opt/nodalix/apps" / app_id / "current"
+    return location.exists() or location.is_symlink()
+
+
+def repository_packages():
+    result = run([PACMAN, "-Sl", "nodalix"])
+    if result.returncode:
+        raise NxpmError("Repositorio binario firmado [nodalix] no configurado o sin sincronizar.")
+    available = set()
+    for line in result.stdout.splitlines():
+        fields = line.split()
+        if len(fields) >= 3 and fields[0] == "nodalix":
+            available.add(fields[1])
+    return available
+
+
+def ensure_available(package):
+    if package not in repository_packages():
+        raise NxpmError(
+            f"No existe un binario publicado para {package} en [nodalix]. "
+            "No se compilará en este equipo. La instalación actual no cambia."
+        )
+
+
+def transaction(args):
+    command = [PACMAN] if os.geteuid() == 0 else [PKEXEC, PACMAN]
+    # Never pass user-supplied package names; only validated catalog entries.
+    completed = subprocess.run(command + args, check=False)
+    return completed.returncode
+
+
+def choose(entries, app_id):
+    if app_id not in entries:
+        raise NxpmError(f"Aplicación desconocida: {app_id}")
+    return entries[app_id]
+
+
+def status(entries, app_id=None):
+    rows = [(app_id, choose(entries, app_id))] if app_id else entries.items()
+    for key, item in rows:
+        native = installed(item["package"])
+        legacy = legacy_present(key)
+        state = "paquete nativo" if native else "instalación anterior" if legacy else "no instalada"
+        if native and legacy:
+            state += " + copia anterior (requiere revisión)"
+        print(f'{key:<12} {item["name"]:<22} {state}')
+    return 0
+
+
+def operate(entries, verb, app_id=None, all_apps=False):
+    if all_apps and verb != "update":
+        raise NxpmError("--all solo se admite con update")
+    if verb in ("install", "remove") and not app_id:
+        raise NxpmError("Indica una aplicación")
+    if verb == "update" and not (app_id or all_apps):
+        raise NxpmError("Indica una aplicación o --all")
+
+    if all_apps:
+        packages = [item["package"] for item in entries.values() if installed(item["package"])]
+        if not packages:
+            print("No hay aplicaciones nativas NXPM instaladas.")
+            return 0
+    else:
+        entry = choose(entries, app_id)
+        package = entry["package"]
+        if verb == "remove":
+            if not installed(package):
+                raise NxpmError("NXPM no eliminará instalaciones antiguas ni datos de usuario.")
+            return transaction(["-R", "--", package])
+        if legacy_present(app_id) and not installed(package):
+            raise NxpmError(
+                f"{app_id} usa todavía una instalación anterior. "
+                "La migración de sus lanzadores y datos requiere un paquete binario "
+                "validado; NXPM no ejecutará el actualizador antiguo."
+            )
+        if verb == "update" and not installed(package):
+            raise NxpmError(f"{app_id} no está instalado mediante NXPM")
+        packages = [package]
+
+    available = repository_packages()
+    missing = [package for package in packages if package not in available]
+    if missing:
+        raise NxpmError(
+            "Faltan paquetes binarios firmados en [nodalix]: " + ", ".join(missing)
+            + ". No se compilará ni modificará ninguna instalación."
+        )
+    # A full ALPM transaction avoids Arch partial-upgrade inconsistencies.
+    return transaction(["-Syu", "--needed", "--", *packages])
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(prog="nxpm", description="NXPM - paquetes binarios de Nodalix")
+    sub = parser.add_subparsers(dest="command", required=True)
+    sub.add_parser("list")
+    p = sub.add_parser("status")
+    p.add_argument("app", nargs="?")
+    p = sub.add_parser("install")
+    p.add_argument("app")
+    p = sub.add_parser("update")
+    p.add_argument("app", nargs="?")
+    p.add_argument("--all", action="store_true")
+    p = sub.add_parser("remove")
+    p.add_argument("app")
+    args = parser.parse_args(argv)
+    try:
+        entries = catalog()
+        if args.command in ("list", "status"):
+            return status(entries, getattr(args, "app", None))
+        return operate(entries, args.command, getattr(args, "app", None), getattr(args, "all", False))
+    except NxpmError as error:
+        print(f"NXPM: {error}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())
