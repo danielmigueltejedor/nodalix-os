@@ -51,7 +51,7 @@ export default class Prefs extends ExtensionPreferences {
 
         // LayoutPrefs manages everything related to layouts on the
         // prefs side (including the keyboard shortcuts)
-        new LayoutPrefs(settings, builder, this.path);
+        new LayoutPrefs(settings, builder).load(this.path);
 
         // Set visibility for deprecated settings
         this._setDeprecatedSettings(settings, builder);

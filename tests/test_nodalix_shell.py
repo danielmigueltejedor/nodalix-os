@@ -59,7 +59,7 @@ class NativeShellOverlayTests(unittest.TestCase):
                         main.index("layoutManager = new Layout.LayoutManager()"))
         self.assertIn("nodalix/main.js", resources)
         self.assertIn("nodalix/connect.js", resources)
-        self.assertIn("nodalix-connect@getnodalia.com", extensions)
+        self.assertIn("nodalix-connect@getnodalia.com", (self.source / "js/nodalix/modules.js").read_text())
         self.assertIn("!NodalixModules.managesModule(item)", extensions)
         self.assertIn("NodalixModules.lookupModule(uuid)", extensions)
         self.assertNotIn("set_strv", extensions)
@@ -69,12 +69,19 @@ class NativeShellOverlayTests(unittest.TestCase):
     def test_bundled_desktop_modules_keep_their_upstream_ids(self):
         MODULE.prepare(self.source, self.overlay)
         manifest = self.source / "js/nodalix/modules.json"
-        module_ids = json.loads(manifest.read_text())
+        registry = json.loads(manifest.read_text())
+        module_ids = registry["bundled"] + registry["desktopPackages"]
         self.assertEqual(len(set(module_ids)), len(module_ids))
         self.assertIn("blur-my-shell@aunetx", module_ids)
         self.assertIn("tiling-assistant@leleat-on-github", module_ids)
         self.assertIn("global-menu@unmade.space", module_ids)
-        for uuid in module_ids:
+        self.assertIn("hanabi-extension@jeffshee.github.io", registry["desktopPackages"])
+        self.assertIn("glocalsend@donnybeelo.github.com", registry["desktopPackages"])
+        self.assertIn("nowplaying@epogonii.github.io", registry["bundled"])
+        for uuid in set(module_ids) - {
+            "hanabi-extension@jeffshee.github.io", "nowplaying@epogonii.github.io",
+            "nodalix-login-background@getnodalia.com",
+        }:
             path = ROOT / "gnome/extensions" / uuid
             self.assertTrue((path / "extension.js").is_file())
             self.assertEqual(json.loads((path / "metadata.json").read_text())["uuid"], uuid)

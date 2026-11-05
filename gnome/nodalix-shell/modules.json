@@ -1,12 +1,20 @@
-[
-  "nodalix-auto-tiling@getnodalia.com",
-  "nodalix-startup-cursor@local",
-  "dash-to-dock@micxgx.gmail.com",
-  "tiling-assistant@leleat-on-github",
-  "multi-monitors-bar@frederykabryan",
-  "blur-my-shell@aunetx",
-  "rounded-window-corners@ztrahmet.github.io",
-  "global-menu@unmade.space",
-  "nodalix-shake-pointer@getnodalia.com",
-  "nodalix-web-search@getnodalia.com"
-]
+{
+  "bundled": [
+    "nodalix-auto-tiling@getnodalia.com",
+    "nodalix-startup-cursor@local",
+    "dash-to-dock@micxgx.gmail.com",
+    "tiling-assistant@leleat-on-github",
+    "multi-monitors-bar@frederykabryan",
+    "blur-my-shell@aunetx",
+    "rounded-window-corners@ztrahmet.github.io",
+    "global-menu@unmade.space",
+    "nodalix-shake-pointer@getnodalia.com",
+    "nodalix-web-search@getnodalia.com",
+    "nowplaying@epogonii.github.io"
+  ],
+  "desktopPackages": [
+    "glocalsend@donnybeelo.github.com",
+    "hanabi-extension@jeffshee.github.io",
+    "nodalix-login-background@getnodalia.com"
+  ]
+}

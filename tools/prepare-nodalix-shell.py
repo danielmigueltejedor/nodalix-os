@@ -12,7 +12,6 @@ import shutil
 import sys
 
 GNOME_VERSION = "51.1"
-NATIVE_EXTENSION = "nodalix-connect@getnodalia.com"
 RESOURCES = ("main.js", "connect.js", "modules.js", "modules.json")
 
 MAIN_IMPORT = "import * as Panel from './panel.js';\n"
@@ -102,10 +101,10 @@ def prepare(source: Path, overlay: Path) -> None:
     replace_once(
         extensions, EXTENSION_FILTER,
         "        return extensions.filter(item => !disabledExtensions.includes(item) &&\n"
-        + f"            item !== '{NATIVE_EXTENSION}' && !NodalixModules.managesModule(item));\n")
+        + "            !NodalixModules.managesModule(item));\n")
     replace_once(
         gettext, GETTEXT_DETECTION,
-        "        const paths = [basePath, '/gnome-shell/nodalix-modules/'];\n"
+        "        const paths = [basePath, '/gnome-shell/nodalix-modules/', '/gnome-shell/nodalix-runtime/'];\n"
         "        const extensionLine = stack.find(line => paths.some(path => line.includes(path)));")
     replace_once(
         gettext, "extensionLine.indexOf(basePath)",

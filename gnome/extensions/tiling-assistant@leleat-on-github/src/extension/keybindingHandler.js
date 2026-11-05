@@ -355,17 +355,11 @@ export default class TilingKeybindingHandler {
 
             return;
         } else if (!window.isTiled) {
-            switch (shortcutName) {
-                case 'tile-bottom-half': {
-                    if (isWindowsStyle) {
-                        window.minimize();
-                        break;
-                    }
-                // falls through
-                } default: {
-                    const rect = Twm.getTileFor(shortcutName, workArea, window.get_monitor());
-                    Twm.toggleTiling(window, rect);
-                }
+            if (shortcutName === 'tile-bottom-half' && isWindowsStyle) {
+                window.minimize();
+            } else {
+                const rect = Twm.getTileFor(shortcutName, workArea, window.get_monitor());
+                Twm.toggleTiling(window, rect);
             }
 
             return;

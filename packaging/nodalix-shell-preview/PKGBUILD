@@ -2,7 +2,7 @@
 # Rebuild and validate this fork for every Nodalix and GNOME update.
 pkgname=nodalix-shell-preview
 pkgver=0.5.0
-pkgrel=2
+pkgrel=3
 epoch=1
 _gnomever=51.1
 _upstream_commit=33da06854e229c256afd5872fedd83c28cbfa176
@@ -36,8 +36,11 @@ source=("git+https://github.com/GNOME/gnome-shell.git#commit=$_upstream_commit"
         'gvc::git+https://gitlab.gnome.org/GNOME/libgnome-volume-control.git#commit=0a4eda0cdc2deb352bebc70ec697c42af46094e4'
         'git+https://github.com/ptomato/jasmine-gjs.git#commit=856465dddbd92e82e574891e1ebc79e17d7b708a'
         'git+https://gitlab.gnome.org/GNOME/libshew.git#commit=d16afc40412b565d2bbecf80335f54a19a978009'
-        'nodalix-shell-overlays.tar.zst')
-sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'AUTO_OVERLAY_SHA256')
+        'nodalix-shell-overlays.tar.zst'
+        'nowplaying-v1.0.14.zip::https://github.com/epogonii/nowplaying-card/releases/download/v1.0.14/nowplaying%40epogonii.github.io.shell-extension.zip')
+noextract=('nowplaying-v1.0.14.zip')
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'AUTO_OVERLAY_SHA256'
+            'b556a9ef350c7776e9060c6f1a7254cc847158dc43b9d62ccd1ef2c1973d24ce')
 
 prepare() {
   python3 "$srcdir/tools/prepare-nodalix-shell.py" "$srcdir/gnome-shell" \
@@ -69,6 +72,9 @@ package() {
   DESTDIR="$pkgdir" meson install -C build
   local module_dir target="$pkgdir/usr/share/gnome-shell/nodalix-modules"
   install -d "$target" "$pkgdir/usr/share/nodalix"
+  local music="$target/nowplaying@epogonii.github.io"
+  unzip -q "$srcdir/nowplaying-v1.0.14.zip" -d "$music"
+  glib-compile-schemas --strict "$music/schemas"
   for module_dir in "$srcdir"/gnome/extensions/*; do
     cp -a --no-preserve=ownership "$module_dir" "$target/"
     if [[ -d "$target/${module_dir##*/}/schemas" ]]; then

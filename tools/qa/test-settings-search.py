@@ -4,12 +4,11 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
-import sys
 import time
 
 from gi.repository import Gio, GLib
 
-output = Path(sys.argv[1])
+output = Path.cwd()
 data_home = Path(os.environ['XDG_DATA_HOME'])
 state_home = Path(os.environ['XDG_STATE_HOME'])
 package = Path(os.environ['NODALIX_SEARCH_PACKAGE'])

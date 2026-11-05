@@ -37,13 +37,20 @@ def main():
         bus.call_sync('org.gnome.Shell','/org/gnome/Shell','org.gnome.Shell','Eval',GLib.Variant('(s)',('Main.overview.hide();true',)),None,Gio.DBusCallFlags.NONE,1000,None)
         env={**os.environ,'GDK_BACKEND':'wayland','WAYLAND_DISPLAY':sockets[0].name,'PYTHONPATH':str(ROOT/'phone-link/src')}
         if args.fixture:
-            subprocess.run([sys.executable,str(args.fixture.resolve()),str(output)],check=True,env=env)
+            fixture = args.fixture.resolve()
+            command = [sys.executable, str(fixture)]
+            if fixture == ROOT/'tools/qa/test-app-library.py':
+                command.append('--artifacts')
+            elif fixture not in (ROOT/'tools/qa/test-storage-ui.py', ROOT/'tools/qa/test-settings-search.py',
+                                 ROOT/'tools/qa/test-contact-picker.py'):
+                command.append(str(output))
+            subprocess.run(command, cwd=output, check=True, env=env)
             return 0
         cc=subprocess.check_output(['pkg-config','--cflags','--libs','libadwaita-1'],text=True)
         binary=output/'test-nodalix-release'
         subprocess.run(['cc','-o',str(binary),'-I'+str(ROOT/'gnome/control-center'),str(ROOT/'tools/qa/test-nodalix-release.c'),str(ROOT/'gnome/control-center/cc-nodalix-release.c'),*shlex.split(cc)],check=True)
         subprocess.run([str(binary),str(home)],check=True,env=env)
-        subprocess.run([sys.executable,str(ROOT/'tools/qa/test-contact-picker.py'),str(output)],check=True,env=env)
+        subprocess.run([sys.executable,str(ROOT/'tools/qa/test-contact-picker.py')],cwd=output,check=True,env=env)
         if args.control_center:
             with (output/'control-center.log').open('w') as cc_log:
                 app=subprocess.Popen([str(args.control_center),'system','about'],env=env,stdout=cc_log,stderr=cc_log)

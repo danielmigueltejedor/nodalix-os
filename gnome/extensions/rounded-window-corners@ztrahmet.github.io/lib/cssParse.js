@@ -17,7 +17,8 @@ function splitTop(text, sep) {
     const parts = [];
     let depth = 0;
     let start = 0;
-    for (let i = 0; i < text.length; i++) {
+    let i = 0;
+    while (i < text.length) {
         const c = text[i];
         if (c === '"' || c === "'") {
             i = skipString(text, i);
@@ -29,6 +30,7 @@ function splitTop(text, sep) {
             parts.push(text.slice(start, i));
             start = i + 1;
         }
+        i++;
     }
     parts.push(text.slice(start));
     return parts;
@@ -44,7 +46,8 @@ function tokenize(text) {
         if (token)
             tokens.push(token);
     };
-    for (let i = 0; i < text.length; i++) {
+    let i = 0;
+    while (i < text.length) {
         const c = text[i];
         if (c === '"' || c === "'") {
             i = skipString(text, i);
@@ -56,6 +59,7 @@ function tokenize(text) {
             push(i);
             start = i + 1;
         }
+        i++;
     }
     push(text.length);
     return tokens;
@@ -63,11 +67,13 @@ function tokenize(text) {
 
 function skipString(text, start) {
     const quote = text[start];
-    for (let i = start + 1; i < text.length; i++) {
+    let i = start + 1;
+    while (i < text.length) {
         if (text[i] === '\\')
             i++;
         else if (text[i] === quote)
             return i;
+        i++;
     }
     return text.length;
 }
@@ -78,7 +84,8 @@ function stripComments(css) {
 
 function matchBrace(css, open) {
     let depth = 0;
-    for (let i = open; i < css.length; i++) {
+    let i = open;
+    while (i < css.length) {
         const c = css[i];
         if (c === '"' || c === "'") {
             i = skipString(css, i);
@@ -89,6 +96,7 @@ function matchBrace(css, open) {
             if (depth === 0)
                 return i;
         }
+        i++;
     }
     return -1;
 }
@@ -121,7 +129,8 @@ function* eachRule(css, env) {
     while (i < css.length) {
         let brace = -1;
         let semicolon = -1;
-        for (let j = i; j < css.length; j++) {
+        let j = i;
+        while (j < css.length) {
             const c = css[j];
             if (c === '"' || c === "'") {
                 j = skipString(css, j);
@@ -132,6 +141,7 @@ function* eachRule(css, env) {
                 semicolon = j;
                 break;
             }
+            j++;
         }
 
         if (brace < 0) {

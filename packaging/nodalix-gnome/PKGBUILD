@@ -1,6 +1,6 @@
 pkgname=nodalix-gnome
 pkgver=0.5.0
-pkgrel=2
+pkgrel=3
 pkgdesc="GNOME Shell, GDM and native desktop integration for Nodalix"
 arch=("any")
 install=nodalix-gnome.install
@@ -77,6 +77,14 @@ package() {
         install -d "$pkgdir/usr/share/gnome-shell/extensions/$uuid"
         cp -a --no-preserve=ownership "$srcdir/gnome/extensions/$uuid/." "$pkgdir/usr/share/gnome-shell/extensions/$uuid/"
     done
+    local shell_data="$pkgdir/usr/share/gnome-shell"
+    local sharing='glocalsend@donnybeelo.github.com'
+    # Keep stock GNOME compatible with the same engine during rollback.
+    install -d "$shell_data/nodalix-runtime"
+    chmod -R a+rX "$shell_data/extensions/$sharing"
+    glib-compile-schemas --strict "$shell_data/extensions/$sharing/schemas"
+    mv "$shell_data/extensions/$sharing" "$shell_data/nodalix-runtime/"
+    ln -s "../nodalix-runtime/$sharing" "$shell_data/extensions/$sharing"
     install -d "$pkgdir/usr/lib/nodalix/global-menu"
     cp -a --no-preserve=ownership "$srcdir/gnome/lib/global-menu/." "$pkgdir/usr/lib/nodalix/global-menu/"
     install -Dm755 "$srcdir/gnome/lib/global-menu-launcher" "$pkgdir/usr/bin/global-menu"
