@@ -12,7 +12,7 @@ fija la versión de la shell y el ABI de Mutter.
 actualización en cada lanzamiento de Nodalix, sin depender de que extensiones
 de terceros se adapten a una actualización imprevista de GNOME.
 
-## Vista previa de Nodalix OS 0.5.0 (GNOME Shell 51.1)
+## Integración de Nodalix OS 0.5.0 (GNOME Shell 51.1)
 
 - GNOME Shell 51.1 fijada al commit upstream
   `33da06854e229c256afd5872fedd83c28cbfa176` y Mutter 51.
@@ -22,17 +22,21 @@ de terceros se adapten a una actualización imprevista de GNOME.
   Shell, Tiling Assistant, el mosaico automático, el menú global, las esquinas
   redondeadas, la búsqueda web y los dos módulos de cursor. Utiliza las implementaciones
   mantenidas en Nodalix con sus esquemas y licencias.
-- El arranque nativo se ejecuta tras crear la interfaz. No se carga en
-  GDM ni en la configuración inicial.
+- El arranque nativo se ejecuta tras crear la interfaz. En GDM solo activa
+  los módulos compatibles con la sesión de acceso, incluido su fondo.
 - **Enlace móvil** es un módulo interno de Nodalix Shell con un acceso en
   Quick Settings y observación del servicio D-Bus existente; no replica el
   servicio Bluetooth ni el backend de Phone Link.
 - La Shell carga sus módulos desde el paquete. Conserva sus UUID y esquemas
   para leer los ajustes existentes y evita cargar una segunda copia como
   extensión. El gestor estándar sigue atendiendo las extensiones opcionales.
-- `nodalix-shell-preview` proporciona `gnome-shell` y entra en conflicto
-  **solo** con el paquete binario stock. No usa `replaces`, no aparece en
-  `release/components.json` y no se instala con el actualizador habitual.
+- `nodalix-gnome-shell` proporciona `gnome-shell=1:51.1` y entra en conflicto
+  con el paquete stock y la vista previa anterior. El manifiesto firmado,
+  el instalador y la sesión live lo seleccionan como componente obligatorio
+  de 0.5.0. La transacción instala también las versiones compatibles de
+  los paquetes de escritorio, Ajustes y fondos animados. Requiere reiniciar.
+- El constructor antiguo `build-nodalix-shell-preview.sh` sigue disponible
+  para pruebas explícitas; ese paquete no forma parte del manifiesto.
 
 ### Construcción y comprobación
 
@@ -41,14 +45,14 @@ necesarios y GNOME 51/Mutter 51 compatibles:
 
 ```bash
 python3 -m unittest discover -s tests -p 'test_nodalix_shell.py' -v
-bash tools/build-nodalix-shell-preview.sh --prepare-only
-bash tools/build-nodalix-shell-preview.sh
+bash tools/build-nodalix-shell.sh --prepare-only
+bash tools/build-nodalix-shell.sh
 ```
 
-El constructor deja la candidata `nodalix-shell-preview` en `dist/packages`.
+El constructor deja la candidata `nodalix-gnome-shell` en `dist/packages`.
 La actualización de desarrollo se prueba junto con los paquetes de GNOME,
-Ajustes y fondos animados de la misma compilación. El actualizador estable
-conserva su selección de paquetes. Antes de probar una
+Ajustes y fondos animados de la misma compilación. El canal estable publicado
+permanece en 0.4.1 hasta publicar un nuevo manifiesto firmado. Antes de probar una
 sesión, guardar snapshot. En la VM, hacer una instalación explícita del
 paquete de prueba, iniciar sesión desde GDM, comprobar Quick Settings,
 Wayland, bloqueo/desbloqueo, suspender/reanudar, varios monitores y registros.
@@ -66,16 +70,16 @@ sesión activa ni reiniciar GNOME Shell en caliente sobre Wayland.
 
 ### Política de actualización
 
-Nodalix OS mantiene un manifiesto de componentes versionados. La **futura**
-integración estable solo debe incorporarse a ese manifiesto cuando el fork
-haya pasado pruebas reales de compilación, clean install, migración,
-rollback y pruebas de VM contra la misma versión de GNOME/Mutter.
+Nodalix OS mantiene un manifiesto de componentes versionados. La candidata
+incorpora la shell al manifiesto; su publicación requiere pruebas reales de
+compilación, clean install, migración, rollback y VM contra la misma versión
+de GNOME/Mutter.
 
 No ejecutar actualizaciones mayores de GNOME automáticamente en el fork:
 cada salto de ABI pasa por portado de módulos, comparativa de parches,
 pruebas deterministas, paquete reproducible y lanzamiento de Nodalix.
 
-### Alcance de la vista previa
+### Módulos y compatibilidad
 
 La compilación de desarrollo integra también Hanabi, la tarjeta multimedia
 Now Playing Card, el cliente LocalSend que ya distribuye Nodalix y el fondo
@@ -105,6 +109,12 @@ para que sigan disponibles al volver a GNOME estándar.
    se entrega únicamente en el lanzamiento de Nodalix correspondiente.
 
 **Validación local.** GNOME Shell 51.1 compiló y arrancó en una sesión Wayland
-aislada con dos monitores virtuales, trece módulos de usuario activos y una sola entrada
-de Enlace móvil. Quedan por probar el inicio real con GDM, las transiciones
-de bloqueo y suspensión y el paquete en una instalación completa.
+aislada con dos monitores virtuales, trece módulos de usuario activos y una sola
+entrada de Enlace móvil. Se comprobó también el fondo de GDM en dos monitores,
+las barras y menús en tres monitores y el cambio de paquetes desde 0.4.1 con
+retorno a GNOME estándar. Las pruebas de instalación y migración en QEMU
+exigen ahora el paquete nativo y la ausencia de duplicados. El invitado de
+pruebas realiza bloqueo/desbloqueo y suspensión por logind, y QMP verifica la
+suspensión ACPI y el despertar. El ayudante de pruebas existe únicamente en
+la VM desechable; nunca se distribuye en los paquetes ni en la ISO.
+Los resultados de esas comprobaciones se registran en la CI de la candidata.

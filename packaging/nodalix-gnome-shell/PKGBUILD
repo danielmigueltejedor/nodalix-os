@@ -1,12 +1,10 @@
-# OPT-IN PREVIEW ONLY. Not part of the mandatory Nodalix release manifest.
 # Rebuild and validate this fork for every Nodalix and GNOME update.
-pkgname=nodalix-shell-preview
+pkgname=nodalix-gnome-shell
 pkgver=0.5.0
-pkgrel=4
-epoch=1
+pkgrel=5
 _gnomever=51.1
 _upstream_commit=33da06854e229c256afd5872fedd83c28cbfa176
-pkgdesc="Nodalix-maintained GNOME Shell 51.1 with bundled desktop modules (preview)"
+pkgdesc="Nodalix-maintained GNOME Shell 51.1 with bundled desktop modules"
 arch=('x86_64')
 url='https://github.com/danielmigueltejedor/nodalix-os'
 license=('GPL-3.0-or-later')
@@ -19,7 +17,8 @@ depends=(
   'mutter>=51' 'mutter<52' 'libnm' 'libnma-gtk4' 'libpipewire'
   'libpulse' 'libsecret' 'libsoup3' 'libx11' 'libxext'
   'libxfixes' 'pango' 'polkit' 'systemd-libs' 'unzip' 'upower'
-  'webkitgtk-6.0'
+  'webkitgtk-6.0' 'nodalix-gnome>=0.5.0-4'
+  'nodalix-settings>=0.5.0-3' 'nodalix-video-wallpapers>=0.5.0-4'
 )
 makedepends=(
   'git' 'meson' 'ninja' 'python' 'asciidoc' 'bash-completion'
@@ -30,12 +29,11 @@ optdepends=('evolution-data-server: calendar' 'gnome-bluetooth-3.0: Bluetooth'
   'gnome-extensions-app: optional third-party GNOME extensions'
   'gst-plugin-pipewire: screen recording' 'gst-plugins-good: screen recording')
 provides=("gnome-shell=1:$_gnomever")
-conflicts=('gnome-shell')
-# No replaces(): a normal pacman upgrade must never silently install the preview.
+conflicts=('gnome-shell' 'nodalix-shell-preview')
 source=("git+https://github.com/GNOME/gnome-shell.git#commit=$_upstream_commit"
-        'gvc::git+https://gitlab.gnome.org/GNOME/libgnome-volume-control.git#commit=0a4eda0cdc2deb352bebc70ec697c42af46094e4'
+        'gvc::git+https://github.com/GNOME/libgnome-volume-control.git#commit=0a4eda0cdc2deb352bebc70ec697c42af46094e4'
         'git+https://github.com/ptomato/jasmine-gjs.git#commit=856465dddbd92e82e574891e1ebc79e17d7b708a'
-        'git+https://gitlab.gnome.org/GNOME/libshew.git#commit=d16afc40412b565d2bbecf80335f54a19a978009'
+        'git+https://github.com/GNOME/libshew.git#commit=d16afc40412b565d2bbecf80335f54a19a978009'
         'nodalix-shell-overlays.tar.zst'
         'nowplaying-v1.0.14.zip::https://github.com/epogonii/nowplaying-card/releases/download/v1.0.14/nowplaying%40epogonii.github.io.shell-extension.zip')
 noextract=('nowplaying-v1.0.14.zip')
@@ -43,6 +41,15 @@ sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'AUTO_OVERLAY_SHA256'
             'b556a9ef350c7776e9060c6f1a7254cc847158dc43b9d62ccd1ef2c1973d24ce')
 
 prepare() {
+  local project target
+  for project in gvc jasmine-gjs libshew; do
+    target="$srcdir/gnome-shell/subprojects/$project"
+    if [[ -e "$target" ]]; then
+      echo "Refusing an existing GNOME subproject: $project" >&2
+      return 1
+    fi
+    cp -a "$srcdir/$project" "$target"
+  done
   python3 "$srcdir/tools/prepare-nodalix-shell.py" "$srcdir/gnome-shell" \
     --overlay "$srcdir/gnome/nodalix-shell"
 }
@@ -53,7 +60,7 @@ build() {
   if pkg-config --exists libmutter-test-51; then
     upstream_tests=true
   fi
-  MESON_PACKAGE_CACHE_DIR="$srcdir" arch-meson gnome-shell build -Dgtk_doc=false -Dtests="$upstream_tests"
+  arch-meson gnome-shell build --wrap-mode=nodownload -Dgtk_doc=false -Dtests="$upstream_tests"
   meson compile -C build
 }
 

@@ -49,6 +49,9 @@ Gio.Settings.new('org.gnome.desktop.screensaver').set_boolean('lock-enabled', Fa
     require(run('systemctl','is-active','cups.socket').strip() == 'active', 'CUPS is inactive')
     require(not Path('/run/nodalix-updater/reboot-required').exists(), 'Stale restart marker')
     installed=set(run('pacman','-Qq').splitlines())
+    require('nodalix-gnome-shell' in installed, 'The native Nodalix Shell package is missing')
+    require('gnome-shell' not in installed, 'The stock Shell package is still installed')
+    require(Path('/usr/share/nodalix/shell-build').is_file(), 'Native Shell build identity is missing')
     legacy = installed.intersection({'hyprland','hypridle','hyprlock','hyprpaper','hyprutils','quickshell','greetd','greetd-regreet','uwsm','aquamarine','mpvpaper','xdg-desktop-portal-hyprland'})
     require(not legacy, f'Legacy desktop packages remain: {sorted(legacy)}')
     require(not (GUEST_HOME/'.config/hypr').exists(), 'Legacy Hyprland configuration remains')
@@ -60,12 +63,24 @@ Gio.Settings.new('org.gnome.desktop.screensaver').set_boolean('lock-enabled', Fa
                 'Updater still requests a restart')
     fresh=os.environ.get('NODALIX_CI_FRESH')=='1'
     print(user_script('''
-import json,time
+import json,time,subprocess,os
 from pathlib import Path
 from gi.repository import Gio,GLib
 bus=Gio.bus_get_sync(Gio.BusType.SESSION,None)
 profile=json.loads(Path('/usr/share/nodalix/gnome-extensions.json').read_text())
-import subprocess,os
+phone_uuid='nodalix-connect@getnodalia.com'
+native_profile=[uuid for uuid in profile if uuid!=phone_uuid]
+def shell_call(method,parameters=None):
+    return bus.call_sync('org.gnome.Shell','/org/gnome/Shell',
+        'org.gnome.Shell.Extensions',method,parameters,None,
+        Gio.DBusCallFlags.NONE,10000,None).unpack()[0]
+listed=shell_call('ListExtensions')
+registry=json.loads(subprocess.check_output(['gresource','extract',
+    '/usr/lib/gnome-shell/libshell-51.so','/org/gnome/shell/nodalix/modules.json'],text=True))
+native_ids=set(registry['bundled']+registry['desktopPackages']+[phone_uuid])
+assert not native_ids.intersection(listed),listed
+print('Nodalix functions are built in and absent from the extension list')
+
 assert Gio.Settings.new('io.github.jeffshee.hanabi-extension').get_string('video-path').endswith('nodalix-aurora-forest-4k.mp4')
 # TCG and llvmpipe emulate the GPU on two CPU cores. Exercise the actual
 # renderer, selection and portals using a reduced sample of the verified 4K
@@ -87,9 +102,9 @@ deadline=time.monotonic()+240
 states={}
 while time.monotonic()<deadline:
     try:
-        for uuid in profile:
+        for uuid in native_profile:
             states[uuid]=bus.call_sync('org.gnome.Shell','/org/gnome/Shell','org.gnome.Shell.Extensions','GetExtensionInfo',GLib.Variant('(s)',(uuid,)),None,Gio.DBusCallFlags.NONE,5000,None).unpack()[0]
-        if set(states)==set(profile) and all(info.get('state')==1 for info in states.values()):break
+        if set(states)==set(native_profile) and all(info.get('state')==1 for info in states.values()):break
         # GNOME uses ERROR with an empty error while async module imports run.
         if any(info.get('state')==4 or info.get('error') for info in states.values()):raise AssertionError(states)
     except GLib.Error:
@@ -254,6 +269,8 @@ screenshot=Path(unquote(urlparse(responses[0][1]['uri']).path))
 assert screenshot.read_bytes().startswith(bytes([137,80,78,71]))
 print('Real GNOME screenshot portal produced a PNG')
 '''))
+    if not LIVE:
+        print(run('/usr/bin/python3','/usr/local/lib/nodalix/ci-native-shell-cycle.py'))
     missing = {'xdg-desktop-portal','xdg-desktop-portal-gnome','xdg-desktop-portal-gtk'} - installed
     require(not missing, f'Missing desktop portals: {sorted(missing)}')
     print(user_script("print(__import__('subprocess').check_output(['systemctl','--user','is-active','xdg-desktop-portal.service','xdg-desktop-portal-gnome.service'],text=True))"))
