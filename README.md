@@ -41,7 +41,7 @@ The [0.4.0 preparation audit](docs/preparation-0.4.0.md) records the status of a
 |---|---|---|
 | GNOME Shell and Quick Settings | Arch Linux base | Integrated iPhone Phone Link |
 | Mutter on Wayland | Versioned Arch packages | System-wide update management |
-| Cohesive controls and settings | Hardware-aware optimisation | Nodalix Apps |
+| Cohesive controls and settings | Hardware-aware optimisation | NXPM |
 | Consistent icons, typography and surfaces | Verified release manifests | Bluetooth, audio and network integration |
 | Designed for keyboard and pointer use | Recovery paths kept available | Desktop notifications and media controls |
 
@@ -52,7 +52,7 @@ Nodalix is designed to feel like a complete operating system while retaining the
 | Component | Purpose |
 |---|---|
 | **Nodalix GNOME** | GNOME session, GDM, portals and native integrations |
-| **Nodalix Apps** | Management and integration layer for applications distributed or adapted for Nodalix |
+| **NXPM** | One package-manager interface for native binaries, Flatpak and portable AppImages, with Applications (.app) integration |
 | **Phone Link** | Native iPhone integration for notifications, contacts, messages and calls |
 | **Nodalix Updater** | Release discovery, validation, installation and update-channel management |
 | **Nodalix Release** | Version identity and definition of the core Nodalix system |
@@ -127,7 +127,7 @@ The update interface handles:
 - automatic-update preferences
 - restart requirements
 
-The same backend is available from the terminal:
+Native package, Flatpak and AppImage management is available through `nxpm`; system-release upgrades remain coordinated with `nodalix-updater`. The update backend is available from the terminal:
 
 ```bash
 nodalix-updater check
@@ -166,7 +166,7 @@ Personal accounts, pairing information, credentials and machine-specific user se
 ┌─────────────────────────────────────────────────────────────┐
 │                         Nodalix OS                          │
 ├───────────────────┬───────────────────┬─────────────────────┤
-│   Nodalix Shell   │    Nodalix Apps   │     Phone Link      │
+│   Nodalix Shell   │    NXPM   │     Phone Link      │
 │                   │                   │                     │
 │ GNOME / D-Bus  │ app management    │ ANCS · MAP · PBAP   │
 │ controls          │ integration       │ HFP · Bluetooth     │
@@ -205,7 +205,7 @@ User settings, LocalSend favorites, certificates and phone pairing data remain i
 |---|---|
 | `gnome/` | GNOME session, extensions, versioned user migrations and native settings |
 | `integrations/` | Compositor-independent iCloud, calendar, layout and icon services |
-| `nodalix-apps/` | Application management and integration |
+| `nxpm/` | Application management and integration |
 | `phone-link/` | iPhone integration and Bluetooth services |
 | `updater/` | Release detection, validation and installation |
 | `iso/` | Nodalix installation media |
