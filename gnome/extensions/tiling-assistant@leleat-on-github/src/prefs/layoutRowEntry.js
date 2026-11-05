@@ -83,10 +83,10 @@ export const LayoutRowEntry = GObject.registerClass({
         if (ok) {
             const values = text.split('--');
             this._item.rect = {
-                x: Number.parseFloat(values[0].trim()),
-                y: Number.parseFloat(values[1].trim()),
-                width: Number.parseFloat(values[2].trim()),
-                height: Number.parseFloat(values[3].trim())
+                x: parseFloat(values[0].trim()),
+                y: parseFloat(values[1].trim()),
+                width: parseFloat(values[2].trim()),
+                height: parseFloat(values[3].trim())
             };
             this._item.loopType = values[4] || null;
         } else {
@@ -112,7 +112,7 @@ export const LayoutRowEntry = GObject.registerClass({
             return [false, 'Wrong format: invalid count.'];
 
         const notJustNrs = ['x', 'y', 'width', 'height'].some((p, idx) => {
-            return Number.isNaN(Number.parseFloat(values[idx].trim()));
+            return Number.isNaN(parseFloat(values[idx].trim()));
         });
 
         return notJustNrs

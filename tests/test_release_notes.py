@@ -3,6 +3,8 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 import unittest
+import tempfile
+from unittest import mock
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -43,6 +45,29 @@ class ReleaseNotesPolicyTests(unittest.TestCase):
             Path("docs/releases") / f"v{VERSION}.md",
         )
         self.assertTrue(text.strip())
+
+    def test_release_tags_reject_git_options_and_non_release_refs(self):
+        module = load_release_notes()
+        for tag in ("--all", "../HEAD", "0.4.1..HEAD", "0.4.1+bad/ref"):
+            with self.subTest(tag=tag), self.assertRaises(SystemExit):
+                module.tag_ref(tag)
+        self.assertEqual(module.tag_ref("v0.5.0-dev.1"), "refs/tags/v0.5.0-dev.1")
+
+    def test_build_replaces_output_symlink_without_overwriting_its_target(self):
+        module = load_release_notes()
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            target = root / "personal.md"
+            target.write_text("personal content")
+            output = root / "release.md"
+            output.symlink_to(target)
+            with mock.patch.object(module, "previous_tag", return_value=None), \
+                    mock.patch.object(module, "commit_lines", return_value=[]):
+                module.build(VERSION, output)
+            self.assertFalse(output.is_symlink())
+            self.assertIn("What's changed", output.read_text())
+            self.assertEqual(target.read_text(), "personal content")
+            self.assertFalse(list(root.glob(".release-notes-*")))
 
     def test_ci_requires_curated_release_notes(self):
         workflow = (

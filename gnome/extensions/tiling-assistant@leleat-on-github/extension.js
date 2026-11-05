@@ -159,7 +159,15 @@ export default class TilingAssistantExtension extends Extension {
 
         this._twm = twmModule.TilingWindowManager;
         this._twm.initialize();
-        await Util.initialize(cancellable);
+
+        try {
+            await Util.initialize(cancellable);
+        } catch (e) {
+            if (e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
+                return;
+
+            throw e;
+        }
 
         this._moveHandler = new MoveHandler();
         this._resizeHandler = new ResizeHandler();
@@ -237,28 +245,28 @@ export default class TilingAssistantExtension extends Extension {
         this._cancellable?.cancel();
         this._cancellable = null;
 
-        this._settingsOverrider.destroy();
+        this._settingsOverrider?.destroy();
         this._settingsOverrider = null;
-        this._moveHandler.destroy();
+        this._moveHandler?.destroy();
         this._moveHandler = null;
-        this._resizeHandler.destroy();
+        this._resizeHandler?.destroy();
         this._resizeHandler = null;
-        this._keybindingHandler.destroy();
+        this._keybindingHandler?.destroy();
         this._keybindingHandler = null;
-        this._layoutsManager.destroy();
+        this._layoutsManager?.destroy();
         this._layoutsManager = null;
-        this._focusHintManager.destroy();
+        this._focusHintManager?.destroy();
         this._focusHintManager = null;
 
-        this._altTabOverride.destroy();
+        this._altTabOverride?.destroy();
         this._altTabOverride = null;
 
-        this._twm.destroy();
+        this._twm?.destroy();
         this._twm = null;
 
         Util.destroy();
 
-        this.settings.destroy();
+        this.settings?.destroy();
         this.settings = null;
 
         // Restore old functions.
@@ -330,13 +338,14 @@ export default class TilingAssistantExtension extends Extension {
         const userPath = GLib.get_user_config_dir();
         const path = GLib.build_filenamev([userPath, '/tiling-assistant/tiledSessionRestore2.json']);
         const file = Gio.File.new_for_path(path);
-        if (!file.query_exists(null))
-            return;
 
         let contents;
         try {
             [contents] = await file.load_contents_async(cancellable);
         } catch (e) {
+            if (e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND))
+                return;
+
             if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
                 logError(e);
             return;

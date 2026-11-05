@@ -1522,7 +1522,7 @@ export const MultiMonitorsControlsManager = GObject.registerClass(
             let top_spacer_height = Main.layoutManager.primaryMonitor.height;
 
             let panelGhost_height = 0;
-            const mmOverviewRef = ('mmOverview' in Main) ? Main.mmOverview : MultiMonitors.mmOverview;
+            const mmOverviewRef = ('mmOverview' in Main) ? Main.mmOverview : MultiMonitors.getMmOverview();
             const mmOverviewActor = mmOverviewRef?.[this._monitorIndex]?._overview;
             if (mmOverviewActor?._panelGhost)
                 panelGhost_height = mmOverviewActor._panelGhost.get_height();

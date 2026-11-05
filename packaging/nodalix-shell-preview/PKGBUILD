@@ -2,7 +2,7 @@
 # Rebuild and validate this fork for every Nodalix and GNOME update.
 pkgname=nodalix-shell-preview
 pkgver=0.5.0
-pkgrel=3
+pkgrel=4
 epoch=1
 _gnomever=51.1
 _upstream_commit=33da06854e229c256afd5872fedd83c28cbfa176

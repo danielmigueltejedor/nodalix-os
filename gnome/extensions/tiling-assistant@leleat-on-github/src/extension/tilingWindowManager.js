@@ -32,6 +32,8 @@ export class TilingWindowManager {
             window.connectObject(
                 'unmanaging',
                 () => {
+                    window.disconnectObject(this);
+                    this.deleteTilingState(window);
                     window.assertExistence = () => {
                         throw new Error(
                             'Trying to operate on an unmanaging window!'
@@ -577,6 +579,8 @@ export class TilingWindowManager {
             signals.set(TilingSignals.UNMANAGING, 0);
         }
 
+        this._signals.deleteSignalsFor(windowId);
+
         if (!this._tileGroups.has(windowId))
             return;
 
@@ -840,7 +844,7 @@ export class TilingWindowManager {
         } else {
             const biggestSingle = freeRects.reduce((currBiggest, rect) => {
                 return currBiggest.area >= rect.area ? currBiggest : rect;
-            }, freeRects[0]);
+            });
             rectList.push(biggestSingle);
 
             return this.getBestFreeRect(rectList, { currRect: biggestSingle });
@@ -1522,5 +1526,9 @@ class TilingSignals {
         }
 
         return ret;
+    }
+
+    deleteSignalsFor(windowId) {
+        this._ids.delete(windowId);
     }
 };

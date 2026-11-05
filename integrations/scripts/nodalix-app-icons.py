@@ -34,9 +34,10 @@ def candidates(identifier, entry):
         name = Path(name).name
         name = re.sub(r'\.(svg|png|xpm)$', '', name, flags=re.I)
         name = re.sub(r'[_-]icon$', '', name, flags=re.I)
-        release = re.search(r'(?<!\s)\s+R\d{4}[ab]', name, flags=re.I)
-        if release:
-            name = name[:release.start()]
+        for token in re.finditer(r'\S+', name):
+            if token.start() and re.match(r'R\d{4}[ab]', token.group(), flags=re.I):
+                name = name[:token.start()].rstrip()
+                break
         for value in (name, name.lower(), name.removeprefix('nodalix-')):
             if value and value not in result:
                 result.append(value)

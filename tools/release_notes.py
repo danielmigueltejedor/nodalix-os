@@ -9,12 +9,14 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 TOOLS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(TOOLS_DIR))
 
 from versioning import (
+    VERSION_PATTERN,
     canonical_version,
     compare_versions,
     is_stable,
@@ -42,13 +44,19 @@ def validate(version: str) -> tuple[Path, str]:
     version = canonical_version(version)
     path = release_notes_path(version)
 
-    if not path.is_file():
+    directory = TOOLS_DIR.parent / "docs/releases"
+    source = next(
+        (entry for entry in directory.iterdir()
+         if entry.name == path.name and not entry.is_symlink() and entry.is_file()),
+        None,
+    )
+    if source is None:
         fail(
             f"Missing curated release notes for Nodalix {version}. "
             f"Create {path} with the user-facing highlights for this release."
         )
 
-    text = path.read_text(encoding="utf-8").strip()
+    text = source.read_text(encoding="utf-8").strip()
 
     if len(text) < 80:
         fail(
@@ -87,17 +95,21 @@ def validate(version: str) -> tuple[Path, str]:
     return path, text
 
 
-def git(*args: str) -> str:
-    return subprocess.check_output(
-        ["git", *args],
-        text=True,
-    ).strip()
+def valid_tag(tag: str) -> bool:
+    version = tag[1:] if tag.startswith(("v", "V")) else tag
+    return VERSION_PATTERN.fullmatch(version) is not None
+
+
+def tag_ref(tag: str) -> str:
+    if not valid_tag(tag):
+        fail(f"Invalid release tag: {tag!r}")
+    return f"refs/tags/{tag}"
 
 
 def is_ancestor(older: str, newer: str) -> bool:
     return (
         subprocess.run(
-            ["git", "merge-base", "--is-ancestor", "refs/tags/" + older, "refs/tags/" + newer],
+            ["git", "merge-base", "--is-ancestor", tag_ref(older), tag_ref(newer)],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         ).returncode
@@ -111,10 +123,11 @@ def previous_tag(current_tag: str) -> str | None:
 
     candidates: list[str] = []
 
-    for tag in git("tag", "--list").splitlines():
+    tags = subprocess.check_output(["git", "tag", "--list"], text=True)
+    for tag in tags.splitlines():
         tag = tag.strip()
 
-        if not tag or tag == current_tag:
+        if tag == current_tag or not valid_tag(tag):
             continue
 
         try:
@@ -156,15 +169,11 @@ def commit_lines(
     tag: str,
     repository_url: str,
 ) -> list[str]:
-    revision = f"refs/tags/{base}..refs/tags/{tag}" if base else f"refs/tags/{tag}"
+    revision = f"{tag_ref(base)}..{tag_ref(tag)}" if base else tag_ref(tag)
 
-    log = git(
-        "log",
-        "--reverse",
-        "--format=%H%x09%s",
-        "--end-of-options",
-        revision,
-        "--",
+    log = subprocess.check_output(
+        ["git", "log", "--reverse", "--format=%H%x09%s", "--end-of-options", revision, "--"],
+        text=True,
     )
 
     lines: list[str] = []
@@ -221,10 +230,14 @@ def build(tag: str, output: Path) -> None:
     )
 
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(
-        "\n\n".join(sections) + "\n",
-        encoding="utf-8",
-    )
+    fd, name = tempfile.mkstemp(dir=output.parent, prefix=".release-notes-")
+    temporary = Path(name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            stream.write("\n\n".join(sections) + "\n")
+        temporary.replace(output)
+    finally:
+        temporary.unlink(missing_ok=True)
 
     print(f"Generated release notes: {output}")
     print(f"Previous release: {base or 'none'}")

@@ -124,7 +124,10 @@ export class DesktopModules {
 
     disable(record) {
         try {
-            record.stateObj.disable();
+            if (this.stopped && typeof record.stateObj.shutdown === 'function')
+                record.stateObj.shutdown();
+            else
+                record.stateObj.disable();
         } catch (error) {
             logError(error, `Nodalix Shell module cleanup failed: ${record.uuid}`);
         } finally {

@@ -773,13 +773,10 @@ export default class TilingMoveHandler {
      *      `hoveredRect` is hovered.
      */
     _adaptiveTilingPreviewGroup(window, hoveredRect, hovered) {
-        if (!this._topTileGroup.length)
-            return this._adaptiveTilingPreviewSingle(window, hoveredRect);
-
         // Find the smallest window that will be affected and use it to calculate
         // the sizes of the preview. Determine the new tileRects for the rest
         // of the tileGroup via Rect.minus().
-        const smallestWindow = this._topTileGroup.slice(1).reduce((smallest, w) => {
+        const smallestWindow = this._topTileGroup.reduce((smallest, w) => {
             if (hovered.atTopEdge) {
                 if (w.tiledRect.y === hoveredRect.y || w.tiledRect.y2 === hoveredRect.y)
                     return w.tiledRect.height < smallest.tiledRect.height ? w : smallest;
@@ -795,7 +792,7 @@ export default class TilingMoveHandler {
             }
 
             return smallest;
-        }, this._topTileGroup[0]);
+        });
 
         const monitor = global.display.get_current_monitor();
         const workArea = new Rect(window.get_work_area_for_monitor(monitor));
