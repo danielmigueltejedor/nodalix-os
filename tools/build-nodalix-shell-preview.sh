@@ -12,9 +12,14 @@ fi
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 cp "$root/packaging/nodalix-shell-preview/PKGBUILD" "$work/PKGBUILD"
-module_ids=$(python3 -c 'import json, sys; print(*json.load(sys.stdin), sep="\n")'   < "$root/gnome/nodalix-shell/modules.json")
+module_ids=$(python3 -c 'import json, sys; print(*json.load(sys.stdin)["bundled"], sep="\n")'   < "$root/gnome/nodalix-shell/modules.json")
 module_sources=()
 while IFS= read -r uuid; do
+  [[ "$uuid" != 'nowplaying@epogonii.github.io' ]] || continue
+  if [[ ! -f "$root/gnome/extensions/$uuid/extension.js" ]]; then
+    echo "Missing source for Nodalix Shell module $uuid" >&2
+    exit 1
+  fi
   module_sources+=("gnome/extensions/$uuid")
 done <<< "$module_ids"
 tar --exclude='*/__pycache__' --exclude='gschemas.compiled' --zstd -C "$root" -cf "$work/nodalix-shell-overlays.tar.zst" \

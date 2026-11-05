@@ -1,17 +1,18 @@
 // Built into the Nodalix-maintained GNOME Shell GResource, not an extension.
 import {NodalixConnect} from './connect.js';
-import {DesktopModules} from './modules.js';
+import {DesktopModules, PHONE_LINK_ID} from './modules.js';
 
 let started = false;
 const components = [];
 
 export function start({panel, sessionMode, extensionManager, notifyError}) {
-    if (started || sessionMode.isGreeter || sessionMode.currentMode !== 'user')
+    if (started || (!sessionMode.isGreeter && sessionMode.currentMode !== 'user'))
         return;
 
     started = true;
     try {
-        components.push(new NodalixConnect(panel.statusArea.quickSettings, notifyError));
+        if (!sessionMode.isGreeter && !global.settings.get_strv('disabled-extensions').includes(PHONE_LINK_ID))
+            components.push(new NodalixConnect(panel.statusArea.quickSettings, notifyError));
     } catch (error) {
         console.error('Nodalix Shell: native Phone Link failed to initialize', error);
     }

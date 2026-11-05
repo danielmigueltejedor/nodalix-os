@@ -4,8 +4,8 @@ import base64
 from pathlib import Path
 import sys
 
-source, target = map(Path, sys.argv[1:])
-template = Path(__file__).with_name('nodalix-login-logo.svg').read_text()
+script = Path(__file__).resolve()
+source = script.parents[2] / 'docs/images/nodalix-logo.png'
+template = script.with_name('nodalix-login-logo.svg').read_text(encoding='utf-8')
 encoded = base64.b64encode(source.read_bytes()).decode('ascii')
-target.parent.mkdir(parents=True, exist_ok=True)
-target.write_text(template.replace('@NODALIX_LOGO_DATA_URI@', 'data:image/png;base64,'+encoded))
+sys.stdout.write(template.replace('@NODALIX_LOGO_DATA_URI@', 'data:image/png;base64,' + encoded))

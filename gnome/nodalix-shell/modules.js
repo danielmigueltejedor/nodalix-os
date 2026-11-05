@@ -5,11 +5,31 @@ import {ExtensionState, ExtensionType, loadExtensionMetadata} from '../misc/exte
 
 const manifest = Gio.File.new_for_uri(import.meta.url).get_parent().get_child('modules.json');
 const [, bytes] = manifest.load_contents(null);
-const moduleIds = new Set(JSON.parse(new TextDecoder().decode(bytes)));
+const {bundled, desktopPackages} = JSON.parse(new TextDecoder().decode(bytes));
+const bundledIds = new Set(bundled);
+const packagedIds = new Set(desktopPackages);
+export const PHONE_LINK_ID = 'nodalix-connect@getnodalia.com';
 const records = new Map();
 
+function moduleDirectory(uuid) {
+    const share = Gio.File.new_for_path(global.datadir);
+    if (bundledIds.has(uuid))
+        return share.get_child('nodalix-modules').get_child(uuid);
+
+    if (!packagedIds.has(uuid))
+        return null;
+    // Read the packaged engine only. The old package location works during a
+    // partial migration and never resolves to a user-installed extension.
+    for (const directory of ['nodalix-runtime', 'extensions']) {
+        const module = share.get_child(directory).get_child(uuid);
+        if (module.get_child('extension.js').query_exists(null))
+            return module;
+    }
+    return null;
+}
+
 export function managesModule(uuid) {
-    return moduleIds.has(uuid);
+    return uuid === PHONE_LINK_ID || moduleDirectory(uuid) !== null;
 }
 
 // Existing Shell integrations can discover a built-in peer by UUID. Discovery,
@@ -22,7 +42,6 @@ export class DesktopModules {
     constructor(sessionMode, extensionManager) {
         this.sessionMode = sessionMode;
         this.extensionManager = extensionManager;
-        this.directory = Gio.File.new_for_path(global.datadir).get_child('nodalix-modules');
         this.settingsSignals = ['enabled-extensions', 'disabled-extensions', 'disable-user-extensions']
             .map(key => global.settings.connect(`changed::${key}`, () => this.schedule()));
         this.sessionSignal = sessionMode.connect('updated', () => this.schedule());
@@ -35,13 +54,12 @@ export class DesktopModules {
         const requested = global.settings.get_boolean('disable-user-extensions')
             ? ids : [...ids, ...global.settings.get_strv('enabled-extensions')];
         const disabled = new Set(global.settings.get_strv('disabled-extensions'));
-        return [...new Set(requested)].filter(uuid => managesModule(uuid) && !disabled.has(uuid));
+        return [...new Set(requested)].filter(uuid => uuid !== PHONE_LINK_ID && managesModule(uuid) && !disabled.has(uuid));
     }
 
     supportsSession(record) {
         const modes = record.metadata['session-modes'] ?? ['user'];
-        return !this.sessionMode.isGreeter &&
-            (modes.includes(this.sessionMode.currentMode) || modes.includes(this.sessionMode.parentMode));
+        return modes.includes(this.sessionMode.currentMode) || modes.includes(this.sessionMode.parentMode);
     }
 
     schedule() {
@@ -74,7 +92,9 @@ export class DesktopModules {
     async enable(uuid) {
         let record;
         try {
-            const dir = this.directory.get_child(uuid);
+            const dir = moduleDirectory(uuid);
+            if (!dir)
+                return;
             const metadata = loadExtensionMetadata(uuid, dir);
             record = {
                 uuid, dir, metadata, path: dir.get_path(), type: ExtensionType.SYSTEM,

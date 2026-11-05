@@ -45,7 +45,10 @@ bash tools/build-nodalix-shell-preview.sh --prepare-only
 bash tools/build-nodalix-shell-preview.sh
 ```
 
-El constructor no instala el paquete en la máquina. Antes de probar una
+El constructor deja la candidata `nodalix-shell-preview` en `dist/packages`.
+La actualización de desarrollo se prueba junto con los paquetes de GNOME,
+Ajustes y fondos animados de la misma compilación. El actualizador estable
+conserva su selección de paquetes. Antes de probar una
 sesión, guardar snapshot. En la VM, hacer una instalación explícita del
 paquete de prueba, iniciar sesión desde GDM, comprobar Quick Settings,
 Wayland, bloqueo/desbloqueo, suspender/reanudar, varios monitores y registros.
@@ -74,9 +77,16 @@ pruebas deterministas, paquete reproducible y lanzamiento de Nodalix.
 
 ### Alcance de la vista previa
 
-Hanabi y LocalSend mantienen sus mecanismos de instalación actuales. LocalSend
-requiere una revisión de la licencia de su código de origen antes de integrarlo
-en la vista previa. Las extensiones personales se gestionan desde GNOME.
+La compilación de desarrollo integra también Hanabi, la tarjeta multimedia
+Now Playing Card, el cliente LocalSend que ya distribuye Nodalix y el fondo
+de acceso de GDM. Hanabi, LocalSend y GDM comparten una copia del código con
+sus paquetes de escritorio. Los enlaces para GNOME estándar sirven para
+volver atrás conservando los mismos ajustes.
+
+Now Playing Card se obtiene del ZIP oficial de la versión 1.0.14, con SHA-256
+fijado. Nodalix Shell ignora las copias instaladas de los módulos incorporados
+en la lista de extensiones. Las copias personales y sus datos se conservan
+para que sigan disponibles al volver a GNOME estándar.
 
 ## Definición de listo para uso diario
 
@@ -89,6 +99,6 @@ en la vista previa. Las extensiones personales se gestionan desde GNOME.
    se entrega únicamente en el lanzamiento de Nodalix correspondiente.
 
 **Validación local.** GNOME Shell 51.1 compiló y arrancó en una sesión Wayland
-aislada con dos monitores virtuales, diez módulos activos y una sola entrada
+aislada con dos monitores virtuales, trece módulos de usuario activos y una sola entrada
 de Enlace móvil. Quedan por probar el inicio real con GDM, las transiciones
 de bloqueo y suspensión y el paquete en una instalación completa.

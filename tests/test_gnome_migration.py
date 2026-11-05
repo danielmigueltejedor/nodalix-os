@@ -1,9 +1,14 @@
+import hashlib
+import http.server
 import importlib.util
 import json
 import os
 from pathlib import Path
+import shutil
+import ssl
 import subprocess
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -38,8 +43,14 @@ class MigrationTests(unittest.TestCase):
             profile=json.loads((ROOT/'gnome/session/extensions.json').read_text())
             for uuid in profile:
                 if uuid.startswith('hanabi'):continue  # separate video package
-                self.assertIn(f'usr/share/gnome-shell/extensions/{uuid}/extension.js',package_paths[1])
-                self.assertIn(f'usr/share/gnome-shell/extensions/{uuid}/metadata.json',package_paths[1])
+                if uuid == 'glocalsend@donnybeelo.github.com':
+                    compatibility = output / 'usr/share/gnome-shell/extensions' / uuid
+                    self.assertEqual(compatibility.readlink(), Path('../nodalix-runtime') / uuid)
+                    directory = f'usr/share/gnome-shell/nodalix-runtime/{uuid}'
+                else:
+                    directory = f'usr/share/gnome-shell/extensions/{uuid}'
+                self.assertIn(f'{directory}/extension.js', package_paths[1])
+                self.assertIn(f'{directory}/metadata.json', package_paths[1])
                 self.assertEqual((output/f'usr/share/gnome-shell/extensions/{uuid}/metadata.json').stat().st_mode & 0o777,0o644)
             self.assertFalse(any('/hypr/' in path or '/quickshell/' in path for paths in package_paths for path in paths))
 
@@ -53,6 +64,59 @@ class Response:
 
 
 class SenderTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which('openssl'), 'OpenSSL is needed to generate a disposable certificate')
+    def test_tls_fingerprint_is_checked_before_sending_http(self):
+        requests = []
+
+        class Receiver(http.server.BaseHTTPRequestHandler):
+            def handle_one_request(self):
+                try:
+                    super().handle_one_request()
+                except BrokenPipeError:
+                    # A rejected fingerprint closes during the TLS handshake.
+                    self.close_connection = True
+
+            def do_HEAD(self):
+                requests.append(self.path)
+                self.send_response(204)
+                self.end_headers()
+
+            def log_message(self, *args):
+                pass
+
+        with tempfile.TemporaryDirectory() as directory:
+            certificate = Path(directory) / 'certificate.pem'
+            key = Path(directory) / 'key.pem'
+            subprocess.run(
+                ['openssl', 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '1',
+                 '-subj', '/CN=LocalSend Test', '-out', str(certificate), '-keyout', str(key)],
+                check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            context.load_cert_chain(certificate, key)
+            with http.server.ThreadingHTTPServer(('127.0.0.1', 0), Receiver) as receiver:
+                receiver.socket = context.wrap_socket(receiver.socket, server_side=True)
+                thread = threading.Thread(target=receiver.serve_forever, daemon=True)
+                thread.start()
+                try:
+                    peer = dict(protocol='https', ip='127.0.0.1', port=receiver.server_port,
+                                fingerprint='0' * 64)
+                    identity = dict(certificate=str(certificate), key=str(key))
+                    with self.assertRaisesRegex(ValueError, 'identidad'):
+                        sender.connection(peer, identity)
+                    self.assertEqual(requests, [])
+                    der = ssl.PEM_cert_to_DER_cert(certificate.read_text())
+                    peer['fingerprint'] = hashlib.sha256(der).hexdigest()
+                    client = sender.connection(peer, identity)
+                    try:
+                        client.request('HEAD', '/probe')
+                        self.assertEqual(client.getresponse().status, 204)
+                    finally:
+                        client.close()
+                    self.assertEqual(requests, ['/probe'])
+                finally:
+                    receiver.shutdown()
+                    thread.join(timeout=5)
+
     def test_streams_file_and_reports_partial_acceptance(self):
         with tempfile.TemporaryDirectory() as scratch:
             paths = [Path(scratch) / name for name in ['a.txt', 'b.txt']]
