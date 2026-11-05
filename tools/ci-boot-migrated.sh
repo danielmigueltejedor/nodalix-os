@@ -86,14 +86,16 @@ mkfs.ext4 -q -F -d "$guest" "$qa/migrated.raw"
 (cd "$qa" && exec python /src/tools/ci-wake-guest.py) > /src/dist/migration-evidence/suspend.log 2>&1 &
 wake_pid=$!
 trap 'if kill -0 "$wake_pid" 2>/dev/null; then kill "$wake_pid"; fi' EXIT
+qemu_status=0
 timeout 900 qemu-system-x86_64 -accel tcg -cpu max -m 4096 -smp 2 \
   -kernel "$qa/vmlinuz-linux" -initrd "$qa/initramfs.img" \
   -append 'root=/dev/vda rw console=ttyS0 audit=0 loglevel=3 systemd.firstboot=no' \
   -drive "file=$qa/migrated.raw,format=raw,if=virtio" -device virtio-vga \
   -qmp "unix:$qa/qmp.sock,server=on,wait=off" \
-  -display none -serial "file:/src/dist/migration-evidence/boot.log" -monitor none -no-reboot
+  -display none -serial "file:/src/dist/migration-evidence/boot.log" -monitor none -no-reboot || qemu_status=$?
 # A failed guest never suspends, so the wake helper fails too. Show the logs
 # before judging either result; otherwise the job ends with no evidence.
+echo "QEMU exit status: $qemu_status"
 wake_status=0
 wait "$wake_pid" || wake_status=$?
 cat /src/dist/migration-evidence/suspend.log
