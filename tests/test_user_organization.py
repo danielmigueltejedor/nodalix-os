@@ -133,6 +133,12 @@ class Organization(unittest.TestCase):
         entry.write_text('[Desktop Entry]\nType=Application\nName=FigCraft\nExec=figcraft %F\nIcon=' + identifier + '\n')
         sync = lambda: icons.synchronize(self.home, [system], [self.home / 'themes'])
         self.assertEqual(sync()[entry.name], str(expected))
+        # An icon added later to the repository needs no OS-side app list.
+        (packaged / 'futureapp.svg').write_text('<svg>new repository icon</svg>')
+        (local / 'futureapp.svg').write_text('<svg>stale local theme</svg>')
+        future = apps / 'futureapp.desktop'
+        future.write_text('[Desktop Entry]\nType=Application\nName=Future App\nExec=futureapp\nIcon=futureapp\n')
+        self.assertEqual(sync()[future.name], str(packaged / 'futureapp.svg'))
         personal = self.home / 'my-icon.svg'
         personal.write_text('<svg>personal</svg>')
         text = entry.read_text().replace(str(expected), str(personal))

@@ -67,12 +67,12 @@ def read_icon_catalogue(root):
     try:
         catalogue = json.loads((root / 'nodalix/icon-theme/legacy-icons.json').read_text())
     except (OSError, ValueError):
-        return []
+        return None
     if not isinstance(catalogue, dict) or catalogue.get('schema_version') != 1:
-        return []
+        return None
     rows = catalogue.get('icons')
     if not isinstance(rows, list):
-        return []
+        return None
     result = []
     for row in rows:
         if not isinstance(row, dict):
@@ -84,17 +84,17 @@ def read_icon_catalogue(root):
     return result
 
 
-def packaged_icons(roots, index):
-    legacy = {}
+def packaged_icons(roots, theme_roots):
+    legacy, preferred = {}, []
     for root in roots:
-        for name, checksum in read_icon_catalogue(root):
+        catalogue = read_icon_catalogue(root)
+        if catalogue is None:
+            continue
+        preferred.append(root / 'icons')
+        for name, checksum in catalogue:
             legacy[checksum] = name
-            for variant in THEME_VARIANTS:
-                icon = root / 'icons' / variant / 'apps/scalable' / (name + '.svg')
-                if icon.is_file():
-                    index[name] = str(icon)
-                    break
-    return legacy
+    ordered = dict.fromkeys(preferred + theme_roots)
+    return icon_index(ordered), legacy
 
 
 def choose_icon(identifier, entry, index, roots, home, legacy):
@@ -167,8 +167,7 @@ def synchronize(home, data_roots=None, theme_roots=None):
         data_roots = [Path(p) for p in os.environ.get('XDG_DATA_DIRS', '/usr/local/share:/usr/share').split(':') if p]
         data_roots += [data_home / 'flatpak/exports/share', Path('/var/lib/flatpak/exports/share')]
     roots = [data_home] + data_roots
-    index = icon_index(theme_roots or [p / 'icons' for p in roots])
-    legacy = packaged_icons(roots, index)
+    index, legacy = packaged_icons(roots, theme_roots or [p / 'icons' for p in roots])
     manifest = state / 'overrides.json'
     try:
         old = json.loads(manifest.read_text())
