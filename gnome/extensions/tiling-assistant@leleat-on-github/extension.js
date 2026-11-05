@@ -151,15 +151,30 @@ export default class TilingAssistantExtension extends Extension {
     async enable() {
         const cancellable = new Gio.Cancellable();
         this._cancellable = cancellable;
-        this.settings = (await import('./src/common.js')).Settings;
+        const {Settings} = await import('./src/common.js');
+        if (cancellable.is_cancelled())
+            return;
+        this.settings = Settings;
         this.settings.initialize(this.getSettings(), this);
         this._settingsOverrider = new SettingsOverrider(this.settings);
 
         const twmModule = await import('./src/extension/tilingWindowManager.js');
+        if (cancellable.is_cancelled())
+            return;
 
         this._twm = twmModule.TilingWindowManager;
         this._twm.initialize();
-        await Util.initialize(cancellable);
+
+        try {
+            await Util.initialize(cancellable);
+        } catch (e) {
+            if (e.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
+                return;
+
+            throw e;
+        }
+        if (cancellable.is_cancelled())
+            return;
 
         this._moveHandler = new MoveHandler();
         this._resizeHandler = new ResizeHandler();
@@ -223,6 +238,8 @@ export default class TilingAssistantExtension extends Extension {
 
         // Restore tiled window properties after session was unlocked.
         await this._loadAfterSessionLock(cancellable);
+        if (cancellable.is_cancelled())
+            return;
 
         // Setting used for detection of a fresh install and do compatibility
         // changes if necessary...
@@ -232,37 +249,42 @@ export default class TilingAssistantExtension extends Extension {
     disable() {
         // Save tiled window properties, if the session was locked to restore
         // them after the session is unlocked again.
-        this._saveBeforeSessionLock();
+        try {
+            this._saveBeforeSessionLock();
+        } catch (error) {
+            logError(error);
+        }
 
         this._cancellable?.cancel();
         this._cancellable = null;
 
-        this._settingsOverrider.destroy();
+        this._settingsOverrider?.destroy();
         this._settingsOverrider = null;
-        this._moveHandler.destroy();
+        this._moveHandler?.destroy();
         this._moveHandler = null;
-        this._resizeHandler.destroy();
+        this._resizeHandler?.destroy();
         this._resizeHandler = null;
-        this._keybindingHandler.destroy();
+        this._keybindingHandler?.destroy();
         this._keybindingHandler = null;
-        this._layoutsManager.destroy();
+        this._layoutsManager?.destroy();
         this._layoutsManager = null;
-        this._focusHintManager.destroy();
+        this._focusHintManager?.destroy();
         this._focusHintManager = null;
 
-        this._altTabOverride.destroy();
+        this._altTabOverride?.destroy();
         this._altTabOverride = null;
 
-        this._twm.destroy();
+        this._twm?.destroy();
         this._twm = null;
 
         Util.destroy();
 
-        this.settings.destroy();
+        this.settings?.destroy();
         this.settings = null;
 
         // Restore old functions.
-        Main.panel._getDraggableWindowForPosition = this._getDraggableWindowForPosition;
+        if (this._getDraggableWindowForPosition)
+            Main.panel._getDraggableWindowForPosition = this._getDraggableWindowForPosition;
         this._getDraggableWindowForPosition = null;
 
         // Delete custom tiling properties.
@@ -279,7 +301,7 @@ export default class TilingAssistantExtension extends Extension {
      * properties of windows before locking the screen.
      */
     _saveBeforeSessionLock() {
-        if (!Main.sessionMode.isLocked)
+        if (!Main.sessionMode.isLocked || !this._twm)
             return;
 
         this._wasLocked = true;
@@ -330,13 +352,14 @@ export default class TilingAssistantExtension extends Extension {
         const userPath = GLib.get_user_config_dir();
         const path = GLib.build_filenamev([userPath, '/tiling-assistant/tiledSessionRestore2.json']);
         const file = Gio.File.new_for_path(path);
-        if (!file.query_exists(null))
-            return;
 
         let contents;
         try {
             [contents] = await file.load_contents_async(cancellable);
         } catch (e) {
+            if (e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND))
+                return;
+
             if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
                 logError(e);
             return;

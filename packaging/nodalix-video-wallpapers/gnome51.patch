@@ -242,7 +242,7 @@ index 5dc587a..564d857 100644
 
      getPlaybackStatus(): string {
 diff --git a/src/extension.ts b/src/extension.ts
-index 99dea7f..509c290 100644
+index 99dea7f..5268fc8 100644
 --- a/src/extension.ts
 +++ b/src/extension.ts
 @@ -53,6 +53,7 @@ export default class HanabiExtension extends Extension {
@@ -329,10 +329,16 @@ index 99dea7f..509c290 100644
          if (this.isEnabled && !this.currentProcess)
              this.launchRenderer();
      }
-@@ -249,8 +261,15 @@ export default class HanabiExtension extends Extension {
+@@ -248,9 +260,20 @@ export default class HanabiExtension extends Extension {
+         });
      }
 
-     disable(): void {
+-    disable(): void {
++    shutdown(): void {
++        this.disable(true);
++    }
++
++    disable(shuttingDown = false): void {
 +        // unlock-dialog support keeps the paused renderer warm across locks.
 +        // A real disable/logout still tears down every process and signal.
          logger.debug('Disabling');
@@ -344,6 +350,15 @@ index 99dea7f..509c290 100644
 +        }
          this.killCurrentProcess();
          this.rendererSuspended = false;
+
+@@ -259,7 +282,7 @@ export default class HanabiExtension extends Extension {
+
+         this.settings = null;
+         this.panelMenu?.disable();
+-        this.shellOverride?.disable();
++        this.shellOverride?.disable(shuttingDown);
+         this.windowManager?.disable();
+         this.autoPause?.disable();
 
 diff --git a/src/metadata.json.in b/src/metadata.json.in
 index e33f8cb..0965ee8 100755
@@ -676,3 +691,95 @@ diff --git a/src/wallpaper.ts b/src/wallpaper.ts
          }
 
          setBorderColor(color: number[]): void {
+diff --git a/src/gnomeShellOverride.ts b/src/gnomeShellOverride.ts
+index e890e50..fae3b0e 100644
+--- a/src/gnomeShellOverride.ts
++++ b/src/gnomeShellOverride.ts
+@@ -49,17 +49,39 @@ export class GnomeShellOverride {
+     // Settings and its tracked signal connections.
+     private settings: Gio.Settings;
+     private settingsChangedIds: number[] = [];
++    private refreshLaterId = 0;
++    private lockRefreshLaterId = 0;
++    private refreshTimeoutId = 0;
+
+     constructor(settings: Gio.Settings) {
+         this.settings = settings;
+     }
+
+-    private reloadBackgrounds(): void {
+-        logger.debug('Reloading backgrounds');
++    private clearWallpapers(): void {
+         this.wallpaperActors.forEach(actor => actor.destroy());
+         this.wallpaperActors.clear();
++    }
++
++    private cancelRefresh(): void {
++        const laters = global.compositor.get_laters();
++        if (this.refreshLaterId)
++            laters.remove(this.refreshLaterId);
++        if (this.lockRefreshLaterId)
++            laters.remove(this.lockRefreshLaterId);
++        if (this.refreshTimeoutId)
++            GLib.source_remove(this.refreshTimeoutId);
++        this.refreshLaterId = 0;
++        this.lockRefreshLaterId = 0;
++        this.refreshTimeoutId = 0;
++    }
+
+-        global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
++    private reloadBackgrounds(): void {
++        logger.debug('Reloading backgrounds');
++        this.cancelRefresh();
++        this.clearWallpapers();
++
++        this.refreshLaterId = global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
++            this.refreshLaterId = 0;
+             Main.layoutManager._updateBackgrounds();
+             if (Main.screenShield?._dialog?._updateBackgrounds != null)
+                 Main.screenShield._dialog._updateBackgrounds();
+@@ -72,7 +94,8 @@ export class GnomeShellOverride {
+             return GLib.SOURCE_REMOVE;
+         });
+
+-        GLib.timeout_add(GLib.PRIORITY_DEFAULT, BACKGROUND_RELOAD_REFRESH_DELAY_MS, () => {
++        this.refreshTimeoutId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, BACKGROUND_RELOAD_REFRESH_DELAY_MS, () => {
++            this.refreshTimeoutId = 0;
+             // _enabledExtensions (uuid list) is a private field not in the typed API.
+             const {_enabledExtensions} = Main.extensionManager as {_enabledExtensions?: string[]};
+             if (_enabledExtensions?.includes('blur-my-shell@aunetx'))
+@@ -90,7 +113,11 @@ export class GnomeShellOverride {
+                 actor.destroy();
+         }
+
+-        global.compositor.get_laters().add(Meta.LaterType.BEFORE_REDRAW, () => {
++        const laters = global.compositor.get_laters();
++        if (this.lockRefreshLaterId)
++            laters.remove(this.lockRefreshLaterId);
++        this.lockRefreshLaterId = laters.add(Meta.LaterType.BEFORE_REDRAW, () => {
++            this.lockRefreshLaterId = 0;
+             if (Main.screenShield?._dialog?._updateBackgrounds != null)
+                 Main.screenShield._dialog._updateBackgrounds();
+             return GLib.SOURCE_REMOVE;
+@@ -277,7 +304,7 @@ export class GnomeShellOverride {
+         this.reloadBackgrounds();
+     }
+
+-    disable(): void {
++    disable(shuttingDown = false): void {
+         logger.debug('Removing overrides');
+
+         for (const id of this.settingsChangedIds)
+@@ -285,6 +312,11 @@ export class GnomeShellOverride {
+         this.settingsChangedIds = [];
+
+         this.injectionManager.clear();
+-        this.reloadBackgrounds();
++        if (shuttingDown) {
++            this.cancelRefresh();
++            this.clearWallpapers();
++        } else {
++            this.reloadBackgrounds();
++        }
+     }
+ }

@@ -83,6 +83,12 @@ de acceso de GDM. Hanabi, LocalSend y GDM comparten una copia del código con
 sus paquetes de escritorio. Los enlaces para GNOME estándar sirven para
 volver atrás conservando los mismos ajustes.
 
+Tiling Assistant conserva la versión 56 de la sesión de referencia, con la
+restauración tolerante a archivos dañados que mantiene Nodalix. El cierre
+nativo cancela los refrescos pendientes de Hanabi antes de destruir los
+actores del escritorio. Desactivar fondos animados durante la sesión sigue
+restaurando los fondos estáticos.
+
 Now Playing Card se obtiene del ZIP oficial de la versión 1.0.14, con SHA-256
 fijado. Nodalix Shell ignora las copias instaladas de los módulos incorporados
 en la lista de extensiones. Las copias personales y sus datos se conservan

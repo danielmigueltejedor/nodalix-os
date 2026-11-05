@@ -321,10 +321,10 @@
   },
   {
     "uuid": "tiling-assistant@leleat-on-github",
-    "version": 55,
+    "version": 56,
     "files": {
       "COPYING": "aaf135472f81c5b4a0dca9367e5bb5e9750032b5bebe5442b36e4c0a47430df3",
-      "extension.js": "6be13823377640b3068b50e8a3c955902c790587822fd8f7f0116708b7eac981",
+      "extension.js": "06bd14da63d189f71fbf4e158674d1e50bfe0985bde42a92be5fb1c13713c874",
       "locale/cs/LC_MESSAGES/tiling-assistant@leleat-on-github.mo": "d29a84e1b2f4658b8fec00c53fa4a9804e63bdcaa2504dcc7f391d6281585fda",
       "locale/de_CH/LC_MESSAGES/tiling-assistant@leleat-on-github.mo": "9c2b72c9d2f775967141012ccc8efbf1a6d524b8f345c387bba32fcd075adb7f",
       "locale/de_DE/LC_MESSAGES/tiling-assistant@leleat-on-github.mo": "b7475f6bc2830aacc7da603f7a2ac72ad94d0b46607e95d7117480b757ffe023",
@@ -355,7 +355,7 @@
       "media/tile-right-symbolic.svg": "c72dba5157107276f062238fb44857fa86c1065773baf37ccef4b8cf379a654d",
       "media/tile-top-symbolic.svg": "97035e1b1142a67228b9adb1875992e4a8dce3f3bdb1a7dbcb5e7fe4cae320e0",
       "media/tile-vertical-symbolic.svg": "36b6d93605737ae752f10d1128d21d3a2b22a48eae2eb82916eee36e771b9658",
-      "metadata.json": "d128aeea3e25c52ea288530379b598747d3dcbbeb0e66d099586735b7cfbd075",
+      "metadata.json": "8a333bac01123e9461230497ee40c1268ce32b9e48e59d42d09c39a91b02b31e",
       "prefs.js": "00fe0a3f8e14cd7cfe37bb23192697b251b215d53228aaa666de14360c404c03",
       "schemas/org.gnome.shell.extensions.tiling-assistant.gschema.xml": "f0bd9d6f76070ffeba8909fe62c5e9f07426689e3a9e92502743a2b9e8b0f2c1",
       "src/common.js": "96bc4dece5e2d67f2bf92ea72e56707a18277023ff9f7e34639c6abf5a959701",
@@ -371,14 +371,14 @@
       "src/extension/altTab.js": "fe26d8948d3a0270269fe4fc574cbb175110fbf04c255012373dff3a62f00950",
       "src/extension/focusHint.js": "286371c1704dd9a1afe4704d12a6a298f015343bdef19de50465d4af56e4b609",
       "src/extension/keybindingHandler.js": "991ea8f866801b7baa99d1ad5bb5eaa51906c007432faf3d0fb24cb27453558c",
-      "src/extension/layoutPicker.js": "3eb7d00297cd34e3c74157d141b07907b16c7dbcffdbc49a32c958b3cc55e8ad",
-      "src/extension/layoutsManager.js": "968a9d7cd3e3bd80650d608a04be5fcb8da3ba11a865eaebde82c4126d48e862",
+      "src/extension/layoutPicker.js": "e1c93ad6b7c3dbd00778adfec413caf291080726791b3f6fba7e745c73cf43b8",
+      "src/extension/layoutsManager.js": "c690122436b89c72a5e5f948786f7884b574cf05a064b0ee97959ccfcf21efd8",
       "src/extension/moveHandler.js": "f2fcaf6a3dc7d3c1091ae6db723e74def484c36f9dd1cb25fd7598a617818a16",
       "src/extension/resizeHandler.js": "deb85129e2718a83fa009a4008787406608560f10b13aee2914446eae80c1a78",
       "src/extension/tileEditingMode.js": "9019af71852375c69ab09656454dcc7f3fdf0e33c226f79c00f53cf65f4c63b8",
       "src/extension/tilingPopup.js": "a16de67fc775a64ee5ebc1b836ccccf629a7bb1b761493ede4c57c6d9fde7ab8",
-      "src/extension/tilingWindowManager.js": "bf292bc36cc08ee24d5d83b3b9d224d7e723843847df6ba5b9d53ad473d2ddd0",
-      "src/extension/utility.js": "0d2554814b7487f510129f062112797cdd578a9d3603296ceca8aaac591e6e9b",
+      "src/extension/tilingWindowManager.js": "f8e19311ab294d0ed3ff800205ac419476d54c10e2291b02489b2e8c5a1d5c46",
+      "src/extension/utility.js": "84bacb20258e821f987fcced4ac601a598b0e9727d2c36f2a7a6c93f26577258",
       "src/layouts_example.json": "2402d5801a8ff5409c2368f7c9dfd6f4f5a6f481cfddb55fbb42b9aca39d9664",
       "src/prefs/layoutRow.js": "9e918f2285df7f9db98357150c323381e31841884c484648eef13af780b6674d",
       "src/prefs/layoutRowEntry.js": "bb7cdfe6f28c4804fb04c908c51daa59e5e1a7a16de83395d969b45741ac94cc",
@@ -389,7 +389,9 @@
       "src/ui/prefs.ui": "0ecbc358f52d93b6ef7eafcfd0e71fa75faad13c1469d39b656c14ce06352015",
       "src/ui/shortcutListener.ui": "0d8d13b3b6fadf2a7c505670106e5469d2923dfeb754f1ac8613d8276c763c95",
       "stylesheet.css": "6a342eb3984fa3ea859d18baebf4684e25b7c504ecab96d674120bf4d6f405a6"
-    }
+    },
+    "source_url": "https://codeload.github.com/ubuntu/Tiling-Assistant/tar.gz/62b43228a8780bd435ec7a94892434e4950dcd41",
+    "source_sha256": "5932be01e686eb2f44da2aef5744535340d8a0186f1d1988d0fb1684639c79b8"
   },
   {
     "uuid": "rounded-window-corners@ztrahmet.github.io",

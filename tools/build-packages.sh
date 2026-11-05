@@ -108,7 +108,8 @@ cp "$root/packaging/nodalix-fluent-emoji/PKGBUILD" \
    "$fluent_dir/"
 
 cp "$root/packaging/nodalix-colloid-icons/PKGBUILD" "$colloid_dir/"
-cp "$root/packaging/nodalix-cursor-theme/"* "$cursor_dir/"
+find "$root/packaging/nodalix-cursor-theme" -maxdepth 1 -type f \
+  -exec cp {} "$cursor_dir/" \;
 cp "$root/packaging/nodalix-wallpapers/PKGBUILD" \
    "$root/packaging/nodalix-wallpapers/SOURCES.md" \
    "$root/packaging/nodalix-wallpapers/"*.jpg \

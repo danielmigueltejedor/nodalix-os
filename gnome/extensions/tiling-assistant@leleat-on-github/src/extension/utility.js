@@ -4,6 +4,7 @@ import { Config, Main } from '../dependencies/shell.js';
 import { Direction, Orientation, Settings } from '../common.js';
 
 Gio._promisify(Gio.File.prototype, 'load_contents_async');
+Gio._promisify(Gio.File.prototype, 'make_directory_async');
 Gio._promisify(Gio.File.prototype, 'query_info_async');
 
 const ShellVerison = Config.PACKAGE_VERSION.split('.').map(Number.parseInt);
@@ -129,6 +130,56 @@ export class Util {
     }
 
     /**
+     * Creates `dir` and all its missing parent directories, asynchronously.
+     *
+     * There is no asynchronous make_directory_with_parents(), so walk up to
+     * the first existing ancestor and create the missing directories top-down.
+     *
+     * @param {Gio.File} dir the directory to create.
+     * @param {?Gio.Cancellable} [cancellable] a cancellable to cancel the
+     *      operation with.
+     * @param {number} [priority] the IO priority of the operation.
+     * @returns {Promise<void>}
+     */
+    static async maybeCreateDirectory(dir, cancellable = null, priority = GLib.PRIORITY_DEFAULT) {
+        try {
+            await dir.make_directory_async(priority, cancellable);
+            return;
+        } catch (e) {
+            if (e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.EXISTS))
+                return;
+            if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND))
+                throw e;
+        }
+
+        const missingDirs = [dir];
+        for (let parent = dir.get_parent(); parent; parent = parent.get_parent()) {
+            try {
+                // eslint-disable-next-line no-await-in-loop
+                await parent.make_directory_async(priority, cancellable);
+            } catch (e) {
+                if (e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.EXISTS))
+                    break;
+                else if (e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND))
+                    missingDirs.unshift(parent);
+                else
+                    throw e;
+            }
+        }
+
+        // Sadly we must be sequential here, so we can't use Promise.all
+        for (const missingDir of missingDirs) {
+            try {
+                // eslint-disable-next-line no-await-in-loop
+                await missingDir.make_directory_async(priority, cancellable);
+            } catch (e) {
+                if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.EXISTS))
+                    throw e;
+            }
+        }
+    }
+
+    /**
      * Loads the layouts from disk and keeps them in memory, refreshing them
      * whenever the layouts file changes. This avoids reading the file
      * synchronously (which happens quite often while tiling).
@@ -138,25 +189,7 @@ export class Util {
         const dir = Gio.File.new_for_path(
             GLib.build_filenamev([userDir, 'tiling-assistant']));
 
-        try {
-            await dir.query_info_async(
-                Gio.FILE_ATTRIBUTE_STANDARD_TYPE,
-                Gio.FileQueryInfoFlags.NONE,
-                GLib.PRIORITY_DEFAULT,
-                cancellable
-            );
-        } catch (e) {
-            if (e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND)) {
-                try {
-                    dir.make_directory_with_parents(cancellable);
-                } catch (createError) {
-                    if (createError.code !== Gio.IOErrorEnum.EXISTS)
-                        logError(createError);
-                }
-            } else {
-                logError(e);
-            }
-        }
+        await this.maybeCreateDirectory(dir, cancellable);
 
         this._layoutsFile = dir.get_child('layouts.json');
         this._layoutsMonitor = dir.monitor_directory(
@@ -180,14 +213,24 @@ export class Util {
             return;
 
         try {
-            const [, contents] = await this._layoutsFile.load_contents_async(
+            const [contents] = await this._layoutsFile.load_contents_async(
                 cancellable);
-            this._layouts = contents.length
+            cancellable?.set_error_if_cancelled();
+            const layouts = contents.length
                 ? JSON.parse(new TextDecoder().decode(contents))
                 : [];
+            if (!Array.isArray(layouts))
+                throw new TypeError('Saved tiling layouts must be an array');
+            this._layouts = layouts;
         } catch (e) {
-            if (!e.matches(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
-                this._layouts = [];
+            if (e.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.CANCELLED))
+                throw e;
+
+            // A missing file just means that no layouts were defined yet
+            if (!e.matches?.(Gio.IOErrorEnum, Gio.IOErrorEnum.NOT_FOUND))
+                logError(e, 'Failed to load the layouts');
+
+            this._layouts = [];
         }
     }
 
@@ -276,7 +319,7 @@ export class Util {
     }
 
     static is_wayland_compositor() {
-        return Meta.is_wayland_compositor === undefined || Meta.is_wayland_compositor();
+        return Meta.is_wayland_compositor?.() ?? true;
     }
 
     /**

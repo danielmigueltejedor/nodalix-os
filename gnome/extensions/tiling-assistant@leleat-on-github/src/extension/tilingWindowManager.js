@@ -32,6 +32,8 @@ export class TilingWindowManager {
             window.connectObject(
                 'unmanaging',
                 () => {
+                    window.disconnectObject(this);
+                    this.deleteTilingState(window);
                     window.assertExistence = () => {
                         throw new Error(
                             'Trying to operate on an unmanaging window!'
@@ -576,6 +578,8 @@ export class TilingWindowManager {
             window && window.disconnect(signals.get(TilingSignals.UNMANAGING));
             signals.set(TilingSignals.UNMANAGING, 0);
         }
+
+        this._signals.deleteSignalsFor(windowId);
 
         if (!this._tileGroups.has(windowId))
             return;
@@ -1522,5 +1526,9 @@ class TilingSignals {
         }
 
         return ret;
+    }
+
+    deleteSignalsFor(windowId) {
+        this._ids.delete(windowId);
     }
 };

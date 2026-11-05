@@ -5,6 +5,7 @@ import importlib.util
 import json
 from pathlib import Path
 import tempfile
+import subprocess
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -85,6 +86,38 @@ class NativeShellOverlayTests(unittest.TestCase):
             path = ROOT / "gnome/extensions" / uuid
             self.assertTrue((path / "extension.js").is_file())
             self.assertEqual(json.loads((path / "metadata.json").read_text())["uuid"], uuid)
+
+    def test_shutdown_uses_native_teardown_and_regular_disable_restores_desktop(self):
+        script = r"""
+const fs = require('fs');
+const assert = require('assert');
+const source = fs.readFileSync(process.argv[1], 'utf8');
+const definition = source.slice(source.indexOf('export class DesktopModules'))
+    .replace('export class', 'return class');
+const records = new Map();
+const Component = new Function('records', 'ExtensionState', 'logError', definition)(
+    records, {INACTIVE: 2}, error => { throw error; });
+for (const stopped of [false, true]) {
+    const calls = [];
+    const manager = {
+        stopped,
+        extensionManager: {
+            _unloadExtensionStylesheet: () => calls.push('style'),
+            emit: () => calls.push('signal'),
+        },
+    };
+    const record = {uuid: 'test', stateObj: {
+        disable: () => calls.push('disable'),
+        shutdown: () => calls.push('shutdown'),
+    }};
+    records.set(record.uuid, record);
+    Component.prototype.disable.call(manager, record);
+    assert.deepStrictEqual(calls, [stopped ? 'shutdown' : 'disable', 'style', 'signal']);
+    assert.strictEqual(records.size, 0);
+    assert.strictEqual(record.enabled, false);
+}
+"""
+        subprocess.run(["node", "-e", script, str(self.overlay / "modules.js")], check=True)
 
     def test_unrecognized_upstream_version_fails_without_writing(self):
         fixture(self.source, "52.0")

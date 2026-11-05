@@ -1,4 +1,9 @@
-# Upstream attribution
+# Nodalix cursor sources
+
+The maintained artwork and cursor builder are centralized in
+[Nodalix icon theme](https://github.com/danielmigueltejedor/nodalix-icon-theme/tree/main/cursors/nodalix).
+Both Nodalix icon and cursor packages pin the same repository revision and
+verify the source archive SHA-256.
 
 The default Nodalix cursor theme uses the dark artwork from
 [Capitaine Cursors r4](https://github.com/keeferrourke/capitaine-cursors/tree/r4)

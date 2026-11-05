@@ -191,7 +191,7 @@ export default class TilingLayoutsManager {
         if (appId)
             this._openAppTiled(appId);
         else
-            this._openTilingPopup().catch(error => logError(error));
+            this._openTilingPopup().catch(logError);
     }
 
     _openAppTiled(appId) {
