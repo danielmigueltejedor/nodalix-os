@@ -1,0 +1,15 @@
+pkgname=nxpm
+pkgver=0.5.0
+pkgrel=1
+pkgdesc="Nodalix Package Manager - binary-only native applications"
+arch=('any')
+url="https://github.com/danielmigueltejedor/nodalix-os"
+license=('GPL-3.0-or-later')
+depends=('python' 'pacman' 'polkit')
+source=("nxpm-$pkgver.tar.zst")
+sha256sums=('SKIP')
+
+package() {
+  install -Dm755 "$srcdir/nxpm/nxpm" "$pkgdir/usr/bin/nxpm"
+  install -Dm644 "$srcdir/nxpm/catalog.json" "$pkgdir/usr/share/nxpm/catalog.json"
+}
