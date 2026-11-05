@@ -71,9 +71,17 @@ profile=json.loads(Path('/usr/share/nodalix/gnome-extensions.json').read_text())
 phone_uuid='nodalix-connect@getnodalia.com'
 native_profile=[uuid for uuid in profile if uuid!=phone_uuid]
 def shell_call(method,parameters=None):
-    return bus.call_sync('org.gnome.Shell','/org/gnome/Shell',
-        'org.gnome.Shell.Extensions',method,parameters,None,
-        Gio.DBusCallFlags.NONE,10000,None).unpack()[0]
+    # Software-rendered Shell on two emulated cores can stay busy past one
+    # call timeout while services start; wait for it to answer, up to 3 minutes.
+    deadline=time.monotonic()+180
+    while True:
+        try:
+            return bus.call_sync('org.gnome.Shell','/org/gnome/Shell',
+                'org.gnome.Shell.Extensions',method,parameters,None,
+                Gio.DBusCallFlags.NONE,10000,None).unpack()[0]
+        except GLib.Error as error:
+            if not error.matches(Gio.io_error_quark(),Gio.IOErrorEnum.TIMED_OUT) or time.monotonic()>=deadline:
+                raise
 listed=shell_call('ListExtensions')
 registry=json.loads(subprocess.check_output(['gresource','extract',
     '/usr/lib/gnome-shell/libshell-51.so','/org/gnome/shell/nodalix/modules.json'],text=True))
