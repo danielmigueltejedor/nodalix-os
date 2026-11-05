@@ -27,5 +27,4 @@ package() {
     install -Dm644 "$srcdir/nxpm/library/$desktop" "$pkgdir/usr/share/applications/$desktop"
   done
   install -Dm644 "$srcdir/nxpm/library/nodalix-app.xml" "$pkgdir/usr/share/mime/packages/nodalix-app.xml"
-  install -Dm644 "$srcdir/nxpm/library/com.nodalix.nxpm.policy" "$pkgdir/usr/share/polkit-1/actions/com.nodalix.apps.policy"
 }
