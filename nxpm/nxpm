@@ -167,9 +167,17 @@ def permissions(action, app_id, filesystem=None):
 
 def remove_desktop(ident):
     valid(ident, "desktop")
-    # Privileged helper derives the package from the root-owned desktop file.
-    # Never accept a caller-supplied package in this path.
-    return execute(["/usr/lib/nxpm/remove-system-app", ident], privileged=True)
+    launcher = Path("/usr/share/applications") / ident
+    if launcher.is_symlink() or not launcher.is_file():
+        raise NxpmError("No existe un lanzador del sistema válido.")
+    for directory in (launcher, *launcher.parents):
+        status = directory.stat()
+        if status.st_uid != 0 or status.st_mode & 0o022:
+            raise NxpmError("El lanzador debe ser propiedad de root y no modificable.")
+    code, owner = output([PACMAN, "-Qqo", "--", str(launcher)])
+    if code:
+        raise NxpmError("El lanzador no pertenece a un paquete nativo.")
+    return remove(valid(owner.strip(), "package"), "native")
 
 
 def main(argv=None):
