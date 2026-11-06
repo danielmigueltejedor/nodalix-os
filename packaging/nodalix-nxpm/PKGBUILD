@@ -8,6 +8,9 @@ license=('GPL-3.0-or-later')
 depends=('python' 'python-dbus' 'python-gobject' 'pyalpm' 'flatpak' 'polkit' 'appstream' 'libnotify')
 optdepends=('squashfs-tools: read the name embedded in an imported AppImage'
             'appimagetool: pack imported Debian packages into an AppImage')
+# Early local builds were named `nxpm` and owned /usr/bin/nxpm.
+conflicts=('nxpm')
+replaces=('nxpm')
 source=("nodalix-nxpm-$pkgver.tar.zst")
 sha256sums=('SKIP')
 

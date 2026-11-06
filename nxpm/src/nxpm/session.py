@@ -13,15 +13,52 @@ from nxpm.paths import state_dir
 PACKAGED_ROOT = Path("/usr/lib/nodalix-nxpm")
 
 
+GENERATED_FILES = (
+    ("dbus-1/services", "os.nodalix.Nxpm.service", "data"),
+    ("systemd/user", "nxpm.service", "config"),
+    ("systemd/user", "nxpm-check.service", "config"),
+    ("systemd/user", "nxpm-check.timer", "config"),
+)
+
+
+def _user_dirs() -> tuple[Path, Path]:
+    data = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
+    config = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    return data, config
+
+
+def _remove_generated_overrides() -> list[Path]:
+    """Delete user files an earlier install_session() wrote, and nothing else.
+
+    A generated file is recognised by its interpreter command (``-m nxpm``); a
+    file the user wrote or edited without it is left alone.
+    """
+    data, config = _user_dirs()
+    roots = {"data": data, "config": config}
+    removed = []
+    for directory, name, root in GENERATED_FILES:
+        path = roots[root] / directory / name
+        try:
+            if path.is_file() and " -m nxpm" in path.read_text(encoding="utf-8"):
+                path.unlink()
+                removed.append(path)
+        except (OSError, UnicodeDecodeError):
+            continue
+    return removed
+
+
 def install_session() -> None:
+    """Install the per-user services, or defer to the system package."""
     if (PACKAGED_ROOT / "lib").is_dir():
-        # The package already installs the D-Bus service and the check units.
+        # The package already installs the D-Bus service and the check units;
+        # older per-user copies would shadow them with a stale interpreter.
+        for path in _remove_generated_overrides():
+            print(f"Removed outdated user override {path}")
         print("NXPM is installed system-wide; its user services are already in place.")
         print("Enable the check with: systemctl --user enable --now nxpm-check.timer")
         return
     executable = shlex.join([sys.executable, "-m", "nxpm"])
-    data = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
-    config = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    data, config = _user_dirs()
     dbus_dir = data / "dbus-1" / "services"
     systemd_dir = config / "systemd" / "user"
     dbus_dir.mkdir(parents=True, exist_ok=True)

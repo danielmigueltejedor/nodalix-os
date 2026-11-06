@@ -236,3 +236,26 @@ def test_install_session_leaves_packaged_services_alone(monkeypatch, tmp_path, c
     session.install_session()
     assert not (tmp_path / "config").exists()
     assert "already in place" in capsys.readouterr().out
+
+
+def test_install_session_removes_only_generated_user_overrides(monkeypatch, tmp_path, capsys):
+    from nxpm import session
+
+    packaged = tmp_path / "nodalix-nxpm"
+    (packaged / "lib").mkdir(parents=True)
+    monkeypatch.setattr(session, "PACKAGED_ROOT", packaged)
+    data, config = tmp_path / "data", tmp_path / "config"
+    monkeypatch.setenv("XDG_DATA_HOME", str(data))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(config))
+    (data / "dbus-1" / "services").mkdir(parents=True)
+    (config / "systemd" / "user").mkdir(parents=True)
+    stale = data / "dbus-1" / "services" / "os.nodalix.Nxpm.service"
+    stale.write_text("[D-BUS Service]\nExec=/venv/bin/python -m nxpm daemon\n")
+    custom = config / "systemd" / "user" / "nxpm-check.timer"
+    custom.write_text("[Timer]\nOnBootSec=1h\n")
+    session.install_session()
+    out = capsys.readouterr().out
+    assert not stale.exists()
+    assert custom.exists()
+    assert "Removed outdated user override" in out
+    assert "already in place" in out
