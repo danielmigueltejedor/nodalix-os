@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=os.nodalix.Nxpm
+Exec=/usr/bin/nxpm daemon

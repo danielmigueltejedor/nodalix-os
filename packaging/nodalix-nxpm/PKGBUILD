@@ -1,0 +1,32 @@
+pkgname=nodalix-nxpm
+pkgver=0.5.0
+pkgrel=1
+pkgdesc="Nodalix Package Manager: one service and command for Flatpak, official packages and user applications"
+arch=('any')
+url="https://github.com/danielmigueltejedor/nodalix-os"
+license=('GPL-3.0-or-later')
+depends=('python' 'python-dbus' 'python-gobject' 'pyalpm' 'flatpak' 'polkit' 'appstream' 'libnotify')
+optdepends=('squashfs-tools: read the name embedded in an imported AppImage'
+            'appimagetool: pack imported Debian packages into an AppImage')
+# Early local builds were named `nxpm` and owned /usr/bin/nxpm.
+conflicts=('nxpm')
+replaces=('nxpm')
+source=("nodalix-nxpm-$pkgver.tar.zst")
+sha256sums=('SKIP')
+
+package() {
+  local lib="$pkgdir/usr/lib/nodalix-nxpm"
+  install -d "$lib/lib"
+  cp -a --no-preserve=ownership "$srcdir/nxpm/src/nxpm" "$lib/lib/"
+  find "$lib/lib" -name '__pycache__' -type d -prune -exec rm -rf {} +
+  install -Dm755 "$srcdir/nxpm/share/upgrade-system" "$lib/upgrade-system"
+  install -Dm755 "$srcdir/nxpm/share/remove-package" "$lib/remove-package"
+  install -Dm755 "$srcdir/nxpm/share/nxpm" "$pkgdir/usr/bin/nxpm"
+  install -Dm644 "$srcdir/nxpm/share/os.nodalix.nxpm.policy" \
+    "$pkgdir/usr/share/polkit-1/actions/os.nodalix.nxpm.policy"
+  install -Dm644 "$srcdir/nxpm/share/os.nodalix.Nxpm.service" \
+    "$pkgdir/usr/share/dbus-1/services/os.nodalix.Nxpm.service"
+  install -Dm644 "$srcdir/nxpm/share/nxpm-check.service" "$pkgdir/usr/lib/systemd/user/nxpm-check.service"
+  install -Dm644 "$srcdir/nxpm/share/nxpm-check.timer" "$pkgdir/usr/lib/systemd/user/nxpm-check.timer"
+  install -Dm644 "$srcdir/docs/nxpm.md" "$pkgdir/usr/share/doc/nodalix-nxpm/nxpm.md"
+}
