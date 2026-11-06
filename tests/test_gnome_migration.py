@@ -43,12 +43,9 @@ class MigrationTests(unittest.TestCase):
             profile=json.loads((ROOT/'gnome/session/extensions.json').read_text())
             for uuid in profile:
                 if uuid.startswith('hanabi'):continue  # separate video package
-                if uuid == 'glocalsend@donnybeelo.github.com':
-                    compatibility = output / 'usr/share/gnome-shell/extensions' / uuid
-                    self.assertEqual(compatibility.readlink(), Path('../nodalix-runtime') / uuid)
-                    directory = f'usr/share/gnome-shell/nodalix-runtime/{uuid}'
-                else:
-                    directory = f'usr/share/gnome-shell/extensions/{uuid}'
+                # Real directories only: pacman cannot turn a 0.4.x directory into a symlink.
+                directory = f'usr/share/gnome-shell/extensions/{uuid}'
+                self.assertFalse((output / directory).is_symlink())
                 self.assertIn(f'{directory}/extension.js', package_paths[1])
                 self.assertIn(f'{directory}/metadata.json', package_paths[1])
                 self.assertEqual((output/f'usr/share/gnome-shell/extensions/{uuid}/metadata.json').stat().st_mode & 0o777,0o644)
