@@ -10,7 +10,15 @@ from pathlib import Path
 from nxpm.paths import state_dir
 
 
+PACKAGED_ROOT = Path("/usr/lib/nodalix-nxpm")
+
+
 def install_session() -> None:
+    if (PACKAGED_ROOT / "lib").is_dir():
+        # The package already installs the D-Bus service and the check units.
+        print("NXPM is installed system-wide; its user services are already in place.")
+        print("Enable the check with: systemctl --user enable --now nxpm-check.timer")
+        return
     executable = shlex.join([sys.executable, "-m", "nxpm"])
     data = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
     config = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))

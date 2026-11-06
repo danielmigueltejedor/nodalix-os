@@ -186,7 +186,7 @@ def test_engine_routes_pacman_removal_through_the_installed_helper(monkeypatch, 
         return subprocess.CompletedProcess(command, 0, "", "")
 
     monkeypatch.delenv("NXPM_NO_PKEXEC", raising=False)
-    monkeypatch.setenv("NXPM_HELPER_DIR", str(tmp_path))
+    monkeypatch.setattr("nxpm.engine.HELPER_DIR", str(tmp_path))
     monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setattr("os.geteuid", lambda: 1000)
     engine = Engine(load_config(Path("/does/not/exist")), {"pacman": object()})
@@ -201,9 +201,38 @@ def test_privileged_work_needs_the_installed_helper(monkeypatch, tmp_path):
     from nxpm.engine import Engine
 
     monkeypatch.delenv("NXPM_NO_PKEXEC", raising=False)
-    monkeypatch.setenv("NXPM_HELPER_DIR", str(tmp_path))
+    monkeypatch.setattr("nxpm.engine.HELPER_DIR", str(tmp_path))
     monkeypatch.setattr("os.geteuid", lambda: 1000)
     engine = Engine(load_config(Path("/does/not/exist")), {"pacman": object()})
     transaction = engine.remove("pacman:bash", "pacman")
     assert transaction.state == "failed"
     assert "installed system-wide" in transaction.error
+
+
+def test_the_helper_directory_cannot_be_chosen_from_the_environment(monkeypatch, tmp_path):
+    import subprocess
+
+    from nxpm.engine import Engine
+
+    (tmp_path / "remove-package").write_text("#!/bin/sh\n")
+    calls = []
+    monkeypatch.delenv("NXPM_NO_PKEXEC", raising=False)
+    monkeypatch.setenv("NXPM_HELPER_DIR", str(tmp_path))
+    monkeypatch.setattr(subprocess, "run", lambda command, **_k: calls.append(command))
+    monkeypatch.setattr("os.geteuid", lambda: 1000)
+    engine = Engine(load_config(Path("/does/not/exist")), {"pacman": object()})
+    assert engine.remove("pacman:bash", "pacman").state == "failed"
+    assert calls == []
+
+
+def test_install_session_leaves_packaged_services_alone(monkeypatch, tmp_path, capsys):
+    from nxpm import session
+
+    packaged = tmp_path / "nodalix-nxpm"
+    (packaged / "lib").mkdir(parents=True)
+    monkeypatch.setattr(session, "PACKAGED_ROOT", packaged)
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    session.install_session()
+    assert not (tmp_path / "config").exists()
+    assert "already in place" in capsys.readouterr().out

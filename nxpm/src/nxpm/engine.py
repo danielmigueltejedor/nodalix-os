@@ -115,7 +115,7 @@ class Engine:
         self, transaction: Transaction, manager: TransactionManager, command: tuple[str, str], done: str, *arguments: str
     ) -> None:
         helper_name, cli_name = command
-        helper = os.path.join(os.environ.get("NXPM_HELPER_DIR", HELPER_DIR), helper_name)
+        helper = os.path.join(HELPER_DIR, helper_name)
         if os.environ.get("NXPM_NO_PKEXEC") == "1":
             # Development and tests: the caller is already authorized.
             argv = [sys.executable, "-m", "nxpm", cli_name, *arguments]
