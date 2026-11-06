@@ -46,7 +46,10 @@ Gio.Settings.new('org.gnome.desktop.session').set_uint('idle-delay', 0)
 Gio.Settings.new('org.gnome.desktop.screensaver').set_boolean('lock-enabled', False)
 """)
     require(run('systemctl','is-active','gdm').strip() == 'active', 'GDM is inactive')
-    require(run('systemctl','is-active','cups.socket').strip() == 'active', 'CUPS is inactive')
+    cups=subprocess.run(['systemctl','is-active','cups.socket'],capture_output=True,text=True).stdout.strip()
+    if cups != 'active':
+        print(subprocess.run(['systemctl','status','cups.socket','--no-pager'],capture_output=True,text=True).stdout,flush=True)
+    require(cups == 'active', f'CUPS socket is {cups}')
     require(not Path('/run/nodalix-updater/reboot-required').exists(), 'Stale restart marker')
     installed=set(run('pacman','-Qq').splitlines())
     require('nodalix-gnome-shell' in installed, 'The native Nodalix Shell package is missing')
@@ -71,9 +74,17 @@ profile=json.loads(Path('/usr/share/nodalix/gnome-extensions.json').read_text())
 phone_uuid='nodalix-connect@getnodalia.com'
 native_profile=[uuid for uuid in profile if uuid!=phone_uuid]
 def shell_call(method,parameters=None):
-    return bus.call_sync('org.gnome.Shell','/org/gnome/Shell',
-        'org.gnome.Shell.Extensions',method,parameters,None,
-        Gio.DBusCallFlags.NONE,10000,None).unpack()[0]
+    # Software-rendered Shell on two emulated cores can stay busy past one
+    # call timeout while services start; wait for it to answer, up to 3 minutes.
+    deadline=time.monotonic()+180
+    while True:
+        try:
+            return bus.call_sync('org.gnome.Shell','/org/gnome/Shell',
+                'org.gnome.Shell.Extensions',method,parameters,None,
+                Gio.DBusCallFlags.NONE,10000,None).unpack()[0]
+        except GLib.Error as error:
+            if not error.matches(Gio.io_error_quark(),Gio.IOErrorEnum.TIMED_OUT) or time.monotonic()>=deadline:
+                raise
 listed=shell_call('ListExtensions')
 registry=json.loads(subprocess.check_output(['gresource','extract',
     '/usr/lib/gnome-shell/libshell-51.so','/org/gnome/shell/nodalix/modules.json'],text=True))

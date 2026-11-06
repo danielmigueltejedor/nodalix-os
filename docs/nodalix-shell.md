@@ -98,6 +98,32 @@ fijado. Nodalix Shell ignora las copias instaladas de los módulos incorporados
 en la lista de extensiones. Las copias personales y sus datos se conservan
 para que sigan disponibles al volver a GNOME estándar.
 
+## Perfil de escritorio incluido
+
+La shell lleva empaquetada la configuración de referencia del escritorio de
+Nodalix para no depender de ajustes manuales en cada instalación:
+
+- `gnome/session/90-nodalix.gschema.override` fija los valores del sistema:
+  tema oscuro, acento amarillo, esquinas activas desactivadas, aceleración
+  plana del ratón, `Súper+Q`/`Alt+F4` para cerrar, `Súper+F` para pantalla
+  completa, `Súper+Espacio` para abrir las aplicaciones (el cambio de teclado
+  conserva la tecla de teclado dedicada) y espacios de trabajo en todos los
+  monitores.
+- `gnome/nodalix-shell/profile.json` contiene los valores de los módulos
+  incorporados que difieren de sus esquemas (huecos de Tiling Assistant, menú
+  global, paneles secundarios, Now Playing Card, desenfoque de panel, dock y
+  ventanas emergentes, alias de LocalSend). El paquete lo valida contra los
+  esquemas compilados y rechaza cualquier clave o valor desconocido.
+- `gnome/migration/nodalix_profile.py` lo aplica una vez al iniciar sesión
+  (`gnome-0.5.0-nodalix-shell-profile.done`). Solo escribe las claves que el
+  usuario nunca ha definido, activa Now Playing Card si no se había
+  desactivado y reintenta en el siguiente inicio si falta algún módulo.
+
+El perfil excluye identificadores de monitores, huellas de LocalSend, rutas
+personales, aplicaciones favoritas y fondos animados, que pertenecen a cada
+usuario o a sus propios paquetes. Las tipografías son las predeterminadas de
+GNOME (Adwaita Sans y Adwaita Mono).
+
 ## Definición de listo para uso diario
 
 1. Compilación en Arch con GNOME 51.1 y tests de Meson aprobados.

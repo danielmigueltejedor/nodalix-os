@@ -2,13 +2,25 @@
 button-layout=':minimize,maximize,close'
 focus-mode='sloppy'
 auto-raise=false
+resize-with-right-button=true
+[org.gnome.mutter]
+workspaces-only-on-primary=false
+[org.gnome.desktop.peripherals.mouse]
+accel-profile='flat'
 [org.gnome.desktop.wm.keybindings]
-close=['<Super>q']
+close=['<Super>q', '<Alt>F4']
+toggle-fullscreen=['<Super>f']
+# Super+Space opens the app view, so the layout switch keeps only its hardware key.
+switch-input-source=['XF86Keyboard']
 [org.gnome.shell.keybindings]
+toggle-application-view=['<Super>space']
 screenshot=['<Super><Shift>3']
 show-screenshot-ui=['<Super><Shift>4', 'Print']
 toggle-message-tray=['<Super>n']
 [org.gnome.desktop.interface]
+color-scheme='prefer-dark'
+accent-color='yellow'
+enable-hot-corners=false
 icon-theme='Nodalix-Adwaita-Symbols'
 cursor-theme='Nodalix'
 cursor-size=30

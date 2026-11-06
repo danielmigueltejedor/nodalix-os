@@ -1,0 +1,95 @@
+{
+  "profile": "0.5.0",
+  "enableModules": [
+    "nowplaying@epogonii.github.io"
+  ],
+  "extensions": [
+    {
+      "uuid": "tiling-assistant@leleat-on-github",
+      "schema": "org.gnome.shell.extensions.tiling-assistant",
+      "values": {
+        "window-gap": "8",
+        "single-screen-gap": "8",
+        "screen-top-gap": "8",
+        "screen-bottom-gap": "8",
+        "screen-left-gap": "8",
+        "screen-right-gap": "8",
+        "focus-hint-color": "'rgb(237,91,0)'",
+        "import-layout-examples": "false"
+      }
+    },
+    {
+      "uuid": "global-menu@unmade.space",
+      "schema": "org.gnome.shell.extensions.global-menu",
+      "values": {
+        "blur-popups": "true",
+        "popup-opacity": "30",
+        "popup-blur-sigma": "30",
+        "enable-fallback-menu": "true",
+        "shortcut-menus-enabled": "true",
+        "menu-font-size": "11"
+      }
+    },
+    {
+      "uuid": "multi-monitors-bar@frederykabryan",
+      "schema": "org.gnome.shell.extensions.multi-monitors-bar",
+      "values": {
+        "show-overview-on-extended-monitors": "false",
+        "thumbnails-slider-position": "'none'"
+      }
+    },
+    {
+      "uuid": "nowplaying@epogonii.github.io",
+      "schema": "org.gnome.shell.extensions.nowplaying",
+      "values": {
+        "panel-box": "'center'",
+        "panel-index": "1"
+      }
+    },
+    {
+      "uuid": "glocalsend@donnybeelo.github.com",
+      "schema": "org.gnome.shell.extensions.glocalsend",
+      "values": {
+        "alias": "'Nodalix'",
+        "auto-disable-enabled": "false"
+      }
+    },
+    {
+      "uuid": "blur-my-shell@aunetx",
+      "schema": "org.gnome.shell.extensions.blur-my-shell.panel",
+      "values": {
+        "static-blur": "false",
+        "style-panel": "0"
+      }
+    },
+    {
+      "uuid": "blur-my-shell@aunetx",
+      "schema": "org.gnome.shell.extensions.blur-my-shell.popup",
+      "values": {
+        "pipeline": "'pipeline_default_rounded'"
+      }
+    },
+    {
+      "uuid": "blur-my-shell@aunetx",
+      "schema": "org.gnome.shell.extensions.blur-my-shell.appfolder",
+      "values": {
+        "pipeline": "'pipeline_migrated_dynamic_blur'"
+      }
+    },
+    {
+      "uuid": "blur-my-shell@aunetx",
+      "schema": "org.gnome.shell.extensions.blur-my-shell.window-list",
+      "values": {
+        "pipeline": "'pipeline_migrated_dynamic_blur'"
+      }
+    },
+    {
+      "uuid": "blur-my-shell@aunetx",
+      "schema": "org.gnome.shell.extensions.blur-my-shell.dash-to-dock",
+      "values": {
+        "pipeline": "'pipeline_default_rounded'",
+        "style-dash-to-dock": "0"
+      }
+    }
+  ]
+}

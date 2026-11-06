@@ -183,6 +183,9 @@ def prepare(assets: Path, work: Path) -> tuple[Path, str]:
 
     base += [
         "python-systemd",
+        # gresource: the live verification reads the module registry built
+        # into the Shell library.
+        "glib2-devel",
         "timeshift",
     ]
 
@@ -313,6 +316,7 @@ rm -rf \
 systemctl enable \
     NetworkManager \
     bluetooth \
+    cups.socket \
     gdm \
     power-profiles-daemon
 
