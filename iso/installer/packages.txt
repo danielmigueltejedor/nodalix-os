@@ -66,6 +66,7 @@ nodalix-ofono
 nodalix-apps
 nodalix-updater
 nodalix-nxpm
+nodalix-store
 nodalix-release
 nodalix-colloid-icons
 nodalix-cursor-theme

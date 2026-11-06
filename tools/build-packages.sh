@@ -103,6 +103,10 @@ cp "$root/packaging/nodalix-nxpm/PKGBUILD" "$nxpm_dir/PKGBUILD"
 cp "$srcdir/nodalix-nxpm-$pkgver.tar.zst" "$nxpm_dir/"
 inject_sha256 "$nxpm_dir/PKGBUILD" "$nxpm_dir/nodalix-nxpm-$pkgver.tar.zst"
 
+store_dir="$workdir/nodalix-store"
+mkdir -p "$store_dir"
+cp "$root/packaging/nodalix-store/PKGBUILD" "$store_dir/"
+
 cp "$root/packaging/nodalix-release/PKGBUILD" "$root/packaging/nodalix-release/VERSION" "$release_dir/"
 inject_sha256 "$release_dir/PKGBUILD" "$release_dir/VERSION"
 
@@ -154,6 +158,7 @@ if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
   makepkg_one "$updater_dir"
   makepkg_one "$apps_dir"
   makepkg_one "$nxpm_dir"
+  makepkg_one "$store_dir"
   craft_dir="$workdir/nodalix-artcraft-launcher"
   mkdir -p "$craft_dir"
   cp "$root/packaging/nodalix-artcraft-launcher/PKGBUILD" "$craft_dir/"
