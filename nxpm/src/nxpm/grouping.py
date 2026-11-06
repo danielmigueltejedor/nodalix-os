@@ -64,7 +64,7 @@ def preferred_only(packages: list[Package]) -> list[Package]:
     for key in order:
         candidates = groups[key]
         preferred = next((item for item in candidates if item.preferred), candidates[0])
-        others = sorted({item.source for item in candidates if item is not preferred})
+        others = sorted({item.source for item in candidates if item.source != preferred.source})
         if others:
             note = "Also available from " + ", ".join(others)
             preferred.summary = f"{preferred.summary} · {note}".strip(" ·")

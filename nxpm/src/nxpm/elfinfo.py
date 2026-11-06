@@ -31,7 +31,7 @@ def update_information(path: Path) -> str:
 def _section(path: Path, wanted: str) -> bytes:
     with path.open("rb") as handle:
         header = handle.read(64)
-        if not is_elf(header) or header[5] != 1:
+        if len(header) < 64 or not is_elf(header) or header[5] != 1:
             return b""
         elf_class = header[4]
         if elf_class == 2:

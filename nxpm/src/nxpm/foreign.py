@@ -79,10 +79,9 @@ def _neutralize(root: Path) -> None:
         if path.is_dir():
             path.chmod(0o755)
         elif path.is_file():
-            path.chmod(0o644)
-            mode = path.stat().st_mode
-            if mode & (stat.S_ISUID | stat.S_ISGID):
-                path.chmod(stat.S_IMODE(mode) & ~(stat.S_ISUID | stat.S_ISGID))
+            # Keep the execute bits; drop setuid, setgid, sticky and group/other write.
+            mode = stat.S_IMODE(path.stat().st_mode)
+            path.chmod((mode & 0o755) | 0o644)
 
 
 def _first_desktop(root: Path) -> Path | None:

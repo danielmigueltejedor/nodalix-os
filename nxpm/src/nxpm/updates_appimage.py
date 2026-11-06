@@ -46,8 +46,8 @@ def apply_update(path: Path, information: str, opener=None) -> str:
         )
     if channel != "github":
         raise NxpmError("unsupported", "This AppImage does not publish an update channel NXPM can verify.")
-    owner, repo, _release, pattern = _GITHUB.match(information.strip()).groups()
-    payload = _download_release_asset(owner, repo, pattern, opener or _opener())
+    owner, repo, release, pattern = _GITHUB.match(information.strip()).groups()
+    payload = _download_release_asset(owner, repo, release, pattern, opener or _opener())
     if not payload.startswith(b"\x7fELF"):
         raise NxpmError("failed", "The published file is not an AppImage NXPM can install.")
     current = _sha256(path)
@@ -61,9 +61,18 @@ def apply_update(path: Path, information: str, opener=None) -> str:
     return "The AppImage was replaced with the file published on GitHub."
 
 
-def _download_release_asset(owner: str, repo: str, pattern: str, opener) -> bytes:
+def _release_endpoint(release: str) -> str:
+    if release == "latest":
+        return "releases/latest"
+    if release in {"latest-pre", "latest-all"}:
+        raise NxpmError("unsupported", "NXPM only follows the latest stable release or a fixed tag.")
+    return f"releases/tags/{release}"
+
+
+def _download_release_asset(owner: str, repo: str, release: str, pattern: str, opener) -> bytes:
+    endpoint = _release_endpoint(release)
     request = urllib.request.Request(
-        f"https://api.github.com/repos/{owner}/{repo}/releases/latest",
+        f"https://api.github.com/repos/{owner}/{repo}/{endpoint}",
         headers={"Accept": "application/vnd.github+json", "User-Agent": "NXPM/0.1"},
     )
     try:

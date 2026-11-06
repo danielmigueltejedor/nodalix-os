@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 import uuid
 from collections.abc import Callable
@@ -9,6 +10,7 @@ from collections.abc import Callable
 from nxpm.errors import NxpmError
 from nxpm.model import TransactionRecord
 
+log = logging.getLogger(__name__)
 Runner = Callable[["Transaction", "TransactionManager"], None]
 TERMINAL = {"succeeded", "failed", "cancelled"}
 
@@ -83,8 +85,10 @@ class TransactionManager:
             transaction = self._items.get(transaction_id)
             if transaction is None:
                 raise NxpmError("not-found", "That operation does not exist.")
-            if transaction.state != "pending":
+            if transaction.state == "running":
                 transaction.message = "This operation can no longer be cancelled safely."
+                cancellable = False
+            elif transaction.state != "pending":
                 cancellable = False
             else:
                 transaction.cancel_requested = True
@@ -94,7 +98,7 @@ class TransactionManager:
                 self._queue = [item for item in self._queue if item[0].id != transaction.id]
                 cancellable = True
         self._emit(transaction)
-        if transaction.state in TERMINAL:
+        if cancellable:
             self._remember(transaction)
         return cancellable
 
@@ -149,7 +153,10 @@ class TransactionManager:
 
     def _emit(self, transaction: Transaction) -> None:
         for listener in list(self._listeners):
-            listener(transaction)
+            try:
+                listener(transaction)
+            except Exception:
+                log.exception("Transaction listener failed")
 
     def _remember(self, transaction: Transaction) -> None:
         if transaction.state not in TERMINAL:

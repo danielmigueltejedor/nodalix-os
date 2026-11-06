@@ -220,14 +220,18 @@ def _try_pack(folder: Path, destination: Path) -> Path | None:
     tool = shutil.which("appimagetool")
     if tool is None:
         return None
-    completed = subprocess.run(
-        [tool, str(folder), str(destination)],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=120,
-    )
-    if completed.returncode != 0 or not destination.is_file():
+    try:
+        completed = subprocess.run(
+            [tool, str(folder), str(destination)],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        failed = completed.returncode != 0
+    except subprocess.TimeoutExpired:
+        failed = True
+    if failed or not destination.is_file():
         if destination.exists():
             destination.unlink()
         return None
@@ -247,13 +251,16 @@ def _embedded_name(path: Path) -> str:
     import tempfile
 
     with tempfile.TemporaryDirectory(prefix="nxpm-") as temporary:
-        completed = subprocess.run(
-            [tool, "-offset", str(offset), "-dest", temporary, "-no-progress", str(path), "usr/share/applications"],
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=20,
-        )
+        try:
+            completed = subprocess.run(
+                [tool, "-offset", str(offset), "-dest", temporary, "-no-progress", str(path), "usr/share/applications"],
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=20,
+            )
+        except subprocess.TimeoutExpired:
+            return ""
         if completed.returncode != 0:
             return ""
         for desktop in Path(temporary).rglob("*.desktop"):

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shlex
 import sys
 from pathlib import Path
 
@@ -10,7 +11,7 @@ from nxpm.paths import state_dir
 
 
 def install_session() -> None:
-    executable = f"{sys.executable} -m nxpm"
+    executable = shlex.join([sys.executable, "-m", "nxpm"])
     data = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share"))
     config = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
     dbus_dir = data / "dbus-1" / "services"

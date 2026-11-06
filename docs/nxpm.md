@@ -4,6 +4,10 @@ NXPM (Nodalix Package Manager) vive en este repositorio, en `nxpm/`, porque es u
 
 Estado: el código y las pruebas están aquí; el paquete de Arch y su inclusión en la ISO están pendientes.
 
+## Requisitos
+
+NXPM necesita Python 3.11.4 o superior. El servicio de sesión (`nxpm daemon`) usa los enlaces de Python para D-Bus y GObject (`dbus-python`, `PyGObject`). El backend Flatpak necesita la introspección de libflatpak, y el de pacman necesita `pyalpm` y `pycman`. La lista exacta de dependencias de Arch se declarará en el PKGBUILD.
+
 ## Métodos
 
 La interfaz `os.nodalix.Nxpm1` ofrece:

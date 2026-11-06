@@ -62,6 +62,8 @@ def load_config(path: Path | None = None) -> Config:
             data = json.loads(location.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             data = {}
+        if not isinstance(data, dict):
+            data = {}
         requested = data.get("sources", {})
         if isinstance(requested, dict):
             for name, spec in sources.items():

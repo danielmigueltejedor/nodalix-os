@@ -42,11 +42,11 @@ def main(argv: list[str] | None = None) -> int:
 
     install = sub.add_parser("install", help="Install a Flatpak for the current user")
     install.add_argument("package_id")
-    install.add_argument("--source", default="flatpak")
+    install.add_argument("--source", default="", help="Source to use; inferred from the package id when empty")
 
     remove = sub.add_parser("remove", help="Remove a user Flatpak")
     remove.add_argument("package_id")
-    remove.add_argument("--source", default="flatpak")
+    remove.add_argument("--source", default="", help="Source to use; inferred from the package id when empty")
 
     update = sub.add_parser("update", help="Update one Flatpak")
     update.add_argument("package_id")

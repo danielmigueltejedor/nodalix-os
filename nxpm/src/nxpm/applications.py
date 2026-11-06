@@ -96,6 +96,8 @@ def update_catalog(mutator) -> dict:
             data = json.loads(raw) if raw.strip() else {"apps": {}}
         except json.JSONDecodeError:
             data = {"apps": {}}
+        if not isinstance(data, dict):
+            data = {"apps": {}}
         if not isinstance(data.get("apps"), dict):
             data["apps"] = {}
         mutator(data)

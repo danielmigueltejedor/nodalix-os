@@ -19,7 +19,10 @@ _BROAD_SOCKETS = {"session-bus", "system-bus"}
 
 
 def classify(kind: str, value: str) -> str:
-    token = value[1:] if value.startswith("!") else value
+    if value.startswith("!"):
+        # A negated entry removes access; it is never a grant.
+        return "low"
+    token = value
     base = token.split(":", 1)[0]
     if kind == "filesystems":
         if base in _BROAD_FILES or base.startswith(("home", "~", "/")):
@@ -40,7 +43,7 @@ def classify(kind: str, value: str) -> str:
     if kind == "shared":
         return "low"
     if kind == "bus":
-        return "high" if token.endswith(".*") else "medium"
+        return "high" if token.split("=", 1)[0].endswith(".*") else "medium"
     return "medium"
 
 

@@ -53,7 +53,7 @@ class TransactionRecord:
 
 def validate_query(query: str) -> str:
     text = (query or "").strip()
-    if not _QUERY.match(text):
+    if not _QUERY.fullmatch(text):
         from nxpm.errors import NxpmError
 
         raise NxpmError("invalid-input", "The search text contains unsupported characters.")
@@ -65,12 +65,12 @@ def parse_package_id(package_id: str) -> tuple[str, str]:
 
     from nxpm.errors import NxpmError
 
-    if _FLATPAK_ID.match(package_id or ""):
+    if _FLATPAK_ID.fullmatch(package_id or ""):
         _source, scope, ref = package_id.split(":", 2)
         return "flatpak", f"{scope}:{ref}"
-    if _PACMAN_ID.match(package_id or ""):
+    if _PACMAN_ID.fullmatch(package_id or ""):
         return "pacman", package_id.split(":", 1)[1]
-    if _APPIMAGE_ID.match(package_id or ""):
+    if _APPIMAGE_ID.fullmatch(package_id or ""):
         return "appimage", package_id.split(":", 1)[1]
     raise NxpmError("invalid-input", "The package identifier is not valid.")
 
