@@ -1,6 +1,8 @@
 post_install() {
     if usr/bin/pacman-key --list-keys >/dev/null 2>&1; then
         usr/bin/pacman-key --populate nodalix
+    else
+        echo "==> The pacman keyring is not initialized yet; after 'pacman-key --init' run 'pacman-key --populate nodalix'."
     fi
 }
 

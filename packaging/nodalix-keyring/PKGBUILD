@@ -16,7 +16,11 @@ package() {
     local ring="$pkgdir/usr/share/pacman/keyrings"
     install -d "$ring"
     # pacman-key --populate reads a binary key file plus a trust list and a revocation list.
-    gpg --dearmor < "$srcdir/nodalix.pub.asc" > "$ring/nodalix.gpg"
+    # Use a throwaway GnuPG home so the build never reads or writes the builder's own keyring.
+    local gnupghome
+    gnupghome=$(mktemp -d)
+    GNUPGHOME=$gnupghome gpg --batch --dearmor < "$srcdir/nodalix.pub.asc" > "$ring/nodalix.gpg"
+    rm -rf -- "$gnupghome"
     chmod 644 "$ring/nodalix.gpg"
     printf '%s:4:\n' "$fingerprint" > "$ring/nodalix-trusted"
     : > "$ring/nodalix-revoked"
