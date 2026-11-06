@@ -29,6 +29,14 @@
       "restart": "none"
     },
     {
+      "id": "store",
+      "name": "Nodalix Store",
+      "package": "nodalix-store",
+      "version": "0.5.0",
+      "required": true,
+      "restart": "none"
+    },
+    {
       "id": "apps",
       "name": "Nodalix Apps",
       "package": "nodalix-apps",
