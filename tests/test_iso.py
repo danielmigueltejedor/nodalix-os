@@ -14,6 +14,8 @@ class IsoPolicyTests(unittest.TestCase):
         name = 'linux-nodalix-7.3.1-1-x86_64.pkg.tar.zst'
         self.assertTrue(safe_package_filename('linux-nodalix', name))
         self.assertTrue(safe_package_filename('nodalix-gnome', 'nodalix-gnome-0.5.0-1-any.pkg.tar.zst'))
+        self.assertTrue(safe_package_filename('nxpm', 'nxpm-0.5.0-1-any.pkg.tar.zst'))
+        self.assertFalse(safe_package_filename('nxpm', 'nodalix-0.5.0-1-any.pkg.tar.zst'))
         for invalid in (f'../{name}', f'{name}.sig', name.replace('x86_64', 'any'),
                         name.replace('linux-nodalix', 'linux-cachyos')):
             with self.subTest(invalid=invalid):

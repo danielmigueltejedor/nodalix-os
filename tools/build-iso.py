@@ -37,7 +37,9 @@ def safe_package_filename(package: str, name: str) -> bool:
             r"linux-nodalix-[0-9]+\.[0-9]+\.[0-9]+-[0-9]+(?:\.[0-9]+)?-x86_64\.pkg\.tar\.zst",
             name,
         ) is not None
-    return name.startswith(("nodalix-", "gnome-rounded-blur-"))
+    if package != "nxpm" and not package.startswith(("nodalix-", "gnome-rounded-blur-")):
+        return False
+    return name.startswith(f"{package}-") and name.endswith(".pkg.tar.zst")
 
 
 def prepare(assets: Path, work: Path) -> tuple[Path, str]:
