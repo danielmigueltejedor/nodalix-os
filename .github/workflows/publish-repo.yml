@@ -1,0 +1,60 @@
+name: Publish pacman repository
+
+# Publishes the signed [nodalix] repository to GitHub Pages. It never runs on its own:
+# a person chooses a CI run whose packages passed and starts it by hand.
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_run:
+        description: Id of the CI run whose nodalix-0.4.0-candidate packages are published
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-pacman-repo
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: nodalix-0.4.0-candidate
+          path: dist/packages
+          run-id: ${{ inputs.candidate_run }}
+          github-token: ${{ github.token }}
+      - name: Sign the packages and build the repository
+        env:
+          NODALIX_REPO_GPG_KEY: ${{ secrets.NODALIX_REPO_GPG_KEY }}
+          NODALIX_REPO_GPG_PASSPHRASE: ${{ secrets.NODALIX_REPO_GPG_PASSPHRASE }}
+        run: |
+          docker run --rm -e NODALIX_CI_CONTAINER=1 \
+            -e NODALIX_REPO_GPG_KEY -e NODALIX_REPO_GPG_PASSPHRASE \
+            -v "$PWD":/src -w /src archlinux:latest bash tools/ci-publish-repo.sh
+          sudo chown -R "$(id -u):$(id -g)" dist/pages
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/pages
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
