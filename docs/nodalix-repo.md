@@ -27,6 +27,12 @@ Lo publica el workflow **Publish pacman repository**, que solo se ejecuta a mano
 2. se niega a publicar si los paquetes superan 900 MB (el límite de Pages es 1 GB);
 3. firma los paquetes y la base de datos con `tools/build-pacman-repo.sh`.
 
+Los secretos de firma deben estar en el *environment* `nodalix-repo-signing`
+(Settings → Environments), restringido a la rama `main`, y no como secretos del
+repositorio: así ninguna rama modificada puede ejecutar el workflow con la clave. El
+workflow además comprueba que el id indicado es una ejecución correcta del CI de este
+repositorio en `main` antes de firmar nada.
+
 Para activarlo hay que habilitar Pages en el repositorio (Settings → Pages → Source:
 GitHub Actions). Si algún día los paquetes no caben, el plan B es alojarlos en un release
 fijo de GitHub y mantener solo la base de datos en Pages.
