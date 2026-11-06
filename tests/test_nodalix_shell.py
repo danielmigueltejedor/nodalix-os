@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import tempfile
 import subprocess
+import shutil
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -141,12 +142,51 @@ for (const stopped of [false, true]) {
 
     def test_version_coupled_to_nodalix_release(self):
         version = (ROOT / "VERSION").read_text().strip()
-        pkgbuild = (ROOT / "packaging/nodalix-shell-preview/PKGBUILD").read_text()
+        pkgbuild = (ROOT / "packaging/nodalix-gnome-shell/PKGBUILD").read_text()
         self.assertIn(f"pkgver={version}\n", pkgbuild)
-        self.assertIn("conflicts=('gnome-shell')", pkgbuild)
+        self.assertIn("conflicts=('gnome-shell' 'nodalix-shell-preview')", pkgbuild)
         self.assertNotIn("replaces=(", pkgbuild)
         components = (ROOT / "release/components.json").read_text()
         self.assertNotIn('"nodalix-shell-preview"', components)
+        shell = next(row for row in json.loads(components)['components'] if row['id'] == 'gnome-shell')
+        self.assertEqual(shell['package'], 'nodalix-gnome-shell')
+        self.assertEqual(shell['version'], version)
+        self.assertTrue(shell['required'])
+        self.assertEqual(shell['restart'], 'system')
+        self.assertIn('tools/build-nodalix-shell.sh', (ROOT / 'tools/build-packages.sh').read_text())
+        self.assertIn('nodalix-gnome-shell', (ROOT / 'iso/installer/packages.txt').read_text().splitlines())
+
+    def test_release_and_legacy_preview_builders_prepare_the_same_modules(self):
+        root = self.source / 'repository'
+        (root / 'tools').mkdir(parents=True)
+        recipe = root / 'packaging/nodalix-gnome-shell'
+        recipe.mkdir(parents=True)
+        version = (ROOT / 'VERSION').read_text()
+        (root / 'VERSION').write_text(version)
+        shutil.copy2(ROOT / 'packaging/nodalix-gnome-shell/PKGBUILD', recipe / 'PKGBUILD')
+        for name in ['build-nodalix-shell.sh', 'build-nodalix-shell-preview.sh', 'prepare-nodalix-shell.py']:
+            shutil.copy2(ROOT / 'tools' / name, root / 'tools' / name)
+        overlay = root / 'gnome/nodalix-shell'
+        overlay.mkdir(parents=True)
+        for name in MODULE.RESOURCES:
+            shutil.copy2(self.overlay / name, overlay / name)
+        (overlay / 'modules.json').write_text(json.dumps({'bundled': ['test@nodalix'], 'desktopPackages': []}))
+        module = root / 'gnome/extensions/test@nodalix'
+        module.mkdir(parents=True)
+        (module / 'extension.js').write_text('// source fixture')
+        for script, package in [('build-nodalix-shell.sh', 'nodalix-gnome-shell'),
+                                ('build-nodalix-shell-preview.sh', 'nodalix-shell-preview')]:
+            subprocess.run(['bash', str(root / 'tools' / script), '--prepare-only'], check=True,
+                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            prepared = root / 'dist' / (package + '-source')
+            text = (prepared / 'PKGBUILD').read_text()
+            self.assertIn('pkgname=' + package, text)
+            self.assertNotIn('AUTO_OVERLAY_SHA256', text)
+            self.assertEqual('epoch=1' in text, package == 'nodalix-shell-preview')
+            archive = subprocess.check_output(
+                ['tar', '--zstd', '-tf', str(prepared / 'nodalix-shell-overlays.tar.zst')], text=True)
+            self.assertIn('gnome/extensions/test@nodalix/extension.js', archive)
+
 
 
 if __name__ == "__main__":

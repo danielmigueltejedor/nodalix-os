@@ -183,6 +183,9 @@ def prepare(assets: Path, work: Path) -> tuple[Path, str]:
 
     base += [
         "python-systemd",
+        # gresource: the live verification reads the module registry built
+        # into the Shell library.
+        "glib2-devel",
         "timeshift",
     ]
 
@@ -195,6 +198,7 @@ def prepare(assets: Path, work: Path) -> tuple[Path, str]:
     # emoji fonts and can push the ISO over GitHub Releases 2 GiB limit.
     live_nodalix_packages = [
         "nodalix-gnome",
+        "nodalix-gnome-shell",
         "nodalix-settings",
         "nodalix-control-center",
         "nodalix-video-wallpapers",
@@ -312,6 +316,7 @@ rm -rf \
 systemctl enable \
     NetworkManager \
     bluetooth \
+    cups.socket \
     gdm \
     power-profiles-daemon
 

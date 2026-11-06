@@ -10,7 +10,7 @@ if [[ -f /.dockerenv || -f /run/.containerenv ]]; then
 fi
 qa=${NODALIX_QA_VM_DIR:-/src/dist/vm-candidate}
 [[ ! -e "$qa" ]] || { echo 'Choose a fresh disposable VM directory'; exit 1; }
-mkdir -p "$qa"
+mkdir -p -m 700 "$qa"
 cat > "$qa/mkinitcpio.conf" <<'CONFIG'
 MODULES=(virtio_pci virtio_blk virtio_net virtio_gpu ext4)
 BINARIES=()
@@ -34,6 +34,9 @@ AutomaticLogin=migration-test
 WaylandEnable=true
 GDM
 install -Dm755 /src/tools/ci-guest-verify.py "$guest/usr/local/bin/nodalix-guest-verify"
+install -Dm755 /src/tools/ci-native-shell-cycle.py "$guest/usr/local/lib/nodalix/ci-native-shell-cycle.py"
+mkdir -p "$guest/etc/systemd/sleep.conf.d"
+printf '[Sleep]\nMemorySleepMode=deep\n' > "$guest/etc/systemd/sleep.conf.d/nodalix-qa.conf"
 cat > "$guest/etc/systemd/system/nodalix-guest-verify.service" <<UNIT
 [Unit]
 Description=Verify disposable Nodalix migration boot
@@ -43,6 +46,7 @@ After=gdm.service
 Type=oneshot
 Environment=NODALIX_CI_VERSION=$(tr -d '[:space:]' < /src/VERSION)
 Environment=NODALIX_CI_FRESH=${NODALIX_CI_FRESH:-0}
+Environment=NODALIX_CI_GUEST=1
 ExecStart=/usr/local/bin/nodalix-guest-verify
 StandardOutput=journal+console
 StandardError=journal+console
@@ -56,15 +60,45 @@ cat > "$guest/etc/systemd/system/gdm.service.d/qa-owner.conf" <<'OWNER'
 [Service]
 ExecStartPre=/usr/bin/chown -R migration-test:migration-test /home/migration-test
 OWNER
+# This helper exists only in the disposable guest, including while locked.
+qa_extension="$guest/home/migration-test/.local/share/gnome-shell/extensions/nodalix-ci-native@example.invalid"
+mkdir -p "$qa_extension"
+cat > "$qa_extension/metadata.json" <<'QA'
+{"uuid":"nodalix-ci-native@example.invalid","name":"Disposable native desktop test","description":"Guest-only test helper","shell-version":["51"],"session-modes":["user","unlock-dialog"]}
+QA
+cat > "$qa_extension/extension.js" <<'QA'
+import {Extension} from 'resource:///org/gnome/shell/extensions/extension.js';
+export default class QA extends Extension {
+    enable() {
+        this.previous = global.context.unsafe_mode;
+        global.context.unsafe_mode = true;
+    }
+    disable() {
+        global.context.unsafe_mode = this.previous;
+    }
+}
+QA
 mkdir -p "$guest/etc/systemd/system/graphical.target.wants"
 ln -s ../nodalix-guest-verify.service "$guest/etc/systemd/system/graphical.target.wants/nodalix-guest-verify.service"
 ln -sf /usr/lib/systemd/system/graphical.target "$guest/etc/systemd/system/default.target"
 truncate -s 14G "$qa/migrated.raw"
 mkfs.ext4 -q -F -d "$guest" "$qa/migrated.raw"
+(cd "$qa" && exec python /src/tools/ci-wake-guest.py) > /src/dist/migration-evidence/suspend.log 2>&1 &
+wake_pid=$!
+trap 'if kill -0 "$wake_pid" 2>/dev/null; then kill "$wake_pid"; fi' EXIT
+qemu_status=0
 timeout 900 qemu-system-x86_64 -accel tcg -cpu max -m 4096 -smp 2 \
   -kernel "$qa/vmlinuz-linux" -initrd "$qa/initramfs.img" \
   -append 'root=/dev/vda rw console=ttyS0 audit=0 loglevel=3 systemd.firstboot=no' \
   -drive "file=$qa/migrated.raw,format=raw,if=virtio" -device virtio-vga \
-  -display none -serial "file:/src/dist/migration-evidence/boot.log" -monitor none -no-reboot
-cat /src/dist/migration-evidence/boot.log
+  -qmp "unix:$qa/qmp.sock,server=on,wait=off" \
+  -display none -serial "file:/src/dist/migration-evidence/boot.log" -monitor none -no-reboot || qemu_status=$?
+# A failed guest never suspends, so the wake helper fails too. Show the logs
+# before judging either result; otherwise the job ends with no evidence.
+echo "QEMU exit status: $qemu_status"
+wake_status=0
+wait "$wake_pid" || wake_status=$?
+cat /src/dist/migration-evidence/suspend.log
+cut -c1-600 /src/dist/migration-evidence/boot.log
 grep -q 'NODALIX_VM_MIGRATION_PASS' /src/dist/migration-evidence/boot.log
+test "$wake_status" -eq 0

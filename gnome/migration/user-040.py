@@ -153,6 +153,14 @@ def main():
         data=Path(os.environ.get('XDG_DATA_HOME',home/'.local/share'))
         retire_web_launcher(data,root)
         web_marker.write_text('0.5.0\n')
+    profile_marker=root/'gnome-0.5.0-nodalix-shell-profile.done'
+    profile=Path('/usr/share/nodalix/nodalix-shell-profile.json')
+    if not profile_marker.exists() and profile.is_file():
+        helper=Path(__file__).with_name('nodalix_profile.py')
+        if not helper.is_file():helper=Path('/usr/lib/nodalix/nodalix_profile.py')
+        # Defaults fill unset module preferences only; an incomplete install retries at next login.
+        if helper.is_file() and runpy.run_path(str(helper))['apply_profile'](profile):
+            profile_marker.write_text('0.5.0\n')
     if marker.exists():return
     prototypes=Path('/usr/share/nodalix/gnome-extension-prototypes-040.json')
     if prototypes.is_file():
