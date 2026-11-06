@@ -1,7 +1,9 @@
 import json
 import re
 import shutil
+import os
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -22,11 +24,13 @@ class NodalixKeyringPackagingTests(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which("gpg"), "gpg is needed to read the key fingerprint")
     def test_public_key_has_the_trusted_fingerprint(self):
-        output = subprocess.run(
-            ["gpg", "--no-options", "--batch", "--with-colons", "--show-keys",
-             str(ROOT / "packaging/nodalix-keyring/nodalix.pub.asc")],
-            check=True, capture_output=True, text=True,
-        ).stdout
+        with tempfile.TemporaryDirectory() as home:
+            os.chmod(home, 0o700)
+            output = subprocess.run(
+                ["gpg", "--no-options", "--batch", "--with-colons", "--show-keys",
+                 str(ROOT / "packaging/nodalix-keyring/nodalix.pub.asc")],
+                check=True, capture_output=True, text=True, env={**os.environ, "GNUPGHOME": home},
+            ).stdout
         fingerprints = [line.split(":")[9] for line in output.splitlines() if line.startswith("fpr:")]
         self.assertEqual(fingerprints[:1], [FINGERPRINT])
 
