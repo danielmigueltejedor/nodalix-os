@@ -26,6 +26,8 @@ class NodalixStorePackagingTests(unittest.TestCase):
     def test_store_becomes_the_default_for_software_links(self):
         pkgbuild = (ROOT / "packaging/nodalix-store/PKGBUILD").read_text(encoding="utf-8")
         self.assertIn("os.nodalix.Store.desktop", pkgbuild)
+        self.assertIn("usr/share/applications/mimeapps.list", pkgbuild)
+        self.assertNotIn("etc/xdg", pkgbuild)
         for handler in ("x-scheme-handler/appstream", "application/vnd.flatpak.ref"):
             self.assertIn(handler, pkgbuild)
 

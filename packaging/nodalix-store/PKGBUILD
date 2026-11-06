@@ -25,8 +25,9 @@ build() {
 package() {
     cd "$srcdir/tienda-$_store_commit"
     DESTDIR="$pkgdir" meson install -C "$srcdir/build"
-    # Make it the system default for software links (appstream:, .flatpakref).
-    install -d "$pkgdir/etc/xdg"
+    # Make it the default for software links (appstream:, .flatpakref). It lives in the
+    # vendor data directory so it never claims or overrides an administrator's /etc file.
+    install -d "$pkgdir/usr/share/applications"
     {
         echo '[Default Applications]'
         for type in x-scheme-handler/appstream x-scheme-handler/flatpak x-scheme-handler/flatpak+https \
@@ -34,6 +35,6 @@ package() {
                     application/x-freedesktop-appstream-component; do
             echo "$type=os.nodalix.Store.desktop"
         done
-    } > "$pkgdir/etc/xdg/mimeapps.list"
+    } > "$pkgdir/usr/share/applications/mimeapps.list"
     install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
 }
