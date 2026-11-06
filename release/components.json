@@ -85,6 +85,14 @@
       "restart": "system"
     },
     {
+      "id": "gnome-shell",
+      "name": "Nodalix Shell",
+      "package": "nodalix-gnome-shell",
+      "version": "0.5.0",
+      "required": true,
+      "restart": "system"
+    },
+    {
       "id": "settings",
       "name": "Nodalix Settings service",
       "package": "nodalix-settings",

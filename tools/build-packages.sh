@@ -158,6 +158,7 @@ if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
   inject_sha256 "$rounded_dir/PKGBUILD" "$rounded_dir/gnome-rounded-blur-1.0.0.tar.zst"
   makepkg_one "$rounded_dir"
   makepkg_one "$gnome_dir"
+  bash "$root/tools/build-nodalix-shell.sh" "$outdir"
   makepkg_one "$phone_link_dir"
   ofono_dir="$workdir/nodalix-ofono"
   mkdir -p "$ofono_dir"

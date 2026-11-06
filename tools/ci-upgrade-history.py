@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 """Validate every earlier published package set in a disposable Arch container."""
-import hashlib, json, os, shutil, subprocess, urllib.request
+import hashlib, json, os, shutil, subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -8,15 +8,18 @@ REPOSITORY = 'danielmigueltejedor/nodalix-os'
 from versioning import compare_versions
 
 def fetch(url):
-    request = urllib.request.Request(url, headers={'User-Agent':'Nodalix-upgrade-tests'})
-    with urllib.request.urlopen(request, timeout=60) as response:
-        return response.read()
+    return subprocess.check_output([
+        'curl', '--fail', '--location', '--retry', '4', '--retry-delay', '1',
+        '--retry-connrefused', '--connect-timeout', '20', '--max-time', '180',
+        '--silent', '--show-error', '--user-agent', 'Nodalix-upgrade-tests',
+        '--url', url,
+    ])
 
 def main():
     if os.environ.get('NODALIX_CI_CONTAINER') != '1':
         raise SystemExit('Disposable CI container required')
     subprocess.run(['pacman','-Syu','--noconfirm'], check=True)
-    subprocess.run(['pacman','-S','--needed','--noconfirm','python','libarchive','git','diffutils'], check=True)
+    subprocess.run(['pacman','-S','--needed','--noconfirm','python','libarchive','git','diffutils','curl'], check=True)
     releases = json.loads(fetch(f'https://api.github.com/repos/{REPOSITORY}/releases?per_page=100'))
     candidates = ROOT/'dist/packages'
     evidence = ROOT/'dist/history-evidence'

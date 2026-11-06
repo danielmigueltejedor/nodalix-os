@@ -1,4 +1,4 @@
-gnome-shell
+nodalix-gnome-shell
 mutter
 gnome-session
 nodalix-control-center

@@ -4,7 +4,7 @@ set -euo pipefail
 [[ ${NODALIX_CI_CONTAINER:-} == 1 ]] || exit 1
 mkdir -p dist/migration-evidence
 pacman -Syu --noconfirm
-pacman -S --needed --noconfirm python libarchive glibc-locales
+pacman -S --needed --noconfirm python libarchive glibc-locales glib2-devel
 python - <<'PY'
 from pathlib import Path
 import subprocess,re

@@ -6,7 +6,8 @@ pacman -Syu --noconfirm
 pacman -S --needed --noconfirm base-devel git sudo meson ninja glib2-devel gobject-introspection ffmpeg \
   nodejs pnpm gnome-control-center gnome-shell gnome-session gdm adwaita-icon-theme \
   archiso python-gobject tar zstd gtk-update-icon-cache ell bluez python-dbus mobile-broadband-provider-info \
-  librsvg xorg-xcursorgen
+  librsvg xorg-xcursorgen asciidoc bash-completion evolution-data-server gi-docgen \
+  gnome-keybindings python-docutils sassc
 useradd -m builder
 echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 mkdir -p /src/dist

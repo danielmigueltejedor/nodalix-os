@@ -4,17 +4,32 @@ set -euo pipefail
 [[ ${NODALIX_CI_CONTAINER:-} == 1 ]] || { echo 'Disposable CI container required'; exit 1; }
 mkdir -p dist/migration-evidence dist/baseline-024
 pacman -Syu --noconfirm
-pacman -S --needed --noconfirm python libarchive curl diffutils glibc-locales git
+pacman -S --needed --noconfirm python libarchive curl diffutils glibc-locales git glib2-devel
 python - <<'PY'
-import hashlib,json,urllib.request
+import hashlib,json,subprocess
 from pathlib import Path
 root=Path('/src/dist/baseline-024')
 base='https://github.com/danielmigueltejedor/nodalix-os/releases/download/0.2.4/'
-with urllib.request.urlopen(base+'nodalix-manifest.json') as f:data=json.load(f)
+curl=['curl','--fail','--location','--retry','4','--retry-delay','1',
+      '--retry-connrefused','--connect-timeout','20','--max-time','180',
+      '--silent','--show-error','--user-agent','Nodalix-upgrade-tests']
+data=json.loads(subprocess.check_output([*curl,'--url',base+'nodalix-manifest.json']))
 for c in data['components']:
-    p=root/c['asset']
-    if not p.exists():urllib.request.urlretrieve(base+c['asset'],p)
-    assert hashlib.file_digest(p.open('rb'),'sha256').hexdigest()==c['sha256'],p.name
+    name=c['asset']
+    if Path(name).name != name or '\\' in name:
+        raise ValueError('Unsafe asset filename')
+    p=root/name
+    if not p.exists():
+        temporary=p.with_suffix(p.suffix+'.part')
+        try:
+            subprocess.run([*curl,'--output',str(temporary),'--url',base+name],check=True)
+            with temporary.open('rb') as stream:
+                assert hashlib.file_digest(stream,'sha256').hexdigest()==c['sha256'],p.name
+            temporary.replace(p)
+        finally:
+            temporary.unlink(missing_ok=True)
+    with p.open('rb') as stream:
+        assert hashlib.file_digest(stream,'sha256').hexdigest()==c['sha256'],p.name
 (root/'manifest.json').write_text(json.dumps(data,indent=2))
 PY
 # Resolve the original package dependencies in the clean Arch root, then install

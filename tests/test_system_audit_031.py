@@ -1,9 +1,13 @@
 """Regressions found while auditing the installed Nodalix desktop."""
 import importlib.util
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
 import os
 from pathlib import Path
 import subprocess
+import sys
+import threading
 import tempfile
 from types import SimpleNamespace
 import unittest
@@ -127,6 +131,51 @@ class PhoneReconnectTests(unittest.TestCase):
         self.assertFalse(manager._reconnect_in_flight)
         self.assertEqual(manager._reconnect_next, 115)
         self.assertEqual(manager._reconnect_backoff, 30)
+
+
+class BaselineDownloadTests(unittest.TestCase):
+    def setUp(self):
+        spec = importlib.util.spec_from_file_location('ci_upgrade_history', ROOT / 'tools/ci-upgrade-history.py')
+        module = importlib.util.module_from_spec(spec)
+        with mock.patch.object(sys, 'path', [str(ROOT / 'tools'), *sys.path]):
+            spec.loader.exec_module(module)
+        self.fetch = module.fetch
+
+    @contextmanager
+    def serve(self, statuses):
+        calls = SimpleNamespace(count=0)
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                status = statuses[min(calls.count, len(statuses) - 1)]
+                calls.count += 1
+                self.send_response(status)
+                self.end_headers()
+                self.wfile.write(b'baseline')
+
+            def log_message(self, *args):
+                pass
+
+        server = HTTPServer(('127.0.0.1', 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            yield f'http://127.0.0.1:{server.server_port}/baseline', calls
+        finally:
+            server.shutdown()
+            thread.join()
+            server.server_close()
+
+    def test_baseline_fetch_retries_a_transient_gateway_failure(self):
+        with self.serve([504, 200]) as (url, calls):
+            self.assertEqual(self.fetch(url), b'baseline')
+            self.assertEqual(calls.count, 2)
+
+    def test_baseline_fetch_refuses_a_permanent_not_found(self):
+        with self.serve([404]) as (url, calls):
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.fetch(url)
+            self.assertEqual(calls.count, 1)
 
 
 class TilingRestoreTests(unittest.TestCase):
