@@ -1,0 +1,24 @@
+pkgname=nodalix-keyring
+pkgver=20261106
+pkgrel=1
+pkgdesc='Nodalix package signing key for the [nodalix] pacman repository'
+arch=('any')
+url='https://github.com/danielmigueltejedor/nodalix-os'
+license=('GPL-3.0-or-later')
+depends=('pacman')
+makedepends=('gnupg')
+install=nodalix-keyring.install
+source=('nodalix.pub.asc')
+sha256sums=('SKIP')
+
+package() {
+    local fingerprint=3DE029728CDE1828E18B437930D356AC0F6AB1CF
+    local ring="$pkgdir/usr/share/pacman/keyrings"
+    install -d "$ring"
+    # pacman-key --populate reads a binary key file plus a trust list and a revocation list.
+    gpg --dearmor < "$srcdir/nodalix.pub.asc" > "$ring/nodalix.gpg"
+    chmod 644 "$ring/nodalix.gpg"
+    printf '%s:4:\n' "$fingerprint" > "$ring/nodalix-trusted"
+    : > "$ring/nodalix-revoked"
+    chmod 644 "$ring/nodalix-trusted" "$ring/nodalix-revoked"
+}

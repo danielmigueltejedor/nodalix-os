@@ -29,6 +29,14 @@
       "restart": "none"
     },
     {
+      "id": "keyring",
+      "name": "Nodalix package signing key",
+      "package": "nodalix-keyring",
+      "version": "20261106",
+      "required": true,
+      "restart": "none"
+    },
+    {
       "id": "store",
       "name": "Nodalix Store",
       "package": "nodalix-store",

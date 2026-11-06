@@ -1,0 +1,13 @@
+post_install() {
+    if usr/bin/pacman-key --list-keys >/dev/null 2>&1; then
+        usr/bin/pacman-key --populate nodalix
+    fi
+}
+
+post_upgrade() {
+    post_install
+}
+
+pre_remove() {
+    usr/bin/pacman-key --delete 3DE029728CDE1828E18B437930D356AC0F6AB1CF >/dev/null 2>&1 || true
+}
