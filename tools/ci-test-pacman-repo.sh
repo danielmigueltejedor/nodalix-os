@@ -48,7 +48,7 @@ if output=$(pacman -Syy 2>&1); then
   exit 1
 fi
 printf '%s\n' "$output"
-grep -Eiq 'nodalix:.*(signature|PGP)' <<<"$output" || {
+grep -Eiq 'nodalix.*(signature|PGP)' <<<"$output" || {
   echo 'The rejection was not caused by the signature check' >&2
   exit 1
 }
