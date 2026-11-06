@@ -58,6 +58,8 @@ Las consultas usan `pyalpm` con la configuración que lee `pycman` desde `/etc/p
 
 `list_updates` compara la versión local con la de los repositorios sincronizados mediante `pyalpm.vercmp`.
 
+Quitar un paquete oficial sí está permitido (`nxpm remove pacman:nombre`). Se ejecuta como root con `pkexec` y el comando interno `nxpm privileged-remove`. libalpm comprueba las dependencias en `prepare`: si otro paquete instalado necesita el que se quiere quitar, la operación termina en error y no cambia nada. No se usa `cascade` ni `recurse`, así que no se borran paquetes adicionales. Antes se guarda el inventario `nombre versión`.
+
 Instalar o actualizar un solo paquete oficial desde la tienda está rechazado. La actualización oficial es `UpgradeSystem`, que llama a `transaction.sysupgrade(False)` y por tanto resuelve el conjunto completo. Ese camino solo se ejecuta como root. Desde la sesión, la tienda lo lanza con `pkexec` y el comando `nxpm privileged-upgrade`. Si la autorización no se concede, la operación termina en error y no cambia el sistema.
 
 Antes de esa actualización se guarda en el estado del usuario un inventario `nombre versión`. Es un registro, no una instantánea de disco ni una vuelta atrás automática. No se asume Btrfs, Snapper ni ningún otro mecanismo.

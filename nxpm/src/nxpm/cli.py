@@ -20,6 +20,8 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("check", help="Look for updates without installing them")
     sub.add_parser("updates", help="List available updates")
     sub.add_parser("privileged-upgrade", help=argparse.SUPPRESS)
+    privileged_remove = sub.add_parser("privileged-remove", help=argparse.SUPPRESS)
+    privileged_remove.add_argument("package_id")
 
     installed = sub.add_parser("list", help="List installed packages")
     installed.add_argument("--source", default="", choices=["", "flatpak", "pacman", "appimage"])
@@ -44,7 +46,7 @@ def main(argv: list[str] | None = None) -> int:
     install.add_argument("package_id")
     install.add_argument("--source", default="", help="Source to use; inferred from the package id when empty")
 
-    remove = sub.add_parser("remove", help="Remove a user Flatpak")
+    remove = sub.add_parser("remove", help="Remove a user Flatpak, an imported application or an official package")
     remove.add_argument("package_id")
     remove.add_argument("--source", default="", help="Source to use; inferred from the package id when empty")
 
@@ -83,6 +85,11 @@ def run(args) -> int:
         from nxpm.service import serve
 
         return serve()
+    if args.command == "privileged-remove":
+        from nxpm.backends.pacman import PacmanBackend
+
+        PacmanBackend().remove_package(args.package_id, lambda _progress, message: print(message))
+        return 0
     if args.command == "privileged-upgrade":
         from nxpm.backends.pacman import PacmanBackend
 

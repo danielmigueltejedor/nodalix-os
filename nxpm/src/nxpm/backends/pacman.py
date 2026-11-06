@@ -164,6 +164,39 @@ class PacmanBackend:
             transaction.release()
         progress(1.0, "System update finished")
 
+    def remove_package(self, package_id: str, progress) -> None:
+        """Remove one installed package. libalpm refuses when something still needs it."""
+
+        if os.geteuid() != 0:
+            raise NxpmError(
+                "authorization-required",
+                "Removing official packages needs administrator authorization.",
+            )
+        source, name = parse_package_id(package_id)
+        if source != "pacman":
+            raise NxpmError("invalid-input", "That identifier is not an official package.")
+        handle = self.handle()
+        local = handle.get_localdb().get_pkg(name)
+        if local is None:
+            raise NxpmError("not-found", "That package is not installed.")
+        self._write_inventory(handle)
+        progress(0.2, "Checking what depends on this package")
+        transaction = handle.init_transaction()
+        try:
+            transaction.remove_pkg(local)
+            try:
+                transaction.prepare()
+            except Exception as exc:
+                raise NxpmError(
+                    "failed",
+                    f"The package cannot be removed without breaking others: {exc}",
+                ) from exc
+            progress(0.6, "Removing the package")
+            transaction.commit()
+        finally:
+            transaction.release()
+        progress(1.0, "Package removed")
+
     def _decorate(self, package: Package) -> Package:
         package.appstream_id = self._ids().get(package.name, "")
         if package.appstream_id:

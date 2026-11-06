@@ -88,20 +88,40 @@ class Engine:
             if os.geteuid() == 0:
                 self.backends["pacman"].upgrade_system(lambda progress, message: self._progress(transaction, manager, progress, message))
                 return
-            transaction.message = "Waiting for administrator authorization"
-            manager.publish(transaction)
-            command = [sys.executable, "-m", "nxpm", "privileged-upgrade"]
-            if os.environ.get("NXPM_NO_PKEXEC") == "1":
-                completed = subprocess.run(command, capture_output=True, text=True, check=False)
-            else:
-                completed = subprocess.run(["pkexec", *command], capture_output=True, text=True, check=False)
-            if completed.returncode != 0:
-                detail = (completed.stderr or completed.stdout or "Authorization was not granted.").strip()
-                raise NxpmError("authorization-required", detail)
-            transaction.message = "System update finished"
-            transaction.progress = 1.0
+            self._run_privileged(transaction, manager, "privileged-upgrade", "System update finished")
 
         return self.transactions.submit("upgrade-system", "pacman:*", "pacman", runner)
+
+    def _remove_system_package(self, package_id: str) -> Transaction:
+        if "pacman" not in self.backends or not self.config.sources["pacman"].enabled:
+            raise NxpmError("disabled", "Official repository changes are disabled.")
+
+        def runner(transaction: Transaction, manager: TransactionManager) -> None:
+            if os.geteuid() == 0:
+                self.backends["pacman"].remove_package(
+                    package_id,
+                    lambda progress, message: self._progress(transaction, manager, progress, message),
+                )
+                return
+            self._run_privileged(transaction, manager, "privileged-remove", "Package removed", package_id)
+
+        return self.transactions.submit("remove", package_id, "pacman", runner)
+
+    def _run_privileged(
+        self, transaction: Transaction, manager: TransactionManager, command_name: str, done: str, *arguments: str
+    ) -> None:
+        transaction.message = "Waiting for administrator authorization"
+        manager.publish(transaction)
+        command = [sys.executable, "-m", "nxpm", command_name, *arguments]
+        if os.environ.get("NXPM_NO_PKEXEC") == "1":
+            completed = subprocess.run(command, capture_output=True, text=True, check=False)
+        else:
+            completed = subprocess.run(["pkexec", *command], capture_output=True, text=True, check=False)
+        if completed.returncode != 0:
+            detail = (completed.stderr or completed.stdout or "Authorization was not granted.").strip()
+            raise NxpmError("authorization-required", detail)
+        transaction.message = done
+        transaction.progress = 1.0
 
     def import_file(self, kind: str, path: str) -> Transaction:
         if kind not in {"appimage", "deb"}:
@@ -135,9 +155,11 @@ class Engine:
         if source and source != parsed_source:
             raise NxpmError("invalid-input", "The requested source does not match the package.")
         if parsed_source == "pacman":
+            if operation == "remove":
+                return self._remove_system_package(package_id)
             raise NxpmError(
                 "authorization-required",
-                "Changing official packages from this service needs a separate authorized system update.",
+                "Installing or updating one official package would leave the system partly updated. Use a full system update.",
             )
         if parsed_source not in {"flatpak", "appimage"}:
             raise NxpmError("unsupported", "That software source cannot be changed.")

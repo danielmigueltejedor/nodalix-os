@@ -80,3 +80,116 @@ def test_release_channels():
     for unsupported in ("latest-pre", "latest-all"):
         with pytest.raises(NxpmError):
             _release_endpoint(unsupported)
+
+
+class _Local:
+    def __init__(self, names):
+        self.names = names
+
+    def get_pkg(self, name):
+        return object() if name in self.names else None
+
+    @property
+    def pkgcache(self):
+        return []
+
+
+class _RemovalTransaction:
+    def __init__(self, fail_prepare=False):
+        self.fail_prepare = fail_prepare
+        self.steps = []
+
+    def remove_pkg(self, pkg):
+        self.steps.append("remove")
+
+    def prepare(self):
+        if self.fail_prepare:
+            raise RuntimeError("could not satisfy dependencies")
+        self.steps.append("prepare")
+
+    def commit(self):
+        self.steps.append("commit")
+
+    def release(self):
+        self.steps.append("release")
+
+
+class _RemovalHandle:
+    def __init__(self, transaction, installed=("bash",)):
+        self.transaction = transaction
+        self.local = _Local(installed)
+
+    def get_localdb(self):
+        return self.local
+
+    def init_transaction(self):
+        return self.transaction
+
+
+def _as_root(monkeypatch, tmp_path):
+    import os
+
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path))
+
+
+def test_removing_an_official_package_uses_libalpm(monkeypatch, tmp_path):
+    from nxpm.backends.pacman import PacmanBackend
+
+    _as_root(monkeypatch, tmp_path)
+    transaction = _RemovalTransaction()
+    backend = PacmanBackend(handle_factory=lambda: _RemovalHandle(transaction))
+    backend.remove_package("pacman:bash", lambda *_: None)
+    assert transaction.steps == ["remove", "prepare", "commit", "release"]
+
+
+def test_removal_is_refused_when_other_packages_need_it(monkeypatch, tmp_path):
+    from nxpm.backends.pacman import PacmanBackend
+
+    _as_root(monkeypatch, tmp_path)
+    transaction = _RemovalTransaction(fail_prepare=True)
+    backend = PacmanBackend(handle_factory=lambda: _RemovalHandle(transaction))
+    with pytest.raises(NxpmError) as error:
+        backend.remove_package("pacman:bash", lambda *_: None)
+    assert error.value.code == "failed"
+    assert "commit" not in transaction.steps
+    assert transaction.steps[-1] == "release"
+
+
+def test_removal_needs_root_and_an_installed_package(monkeypatch, tmp_path):
+    import os
+
+    from nxpm.backends.pacman import PacmanBackend
+
+    backend = PacmanBackend(handle_factory=lambda: _RemovalHandle(_RemovalTransaction()))
+    monkeypatch.setattr(os, "geteuid", lambda: 1000)
+    with pytest.raises(NxpmError) as error:
+        backend.remove_package("pacman:bash", lambda *_: None)
+    assert error.value.code == "authorization-required"
+    _as_root(monkeypatch, tmp_path)
+    with pytest.raises(NxpmError) as error:
+        backend.remove_package("pacman:missing", lambda *_: None)
+    assert error.value.code == "not-found"
+
+
+def test_engine_routes_pacman_removal_through_authorization(monkeypatch):
+    import subprocess
+    import sys
+
+    from nxpm.engine import Engine
+
+    calls = []
+
+    def fake_run(command, **_kwargs):
+        calls.append(command)
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.delenv("NXPM_NO_PKEXEC", raising=False)
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    monkeypatch.setattr("os.geteuid", lambda: 1000)
+    engine = Engine(load_config(Path("/does/not/exist")), {"pacman": object()})
+    transaction = engine.remove("pacman:bash", "pacman")
+    assert transaction.state == "succeeded"
+    assert calls == [["pkexec", sys.executable, "-m", "nxpm", "privileged-remove", "pacman:bash"]]
+    with pytest.raises(NxpmError):
+        engine.install("pacman:bash", "pacman")
