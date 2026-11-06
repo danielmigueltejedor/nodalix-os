@@ -158,7 +158,6 @@ if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
   makepkg_one "$updater_dir"
   makepkg_one "$apps_dir"
   makepkg_one "$nxpm_dir"
-  makepkg_one "$store_dir"
   craft_dir="$workdir/nodalix-artcraft-launcher"
   mkdir -p "$craft_dir"
   cp "$root/packaging/nodalix-artcraft-launcher/PKGBUILD" "$craft_dir/"
@@ -183,6 +182,15 @@ if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
   makepkg_one "$colloid_dir"
   makepkg_one "$cursor_dir"
   makepkg_one "$wallpaper_dir"
+  # The store is built last: its Vala and Blueprint toolchain must not be visible to the
+  # earlier Meson builds, which probe for blueprint-compiler and change behaviour if it exists.
+  if [[ ${NODALIX_CI_CONTAINER:-} == 1 ]]; then
+    sudo pacman -S --needed --noconfirm vala blueprint-compiler gettext libxml2 desktop-file-utils \
+      python python-babel perl glib2-devel gtk4 libadwaita libdex flatpak libxmlb libyaml libsoup3 \
+      json-glib glycin glycin-gtk4 webkitgtk-6.0 libsecret libproxy malcontent gtksourceview5 md4c \
+      appstream dbus
+  fi
+  makepkg_one "$store_dir"
   makepkg_one "$release_dir"
   find "$workdir" -mindepth 2 -maxdepth 2 -type f -name '*.pkg.tar.zst' ! -name '*-debug-*' -exec cp {} "$outdir/" \;
 fi
