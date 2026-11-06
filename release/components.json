@@ -32,7 +32,7 @@
       "id": "keyring",
       "name": "Nodalix package signing key",
       "package": "nodalix-keyring",
-      "version": "20261106",
+      "version": "0.5.0",
       "required": true,
       "restart": "none"
     },
