@@ -1,0 +1,50 @@
+import json
+import re
+import shutil
+import os
+import subprocess
+import tempfile
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+FINGERPRINT = "3DE029728CDE1828E18B437930D356AC0F6AB1CF"
+
+
+class NodalixKeyringPackagingTests(unittest.TestCase):
+    def test_keyring_trusts_exactly_the_repository_key(self):
+        pkgbuild = (ROOT / "packaging/nodalix-keyring/PKGBUILD").read_text(encoding="utf-8")
+        self.assertIn(f"fingerprint={FINGERPRINT}", pkgbuild)
+        install = (ROOT / "packaging/nodalix-keyring/nodalix-keyring.install").read_text(encoding="utf-8")
+        self.assertIn("pacman-key --populate nodalix", install)
+        self.assertIn(FINGERPRINT, install)
+        key = (ROOT / "packaging/nodalix-keyring/nodalix-repo-key.pgp").read_text(encoding="utf-8")
+        self.assertTrue(key.startswith("-----BEGIN PGP PUBLIC KEY BLOCK-----"))
+        self.assertNotIn("PRIVATE KEY", key)
+
+    @unittest.skipUnless(shutil.which("gpg"), "gpg is needed to read the key fingerprint")
+    def test_public_key_has_the_trusted_fingerprint(self):
+        with tempfile.TemporaryDirectory() as home:
+            os.chmod(home, 0o700)
+            output = subprocess.run(
+                ["gpg", "--no-options", "--batch", "--with-colons", "--show-keys",
+                 str(ROOT / "packaging/nodalix-keyring/nodalix-repo-key.pgp")],
+                check=True, capture_output=True, text=True, env={**os.environ, "GNUPGHOME": home},
+            ).stdout
+        fingerprints = [line.split(":")[9] for line in output.splitlines() if line.startswith("fpr:")]
+        self.assertEqual(fingerprints[:1], [FINGERPRINT])
+
+    def test_keyring_is_a_required_release_component(self):
+        pkgbuild = (ROOT / "packaging/nodalix-keyring/PKGBUILD").read_text(encoding="utf-8")
+        version = re.search(r"^pkgver=(.+)$", pkgbuild, re.M).group(1)
+        components = json.loads((ROOT / "release/components.json").read_text(encoding="utf-8"))
+        row = next(item for item in components["components"] if item["package"] == "nodalix-keyring")
+        self.assertTrue(row["required"])
+        self.assertEqual(row["version"], version)
+        self.assertIn("nodalix-keyring", (ROOT / "iso/installer/packages.txt").read_text(encoding="utf-8").split())
+        self.assertIn('"nodalix-keyring"', (ROOT / "packaging/nodalix-release/PKGBUILD").read_text(encoding="utf-8"))
+        self.assertIn('makepkg_one "$keyring_dir"', (ROOT / "tools/build-packages.sh").read_text(encoding="utf-8"))
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -103,6 +103,11 @@ cp "$root/packaging/nodalix-nxpm/PKGBUILD" "$nxpm_dir/PKGBUILD"
 cp "$srcdir/nodalix-nxpm-$pkgver.tar.zst" "$nxpm_dir/"
 inject_sha256 "$nxpm_dir/PKGBUILD" "$nxpm_dir/nodalix-nxpm-$pkgver.tar.zst"
 
+keyring_dir="$workdir/nodalix-keyring"
+mkdir -p "$keyring_dir"
+cp "$root/packaging/nodalix-keyring/"{PKGBUILD,nodalix-keyring.install,nodalix-repo-key.pgp} "$keyring_dir/"
+inject_sha256 "$keyring_dir/PKGBUILD" "$keyring_dir/nodalix-repo-key.pgp"
+
 store_dir="$workdir/nodalix-store"
 mkdir -p "$store_dir"
 cp "$root/packaging/nodalix-store/PKGBUILD" "$store_dir/"
@@ -191,6 +196,7 @@ if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
       appstream dbus
   fi
   makepkg_one "$store_dir"
+  makepkg_one "$keyring_dir"
   makepkg_one "$release_dir"
   find "$workdir" -mindepth 2 -maxdepth 2 -type f -name '*.pkg.tar.zst' ! -name '*-debug-*' -exec cp {} "$outdir/" \;
 fi

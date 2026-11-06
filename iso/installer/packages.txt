@@ -67,6 +67,7 @@ nodalix-apps
 nodalix-updater
 nodalix-nxpm
 nodalix-store
+nodalix-keyring
 nodalix-release
 nodalix-colloid-icons
 nodalix-cursor-theme
