@@ -14,11 +14,16 @@ gpg --batch --pinentry-mode loopback --passphrase '' \
 key=$(gpg --batch --list-secret-keys --with-colons | awk -F: '$1 == "fpr" {print $10; exit}')
 
 repo=$(mktemp -d)
+# pacman downloads as the unprivileged alpm user, which must be able to read the repository.
+chmod 755 "$repo"
 bash tools/build-pacman-repo.sh dist/packages "$repo/nodalix" "$key"
 for name in nodalix.db nodalix.db.sig nodalix.files; do
   test -f "$repo/nodalix/$name" && ! test -L "$repo/nodalix/$name"
 done
 
+chmod -R a+rX "$repo"
+mkdir -p "$repo/cache"
+chmod 777 "$repo/cache"
 # A client trusts only the repository key it was given.
 gpg --batch --export "$key" > "$repo/nodalix.gpg"
 pacman-key --init
@@ -38,8 +43,13 @@ test -f "$repo"/cache/nodalix-store-*.pkg.tar.zst
 
 # A tampered database must be rejected.
 printf 'tampered' >> "$repo/nodalix/nodalix.db"
-if pacman -Sy; then
+if output=$(pacman -Syy 2>&1); then
   echo 'pacman accepted a database that no longer matches its signature' >&2
   exit 1
 fi
+printf '%s\n' "$output"
+grep -Eiq 'signature|PGP' <<<"$output" || {
+  echo 'The rejection was not caused by the signature check' >&2
+  exit 1
+}
 echo 'Signed repository verified with real pacman'
