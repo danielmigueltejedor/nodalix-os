@@ -148,6 +148,20 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  signed-repo:
+    needs: packages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: nodalix-0.4.0-candidate
+          path: dist/packages
+      - name: Build the signed pacman repository and install from it with real pacman
+        run: docker run --rm -e NODALIX_CI_CONTAINER=1 -v "$PWD":/src -w /src archlinux:latest bash tools/ci-test-pacman-repo.sh
   upgrade-history:
     needs: packages
     runs-on: ubuntu-24.04
