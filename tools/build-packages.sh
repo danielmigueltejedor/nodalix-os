@@ -105,8 +105,8 @@ inject_sha256 "$nxpm_dir/PKGBUILD" "$nxpm_dir/nodalix-nxpm-$pkgver.tar.zst"
 
 keyring_dir="$workdir/nodalix-keyring"
 mkdir -p "$keyring_dir"
-cp "$root/packaging/nodalix-keyring/"{PKGBUILD,nodalix-keyring.install,nodalix.pub.asc} "$keyring_dir/"
-inject_sha256 "$keyring_dir/PKGBUILD" "$keyring_dir/nodalix.pub.asc"
+cp "$root/packaging/nodalix-keyring/"{PKGBUILD,nodalix-keyring.install,nodalix-repo-key.pgp} "$keyring_dir/"
+inject_sha256 "$keyring_dir/PKGBUILD" "$keyring_dir/nodalix-repo-key.pgp"
 
 store_dir="$workdir/nodalix-store"
 mkdir -p "$store_dir"

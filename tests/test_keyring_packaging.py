@@ -18,7 +18,7 @@ class NodalixKeyringPackagingTests(unittest.TestCase):
         install = (ROOT / "packaging/nodalix-keyring/nodalix-keyring.install").read_text(encoding="utf-8")
         self.assertIn("pacman-key --populate nodalix", install)
         self.assertIn(FINGERPRINT, install)
-        key = (ROOT / "packaging/nodalix-keyring/nodalix.pub.asc").read_text(encoding="utf-8")
+        key = (ROOT / "packaging/nodalix-keyring/nodalix-repo-key.pgp").read_text(encoding="utf-8")
         self.assertTrue(key.startswith("-----BEGIN PGP PUBLIC KEY BLOCK-----"))
         self.assertNotIn("PRIVATE KEY", key)
 
@@ -28,7 +28,7 @@ class NodalixKeyringPackagingTests(unittest.TestCase):
             os.chmod(home, 0o700)
             output = subprocess.run(
                 ["gpg", "--no-options", "--batch", "--with-colons", "--show-keys",
-                 str(ROOT / "packaging/nodalix-keyring/nodalix.pub.asc")],
+                 str(ROOT / "packaging/nodalix-keyring/nodalix-repo-key.pgp")],
                 check=True, capture_output=True, text=True, env={**os.environ, "GNUPGHOME": home},
             ).stdout
         fingerprints = [line.split(":")[9] for line in output.splitlines() if line.startswith("fpr:")]

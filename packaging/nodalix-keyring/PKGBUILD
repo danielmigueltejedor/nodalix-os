@@ -8,7 +8,7 @@ license=('GPL-3.0-or-later')
 depends=('pacman')
 makedepends=('gnupg')
 install=nodalix-keyring.install
-source=('nodalix.pub.asc')
+source=('nodalix-repo-key.pgp')
 sha256sums=('SKIP')
 
 package() {
@@ -19,7 +19,7 @@ package() {
     # Use a throwaway GnuPG home so the build never reads or writes the builder's own keyring.
     local gnupghome
     gnupghome=$(mktemp -d)
-    GNUPGHOME=$gnupghome gpg --batch --dearmor < "$srcdir/nodalix.pub.asc" > "$ring/nodalix.gpg"
+    GNUPGHOME=$gnupghome gpg --batch --dearmor < "$srcdir/nodalix-repo-key.pgp" > "$ring/nodalix.gpg"
     rm -rf -- "$gnupghome"
     chmod 644 "$ring/nodalix.gpg"
     printf '%s:4:\n' "$fingerprint" > "$ring/nodalix-trusted"
