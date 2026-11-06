@@ -1,6 +1,6 @@
 pkgname=nodalix-settings
 pkgver=0.5.0
-pkgrel=3
+pkgrel=4
 pkgdesc="Native Nodalix updates, animated wallpaper controls and GNOME branding"
 arch=("any")
 url="https://github.com/danielmigueltejedor/nodalix-os"
@@ -29,8 +29,9 @@ package() {
   install -Dm644 "$srcdir/gnome/settings/gdm-branding" "$pkgdir/usr/lib/nodalix/gdm-branding"
   local shell_data="$pkgdir/usr/share/gnome-shell"
   local login_background='nodalix-login-background@getnodalia.com'
-  install -d "$shell_data/extensions" "$shell_data/nodalix-runtime/$login_background"
-  cp -a --no-preserve=ownership "$srcdir/gnome/settings/login-background/." "$shell_data/nodalix-runtime/$login_background/"
-  ln -s "../nodalix-runtime/$login_background" "$shell_data/extensions/$login_background"
+  # Keep a real directory: 0.4.x installed one here, and pacman cannot replace a
+  # directory with a symlink during an upgrade.
+  install -d "$shell_data/extensions/$login_background"
+  cp -a --no-preserve=ownership "$srcdir/gnome/settings/login-background/." "$shell_data/extensions/$login_background/"
   install -Dm755 "$srcdir/gnome/settings/apply-gdm-branding" "$pkgdir/usr/lib/nodalix/apply-gdm-branding"
 }

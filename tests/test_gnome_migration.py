@@ -40,15 +40,21 @@ class MigrationTests(unittest.TestCase):
             self.assertIn('usr/lib/systemd/user/nodalix-icloud-drive.service', package_paths[0])
             self.assertNotIn('usr/lib/systemd/user/default.target.wants/nodalix-localsend.service', package_paths[0])
             self.assertIn('usr/lib/nodalix/localsend-send', package_paths[1])
+            settings_output = Path(scratch) / 'settings'
+            subprocess.run(['bash', '-c', 'source "$1"; srcdir="$2"; pkgdir="$3"; package',
+                            'stage', str(ROOT / 'packaging/nodalix-settings/PKGBUILD'),
+                            str(ROOT), str(settings_output)], check=True)
+            login_background = settings_output / 'usr/share/gnome-shell/extensions/nodalix-login-background@getnodalia.com'
+            self.assertFalse(login_background.is_symlink())
+            self.assertTrue(login_background.is_dir())
+            self.assertTrue((login_background / 'extension.js').is_file())
+            self.assertTrue((login_background / 'metadata.json').is_file())
             profile=json.loads((ROOT/'gnome/session/extensions.json').read_text())
             for uuid in profile:
                 if uuid.startswith('hanabi'):continue  # separate video package
-                if uuid == 'glocalsend@donnybeelo.github.com':
-                    compatibility = output / 'usr/share/gnome-shell/extensions' / uuid
-                    self.assertEqual(compatibility.readlink(), Path('../nodalix-runtime') / uuid)
-                    directory = f'usr/share/gnome-shell/nodalix-runtime/{uuid}'
-                else:
-                    directory = f'usr/share/gnome-shell/extensions/{uuid}'
+                # Real directories only: pacman cannot turn a 0.4.x directory into a symlink.
+                directory = f'usr/share/gnome-shell/extensions/{uuid}'
+                self.assertFalse((output / directory).is_symlink())
                 self.assertIn(f'{directory}/extension.js', package_paths[1])
                 self.assertIn(f'{directory}/metadata.json', package_paths[1])
                 self.assertEqual((output/f'usr/share/gnome-shell/extensions/{uuid}/metadata.json').stat().st_mode & 0o777,0o644)
