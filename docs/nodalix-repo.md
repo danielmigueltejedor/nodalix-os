@@ -14,9 +14,30 @@ repositorio con los paquetes del candidato, lo añade a un `pacman.conf` con
 `SigLevel = Required DatabaseRequired TrustedOnly`, descarga `nodalix-store` verificando
 la firma y comprueba que una base de datos manipulada se rechaza.
 
-## Lo que falta para publicarlo
+## Cómo se publica
 
-1. Una clave GnuPG **propia del repositorio** (distinta de la clave minisign del manifiesto)
-   guardada como secreto del repositorio de GitHub.
-2. Dónde se aloja (GitHub Pages o un servidor propio).
-3. Un paquete `nodalix-keyring` con la clave pública y `[nodalix]` en `pacman.conf`.
+El repositorio vive en GitHub Pages: `https://danielmigueltejedor.github.io/nodalix-os/x86_64`.
+Lo publica el workflow **Publish pacman repository**, que solo se ejecuta a mano
+(`workflow_dispatch`) indicando el id de una ejecución de CI cuyos paquetes
+(`nodalix-0.4.0-candidate`) hayan pasado todas las pruebas. `tools/ci-publish-repo.sh`:
+
+1. importa la clave privada del secreto `NODALIX_REPO_GPG_KEY` (y, si existe, su
+   contraseña en `NODALIX_REPO_GPG_PASSPHRASE`) y comprueba que su huella es la del
+   keyring (`3DE029728CDE1828E18B437930D356AC0F6AB1CF`);
+2. se niega a publicar si los paquetes superan 900 MB (el límite de Pages es 1 GB);
+3. firma los paquetes y la base de datos con `tools/build-pacman-repo.sh`.
+
+Los secretos de firma deben estar en el *environment* `nodalix-repo-signing`
+(Settings → Environments), restringido a la rama `main`, y no como secretos del
+repositorio: así ninguna rama modificada puede ejecutar el workflow con la clave. El
+workflow además comprueba que el id indicado es una ejecución correcta del CI de este
+repositorio en `main` antes de firmar nada.
+
+Para activarlo hay que habilitar Pages en el repositorio (Settings → Pages → Source:
+GitHub Actions). Si algún día los paquetes no caben, el plan B es alojarlos en un release
+fijo de GitHub y mantener solo la base de datos en Pages.
+
+## Lo que falta
+
+- Añadir `[nodalix]` (con `SigLevel = Required DatabaseRequired TrustedOnly`) al
+  `pacman.conf` de los sistemas; `nodalix-keyring` ya instala la clave que lo verifica.

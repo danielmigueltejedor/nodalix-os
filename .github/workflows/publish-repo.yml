@@ -1,0 +1,82 @@
+name: Publish pacman repository
+
+# Publishes the signed [nodalix] repository to GitHub Pages. It never runs on its own:
+# a person chooses a CI run whose packages passed and starts it by hand.
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_run:
+        description: Id of the CI run whose nodalix-0.4.0-candidate packages are published
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-pacman-repo
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # Only code on main may see the signing key. Keep NODALIX_REPO_GPG_KEY (and the optional
+    # NODALIX_REPO_GPG_PASSPHRASE) as secrets of this environment, not of the repository, and
+    # limit the environment to the main branch.
+    if: github.ref == 'refs/heads/main'
+    environment: nodalix-repo-signing
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Require a successful CI run of this repository on main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_RUN: ${{ inputs.candidate_run }}
+        run: |
+          [[ $CANDIDATE_RUN =~ ^[0-9]+$ ]] || { echo 'candidate_run must be a numeric run id'; exit 1; }
+          run=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN")
+          jq -e --arg repo "$GITHUB_REPOSITORY" '
+            .path == ".github/workflows/ci.yml"
+            and .head_repository.full_name == $repo
+            and .head_branch == "main"
+            and .event == "push"
+            and .status == "completed"
+            and .conclusion == "success"' <<<"$run" >/dev/null || {
+            echo "Run $CANDIDATE_RUN is not a successful CI run of $GITHUB_REPOSITORY on main" >&2
+            exit 1
+          }
+      - uses: actions/download-artifact@v4
+        with:
+          name: nodalix-0.4.0-candidate
+          path: dist/packages
+          run-id: ${{ inputs.candidate_run }}
+          github-token: ${{ github.token }}
+      - name: Sign the packages and build the repository
+        env:
+          NODALIX_REPO_GPG_KEY: ${{ secrets.NODALIX_REPO_GPG_KEY }}
+          NODALIX_REPO_GPG_PASSPHRASE: ${{ secrets.NODALIX_REPO_GPG_PASSPHRASE }}
+        run: |
+          docker run --rm -e NODALIX_CI_CONTAINER=1 \
+            -e NODALIX_REPO_GPG_KEY -e NODALIX_REPO_GPG_PASSPHRASE \
+            -v "$PWD":/src -w /src archlinux:latest bash tools/ci-publish-repo.sh
+          sudo chown -R "$(id -u):$(id -g)" dist/pages
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/pages
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
