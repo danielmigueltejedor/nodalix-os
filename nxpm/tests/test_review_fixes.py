@@ -172,12 +172,13 @@ def test_removal_needs_root_and_an_installed_package(monkeypatch, tmp_path):
     assert error.value.code == "not-found"
 
 
-def test_engine_routes_pacman_removal_through_authorization(monkeypatch):
+def test_engine_routes_pacman_removal_through_the_installed_helper(monkeypatch, tmp_path):
     import subprocess
-    import sys
 
     from nxpm.engine import Engine
 
+    helper = tmp_path / "remove-package"
+    helper.write_text("#!/bin/sh\n")
     calls = []
 
     def fake_run(command, **_kwargs):
@@ -185,11 +186,24 @@ def test_engine_routes_pacman_removal_through_authorization(monkeypatch):
         return subprocess.CompletedProcess(command, 0, "", "")
 
     monkeypatch.delenv("NXPM_NO_PKEXEC", raising=False)
+    monkeypatch.setenv("NXPM_HELPER_DIR", str(tmp_path))
     monkeypatch.setattr(subprocess, "run", fake_run)
     monkeypatch.setattr("os.geteuid", lambda: 1000)
     engine = Engine(load_config(Path("/does/not/exist")), {"pacman": object()})
     transaction = engine.remove("pacman:bash", "pacman")
     assert transaction.state == "succeeded"
-    assert calls == [["pkexec", sys.executable, "-m", "nxpm", "privileged-remove", "pacman:bash"]]
+    assert calls == [["pkexec", str(helper), "pacman:bash"]]
     with pytest.raises(NxpmError):
         engine.install("pacman:bash", "pacman")
+
+
+def test_privileged_work_needs_the_installed_helper(monkeypatch, tmp_path):
+    from nxpm.engine import Engine
+
+    monkeypatch.delenv("NXPM_NO_PKEXEC", raising=False)
+    monkeypatch.setenv("NXPM_HELPER_DIR", str(tmp_path))
+    monkeypatch.setattr("os.geteuid", lambda: 1000)
+    engine = Engine(load_config(Path("/does/not/exist")), {"pacman": object()})
+    transaction = engine.remove("pacman:bash", "pacman")
+    assert transaction.state == "failed"
+    assert "installed system-wide" in transaction.error

@@ -15,6 +15,10 @@ from nxpm.transactions import Transaction, TransactionManager
 
 log = logging.getLogger("nxpm")
 
+# Root-owned programs that Polkit authorizes by path. pkexec never runs the
+# user's interpreter or a module found through the user's environment.
+HELPER_DIR = "/usr/lib/nodalix-nxpm"
+
 
 class Engine:
     def __init__(self, config: Config, backends: dict, transactions: TransactionManager | None = None) -> None:
@@ -88,7 +92,7 @@ class Engine:
             if os.geteuid() == 0:
                 self.backends["pacman"].upgrade_system(lambda progress, message: self._progress(transaction, manager, progress, message))
                 return
-            self._run_privileged(transaction, manager, "privileged-upgrade", "System update finished")
+            self._run_privileged(transaction, manager, ("upgrade-system", "privileged-upgrade"), "System update finished")
 
         return self.transactions.submit("upgrade-system", "pacman:*", "pacman", runner)
 
@@ -103,20 +107,28 @@ class Engine:
                     lambda progress, message: self._progress(transaction, manager, progress, message),
                 )
                 return
-            self._run_privileged(transaction, manager, "privileged-remove", "Package removed", package_id)
+            self._run_privileged(transaction, manager, ("remove-package", "privileged-remove"), "Package removed", package_id)
 
         return self.transactions.submit("remove", package_id, "pacman", runner)
 
     def _run_privileged(
-        self, transaction: Transaction, manager: TransactionManager, command_name: str, done: str, *arguments: str
+        self, transaction: Transaction, manager: TransactionManager, command: tuple[str, str], done: str, *arguments: str
     ) -> None:
+        helper_name, cli_name = command
+        helper = os.path.join(os.environ.get("NXPM_HELPER_DIR", HELPER_DIR), helper_name)
+        if os.environ.get("NXPM_NO_PKEXEC") == "1":
+            # Development and tests: the caller is already authorized.
+            argv = [sys.executable, "-m", "nxpm", cli_name, *arguments]
+        elif os.path.isfile(helper):
+            argv = ["pkexec", helper, *arguments]
+        else:
+            raise NxpmError(
+                "unsupported",
+                "NXPM is not installed system-wide, so it cannot ask for administrator authorization.",
+            )
         transaction.message = "Waiting for administrator authorization"
         manager.publish(transaction)
-        command = [sys.executable, "-m", "nxpm", command_name, *arguments]
-        if os.environ.get("NXPM_NO_PKEXEC") == "1":
-            completed = subprocess.run(command, capture_output=True, text=True, check=False)
-        else:
-            completed = subprocess.run(["pkexec", *command], capture_output=True, text=True, check=False)
+        completed = subprocess.run(argv, capture_output=True, text=True, check=False)
         if completed.returncode != 0:
             detail = (completed.stderr or completed.stdout or "Authorization was not granted.").strip()
             raise NxpmError("authorization-required", detail)

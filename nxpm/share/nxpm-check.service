@@ -1,0 +1,6 @@
+[Unit]
+Description=Check for Nodalix software updates
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/nxpm check

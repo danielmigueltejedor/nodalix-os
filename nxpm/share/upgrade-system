@@ -1,0 +1,10 @@
+#!/usr/bin/python -I
+"""Apply the official repository updates as root. Polkit authorizes this path."""
+
+import sys
+
+sys.path.insert(0, "/usr/lib/nodalix-nxpm/lib")
+
+from nxpm.cli import main  # noqa: E402
+
+raise SystemExit(main(["privileged-upgrade"]))

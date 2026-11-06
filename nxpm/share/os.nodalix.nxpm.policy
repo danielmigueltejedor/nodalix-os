@@ -14,15 +14,19 @@
       <allow_inactive>no</allow_inactive>
       <allow_active>auth_admin</allow_active>
     </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/lib/nodalix-nxpm/upgrade-system</annotate>
+    <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
   </action>
 
-  <action id="os.nodalix.nxpm.install-system">
-    <description>Install an official repository package</description>
-    <message>Authentication is required to change official system packages.</message>
+  <action id="os.nodalix.nxpm.remove-package">
+    <description>Remove an official repository package</description>
+    <message>Authentication is required to remove an official system package.</message>
     <defaults>
       <allow_any>no</allow_any>
       <allow_inactive>no</allow_inactive>
       <allow_active>auth_admin</allow_active>
     </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/lib/nodalix-nxpm/remove-package</annotate>
+    <annotate key="org.freedesktop.policykit.exec.allow_gui">true</annotate>
   </action>
 </policyconfig>

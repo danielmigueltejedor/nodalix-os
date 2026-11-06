@@ -1,0 +1,13 @@
+#!/usr/bin/python -I
+"""Remove one official package as root. Polkit authorizes this path."""
+
+import sys
+
+sys.path.insert(0, "/usr/lib/nodalix-nxpm/lib")
+
+from nxpm.cli import main  # noqa: E402
+
+if len(sys.argv) != 2:
+    print("usage: remove-package pacman:<name>", file=sys.stderr)
+    raise SystemExit(2)
+raise SystemExit(main(["privileged-remove", sys.argv[1]]))

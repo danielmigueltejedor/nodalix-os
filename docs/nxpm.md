@@ -2,11 +2,11 @@
 
 NXPM (Nodalix Package Manager) vive en este repositorio, en `nxpm/`, porque es una herramienta del propio sistema. Nodalix Store (repositorio `tienda`) es un cliente que depende de su servicio D-Bus `os.nodalix.Nxpm1`.
 
-Estado: el código y las pruebas están aquí; el paquete de Arch y su inclusión en la ISO están pendientes.
+El paquete de Arch es `nodalix-nxpm`. Instala `/usr/bin/nxpm`, el servicio de D-Bus de sesión, el temporizador de comprobación (sin activar) y la política de Polkit. Las operaciones con privilegios (`upgrade-system` y `remove-package`) las ejecuta `pkexec` sobre programas de `/usr/lib/nodalix-nxpm/`, propiedad de root, que Polkit autoriza por ruta. `pkexec` nunca ejecuta el intérprete del usuario ni un módulo encontrado por su entorno. Fuera de una instalación del sistema, esas dos operaciones se rechazan.
 
 ## Requisitos
 
-NXPM necesita Python 3.11.4 o superior. El servicio de sesión (`nxpm daemon`) usa los enlaces de Python para D-Bus y GObject (`dbus-python`, `PyGObject`). El backend Flatpak necesita la introspección de libflatpak, y el de pacman necesita `pyalpm` y `pycman`. La lista exacta de dependencias de Arch se declarará en el PKGBUILD.
+NXPM necesita Python 3.11.4 o superior. El servicio de sesión (`nxpm daemon`) usa los enlaces de Python para D-Bus y GObject (`dbus-python`, `PyGObject`). El backend Flatpak necesita la introspección de libflatpak, y el de pacman necesita `pyalpm` y `pycman`. Las dependencias de Arch están en el PKGBUILD de `nodalix-nxpm`.
 
 ## Métodos
 

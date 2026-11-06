@@ -21,6 +21,14 @@
       "restart": "none"
     },
     {
+      "id": "nxpm",
+      "name": "Nodalix Package Manager",
+      "package": "nodalix-nxpm",
+      "version": "0.5.0",
+      "required": true,
+      "restart": "none"
+    },
+    {
       "id": "apps",
       "name": "Nodalix Apps",
       "package": "nodalix-apps",

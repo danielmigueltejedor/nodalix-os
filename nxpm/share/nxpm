@@ -1,0 +1,10 @@
+#!/usr/bin/python -I
+"""Run NXPM from the files installed by the nodalix-nxpm package."""
+
+import sys
+
+sys.path.insert(0, "/usr/lib/nodalix-nxpm/lib")
+
+from nxpm.cli import main  # noqa: E402
+
+raise SystemExit(main())
