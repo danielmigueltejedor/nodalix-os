@@ -279,7 +279,7 @@ jobs:
             -w /src \
             archlinux:latest \
             bash -lc "
-              pacman -Syu --noconfirm &&
+              pacman -Syu --noconfirm diffutils &&
               /src/tools/test-package-upgrade.sh \
                 /src/dist/upgrade-baselines/clean \
                 /src/dist/packages \
@@ -317,7 +317,7 @@ jobs:
               -w /src \
               archlinux:latest \
               bash -lc "
-                pacman -Syu --noconfirm &&
+                pacman -Syu --noconfirm diffutils &&
                 /src/tools/test-package-upgrade.sh \
                   '/src/dist/upgrade-baselines/$version' \
                   /src/dist/packages \
