@@ -79,6 +79,21 @@ class ReleaseUpgradePolicyTests(unittest.TestCase):
         self.assertIn("nodalix-cursor-theme-*.pkg.tar.zst", workflow)
         self.assertIn("test-package-upgrade.sh", workflow)
 
+    def test_release_upgrade_containers_install_diffutils(self) -> None:
+        workflow = (
+            ROOT
+            / ".github"
+            / "workflows"
+            / "release.yml"
+        ).read_text(encoding="utf-8")
+
+        # The upgrade script compares directories with diff, which the
+        # bare archlinux image does not ship.
+        self.assertEqual(
+            workflow.count("pacman -Syu --noconfirm diffutils"),
+            2,
+        )
+
     def test_upgrade_script_executes_cursor_migration(self) -> None:
         script = (
             ROOT
