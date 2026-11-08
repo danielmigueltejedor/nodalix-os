@@ -1,5 +1,5 @@
 pkgname=nodalix-settings
-pkgver=0.4.1
+pkgver=0.4.2
 pkgrel=1
 pkgdesc="Native Nodalix updates, animated wallpaper controls and GNOME branding"
 arch=("any")
