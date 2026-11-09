@@ -18,6 +18,19 @@ log = logging.getLogger("nxpm")
 # Root-owned programs that Polkit authorizes by path. pkexec never runs the
 # user's interpreter or a module found through the user's environment.
 HELPER_DIR = "/usr/lib/nodalix-nxpm"
+PACMAN_LOCK = "/var/lib/pacman/db.lck"
+UPDATER_LOCK = "/var/lib/nodalix-updater/update.lock"
+
+
+def ensure_package_manager_idle() -> None:
+    """Refuse privileged pacman work while another Nodalix/ALPM client holds a lock."""
+    for env_name, default, message in (
+        ("NXPM_UPDATER_LOCK", UPDATER_LOCK, "Nodalix is already applying a system update."),
+        ("NXPM_PACMAN_LOCK", PACMAN_LOCK, "Another package manager is using the system databases."),
+    ):
+        path = os.environ.get(env_name, default)
+        if os.path.exists(path):
+            raise NxpmError("failed", message)
 
 
 class Engine:
@@ -89,6 +102,7 @@ class Engine:
             raise NxpmError("disabled", "Official repository updates are disabled.")
 
         def runner(transaction: Transaction, manager: TransactionManager) -> None:
+            ensure_package_manager_idle()
             if os.geteuid() == 0:
                 self.backends["pacman"].upgrade_system(lambda progress, message: self._progress(transaction, manager, progress, message))
                 return
@@ -101,6 +115,7 @@ class Engine:
             raise NxpmError("disabled", "Official repository changes are disabled.")
 
         def runner(transaction: Transaction, manager: TransactionManager) -> None:
+            ensure_package_manager_idle()
             if os.geteuid() == 0:
                 self.backends["pacman"].remove_package(
                     package_id,

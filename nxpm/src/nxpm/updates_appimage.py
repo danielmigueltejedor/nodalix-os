@@ -1,8 +1,9 @@
 """Apply an AppImage update when the file itself names a verifiable channel.
 
 GitHub release channels can be downloaded over HTTPS and checked for the ELF
-header before the old file is replaced. Plain zsync channels are reported and
-left untouched: NXPM does not guess how to reconstruct them.
+header and AppImage Type-2 marker before the old file is replaced. Plain zsync
+channels are reported and left untouched: NXPM does not guess how to
+reconstruct them.
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ _ALLOWED_HOSTS = {
     "github-releases.githubusercontent.com",
 }
 _MAX_DOWNLOAD = 8 * 1024 * 1024 * 1024
+_APPIMAGE_TYPE2 = b"AI\x02"
 
 
 def describe_channel(information: str) -> str:
@@ -35,6 +37,19 @@ def describe_channel(information: str) -> str:
     if text.startswith("zsync|https://"):
         return "zsync"
     return ""
+
+
+def look_like_appimage(path: Path) -> bool:
+    try:
+        with path.open("rb") as handle:
+            header = handle.read(8)
+            if not header.startswith(b"\x7fELF"):
+                return False
+            handle.seek(8)
+            marker = handle.read(3)
+            return marker == _APPIMAGE_TYPE2
+    except OSError:
+        return False
 
 
 def apply_update(path: Path, information: str, opener=None) -> str:
@@ -47,18 +62,23 @@ def apply_update(path: Path, information: str, opener=None) -> str:
     if channel != "github":
         raise NxpmError("unsupported", "This AppImage does not publish an update channel NXPM can verify.")
     owner, repo, release, pattern = _GITHUB.match(information.strip()).groups()
-    payload = _download_release_asset(owner, repo, release, pattern, opener or _opener())
-    if not payload.startswith(b"\x7fELF"):
-        raise NxpmError("failed", "The published file is not an AppImage NXPM can install.")
-    current = _sha256(path)
-    if hashlib.sha256(payload).hexdigest() == current:
-        return "The published AppImage matches the installed file."
     temporary = path.with_name(path.name + ".partial")
-    temporary.write_bytes(payload)
-    temporary.chmod(0o755)
-    temporary.replace(path)
-    path.chmod(0o755)
-    return "The AppImage was replaced with the file published on GitHub."
+    temporary.unlink(missing_ok=True)
+    try:
+        digest = _download_release_asset(owner, repo, release, pattern, temporary, opener or _opener())
+        if not look_like_appimage(temporary):
+            raise NxpmError("failed", "The published file is not an AppImage NXPM can install.")
+        current = _sha256(path)
+        if digest == current:
+            temporary.unlink(missing_ok=True)
+            return "The published AppImage matches the installed file."
+        temporary.chmod(0o755)
+        temporary.replace(path)
+        path.chmod(0o755)
+        return "The AppImage was replaced with the file published on GitHub."
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
 
 
 def _release_endpoint(release: str) -> str:
@@ -69,7 +89,7 @@ def _release_endpoint(release: str) -> str:
     return f"releases/tags/{release}"
 
 
-def _download_release_asset(owner: str, repo: str, release: str, pattern: str, opener) -> bytes:
+def _download_release_asset(owner: str, repo: str, release: str, pattern: str, destination: Path, opener) -> str:
     endpoint = _release_endpoint(release)
     request = urllib.request.Request(
         f"https://api.github.com/repos/{owner}/{repo}/{endpoint}",
@@ -93,9 +113,33 @@ def _download_release_asset(owner: str, repo: str, release: str, pattern: str, o
     download = urllib.request.Request(matches[0], headers={"User-Agent": "NXPM/0.1"})
     try:
         with opener.open(download, timeout=60) as response:
-            return _read_limited(response)
+            return _stream_limited(response, destination)
     except OSError as exc:
         raise NxpmError("failed", "The published AppImage could not be downloaded.") from exc
+
+
+def _stream_limited(response, destination: Path) -> str:
+    digest = hashlib.sha256()
+    total = 0
+    declared = response.headers.get("Content-Length")
+    if declared is not None:
+        try:
+            if int(declared) > _MAX_DOWNLOAD:
+                raise NxpmError("failed", "The published AppImage is larger than NXPM will download.")
+        except ValueError:
+            pass
+    with destination.open("wb") as handle:
+        while True:
+            block = response.read(1024 * 1024)
+            if not block:
+                break
+            total += len(block)
+            if total > _MAX_DOWNLOAD:
+                raise NxpmError("failed", "The published AppImage is larger than NXPM will download.")
+            handle.write(block)
+            digest.update(block)
+        handle.flush()
+    return digest.hexdigest()
 
 
 def _sha256(path: Path) -> str:
@@ -118,20 +162,6 @@ def _name_matches(pattern: str, name: str) -> bool:
 def _https_asset(url: str) -> bool:
     parsed = urlparse(url)
     return parsed.scheme == "https" and parsed.hostname in _ALLOWED_HOSTS
-
-
-def _read_limited(response) -> bytes:
-    chunks = []
-    total = 0
-    while True:
-        block = response.read(1024 * 1024)
-        if not block:
-            break
-        total += len(block)
-        if total > _MAX_DOWNLOAD:
-            raise NxpmError("failed", "The published AppImage is larger than NXPM will download.")
-        chunks.append(block)
-    return b"".join(chunks)
 
 
 def _opener():

@@ -81,6 +81,9 @@ package() {
   install -d "$target" "$pkgdir/usr/share/nodalix"
   local music="$target/nowplaying@epogonii.github.io"
   unzip -q "$srcdir/nowplaying-v1.0.14.zip" -d "$music"
+  # Keep upstream Now Playing Card 1.0.14; apply Nodalix multi-monitor bridge only.
+  python3 "$srcdir/tools/patch-nowplaying-multimonitor.py" "$music/extension.js"
+  install -Dm644 "$music/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/NOWPLAYING-CARD-LICENSE"
   glib-compile-schemas --strict "$music/schemas"
   for module_dir in "$srcdir"/gnome/extensions/*; do
     cp -a --no-preserve=ownership "$module_dir" "$target/"

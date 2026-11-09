@@ -64,14 +64,16 @@ class TransactionManager:
         if self.defer:
             from gi.repository import GLib
 
-            GLib.idle_add(self._deferred_pump)
+            # Keep the GLib/D-Bus loop responsive: run the transaction body on a
+            # worker thread and only marshal status updates back onto the loop.
+            def _start_worker() -> bool:
+                threading.Thread(target=self.pump, name="nxpm-transaction", daemon=True).start()
+                return False
+
+            GLib.idle_add(_start_worker)
         else:
             self.pump()
         return transaction
-
-    def _deferred_pump(self) -> bool:
-        self.pump()
-        return False
 
     def get(self, transaction_id: str) -> Transaction:
         with self._lock:
@@ -152,11 +154,22 @@ class TransactionManager:
         self._emit(transaction)
 
     def _emit(self, transaction: Transaction) -> None:
-        for listener in list(self._listeners):
-            try:
-                listener(transaction)
-            except Exception:
-                log.exception("Transaction listener failed")
+        listeners = list(self._listeners)
+
+        def notify() -> bool:
+            for listener in listeners:
+                try:
+                    listener(transaction)
+                except Exception:
+                    log.exception("Transaction listener failed")
+            return False
+
+        if self.defer and threading.current_thread() is not threading.main_thread():
+            from gi.repository import GLib
+
+            GLib.idle_add(notify)
+        else:
+            notify()
 
     def _remember(self, transaction: Transaction) -> None:
         if transaction.state not in TERMINAL:

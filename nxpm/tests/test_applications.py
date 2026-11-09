@@ -33,6 +33,8 @@ def elf_with_update(text: str) -> bytes:
     prefix[4] = 2
     prefix[5] = 1
     prefix[6] = 1
+    # AppImage Type-2 magic lives at offset 8.
+    prefix[8:11] = b"AI\x02"
     struct.pack_into("<Q", prefix, 40, table_offset)
     struct.pack_into("<HHH", prefix, 58, 64, 3, 2)
     return bytes(prefix) + info + names + sections
@@ -142,6 +144,7 @@ def test_github_update_replaces_only_an_elf(home):
         def __init__(self, payload: bytes):
             self.payload = payload
             self.position = 0
+            self.headers = {"Content-Length": str(len(payload))}
 
         def read(self, amount=-1):
             if self.position >= len(self.payload):
@@ -213,3 +216,48 @@ def test_engine_import_and_remove_use_the_applications_folder(home):
     assert removed.state == "succeeded"
     assert load_catalog()["apps"] == {}
     assert not (applications_dir() / "Demo.AppImage").exists()
+
+
+def test_appimage_import_rejects_elf_without_type2_marker(home):
+    source = home / "Plain.AppImage"
+    payload = bytearray(elf_with_update("gh-releases-zsync|owner|repo|latest|Demo-*.AppImage.zsync"))
+    payload[8:11] = b"\x00\x00\x00"
+    source.write_bytes(payload)
+    with pytest.raises(NxpmError) as error:
+        AppImageBackend().import_file("appimage", str(source), lambda *_args: None)
+    assert error.value.code == "invalid-input"
+
+
+def test_catalog_write_is_atomic_and_quoted_exec(home):
+    from nxpm.applications import catalog_path, update_catalog, write_desktop
+
+    update_catalog(lambda data: data["apps"].__setitem__("Demo", {"name": "Demo"}))
+    path = catalog_path()
+    assert path.is_file()
+    assert not path.with_name(path.name + ".tmp").exists()
+    assert '"Demo"' in path.read_text(encoding="utf-8")
+
+    target = applications_dir() / "Demo App.AppImage"
+    target.write_bytes(elf_with_update("none"))
+    menu = write_desktop("Demo", "Demo", target, "comment")
+    text = menu.read_text(encoding="utf-8")
+    assert "Demo App.AppImage" in text
+    assert "Exec='" in text
+
+
+def test_engine_refuses_pacman_work_while_updater_lock_exists(home, monkeypatch):
+    from nxpm.config import load_config
+
+    lock = home / "update.lock"
+    lock.write_text("busy\n", encoding="utf-8")
+    monkeypatch.setenv("NXPM_UPDATER_LOCK", str(lock))
+    monkeypatch.setenv("NXPM_PACMAN_LOCK", str(home / "missing-db.lck"))
+
+    class DummyPacman:
+        def upgrade_system(self, progress):
+            raise AssertionError("pacman upgrade must not run while the updater lock exists")
+
+    engine = Engine(load_config(Path("/does/not/exist")), {"pacman": DummyPacman()})
+    transaction = engine.upgrade_system()
+    assert transaction.state == "failed"
+    assert "already applying" in (transaction.error or transaction.message).lower()

@@ -11,6 +11,11 @@ license=('GPL-3.0-or-later')
 depends=('nodalix-nxpm' 'gtk4' 'libadwaita' 'libdex' 'flatpak' 'libxmlb' 'libyaml' 'libsoup3'
          'json-glib' 'glycin' 'glycin-gtk4' 'webkitgtk-6.0' 'libsecret' 'libproxy'
          'malcontent' 'gtksourceview5' 'md4c' 'appstream' 'dbus')
+# Store is a maintained Nodalix fork of Bazaar and owns overlapping paths
+# (libbge, bazaar.mo, bge-demo). Declare the conflict so pacman replaces the
+# upstream package inside the same transaction instead of aborting on file ownership.
+conflicts=('bazaar')
+replaces=('bazaar')
 makedepends=('meson' 'ninja' 'vala' 'blueprint-compiler' 'gettext' 'libxml2' 'desktop-file-utils'
              'python' 'python-babel' 'perl' 'glib2-devel')
 source=("tienda-$_store_commit.tar.gz::https://codeload.github.com/danielmigueltejedor/tienda/tar.gz/$_store_commit")

@@ -44,9 +44,13 @@ VALID_CHANNELS = ("stable", "beta")
 CHANNEL_ALIASES = {"rc": "beta"}
 UA = "Nodalix-Updater/0.3"
 REBOOT_REQUIRED_PATH = Path(os.environ.get("NODALIX_REBOOT_REQUIRED", "/run/nodalix-updater/reboot-required"))
-for _migrations_root in (Path(__file__).resolve().parent, Path("/usr/lib/nodalix-updater")):
-    if str(_migrations_root) not in sys.path:
-        sys.path.insert(0, str(_migrations_root))
+# Prefer the migrations shipped next to this script (package or worktree)
+# over an older copy that may still exist under /usr/lib/nodalix-updater.
+for _migrations_root in (Path("/usr/lib/nodalix-updater"), Path(__file__).resolve().parent):
+    path = str(_migrations_root)
+    if path in sys.path:
+        sys.path.remove(path)
+    sys.path.insert(0, path)
 from migrations.registry import MigrationError, run_migrations  # noqa: E402
 VERSION_PATTERN = re.compile(
     r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
@@ -672,12 +676,22 @@ def release_info(config: dict) -> dict:
         }
         for component in manifest["components"]
     ]
-    available = compare_versions(remote, local) > 0
+    missing_required = [
+        item["package"]
+        for item in components
+        if item["required"] and not item["installed"]
+    ]
+    newer = compare_versions(remote, local) > 0
+    # A matching VERSION_ID is not enough: a development image that only wrote
+    # /etc/nodalix-release must still be offered the official package set.
+    available = newer or bool(missing_required)
+    status = "update_available" if newer else ("repair_needed" if missing_required else "up_to_date")
     info.update(
-        status="update_available" if available else "up_to_date",
+        status=status,
         latest_version=remote,
         candidate_version=remote,
         update_available=available,
+        missing_required=missing_required,
         components=components,
         shell_restart_required=any(item["restart"] == "shell" for item in selected_components(manifest)),
         reboot_required=any(item["restart"] == "system" for item in selected_components(manifest)),
@@ -776,7 +790,7 @@ def record_history(old: str, new: str, components: list[dict]) -> None:
 
 def fail_closed(info: dict, action: str) -> None:
     status = info.get("status")
-    if status in {"update_available", "up_to_date"} and info.get("_manifest"):
+    if status in {"update_available", "repair_needed", "up_to_date"} and info.get("_manifest"):
         return
     message = info.get("error") or {
         "no_release": "No hay releases publicadas todavía.",
@@ -1290,6 +1304,8 @@ def do_update(config: dict, force: bool = False, assets_dir: Path | None = None)
             )
         if info["status"] == "up_to_date" and not force:
             return set_status("up_to_date", status="up_to_date", current_version=previous, latest_version=info.get("latest_version"))
+        # repair_needed keeps the same VERSION_ID but is missing required
+        # packages; continue into the install path without requiring --force.
         fail_closed(info, "update")
         manifest = info["_manifest"]
         target_version = canonical_version(str(manifest["version"]))

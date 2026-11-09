@@ -217,6 +217,9 @@ def test_the_helper_directory_cannot_be_chosen_from_the_environment(monkeypatch,
     (tmp_path / "remove-package").write_text("#!/bin/sh\n")
     calls = []
     monkeypatch.delenv("NXPM_NO_PKEXEC", raising=False)
+    # A hostile NXPM_HELPER_DIR must not redirect pkexec, even when the real
+    # packaged helper directory is absent from this test environment.
+    monkeypatch.setattr("nxpm.engine.HELPER_DIR", str(tmp_path / "missing-system-helpers"))
     monkeypatch.setenv("NXPM_HELPER_DIR", str(tmp_path))
     monkeypatch.setattr(subprocess, "run", lambda command, **_k: calls.append(command))
     monkeypatch.setattr("os.geteuid", lambda: 1000)

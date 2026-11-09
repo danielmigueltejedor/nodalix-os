@@ -12,6 +12,7 @@ import json
 import os
 import re
 from pathlib import Path
+from shlex import quote as shlex_quote
 
 from nxpm.errors import NxpmError
 
@@ -88,25 +89,31 @@ def load_catalog() -> dict:
 def update_catalog(mutator) -> dict:
     path = catalog_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a+", encoding="utf-8") as handle:
-        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
-        handle.seek(0)
-        raw = handle.read()
+    lock_path = path.with_name(path.name + ".lock")
+    with lock_path.open("a+", encoding="utf-8") as lock_handle:
+        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
         try:
-            data = json.loads(raw) if raw.strip() else {"apps": {}}
-        except json.JSONDecodeError:
-            data = {"apps": {}}
-        if not isinstance(data, dict):
-            data = {"apps": {}}
-        if not isinstance(data.get("apps"), dict):
-            data["apps"] = {}
-        mutator(data)
-        handle.seek(0)
-        handle.truncate()
-        serialized = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
-        handle.write(serialized)
-        handle.flush()
-        fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+            if path.is_file():
+                try:
+                    data = json.loads(path.read_text(encoding="utf-8"))
+                except (OSError, json.JSONDecodeError):
+                    data = {"apps": {}}
+            else:
+                data = {"apps": {}}
+            if not isinstance(data, dict):
+                data = {"apps": {}}
+            if not isinstance(data.get("apps"), dict):
+                data["apps"] = {}
+            mutator(data)
+            serialized = json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+            temporary = path.with_name(path.name + ".tmp")
+            with temporary.open("w", encoding="utf-8") as handle:
+                handle.write(serialized)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, path)
+        finally:
+            fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
     return data
 
 
@@ -122,11 +129,12 @@ def write_desktop(key: str, name: str, executable: Path, comment: str) -> Path:
     target = confine(executable, applications_dir())
     visible = " ".join((name or key).split()) or key
     comment_text = " ".join((comment or "").split())
+    exec_value = shlex_quote(str(target))
     content = (
         "[Desktop Entry]\n"
         "Type=Application\n"
         f"Name={visible}\n"
-        f"Exec={target}\n"
+        f"Exec={exec_value}\n"
         "Icon=application-x-executable\n"
         "Terminal=false\n"
         "Categories=Utility;\n"

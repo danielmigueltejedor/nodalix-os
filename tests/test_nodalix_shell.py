@@ -164,7 +164,12 @@ for (const stopped of [false, true]) {
         version = (ROOT / 'VERSION').read_text()
         (root / 'VERSION').write_text(version)
         shutil.copy2(ROOT / 'packaging/nodalix-gnome-shell/PKGBUILD', recipe / 'PKGBUILD')
-        for name in ['build-nodalix-shell.sh', 'build-nodalix-shell-preview.sh', 'prepare-nodalix-shell.py']:
+        for name in [
+            'build-nodalix-shell.sh',
+            'build-nodalix-shell-preview.sh',
+            'prepare-nodalix-shell.py',
+            'patch-nowplaying-multimonitor.py',
+        ]:
             shutil.copy2(ROOT / 'tools' / name, root / 'tools' / name)
         overlay = root / 'gnome/nodalix-shell'
         overlay.mkdir(parents=True)

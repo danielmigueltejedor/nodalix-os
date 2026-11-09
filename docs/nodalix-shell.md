@@ -94,9 +94,15 @@ actores del escritorio. Desactivar fondos animados durante la sesión sigue
 restaurando los fondos estáticos.
 
 Now Playing Card se obtiene del ZIP oficial de la versión 1.0.14, con SHA-256
-fijado. Nodalix Shell ignora las copias instaladas de los módulos incorporados
-en la lista de extensiones. Las copias personales y sus datos se conservan
-para que sigan disponibles al volver a GNOME estándar.
+fijado. Tras descomprimir el ZIP, `tools/patch-nowplaying-multimonitor.py`
+extiende la extensión sin alterar licencia ni atribución: una sola fuente
+MPRIS compartida alimenta actores independientes en el panel principal y en
+cada barra secundaria de multi-monitors-bar, y el ocultador de controles
+multimedia nativos actúa en todos los menús de fecha. El centro del panel
+secundario admite varios indicadores a la vez (`_centerRow`). Nodalix Shell
+ignora las copias instaladas de los módulos incorporados en la lista de
+extensiones. Las copias personales y sus datos se conservan para que sigan
+disponibles al volver a GNOME estándar.
 
 ## Perfil de escritorio incluido
 

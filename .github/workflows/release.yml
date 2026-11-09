@@ -587,11 +587,28 @@ jobs:
           fi
 
           mapfile -t RELEASE_ASSETS < <(python3 tools/release_iso.py --assets-dir dist/release)
+
+          # Never rewrite assets of an already-published stable release. Drafts
+          # and prereleases may still replace incomplete uploads during the same
+          # publish job; a public stable tag is immutable once undrafted.
+          release_json=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --json isDraft,isPrerelease,assets)
+          is_draft=$(printf '%s' "$release_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["isDraft"])')
+          is_prerelease=$(printf '%s' "$release_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["isPrerelease"])')
+          asset_count=$(printf '%s' "$release_json" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["assets"]))')
+          if [[ "$is_draft" != "True" && "$is_prerelease" != "True" && "$asset_count" != "0" ]]; then
+            echo "Refusing to overwrite assets of published stable release $RELEASE_TAG" >&2
+            exit 1
+          fi
+
+          upload_flags=(--repo "$GITHUB_REPOSITORY")
+          if [[ "$is_draft" == "True" || "$is_prerelease" == "True" ]]; then
+            upload_flags+=(--clobber)
+          fi
           gh release upload \
             "$RELEASE_TAG" \
             "${RELEASE_ASSETS[@]}" \
-            --clobber \
-            --repo "$GITHUB_REPOSITORY"
+            "${upload_flags[@]}"
 
           # A new release stays invisible to the updater until every
           # asset has been uploaded successfully.

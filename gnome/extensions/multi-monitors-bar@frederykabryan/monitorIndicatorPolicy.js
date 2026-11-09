@@ -3,6 +3,8 @@ export const VISIBILITY_KEY = 'monitor-indicator-visibility';
 export const CONTROL_ROLE = 'multiMonitorBarVisibility';
 export const EXCLUDED_MIRROR_ROLES = [
     'screencast', 'remoteAccess', 'power', 'unsafeModeIndicator', 'backgroundApps',
+    // Now Playing Card owns real per-monitor actors; never clone its primary host.
+    'nowplaying@epogonii.github.io',
 ];
 
 // Keep the source's own visibility separate from our primary-panel override.

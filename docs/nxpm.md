@@ -75,7 +75,9 @@ PYTHONPATH=nxpm/src python -m nxpm permissions flatpak:user:app/org.ejemplo.App/
 PYTHONPATH=nxpm/src python -m nxpm permissions-reset flatpak:user:app/org.ejemplo.App/x86_64/stable
 ```
 
-Un AppImage se copia y se registra en el menú del usuario. NXPM lee la sección ELF `.upd_info` sin ejecutar el archivo. Si el canal es `gh-releases-zsync`, Actualizar descarga el `.AppImage` publicado en GitHub por HTTPS y lo sustituye solo si el archivo recibido sigue siendo un ELF. Si el canal es `zsync`, NXPM lo muestra y no lo aplica.
+Un AppImage Type-2 (ELF con marca `AI\x02`) se copia y se registra en el menú del usuario. NXPM lee la sección ELF `.upd_info` sin ejecutar el archivo. Si el canal es `gh-releases-zsync`, Actualizar descarga el `.AppImage` publicado en GitHub por HTTPS a un fichero temporal (sin acumularlo entero en memoria) y lo sustituye solo si el archivo recibido sigue siendo un AppImage Type-2. Si el canal es `zsync`, NXPM lo muestra y no lo aplica. El catálogo de aplicaciones se escribe de forma atómica bajo un candado de fichero.
+
+Las actualizaciones oficiales de pacman (`UpgradeSystem` / `privileged-remove`) se rechazan mientras exista el candado del actualizador de Nodalix (`/var/lib/nodalix-updater/update.lock`) o el de ALPM (`/var/lib/pacman/db.lck`), para no solaparse con una migración o actualización del sistema.
 
 Un `.deb` se abre como archivo `ar`, se desempaqueta `data.tar` y se ignoran los scripts de `control.tar`. No se llama a `dpkg`. Los bits setuid se quitan. El programa queda en un AppDir con un `AppRun` propio. `appimagetool`, si está en el `PATH`, genera además el AppImage; esta instalación de desarrollo no lo tiene, así que el resultado comprobado es el AppDir.
 
