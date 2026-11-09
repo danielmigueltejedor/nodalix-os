@@ -8,8 +8,12 @@ hosts, and attaches independent panel actors to secondary monitors.
 from __future__ import annotations
 
 import argparse
+import os
 import pathlib
 import sys
+import tempfile
+
+NOWPLAYING_UUID = "nowplaying@epogonii.github.io"
 
 SHARED_SOURCE = '''
 let _sharedMprisSource = null;
@@ -115,8 +119,72 @@ class BuiltinMediaHider {
 '''
 
 
+def resolve_extension_js(path: pathlib.Path) -> pathlib.Path:
+    """Accept only the unpacked Now Playing Card extension.js path.
+
+    The CLI argument is untrusted packaging input: reject traversal, symlinks
+    that escape the module directory, and any file that is not extension.js.
+    """
+    if path is None or str(path) == "":
+        raise SystemExit("missing Now Playing extension.js path")
+    raw = os.fspath(path)
+    if "\x00" in raw:
+        raise SystemExit("invalid Now Playing extension.js path")
+    candidate = pathlib.Path(raw).expanduser()
+    if candidate.name != "extension.js":
+        raise SystemExit("refusing to patch a file that is not named extension.js")
+    if candidate.is_symlink():
+        raise SystemExit("refusing to patch through a symbolic link")
+    try:
+        resolved = candidate.resolve(strict=True)
+    except OSError as error:
+        raise SystemExit(f"Now Playing extension.js is not readable: {error}") from error
+    if resolved.name != "extension.js":
+        raise SystemExit("refusing to patch a file that is not named extension.js")
+    if resolved.parent.name != NOWPLAYING_UUID:
+        raise SystemExit(f"refusing to patch extension.js outside {NOWPLAYING_UUID}/")
+    if not resolved.is_file():
+        raise SystemExit("Now Playing extension.js must be a regular file")
+    # Keep the final path inside the verified module directory.
+    if resolved.parent != candidate.parent.resolve():
+        raise SystemExit("refusing to patch outside the Now Playing module directory")
+    return resolved
+
+
+def _read_text(path: pathlib.Path) -> str:
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        fd = os.open(path, flags)
+    except OSError as error:
+        raise SystemExit(f"Now Playing extension.js is not readable: {error}") from error
+    with os.fdopen(fd, "r", encoding="utf-8") as handle:
+        return handle.read()
+
+
+def _write_text(path: pathlib.Path, text: str) -> None:
+    directory = path.parent
+    fd, temporary_name = tempfile.mkstemp(
+        prefix=".extension.js.",
+        suffix=".tmp",
+        dir=directory,
+    )
+    temporary = pathlib.Path(temporary_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
 def patch(path: pathlib.Path) -> None:
-    text = path.read_text(encoding="utf-8")
+    target = resolve_extension_js(path)
+    text = _read_text(target)
     if "acquireSharedMprisSource" in text and "_allMessageViews" in text:
         return
 
@@ -301,15 +369,16 @@ def patch(path: pathlib.Path) -> None:
         1,
     )
 
-    path.write_text(text, encoding="utf-8")
+    _write_text(target, text)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("extension_js", type=pathlib.Path)
     args = parser.parse_args()
-    patch(args.extension_js)
-    print(f"patched {args.extension_js}")
+    target = resolve_extension_js(args.extension_js)
+    patch(target)
+    print(f"patched {target}")
     return 0
 
 

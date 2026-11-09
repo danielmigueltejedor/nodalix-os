@@ -359,7 +359,9 @@ export default class NowPlayingExtension extends Extension {
 }
 """
         with tempfile.TemporaryDirectory() as raw:
-            path = Path(raw) / "extension.js"
+            module_dir = Path(raw) / "nowplaying@epogonii.github.io"
+            module_dir.mkdir()
+            path = module_dir / "extension.js"
             path.write_text(fixture, encoding="utf-8")
             loader = importlib.machinery.SourceFileLoader(
                 "patch_nowplaying_multimonitor",
@@ -375,6 +377,13 @@ export default class NowPlayingExtension extends Extension {
             self.assertIn("acquireSharedMprisSource", first)
             self.assertIn("_attachSecondaryHosts", first)
             self.assertIn("_allMessageViews", first)
+            with self.assertRaises(SystemExit):
+                module.patch(Path(raw) / "extension.js")
+            outside = Path(raw) / "other" / "extension.js"
+            outside.parent.mkdir()
+            outside.write_text(fixture, encoding="utf-8")
+            with self.assertRaises(SystemExit):
+                module.patch(outside)
 
     def test_multi_monitor_center_row_and_nowplaying_exclusion(self) -> None:
         panel = (ROOT / "gnome/extensions/multi-monitors-bar@frederykabryan/mmpanel.js").read_text(encoding="utf-8")
