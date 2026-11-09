@@ -24,27 +24,18 @@ import * as Layout from 'resource:///org/gnome/shell/ui/layout.js';
 
 import * as MMPanel from './mmpanel.js';
 import * as MMDock from './mmdock.js';
+import * as Constants from './mmPanelConstants.js';
 
 export const SHOW_PANEL_ID = 'show-panel';
 export const SHOW_DOCK_ID = 'show-dock-on-extended-monitors';
 export const ENABLE_HOT_CORNERS = 'enable-hot-corners';
 
-// Store reference to mmPanel array set by extension.js
-let _mmPanelArrayRef = null;
-
-// Helper function to set the mmPanel reference
 export function setMMPanelArrayRef(mmPanelArray) {
-	_mmPanelArrayRef = mmPanelArray;
+	Constants.setMMPanelArrayRef(mmPanelArray);
 }
 
-// Helper function to safely access mmPanel array
 function getMMPanelArray() {
-	// First try Main.mmPanel if it exists
-	if ('mmPanel' in Main && Main.mmPanel) {
-		return Main.mmPanel;
-	}
-	// Fall back to stored reference
-	return _mmPanelArrayRef;
+	return Constants.getMMPanelArray();
 }
 
 export class MultiMonitorsPanelBox {
@@ -626,6 +617,7 @@ export class MultiMonitorsLayoutManager {
 			mmPanelRef.push(panel);
 		}
 		this.mmPanelBox.push(mmPanelBox);
+		Constants.notifyPanelsChanged();
 
 		if (this._settings.get_boolean('enable-blur-my-shell')) {
 			// Register with increasing delays to outlast BMS async reset cycles
@@ -659,6 +651,7 @@ export class MultiMonitorsLayoutManager {
 			mmPanelBox.destroy();
 		}
 		this._popDock();
+		Constants.notifyPanelsChanged();
 	}
 
 	_showAppMenu() {

@@ -36,6 +36,7 @@ import * as MMOverview from './mmoverview.js';
 import * as MMPanel from './mmpanel.js';
 import * as ScreenshotPatch from './screenshotPatch.js';
 import { MonitorIndicatorsController } from './monitorIndicatorsDialog.js';
+import * as Constants from './mmPanelConstants.js';
 
 const MUTTER_SCHEMA = 'org.gnome.mutter';
 const WORKSPACES_ONLY_ON_PRIMARY_ID = 'workspaces-only-on-primary';
@@ -268,7 +269,6 @@ export default class MultiMonitorsExtension extends Extension {
 		this._applyDashToDockMultiMonitor();
 
 		mmPanel.length = 0;
-		Main.mmPanel = mmPanel;
 		MMLayout.setMMPanelArrayRef(mmPanel);
 		MMPanel.setMMPanelArrayRef(mmPanel);
 		MMOverview.setMMPanelArrayRef(mmPanel);
@@ -366,8 +366,7 @@ export default class MultiMonitorsExtension extends Extension {
 		this._primaryIndex = -1;
 
 		mmPanel.length = 0;
-		if (Main.mmPanel === mmPanel)
-			delete Main.mmPanel;
+		Constants.clearMMPanelArrayRef(mmPanel);
 
 		this._settings = null;
 		this._mu_settings = null;

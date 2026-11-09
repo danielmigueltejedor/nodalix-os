@@ -105,7 +105,7 @@ def test_appimage_import_registers_a_menu_entry(home):
     assert stored.is_file()
     assert stored.stat().st_mode & 0o111
     menu = home / "data" / "applications" / "os.nodalix.nxpm.Demo.desktop"
-    assert f"Exec={stored}" in menu.read_text(encoding="utf-8")
+    assert f'Exec="{stored}"' in menu.read_text(encoding="utf-8")
     assert AppImageBackend().list_updates()[0].id == "appimage:Demo"
 
 
@@ -244,6 +244,8 @@ def test_catalog_write_is_atomic_and_quoted_exec(home):
     assert 'Exec="' in text
     assert "Demo App.AppImage" in text
     assert desktop_exec_escape('/tmp/a b%$`"\\c') == '"/tmp/a b%%\\$\\`\\"\\\\c"'
+    assert desktop_exec_escape("/opt/O'Brien/app") == '"/opt/O\'Brien/app"'
+    assert desktop_exec_escape("/opt/app;rm") == '"/opt/app;rm"'
 
 
 def test_engine_refuses_pacman_work_while_updater_lock_is_held(home, monkeypatch):

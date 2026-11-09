@@ -596,13 +596,12 @@ jobs:
           # zero-asset case that would otherwise leave the updater on
           # manifest_missing mid-upload. Prereleases may still clobber.
           release_json=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
-            --json isDraft,isPrerelease,assets)
+            --json isDraft,isPrerelease,assets,tagName)
+          python3 tools/release_upload_policy.py \
+            --release-json "$release_json" \
+            --tag "$RELEASE_TAG"
           is_draft=$(printf '%s' "$release_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["isDraft"])')
           is_prerelease=$(printf '%s' "$release_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["isPrerelease"])')
-          if [[ "$is_prerelease" != "True" && "$is_draft" != "True" ]]; then
-            echo "Refusing to upload assets to published stable release $RELEASE_TAG; return it to draft first." >&2
-            exit 1
-          fi
 
           upload_flags=(--repo "$GITHUB_REPOSITORY")
           if [[ "$is_draft" == "True" || "$is_prerelease" == "True" ]]; then

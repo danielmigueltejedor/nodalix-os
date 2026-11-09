@@ -1151,9 +1151,13 @@ def run_package_preflight(
     packages: list[str],
     *,
     target_version: str,
+    previous_version: str | None = None,
 ) -> list[dict]:
     log_path = STATE_DIR / "last-preflight.json"
     log_path.unlink(missing_ok=True)
+    # Migrations may remove an unowned /etc/nodalix-release before pacman -U.
+    # Keep the captured identity for status updates; do not call current_version().
+    installed_label = previous_version
 
     def report_progress(
         current: int,
@@ -1161,14 +1165,13 @@ def run_package_preflight(
         detail: str,
     ) -> None:
         fraction = 1.0 if total <= 0 else current / total
-
         set_status(
             "preflight",
             status="preflight",
             stage="preflight",
             version=target_version,
             target_version=target_version,
-            current_version=current_version(),
+            current_version=installed_label,
             progress=round(0.58 + 0.24 * fraction, 4),
             progress_current=current,
             progress_total=total,
@@ -1449,6 +1452,7 @@ def do_update(config: dict, force: bool = False, assets_dir: Path | None = None)
         run_package_preflight(
             packages,
             target_version=target_version,
+            previous_version=previous,
         )
 
         set_status(

@@ -33,6 +33,11 @@ function releaseSharedMprisSource() {
         _sharedMprisSource = null;
     }
 }
+
+// multi-monitors-bar publishes panels on this writable globalThis channel.
+function secondaryMonitorPanels() {
+    return globalThis._nodalixMultiMonitorPanels ?? [];
+}
 '''
 
 HIDER_CLASS = '''
@@ -53,7 +58,7 @@ class BuiltinMediaHider {
                 views.push(view);
         };
         collect(Main.panel);
-        for (const panel of (Main.mmPanel ?? []))
+        for (const panel of secondaryMonitorPanels())
             collect(panel);
         return views;
     }
@@ -75,7 +80,7 @@ class BuiltinMediaHider {
                 lists.push(list);
         };
         collectList(Main.panel);
-        for (const panel of (Main.mmPanel ?? []))
+        for (const panel of secondaryMonitorPanels())
             collectList(panel);
         for (const list of lists) {
             const section = list._mediaSection;
@@ -281,6 +286,11 @@ def patch(path: pathlib.Path) -> None:
         this._syncBuiltinMedia();
         this._monitorsChangedId = Main.layoutManager.connect(
             'monitors-changed', () => this._scheduleSecondaryRefresh());
+        const panelBus = globalThis._nodalixMmPanelBus;
+        if (panelBus?.connect) {
+            this._mmPanelsChangedId = panelBus.connect(
+                'changed', () => this._scheduleSecondaryRefresh());
+        }
         this._scheduleSecondaryRefresh();
     }
 
@@ -294,6 +304,10 @@ def patch(path: pathlib.Path) -> None:
         if (this._monitorsChangedId) {
             Main.layoutManager.disconnect(this._monitorsChangedId);
             this._monitorsChangedId = 0;
+        }
+        if (this._mmPanelsChangedId) {
+            globalThis._nodalixMmPanelBus?.disconnect?.(this._mmPanelsChangedId);
+            this._mmPanelsChangedId = 0;
         }
         this._destroySecondaryHosts();
         this._destroyHost();
@@ -328,7 +342,7 @@ def patch(path: pathlib.Path) -> None:
             this._destroySecondaryHosts();
             return;
         }
-        const panels = Main.mmPanel ?? [];
+        const panels = secondaryMonitorPanels();
         const box = readSetting(this._settings, 'panel-box');
         const index = readSetting(this._settings, 'panel-index');
         const keep = [];

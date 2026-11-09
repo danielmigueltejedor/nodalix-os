@@ -124,7 +124,12 @@ def desktop_path(key: str) -> Path:
 
 
 def desktop_exec_escape(value: str) -> str:
-    """Quote an Exec path for a freedesktop desktop entry."""
+    """Quote an Exec path for a freedesktop desktop entry.
+
+    Absolute application paths are always double-quoted after escaping the
+    reserved characters named by the desktop-entry spec (including ``'`` and
+    ``%`` → ``%%``).
+    """
     text = str(value)
     escaped = (
         text.replace("\\", "\\\\")
@@ -133,13 +138,7 @@ def desktop_exec_escape(value: str) -> str:
         .replace("`", "\\`")
         .replace("%", "%%")
     )
-    if any(character.isspace() for character in text) or any(
-        character in text for character in '"$`\\'
-    ):
-        return f'"{escaped}"'
-    if "%" in text:
-        return escaped
-    return text
+    return f'"{escaped}"'
 
 
 def write_desktop(key: str, name: str, executable: Path, comment: str) -> Path:

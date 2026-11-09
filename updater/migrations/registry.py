@@ -62,7 +62,16 @@ def file_owned_by_package(
     stderr = str(getattr(result, "stderr", "") or "")
     stdout = str(getattr(result, "stdout", "") or "")
     combined = f"{stdout}\n{stderr}".lower()
-    if code != 1 or "error:" in combined or "unable to lock" in combined or "db.lck" in combined:
+    # pacman -Qo prints "error: No package owns …" / "Ningún paquete contiene …"
+    # for a normal unowned path (exit 1). Treat only that as unowned.
+    unowned = (
+        "no package owns" in combined
+        or "ningún paquete contiene" in combined
+        or "ningun paquete contiene" in combined
+    )
+    if code == 1 and unowned:
+        return False
+    if "unable to lock" in combined or "db.lck" in combined or code != 1 or not unowned:
         raise MigrationError(
             f"could not query package ownership for {path} (pacman exit {code})"
         )

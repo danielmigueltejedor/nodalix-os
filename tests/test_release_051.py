@@ -16,7 +16,11 @@ ROOT = Path(__file__).resolve().parents[1]
 # Prefer the worktree migrations over any installed /usr/lib/nodalix-updater copy
 # before nodalix-updater prepends that system path.
 sys.path.insert(0, str(ROOT / "updater"))
-from migrations.registry import remove_unowned_legacy_files  # noqa: E402
+from migrations.registry import (  # noqa: E402
+    MigrationError,
+    file_owned_by_package,
+    remove_unowned_legacy_files,
+)
 from migrations.to_0_5_1 import (  # noqa: E402
     RELEASE_KEY_FILES,
     applies_release_key_cleanup,
@@ -267,6 +271,35 @@ class ReleaseKeyMigrationTests(unittest.TestCase):
             },
         )
 
+    def test_pacman_no_package_owns_is_treated_as_unowned(self) -> None:
+        path = Path("/usr/share/nodalix/keys/release.pub")
+
+        class Unowned:
+            returncode = 1
+            stdout = ""
+            stderr = f"error: No package owns {path}\n"
+
+        self.assertFalse(
+            file_owned_by_package(path, pacman=lambda *args, **kwargs: Unowned())
+        )
+
+        class UnownedSpanish:
+            returncode = 1
+            stdout = ""
+            stderr = f"error: Ningún paquete contiene {path}\n"
+
+        self.assertFalse(
+            file_owned_by_package(path, pacman=lambda *args, **kwargs: UnownedSpanish())
+        )
+
+        class Locked:
+            returncode = 1
+            stdout = ""
+            stderr = "error: failed to synchronize all databases (unable to lock database)\n"
+
+        with self.assertRaises(MigrationError):
+            file_owned_by_package(path, pacman=lambda *args, **kwargs: Locked())
+
 
 class StoreConflictPackagingTests(unittest.TestCase):
     def test_store_declares_bazaar_conflict_and_replace(self) -> None:
@@ -283,9 +316,38 @@ class StoreConflictPackagingTests(unittest.TestCase):
 
     def test_release_workflow_refuses_published_stable_uploads(self) -> None:
         workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
-        self.assertIn("return it to draft first", workflow)
+        self.assertIn("tools/release_upload_policy.py", workflow)
         self.assertIn("nodalix-release-publish-", workflow)
         self.assertIn("upload_flags+=(--clobber)", workflow)
+
+        loader = importlib.machinery.SourceFileLoader(
+            "release_upload_policy",
+            str(ROOT / "tools/release_upload_policy.py"),
+        )
+        policy = importlib.util.module_from_spec(
+            importlib.util.spec_from_loader(loader.name, loader)
+        )
+        loader.exec_module(policy)
+
+        self.assertFalse(policy.allow_asset_upload(is_draft=False, is_prerelease=False))
+        self.assertTrue(policy.allow_asset_upload(is_draft=True, is_prerelease=False))
+        self.assertTrue(policy.allow_asset_upload(is_draft=False, is_prerelease=True))
+        self.assertTrue(policy.allow_asset_upload(is_draft=True, is_prerelease=True))
+
+        published = '{"isDraft": false, "isPrerelease": false, "assets": [], "tagName": "0.5.1"}'
+        with mock.patch.object(policy.sys, "stderr", new=mock.Mock()):
+            self.assertEqual(
+                policy.main(["--release-json", published, "--tag", "0.5.1"]),
+                1,
+            )
+        draft = '{"isDraft": true, "isPrerelease": false, "assets": [], "tagName": "0.5.1"}'
+        self.assertEqual(policy.main(["--release-json", draft, "--tag", "0.5.1"]), 0)
+        prerelease = '{"isDraft": false, "isPrerelease": true, "assets": [], "tagName": "0.5.1-rc.1"}'
+        self.assertEqual(
+            policy.main(["--release-json", prerelease, "--tag", "0.5.1-rc.1"]),
+            0,
+        )
+        self.assertIn("return it to draft first", (ROOT / "tools/release_upload_policy.py").read_text(encoding="utf-8"))
 
 
 class NowPlayingMultiMonitorToolingTests(unittest.TestCase):
@@ -378,6 +440,11 @@ export default class NowPlayingExtension extends Extension {
             self.assertIn("acquireSharedMprisSource", first)
             self.assertIn("_attachSecondaryHosts", first)
             self.assertIn("_allMessageViews", first)
+            self.assertIn("secondaryMonitorPanels", first)
+            self.assertIn("_nodalixMultiMonitorPanels", first)
+            self.assertIn("_nodalixMmPanelBus", first)
+            self.assertNotIn("Main.mmPanel ??", first)
+            self.assertNotIn("(Main.mmPanel", first)
             with self.assertRaises(SystemExit):
                 module.patch(Path(raw) / "extension.js")
             outside = Path(raw) / "other" / "extension.js"
