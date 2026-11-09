@@ -82,9 +82,19 @@ class BuiltinMediaHider {
             section.get_parent().remove_child(section);
             changed = true;
         }
-        this._views = views;
-        this._lists = lists;
-        this._hidden = changed || this._hidden;
+        // Merge so a second hide() after remove_child does not forget lists
+        // that restore() still needs to reinsert.
+        const merge = (current, next) => {
+            const out = [...(current ?? [])];
+            for (const item of next) {
+                if (!out.includes(item))
+                    out.push(item);
+            }
+            return out;
+        };
+        this._views = merge(this._views, views);
+        this._lists = merge(this._lists, lists);
+        this._hidden = changed || this._hidden || this._lists.length > 0;
     }
 
     restore() {
@@ -93,15 +103,23 @@ class BuiltinMediaHider {
         this._hidden = false;
 
         for (const view of this._views ?? this._allMessageViews()) {
-            if (view?._setupMpris) {
-                this._dropMessages(view);
-                view._setupMpris();
+            try {
+                if (view?._setupMpris) {
+                    this._dropMessages(view);
+                    view._setupMpris();
+                }
+            } catch (error) {
+                logError(error, 'Now Playing media view restore failed');
             }
         }
         for (const list of this._lists ?? []) {
-            const section = list?._mediaSection;
-            if (section && !section.get_parent() && list?._sectionList)
-                list._sectionList.insert_child_at_index(section, 0);
+            try {
+                const section = list?._mediaSection;
+                if (section && !section.get_parent() && list?._sectionList)
+                    list._sectionList.insert_child_at_index(section, 0);
+            } catch (error) {
+                logError(error, 'Now Playing media section restore failed');
+            }
         }
         this._views = [];
         this._lists = [];
@@ -165,6 +183,7 @@ def _read_text(path: pathlib.Path) -> str:
 
 def _write_text(path: pathlib.Path, text: str) -> None:
     directory = path.parent
+    mode = path.stat().st_mode
     fd, temporary_name = tempfile.mkstemp(
         prefix=".extension.js.",
         suffix=".tmp",
@@ -176,10 +195,24 @@ def _write_text(path: pathlib.Path, text: str) -> None:
             handle.write(text)
             handle.flush()
             os.fsync(handle.fileno())
+        os.chmod(temporary, mode)
         os.replace(temporary, path)
     except Exception:
         temporary.unlink(missing_ok=True)
         raise
+
+
+def _replace_once(text: str, old: str, new: str, label: str) -> str:
+    if old not in text:
+        raise SystemExit(f"unexpected Now Playing sources: missing {label}")
+    return text.replace(old, new, 1)
+
+
+def _require_anchor(text: str, marker: str, label: str) -> int:
+    try:
+        return text.index(marker)
+    except ValueError as error:
+        raise SystemExit(f"unexpected Now Playing sources: missing {label}") from error
 
 
 def patch(path: pathlib.Path) -> None:
@@ -193,32 +226,40 @@ def patch(path: pathlib.Path) -> None:
     if "this._source = new MprisSource();" not in text:
         raise SystemExit("unexpected Now Playing sources: MediaModel source missing")
 
-    text = text.replace(
+    text = _replace_once(
+        text,
         "class MprisSource extends Signals.EventEmitter {",
         SHARED_SOURCE + "\nclass MprisSource extends Signals.EventEmitter {",
-        1,
+        "MprisSource class",
     )
 
-    text = text.replace(
+    text = _replace_once(
+        text,
         "class MediaModel {\n    constructor(settings, {keepStackVisible, divided, closeMenu}) {\n        this._settings = settings;\n        this._players = new Set();\n        this._shown = new Set();\n\n        this._analyzer = new SpectrumAnalyzer();\n        this.equalizer = new EqualizerIcon();\n        this.stack = new CardStack(closeMenu, keepStackVisible, divided);\n\n        this._source = new MprisSource();\n",
         "class MediaModel {\n    constructor(settings, {keepStackVisible, divided, closeMenu, sharedSource = null}) {\n        this._settings = settings;\n        this._players = new Set();\n        this._shown = new Set();\n        this._ownsSource = sharedSource === null;\n\n        this._analyzer = new SpectrumAnalyzer();\n        this.equalizer = new EqualizerIcon();\n        this.stack = new CardStack(closeMenu, keepStackVisible, divided);\n\n        this._source = sharedSource ?? new MprisSource();\n",
-        1,
+        "MediaModel constructor",
     )
 
-    text = text.replace(
+    text = _replace_once(
+        text,
         "    destroy() {\n        this._stopListening();\n        this._source?.destroy();\n        this._source = null;\n",
-        "    destroy() {\n        this._stopListening();\n        if (this._ownsSource)\n            this._source?.destroy();\n        else\n            releaseSharedMprisSource();\n        this._source = null;\n",
-        1,
+        "    destroy() {\n        this._stopListening();\n        if (this._ownsSource) {\n            this._source?.destroy();\n        } else if (this._source) {\n            releaseSharedMprisSource();\n        }\n        this._source = null;\n",
+        "MediaModel.destroy",
     )
 
-    text = text.replace(
+    text = _replace_once(
+        text,
         "        this._model = new MediaModel(settings, {\n            keepStackVisible: true,\n            divided: true,\n            closeMenu: () => this.menu.close(),\n        });\n",
         "        this._model = new MediaModel(settings, {\n            keepStackVisible: true,\n            divided: true,\n            closeMenu: () => this.menu.close(),\n            sharedSource: acquireSharedMprisSource(),\n        });\n",
-        1,
+        "NowPlayingButton MediaModel construction",
     )
 
-    start = text.index("// The shell shows its own media controls in the notification list")
-    end = text.index("export default class NowPlayingExtension extends Extension")
+    start = _require_anchor(
+        text,
+        "// The shell shows its own media controls in the notification list",
+        "BuiltinMediaHider comment",
+    )
+    end = _require_anchor(text, "export default class NowPlayingExtension extends Extension", "extension export")
     text = text[:start] + HIDER_CLASS + "\n" + text[end:]
 
     old_enable_tail = """        this._hider = new BuiltinMediaHider();
@@ -326,9 +367,7 @@ def patch(path: pathlib.Path) -> None:
         this._secondaryHosts = keep;
     }
 """
-    if old_enable_tail not in text:
-        raise SystemExit("unexpected Now Playing enable/disable block")
-    text = text.replace(old_enable_tail, new_enable_tail, 1)
+    text = _replace_once(text, old_enable_tail, new_enable_tail, "enable/disable block")
 
     old_rebuild = """    _rebuild() {
         this._destroyHost();
@@ -344,12 +383,11 @@ def patch(path: pathlib.Path) -> None:
     }
 }
 """
-    if old_rebuild not in text:
-        raise SystemExit("unexpected Now Playing rebuild block")
-    text = text.replace(old_rebuild, new_rebuild, 1)
+    text = _replace_once(text, old_rebuild, new_rebuild, "rebuild block")
 
     # hide() must be re-runnable after secondary date menus are rebuilt.
-    text = text.replace(
+    text = _replace_once(
+        text,
         """    _syncBuiltinMedia() {
         if (readSetting(this._settings, 'hide-builtin-media'))
             this._hider?.hide();
@@ -366,7 +404,7 @@ def patch(path: pathlib.Path) -> None:
         }
     }
 """,
-        1,
+        "_syncBuiltinMedia",
     )
 
     _write_text(target, text)

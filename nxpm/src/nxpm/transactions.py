@@ -155,11 +155,14 @@ class TransactionManager:
 
     def _emit(self, transaction: Transaction) -> None:
         listeners = list(self._listeners)
+        # Capture state now: deferred GLib callbacks must not observe later
+        # mutations from the worker thread as if they were earlier updates.
+        snapshot = transaction.record()
 
         def notify() -> bool:
             for listener in listeners:
                 try:
-                    listener(transaction)
+                    listener(snapshot)
                 except Exception:
                     log.exception("Transaction listener failed")
             return False

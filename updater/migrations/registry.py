@@ -37,18 +37,36 @@ def file_owned_by_package(
     path: Path,
     pacman: Callable[..., object] | None = None,
 ) -> bool:
+    """Return True when pacman reports ownership.
+
+    Unexpected pacman failures (locks, missing binary) raise MigrationError so
+    callers do not treat query errors as evidence that a path is unowned.
+    """
     runner = pacman
     if runner is None:
         import subprocess
 
         runner = subprocess.run
-    result = runner(
-        ["pacman", "-Qo", str(path)],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return int(getattr(result, "returncode", 1)) == 0
+    try:
+        result = runner(
+            ["pacman", "-Qo", str(path)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as error:
+        raise MigrationError(f"could not query package ownership for {path}: {error}") from error
+    code = int(getattr(result, "returncode", 1))
+    if code == 0:
+        return True
+    stderr = str(getattr(result, "stderr", "") or "")
+    stdout = str(getattr(result, "stdout", "") or "")
+    combined = f"{stdout}\n{stderr}".lower()
+    if code != 1 or "error:" in combined or "unable to lock" in combined or "db.lck" in combined:
+        raise MigrationError(
+            f"could not query package ownership for {path} (pacman exit {code})"
+        )
+    return False
 
 
 def _copy_legacy(source: Path, destination: Path) -> dict:

@@ -281,9 +281,10 @@ class StoreConflictPackagingTests(unittest.TestCase):
             pkgbuild,
         )
 
-    def test_release_workflow_refuses_stable_asset_clobber(self) -> None:
+    def test_release_workflow_refuses_published_stable_uploads(self) -> None:
         workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
-        self.assertIn("Refusing to overwrite assets of published stable release", workflow)
+        self.assertIn("return it to draft first", workflow)
+        self.assertIn("nodalix-release-publish-", workflow)
         self.assertIn("upload_flags+=(--clobber)", workflow)
 
 

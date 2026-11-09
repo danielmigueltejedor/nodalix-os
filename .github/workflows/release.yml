@@ -449,6 +449,9 @@ jobs:
   publish:
     permissions:
       contents: write
+    concurrency:
+      group: nodalix-release-publish-${{ needs.test.outputs.release_tag }}
+      cancel-in-progress: false
     needs:
       - test
       - build
@@ -588,16 +591,16 @@ jobs:
 
           mapfile -t RELEASE_ASSETS < <(python3 tools/release_iso.py --assets-dir dist/release)
 
-          # Never rewrite assets of an already-published stable release. Drafts
-          # and prereleases may still replace incomplete uploads during the same
-          # publish job; a public stable tag is immutable once undrafted.
+          # Stable assets may be uploaded only while the GitHub Release is still
+          # a draft. A published stable tag is immutable, including the empty
+          # zero-asset case that would otherwise leave the updater on
+          # manifest_missing mid-upload. Prereleases may still clobber.
           release_json=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
             --json isDraft,isPrerelease,assets)
           is_draft=$(printf '%s' "$release_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["isDraft"])')
           is_prerelease=$(printf '%s' "$release_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["isPrerelease"])')
-          asset_count=$(printf '%s' "$release_json" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["assets"]))')
-          if [[ "$is_draft" != "True" && "$is_prerelease" != "True" && "$asset_count" != "0" ]]; then
-            echo "Refusing to overwrite assets of published stable release $RELEASE_TAG" >&2
+          if [[ "$is_prerelease" != "True" && "$is_draft" != "True" ]]; then
+            echo "Refusing to upload assets to published stable release $RELEASE_TAG; return it to draft first." >&2
             exit 1
           fi
 

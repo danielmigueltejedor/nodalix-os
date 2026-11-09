@@ -124,10 +124,11 @@ def _stream_limited(response, destination: Path) -> str:
     declared = response.headers.get("Content-Length")
     if declared is not None:
         try:
-            if int(declared) > _MAX_DOWNLOAD:
-                raise NxpmError("failed", "The published AppImage is larger than NXPM will download.")
+            declared_size = int(declared)
         except ValueError:
-            pass
+            declared_size = None
+        if declared_size is not None and declared_size > _MAX_DOWNLOAD:
+            raise NxpmError("failed", "The published AppImage is larger than NXPM will download.")
     with destination.open("wb") as handle:
         while True:
             block = response.read(1024 * 1024)

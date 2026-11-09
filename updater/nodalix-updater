@@ -682,16 +682,25 @@ def release_info(config: dict) -> dict:
         if item["required"] and not item["installed"]
     ]
     newer = compare_versions(remote, local) > 0
+    same = compare_versions(remote, local) == 0
     # A matching VERSION_ID is not enough: a development image that only wrote
     # /etc/nodalix-release must still be offered the official package set.
-    available = newer or bool(missing_required)
-    status = "update_available" if newer else ("repair_needed" if missing_required else "up_to_date")
+    # Never advertise an older release as a same-version repair/downgrade path.
+    if newer:
+        status = "update_available"
+        available = True
+    elif same and missing_required:
+        status = "repair_needed"
+        available = True
+    else:
+        status = "up_to_date"
+        available = False
     info.update(
         status=status,
         latest_version=remote,
         candidate_version=remote,
         update_available=available,
-        missing_required=missing_required,
+        missing_required=missing_required if (newer or same) else [],
         components=components,
         shell_restart_required=any(item["restart"] == "shell" for item in selected_components(manifest)),
         reboot_required=any(item["restart"] == "system" for item in selected_components(manifest)),
@@ -1312,9 +1321,12 @@ def do_update(config: dict, force: bool = False, assets_dir: Path | None = None)
         if compare_versions(target_version, previous) < 0:
             raise ManifestError("La versión instalada es más reciente; el actualizador no realiza descensos de versión")
         minimum = manifest["minimum_version"]
-        if compare_versions(current_version(), minimum) < 0:
+        if compare_versions(previous, minimum) < 0:
             raise ManifestError(f"Esta release requiere como mínimo Nodalix {minimum}")
         components = selected_components(manifest)
+        if info["status"] == "repair_needed":
+            missing = set(info.get("missing_required") or [])
+            components = [item for item in components if item["package"] in missing]
         if not components:
             raise ManifestError("No hay componentes para actualizar")
         assets = assets_by_name(info["_release"])
@@ -1387,7 +1399,15 @@ def do_update(config: dict, force: bool = False, assets_dir: Path | None = None)
         # Take protection before dependencies or migrations can change the system.
         if Path('/var/lib/nodalix-recovery/automatic').exists():
             subprocess.run(['/usr/bin/nodalix-recovery', 'pre-update'], check=True)
-        prepare_gnome_dependencies(packages, target_version)
+        needs_gnome_transition = any(item["id"] == "gnome" for item in components) or (
+            compare_versions(target_version, previous) > 0
+            and any(
+                str(item.get("package") or "").startswith(("nodalix-gnome", "nodalix-shell", "gnome-shell"))
+                for item in components
+            )
+        )
+        if needs_gnome_transition:
+            prepare_gnome_dependencies(packages, target_version)
         set_status(
             "migrating",
             status="migrating",
@@ -1448,12 +1468,23 @@ def do_update(config: dict, force: bool = False, assets_dir: Path | None = None)
         # already-loaded Python process; do not re-exec mid-transaction.
         # Known 0.1.1 leftovers are removed by migrations; unknown conflicts
         # must still abort with the normal pacman error.
-        if compare_versions(target_version, "0.3.0") >= 0:
+        if needs_gnome_transition and compare_versions(target_version, "0.3.0") >= 0:
             backup_gnome_transition(packages)
-        run_pacman_transaction(
-            packages,
-            target_version=target_version,
-        )
+        try:
+            run_pacman_transaction(
+                packages,
+                target_version=target_version,
+            )
+        except Exception:
+            # Migrations may remove an unowned identity file before pacman -U.
+            # Restore the captured VERSION_ID so a later run can still identify
+            # the installation instead of falling back to an unknown release.
+            if not RELEASE_PATH.exists():
+                try:
+                    atomic_text(RELEASE_PATH, f'VERSION_ID="{previous}"\n')
+                except OSError:
+                    pass
+            raise
         if any(item["id"] == "gnome" for item in components):
             require_reboot(target_version)
             retire_legacy_desktop()
@@ -1503,6 +1534,14 @@ def human_check_message(data: dict) -> str:
         for component in data.get("components") or []:
             if component.get("will_update"):
                 lines.append(f"  - {component.get('name')} ({component.get('version') or 'nueva versión'})")
+        return "\n".join(lines)
+    if status == "repair_needed":
+        missing = data.get("missing_required") or []
+        lines = [
+            f"Nodalix {current} necesita reparar paquetes obligatorios ausentes.",
+        ]
+        for package in missing:
+            lines.append(f"  - {package}")
         return "\n".join(lines)
     if status == "up_to_date":
         return f"Nodalix {current} está actualizado."

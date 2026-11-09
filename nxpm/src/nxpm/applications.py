@@ -12,8 +12,6 @@ import json
 import os
 import re
 from pathlib import Path
-from shlex import quote as shlex_quote
-
 from nxpm.errors import NxpmError
 
 _KEY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,80}$")
@@ -125,11 +123,30 @@ def desktop_path(key: str) -> Path:
     return directory / f"os.nodalix.nxpm.{key}.desktop"
 
 
+def desktop_exec_escape(value: str) -> str:
+    """Quote an Exec path for a freedesktop desktop entry."""
+    text = str(value)
+    escaped = (
+        text.replace("\\", "\\\\")
+        .replace('"', '\\"')
+        .replace("$", "\\$")
+        .replace("`", "\\`")
+        .replace("%", "%%")
+    )
+    if any(character.isspace() for character in text) or any(
+        character in text for character in '"$`\\'
+    ):
+        return f'"{escaped}"'
+    if "%" in text:
+        return escaped
+    return text
+
+
 def write_desktop(key: str, name: str, executable: Path, comment: str) -> Path:
     target = confine(executable, applications_dir())
     visible = " ".join((name or key).split()) or key
     comment_text = " ".join((comment or "").split())
-    exec_value = shlex_quote(str(target))
+    exec_value = desktop_exec_escape(str(target))
     content = (
         "[Desktop Entry]\n"
         "Type=Application\n"

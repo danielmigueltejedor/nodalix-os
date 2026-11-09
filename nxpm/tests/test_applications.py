@@ -229,7 +229,7 @@ def test_appimage_import_rejects_elf_without_type2_marker(home):
 
 
 def test_catalog_write_is_atomic_and_quoted_exec(home):
-    from nxpm.applications import catalog_path, update_catalog, write_desktop
+    from nxpm.applications import catalog_path, desktop_exec_escape, update_catalog, write_desktop
 
     update_catalog(lambda data: data["apps"].__setitem__("Demo", {"name": "Demo"}))
     path = catalog_path()
@@ -241,23 +241,33 @@ def test_catalog_write_is_atomic_and_quoted_exec(home):
     target.write_bytes(elf_with_update("none"))
     menu = write_desktop("Demo", "Demo", target, "comment")
     text = menu.read_text(encoding="utf-8")
+    assert 'Exec="' in text
     assert "Demo App.AppImage" in text
-    assert "Exec='" in text
+    assert desktop_exec_escape('/tmp/a b%$`"\\c') == '"/tmp/a b%%\\$\\`\\"\\\\c"'
 
 
-def test_engine_refuses_pacman_work_while_updater_lock_exists(home, monkeypatch):
+def test_engine_refuses_pacman_work_while_updater_lock_is_held(home, monkeypatch):
+    import fcntl
+    import os
+
     from nxpm.config import load_config
 
     lock = home / "update.lock"
     lock.write_text("busy\n", encoding="utf-8")
     monkeypatch.setenv("NXPM_UPDATER_LOCK", str(lock))
     monkeypatch.setenv("NXPM_PACMAN_LOCK", str(home / "missing-db.lck"))
+    fd = os.open(lock, os.O_RDWR)
+    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
 
     class DummyPacman:
         def upgrade_system(self, progress):
             raise AssertionError("pacman upgrade must not run while the updater lock exists")
 
-    engine = Engine(load_config(Path("/does/not/exist")), {"pacman": DummyPacman()})
-    transaction = engine.upgrade_system()
-    assert transaction.state == "failed"
-    assert "already applying" in (transaction.error or transaction.message).lower()
+    try:
+        engine = Engine(load_config(Path("/does/not/exist")), {"pacman": DummyPacman()})
+        transaction = engine.upgrade_system()
+        assert transaction.state == "failed"
+        assert "already applying" in (transaction.error or transaction.message).lower()
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)

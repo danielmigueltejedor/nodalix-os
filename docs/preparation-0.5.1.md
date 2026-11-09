@@ -57,7 +57,7 @@ Comprobado en el árbol actual sin cambiar claves privadas:
 
 ```bash
 /usr/bin/python3 -m unittest discover -s tests -v
-cd nxpm && PYTHONPATH=src /usr/bin/python3 -m pytest tests -q
+( cd nxpm && PYTHONPATH=src /usr/bin/python3 -m pytest tests -q )
 bash tools/test-native-restart.sh
 ```
 

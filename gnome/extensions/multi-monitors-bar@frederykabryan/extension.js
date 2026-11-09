@@ -268,6 +268,7 @@ export default class MultiMonitorsExtension extends Extension {
 		this._applyDashToDockMultiMonitor();
 
 		mmPanel.length = 0;
+		Main.mmPanel = mmPanel;
 		MMLayout.setMMPanelArrayRef(mmPanel);
 		MMPanel.setMMPanelArrayRef(mmPanel);
 		MMOverview.setMMPanelArrayRef(mmPanel);
@@ -365,6 +366,8 @@ export default class MultiMonitorsExtension extends Extension {
 		this._primaryIndex = -1;
 
 		mmPanel.length = 0;
+		if (Main.mmPanel === mmPanel)
+			delete Main.mmPanel;
 
 		this._settings = null;
 		this._mu_settings = null;

@@ -40,7 +40,13 @@ def applies_release_key_cleanup(
     files: tuple[str, ...] | None = None,
     **_: object,
 ) -> bool:
-    """Run when installing a release that ships the key and leftovers remain unowned."""
+    """Run when the target ships a packaged key and leftovers remain unowned.
+
+    The gate is filesystem-driven once the target is at least
+    FIRST_KEY_OWNER_VERSION: a same-version repair of 0.5.0/0.5.1 must still
+    clear an unowned key so pacman can own the path. Ownership-query failures
+    abort through ``owned_check`` instead of deleting the key.
+    """
     if compare_versions(target, FIRST_KEY_OWNER_VERSION) < 0:
         return False
     return has_unowned_release_keys(

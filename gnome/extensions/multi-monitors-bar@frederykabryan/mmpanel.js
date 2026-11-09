@@ -1254,6 +1254,12 @@ const MultiMonitorsPanel = GObject.registerClass(
                 const indicator = this.statusArea[role];
                 const mainIndicator = Main.panel.statusArea[role] || null;
 
+                // Now Playing owns per-monitor hosts with roles like
+                // nowplaying@…::<monitorIndex>. They are absent from the
+                // primary-panel desired set; leave their lifecycle alone.
+                if (typeof role === 'string' && role.startsWith('nowplaying@'))
+                    continue;
+
                 if (!desiredRoles.has(role)) {
                     this._destroyIndicator(role);
                     continue;
