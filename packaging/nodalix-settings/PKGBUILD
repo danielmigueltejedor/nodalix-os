@@ -1,6 +1,6 @@
 pkgname=nodalix-settings
-pkgver=0.5.0
-pkgrel=5
+pkgver=0.5.1
+pkgrel=1
 pkgdesc="Native Nodalix updates, animated wallpaper controls and GNOME branding"
 arch=("any")
 url="https://github.com/danielmigueltejedor/nodalix-os"

@@ -46,6 +46,28 @@ Comprobado en el árbol actual sin cambiar claves privadas:
 - CI: se rechaza `gh release upload --clobber` sobre una release estable ya
   publicada con artefactos (borradores y prereleases pueden completar subidas).
 
+## Cambios añadidos sobre la candidata (hilo de revisión final)
+
+- `VERSION`, `nodalix-release` y todos los paquetes que se construyen desde el
+  árbol (`updater`, `apps`, `nxpm`, `integrations`, `gnome`, `settings`,
+  `video-wallpapers`, `gnome-shell`) pasan a 0.5.1. Con `nodalix-gnome` en 0.5.1
+  y `VERSION` en 0.5.0 el trabajo `packages` de CI fallaba porque
+  `tools/build-packages.sh` nombra los tarballs con `VERSION`.
+- Fondos animados: la cuadrícula usa un `GdkPaintable` de 144×108 con recorte
+  «cover» (como los fondos fijos). `GtkPicture` pedía el tamaño del JPEG, así que
+  cada miniatura de 480 px ocupaba una fila. Las miniaturas empaquetadas e
+  importadas comparten ahora la forma 288×216.
+- Pantalla de acceso/bloqueo: `nodalix-settings` observa el fondo del escritorio
+  y, al salir de un fondo animado, publica la imagen estática una sola vez
+  (marcador en `~/.local/state/nodalix/login-background.json`). Las imágenes que
+  no son JPEG se convierten antes como usuario, y al detener el vídeo se retira
+  su póster del protector de pantalla.
+- `sync-login-background` decodifica el JPEG como `nobody` con límites de
+  memoria, CPU y archivos; root solo valida y publica el resultado.
+- Tienda: nombre visible «Store» traducible (español «Tienda»), icono propio en
+  `nodalix-icon-theme`, y los iconos del tema también para entradas leídas de la
+  caché y apps no instaladas. Las notificaciones de NXPM usan el mismo nombre.
+
 ## Diferido a 0.6.0
 
 - Integración completa de la CLI/UI de la rama `feat/nxpm-binary-only-app-migration`
