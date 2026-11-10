@@ -145,5 +145,55 @@ class ZramSwapTuningTests(unittest.TestCase):
         self.assertIn("""trap 'rm -rf "$TMP" "$STAGE"' EXIT""", script)
 
 
+class SteamPollerAvoidsRescanningTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.steam = load("steam_auto_gamemode_scan", "integrations/scripts/steam-auto-gamemode.py")
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.mock_proc = mock.patch.object(self.steam, "PROC", self.root)
+        self.mock_proc.start()
+        self.addCleanup(self.mock_proc.stop)
+
+    def make(self, pid: int) -> Path:
+        path = self.root / str(pid)
+        path.mkdir()
+        return path
+
+    def test_judged_processes_are_skipped_until_they_exec_again(self) -> None:
+        self.make(10)
+        self.make(11)
+        (self.root / "self").mkdir()
+        keys = {"10": ("1", "/bin/a"), "11": ("2", "/bin/b")}
+        with mock.patch.object(self.steam, "process_key", side_effect=lambda p: keys[p.name]):
+            ignored = {10: ("1", "/bin/a"), 11: ("2", "/bin/b")}
+            self.assertEqual([], list(self.steam.candidate_processes({}, ignored)))
+            keys["11"] = ("2", "/bin/c")  # exec() replaced the program
+            self.assertEqual(["11"], [p.name for p in self.steam.candidate_processes({}, ignored)])
+            self.assertNotIn(11, ignored)
+
+    def test_tracked_and_dead_processes_are_handled(self) -> None:
+        self.make(20)
+        with mock.patch.object(self.steam, "process_key", return_value=("1", "/x")):
+            ignored = {20: ("1", "/x"), 99: ("1", "/gone")}
+            self.assertEqual([], list(self.steam.candidate_processes({20: ("1", True)}, ignored)))
+            self.assertEqual({20: ("1", "/x")}, ignored)
+
+    def test_only_processes_without_steam_app_id_get_a_final_verdict(self) -> None:
+        pid = self.make(30)
+        (pid / "environ").write_bytes(b"HOME=/home/u\0")
+        with mock.patch.object(self.steam.os, "getuid", return_value=pid.stat().st_uid), \
+             mock.patch.object(self.steam, "UID", pid.stat().st_uid):
+            self.assertEqual((None, True), self.steam.judge(pid))
+            (pid / "environ").write_bytes(b"SteamAppId=440\0")
+            # Wine may not have mapped the game executable yet: look again later.
+            self.assertEqual((None, False), self.steam.judge(pid))
+            (pid / "environ").write_bytes(b"SteamAppId=0\0")
+            self.assertEqual((None, True), self.steam.judge(pid))
+
+    def test_idle_polling_is_slower_than_active_polling(self) -> None:
+        self.assertGreater(self.steam.IDLE_INTERVAL, self.steam.ACTIVE_INTERVAL)
+
+
 if __name__ == "__main__":
     unittest.main()
