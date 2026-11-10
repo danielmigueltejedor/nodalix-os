@@ -322,6 +322,13 @@ class HybridIconThemeTests(unittest.TestCase):
         self.assertNotIn('sha256sums=("SKIP"', cursor)
         self.assertIn("nodalix-colloid-icons>=0.5.1", (ROOT / "packaging/nodalix-gnome/PKGBUILD").read_text(encoding="utf-8"))
 
+    def test_icon_package_installs_a_world_readable_theme(self) -> None:
+        # mktemp's 0700 staging directory made the theme root-only on the ISO.
+        icons = (ROOT / "packaging/nodalix-colloid-icons/PKGBUILD").read_text(encoding="utf-8")
+        package = icons[icons.index("package()"):]
+        self.assertIn('find "$pkgdir/usr/share/icons/Nodalix-Icons" -type d -exec chmod 0755 {} +', package)
+        self.assertLess(package.index("install-nodalix.sh"), package.index("chmod 0755"))
+
     def test_legacy_adwaita_symbols_inherits_hybrid_theme(self) -> None:
         theme = (ROOT / "gnome/session/index.theme").read_text(encoding="utf-8")
         self.assertIn("Inherits=Nodalix-Icons,Adwaita,hicolor", theme)
