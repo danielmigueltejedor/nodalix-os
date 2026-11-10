@@ -328,3 +328,15 @@ def test_transaction_stays_busy_until_its_history_is_recorded():
     manager.submit("install", "a", "flatpak", lambda tx, mgr: None)
     assert ("succeeded", True) in seen
     assert not manager.busy() and manager.history(1)
+
+
+def test_idle_exit_needs_a_dbus_activation_file(tmp_path, monkeypatch):
+    from nxpm.service import BUS_NAME, activation_available
+
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("XDG_DATA_DIRS", str(tmp_path / "system"))
+    assert not activation_available()
+    services = tmp_path / "system" / "dbus-1" / "services"
+    services.mkdir(parents=True)
+    (services / f"{BUS_NAME}.service").write_text("[D-BUS Service]\n")
+    assert activation_available()

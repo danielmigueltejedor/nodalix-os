@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
+import os
 import time
+from pathlib import Path
 
 from nxpm import API_VERSION
 from nxpm.engine import Engine, build_engine
@@ -17,6 +19,16 @@ BUS_NAME = "os.nodalix.Nxpm"
 # nothing to remember can leave memory after a quiet period.
 IDLE_EXIT_SECONDS = 600
 IDLE_CHECK_SECONDS = 60
+
+
+def activation_available() -> bool:
+    """True when the session bus can restart this service on demand."""
+    home = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local/share")
+    system = (os.environ.get("XDG_DATA_DIRS") or "/usr/local/share:/usr/share").split(":")
+    return any(
+        Path(base, "dbus-1", "services", f"{BUS_NAME}.service").is_file()
+        for base in [home, *system] if base
+    )
 
 
 class IdleWatch:
@@ -102,7 +114,10 @@ def serve(engine: Engine | None = None) -> int:
             return False
         return True
 
-    GLib.timeout_add_seconds(IDLE_CHECK_SECONDS, exit_when_idle)
+    # A daemon started by hand without a D-Bus activation file would not come
+    # back after exiting, so only an activatable service may leave when idle.
+    if activation_available():
+        GLib.timeout_add_seconds(IDLE_CHECK_SECONDS, exit_when_idle)
     loop.run()
     return 0
 
