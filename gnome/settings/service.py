@@ -12,7 +12,7 @@ import time
 
 from gi.repository import Gio, GLib
 sys.path.insert(0,str(Path(__file__).resolve().parent))
-from wallpaper_poster import poster_for, sync_login
+from wallpaper_poster import login_image_for, poster_for, signature, static_image, sync_login, xdg_directory
 from wallpaper_library import WallpaperLibrary
 import update_state
 import automatic_updates
@@ -156,6 +156,12 @@ WALLPAPER_OPTIONS = {
     'enable-graphics-offload': (0, 1),
 }
 
+def installed_settings(schema_id):
+    """Gio.Settings for a schema, or None; a missing schema must not abort the service."""
+    source = Gio.SettingsSchemaSource.get_default()
+    return Gio.Settings.new(schema_id) if source and source.lookup(schema_id, True) else None
+
+
 def wallpaper_preferences():
     if not Gio.SettingsSchemaSource.get_default().lookup(HANABI_SCHEMA,True):
         raise ValueError('El reproductor de fondos no está instalado')
@@ -246,6 +252,13 @@ class SettingsService:
         self.wallpaper_optimization = None
         self.wallpaper_monitor = None
         self.catalog_timeout = 0
+        # The login screen is shared and needs authentication to change, so the
+        # picture that was last published is remembered and never re-sent.
+        self.login_state_path = Path(os.environ.get('XDG_STATE_HOME', str(Path.home()/'.local/state')))/'nodalix/login-background.json'
+        self.login_signature = None
+        self.login_timeout = 0
+        self.background_settings = None
+        self.login_lock = threading.Lock()
 
     def monitor_wallpapers(self):
         try:
@@ -515,7 +528,7 @@ class SettingsService:
             Gio.Settings.new('org.gnome.desktop.screensaver').set_string('picture-uri',preview.as_uri())
             # Authentication is performed asynchronously so playback never waits for it.
             def synchronize():
-                try: sync_login(preview)
+                try: self.publish_login(preview)
                 except (OSError,RuntimeError,subprocess.TimeoutExpired) as error:
                     print(str(error),file=sys.stderr)
             threading.Thread(target=synchronize,daemon=True).start()
@@ -530,16 +543,114 @@ class SettingsService:
             pass
         self.wallpaper_changed()
 
+    def remembered_login(self):
+        if self.login_signature is None:
+            try:
+                value = json.loads(self.login_state_path.read_text(encoding='utf-8')).get('signature', '')
+            except (OSError, ValueError, AttributeError):
+                value = ''
+            self.login_signature = value if isinstance(value, str) else ''
+        return self.login_signature
+
+    def remember_login(self, source_signature):
+        self.login_signature = source_signature
+        try:
+            self.login_state_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            temporary = self.login_state_path.with_suffix('.tmp')
+            temporary.write_text(json.dumps({'signature': source_signature}), encoding='utf-8')
+            temporary.replace(self.login_state_path)
+        except OSError as error:
+            print(f'Login background state: {error}', file=sys.stderr)
+
+    def publish_login(self, image, source=None):
+        """Publish one still to the login screen once, whatever its origin."""
+        with self.login_lock:
+            try:
+                identity = signature(Path(source or image).resolve(strict=True))
+            except OSError:
+                identity = ''
+            if identity and identity == self.remembered_login():
+                return False
+            sync_login(login_image_for(image))
+            if identity:
+                self.remember_login(identity)
+            return True
+
+    def monitor_background(self):
+        """Follow the desktop picture so the login screen never keeps a stale one."""
+        try:
+            self.background_settings = installed_settings('org.gnome.desktop.background')
+            if self.background_settings is None:
+                return
+            for key in ('picture-uri', 'picture-uri-dark', 'picture-options'):
+                self.background_settings.connect('changed::' + key, lambda *_: self.schedule_login_sync())
+        except GLib.Error as error:
+            print(f'Background monitor: {error}', file=sys.stderr)
+
+    def schedule_login_sync(self, delay=1500):
+        # Settings writes picture-uri, picture-uri-dark and picture-options one
+        # after another; wait for the burst to finish before authenticating.
+        if self.login_timeout:
+            GLib.source_remove(self.login_timeout)
+        self.login_timeout = GLib.timeout_add(delay, self.login_sync_due)
+
+    def login_sync_due(self):
+        self.login_timeout = 0
+        # Authentication may wait for the user; never block the catalog worker.
+        threading.Thread(target=self.sync_static_login, daemon=True).start()
+        return GLib.SOURCE_REMOVE
+
+    def current_static_background(self):
+        background = installed_settings('org.gnome.desktop.background')
+        interface = installed_settings('org.gnome.desktop.interface')
+        if background is None or interface is None or background.get_string('picture-options') == 'none':
+            return None
+        dark = interface.get_string('color-scheme') == 'prefer-dark'
+        uri = background.get_string('picture-uri-dark' if dark else 'picture-uri') or background.get_string('picture-uri')
+        if not uri.startswith('file://'):
+            return None
+        path = Gio.File.new_for_uri(uri).get_path()
+        return static_image(path) if path else None
+
+    def sync_static_login(self):
+        """Copy a static desktop picture to the login screen after leaving a video."""
+        try:
+            shell = installed_settings('org.gnome.shell')
+            if shell is None or HANABI_UUID in shell.get_strv('enabled-extensions'):
+                return  # the animated flow publishes its own still
+            source = self.current_static_background()
+            if source is not None:
+                self.publish_login(source)
+        except (OSError, ValueError, RuntimeError, GLib.Error, subprocess.SubprocessError) as error:
+            print(f'Login background: {error}', file=sys.stderr)
+
+    def reset_screensaver_still(self):
+        """Forget the animated wallpaper's poster on the lock screen."""
+        try:
+            screensaver = installed_settings('org.gnome.desktop.screensaver')
+            if screensaver is None or 'picture-uri' not in screensaver.props.settings_schema.list_keys():
+                return
+            current = screensaver.get_string('picture-uri')
+            posters = ((xdg_directory('XDG_CACHE_HOME', '.cache') / 'nodalix').as_uri() + '/',
+                       'file:///usr/share/nodalix/wallpaper-stills/')
+            if current.startswith(posters):
+                screensaver.reset('picture-uri')
+        except GLib.Error as error:
+            print(f'Screensaver wallpaper: {error}', file=sys.stderr)
+
     def wallpaper_changed(self):
         if self.connection:
             self.connection.emit_signal(None, PATH, INTERFACE, 'WallpaperChanged', None)
 
     def stop_wallpaper(self):
         request_wallpaper(False)
+        self.reset_screensaver_still()
         try:
             self.extension('DisableExtension')
         finally:
             self.wallpaper_changed()
+            # The static picture is chosen right after this call; publish it.
+            GLib.idle_add(self.schedule_login_sync)
 
     def catalog_changed(self):
         if self.connection:
@@ -692,6 +803,7 @@ def main():
         node = Gio.DBusNodeInfo.new_for_xml(XML)
         connection.register_object(PATH,node.interfaces[0],service.method_call,None,None)
         service.monitor_wallpapers()
+        service.monitor_background()
         service.refresh_automatic()
     Gio.bus_own_name(Gio.BusType.SESSION,BUS,Gio.BusNameOwnerFlags.NONE,acquired,None,
                      lambda connection,name:loop.quit())
