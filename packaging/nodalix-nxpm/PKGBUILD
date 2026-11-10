@@ -1,5 +1,5 @@
 pkgname=nodalix-nxpm
-pkgver=0.5.0
+pkgver=0.5.1
 pkgrel=1
 pkgdesc="Nodalix Package Manager: one service and command for Flatpak, official packages and user applications"
 arch=('any')

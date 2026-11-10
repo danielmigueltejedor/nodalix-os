@@ -1,7 +1,7 @@
 # Rebuild and validate this fork for every Nodalix and GNOME update.
 pkgname=nodalix-gnome-shell
-pkgver=0.5.0
-pkgrel=7
+pkgver=0.5.1
+pkgrel=1
 _gnomever=51.1
 _upstream_commit=33da06854e229c256afd5872fedd83c28cbfa176
 pkgdesc="Nodalix-maintained GNOME Shell 51.1 with bundled desktop modules"
@@ -18,7 +18,7 @@ depends=(
   'libpulse' 'libsecret' 'libsoup3' 'libx11' 'libxext'
   'libxfixes' 'pango' 'polkit' 'systemd-libs' 'unzip' 'upower'
   'webkitgtk-6.0' 'nodalix-gnome>=0.5.1-1'
-  'nodalix-settings>=0.5.0-4' 'nodalix-video-wallpapers>=0.5.0-4'
+  'nodalix-settings>=0.5.1-1' 'nodalix-video-wallpapers>=0.5.1-1'
 )
 makedepends=(
   'git' 'python-gobject' 'meson' 'ninja' 'python' 'asciidoc' 'bash-completion'

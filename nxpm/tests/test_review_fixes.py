@@ -262,3 +262,16 @@ def test_install_session_removes_only_generated_user_overrides(monkeypatch, tmp_
     assert custom.exists()
     assert "Removed outdated user override" in out
     assert "already in place" in out
+
+
+def test_update_notification_uses_the_translated_store_name():
+    from nxpm.check import store_text
+
+    assert store_text({"LANG": "es_ES.UTF-8"})[0] == "Tienda"
+    assert store_text({"LANGUAGE": "ca:es", "LANG": "en_US.UTF-8"})[0] == "Botiga"
+    assert store_text({"LANGUAGE": "en:es", "LANG": "es_ES.UTF-8"})[0] == "Store"
+    assert store_text({"LC_ALL": "C", "LANG": "es_ES.UTF-8"})[0] == "Store"  # C locale wins
+    assert store_text({"LANG": "en_US.UTF-8"})[0] == "Store"
+    assert store_text({"LANG": "xx_YY"})[0] == "Store"
+    assert store_text({})[0] == "Store"
+    assert "{count}" in store_text({"LANG": "es_ES"})[2]
