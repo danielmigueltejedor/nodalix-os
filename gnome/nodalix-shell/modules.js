@@ -69,7 +69,7 @@ export class DesktopModules {
         Transition.whenSettled().then(() => {
             this.waitingForTransition = false;
             this.schedule();
-        });
+        }).catch(error => logError(error, 'Nodalix Shell: waiting for the login transition failed'));
     }
 
     selectedModules() {
