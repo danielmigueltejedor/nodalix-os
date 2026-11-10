@@ -208,17 +208,27 @@ ACTIVE_INTERVAL = 5   # seconds between scans while a game is tracked
 IDLE_INTERVAL = 10    # a game only needs GameMode a few seconds after it starts
 
 
+NEGATIVE_TTL = 300    # re-judge long-lived non-games even if exec() looks identical
+
+
 def process_key(p):
-    """Identity of what a PID currently runs: a new exec() changes it."""
-    return identity(p), os.readlink(p / 'exe')
+    """Identity of what a PID currently runs: a new exec() changes it.
+
+    The stack and argument/environment addresses are re-randomised by every
+    exec(), so re-running the same executable with a different environment
+    still produces a new key. Without ASLR the TTL below is the safety net.
+    """
+    fields = (p / 'stat').read_text().rsplit(')', 1)[1].split()
+    return fields[19], fields[25], fields[45], fields[47], os.readlink(p / 'exe')
 
 
 def candidate_processes(tracked, ignored):
     """Yield user processes not yet judged, without re-reading their environment.
 
     SteamAppId is fixed when a program is exec()ed, so a process that was
-    judged not to be a game stays that way until its start time or executable
-    changes. This avoids reading every process environment on every scan.
+    judged not to be a game stays that way until it exec()s again (see
+    process_key) or NEGATIVE_TTL expires. This avoids reading every process
+    environment on every scan.
     """
     live = set()
     for p in PROC.iterdir():
@@ -230,7 +240,8 @@ def candidate_processes(tracked, ignored):
             continue
         if pid in ignored:
             try:
-                if process_key(p) == ignored[pid]:
+                key, expires = ignored[pid]
+                if process_key(p) == key and time.monotonic() < expires:
                     continue
             except (OSError, IndexError):
                 pass
@@ -249,7 +260,7 @@ def main():
     global lib
     lib = load_gamemode()
     tracked = {}  # PID -> (kernel start time, GameMode registration owned by us)
-    ignored = {}  # PID -> (start time, executable) already judged not to be a game
+    ignored = {}  # PID -> (process key, expiry) already judged not to be a game
     power = PerformanceProfileHold()
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
@@ -274,7 +285,7 @@ def main():
                 if not info:
                     if final:
                         try:
-                            ignored[int(p.name)] = process_key(p)
+                            ignored[int(p.name)] = (process_key(p), time.monotonic() + NEGATIVE_TTL)
                         except (OSError, IndexError):
                             pass
                     continue

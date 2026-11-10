@@ -166,19 +166,36 @@ class SteamPollerAvoidsRescanningTests(unittest.TestCase):
         self.make(11)
         (self.root / "self").mkdir()
         keys = {"10": ("1", "/bin/a"), "11": ("2", "/bin/b")}
+        future = self.steam.time.monotonic() + 1000
         with mock.patch.object(self.steam, "process_key", side_effect=lambda p: keys[p.name]):
-            ignored = {10: ("1", "/bin/a"), 11: ("2", "/bin/b")}
+            ignored = {10: (("1", "/bin/a"), future), 11: (("2", "/bin/b"), future)}
             self.assertEqual([], list(self.steam.candidate_processes({}, ignored)))
             keys["11"] = ("2", "/bin/c")  # exec() replaced the program
             self.assertEqual(["11"], [p.name for p in self.steam.candidate_processes({}, ignored)])
             self.assertNotIn(11, ignored)
+            ignored[10] = (("1", "/bin/a"), 0.0)  # verdict expired
+            self.assertEqual(["10", "11"], sorted(p.name for p in self.steam.candidate_processes({}, ignored)))
+
+    def test_same_executable_with_a_new_environment_gets_a_new_key(self) -> None:
+        pid = self.make(40)
+        tail = ["S"] + ["0"] * 49
+        def stat(stack: str) -> str:
+            fields = list(tail)
+            fields[19], fields[25], fields[45], fields[47] = "7", stack, stack, stack
+            return "40 (game) " + " ".join(fields)
+        (pid / "stat").write_text(stat("100"))
+        with mock.patch.object(self.steam.os, "readlink", return_value="/usr/bin/game"):
+            first = self.steam.process_key(pid)
+            (pid / "stat").write_text(stat("200"))
+            self.assertNotEqual(first, self.steam.process_key(pid))
 
     def test_tracked_and_dead_processes_are_handled(self) -> None:
         self.make(20)
         with mock.patch.object(self.steam, "process_key", return_value=("1", "/x")):
-            ignored = {20: ("1", "/x"), 99: ("1", "/gone")}
+            far = self.steam.time.monotonic() + 1000
+            ignored = {20: ("1", far), 99: ("1", far)}
             self.assertEqual([], list(self.steam.candidate_processes({20: ("1", True)}, ignored)))
-            self.assertEqual({20: ("1", "/x")}, ignored)
+            self.assertEqual([20], list(ignored))
 
     def test_only_processes_without_steam_app_id_get_a_final_verdict(self) -> None:
         pid = self.make(30)
