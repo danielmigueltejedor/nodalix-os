@@ -148,10 +148,12 @@ class TransactionManager:
                 transaction.progress = 1.0
                 transaction.message = transaction.message or "Finished"
         finally:
-            with self._lock:
-                self._active = None
+            # Stay busy until the result is recorded: an idle service must not
+            # exit between finishing a transaction and remembering it.
             self._emit(transaction)
             self._remember(transaction)
+            with self._lock:
+                self._active = None
             self.pump()
 
     def publish(self, transaction: Transaction) -> None:

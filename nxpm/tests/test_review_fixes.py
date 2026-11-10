@@ -317,3 +317,14 @@ def test_busy_service_never_exits():
     assert manager.busy() and not watch.expired()
     manager._active = None
     assert watch.expired()
+
+
+def test_transaction_stays_busy_until_its_history_is_recorded():
+    from nxpm.transactions import TransactionManager
+
+    manager = TransactionManager()
+    seen = []
+    manager.add_listener(lambda record: seen.append((record.state, manager.busy())))
+    manager.submit("install", "a", "flatpak", lambda tx, mgr: None)
+    assert ("succeeded", True) in seen
+    assert not manager.busy() and manager.history(1)
