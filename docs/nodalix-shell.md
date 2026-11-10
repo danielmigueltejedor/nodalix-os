@@ -38,6 +38,43 @@ de terceros se adapten a una actualización imprevista de GNOME.
 - El constructor antiguo `build-nodalix-shell-preview.sh` sigue disponible
   para pruebas explícitas; ese paquete no forma parte del manifiesto.
 
+### Transición del acceso a la sesión (0.6.0)
+
+GNOME Shell avisa a GDM de que la sesión está lista (`RegisterSession`) antes
+de dibujar su primer fotograma. GDM retira entonces el acceso y, hasta que la
+Shell pinta algo, solo se ve un fondo negro (después, el gris oscuro de
+arranque de GNOME y una animación que compite con la carga de los módulos).
+Nodalix Shell lo corrige en `gnome/nodalix-shell/transition.js`:
+
+1. **Retiene el registro en GDM** hasta tener un primer fotograma, de modo que
+   la pantalla de acceso sigue visible hasta entonces. Si algo se atasca, el
+   registro se envía igualmente a los 3 s y la cubierta se retira a los 15 s:
+   un inicio de sesión nunca se queda esperando.
+2. **El primer fotograma es el fondo del acceso**, con el mismo desenfoque y
+   brillo que el greeter (`/var/lib/nodalix/login/background.jpg`, o el fondo
+   de respaldo), en lugar del gris oscuro del sistema.
+3. **Desblur**: cuando el escritorio está completo (módulos habilitados, con un
+   máximo de 1,5 s), el desenfoque y el oscurecimiento se animan hasta cero
+   durante 650 ms y la cubierta se desvanece sobre el escritorio real. La
+   animación de arranque de GNOME se ejecuta debajo.
+4. Hanabi (fondo de vídeo) espera a que termine la transición para no lanzar su
+   proceso de reproducción mientras se anima.
+
+`NODALIX_LOGIN_TRANSITION=0` en el entorno de la sesión (por ejemplo en
+`~/.config/environment.d/`) lo desactiva y restaura el comportamiento de
+GNOME. Con las animaciones desactivadas en Ajustes el desblur es instantáneo.
+
+Cada paso queda en el diario con la marca de tiempo relativa al fin de la
+construcción de la interfaz, para medir en hardware real:
+
+```bash
+journalctl --user -b -t gnome-shell | grep 'Nodalix login transition'
+journalctl --user -b -t gnome-shell | grep -E 'Registering session with GDM|GNOME Shell started'
+```
+
+`tools/prepare-nodalix-shell.py` añade cuatro puntos de enganche en
+`ui/layout.js` y uno en `ui/main.js` y falla si el código de GNOME difiere.
+
 ### Construcción y comprobación
 
 Ejecutar exclusivamente en una VM/chroot Arch de pruebas, con los paquetes
