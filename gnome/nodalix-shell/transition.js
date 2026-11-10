@@ -31,6 +31,7 @@ const REVEAL_TIME = 650;       // ms of desblur
 const MODULES_WAIT = 1500;     // ms to wait for the desktop modules before revealing
 const HANDOFF_TIMEOUT = 3000;  // ms before the session registers with GDM regardless
 const GUARD_TIMEOUT = 15000;   // ms after which the cover is removed no matter what
+const FIRST_PAINT_WAIT = 300;  // ms to wait for the first paint before letting the greeter go
 
 const State = {IDLE: 'idle', ARMED: 'armed', COVERED: 'covered', REVEALING: 'revealing', DONE: 'done'};
 
@@ -44,7 +45,8 @@ const settleWaiters = [];
 
 function mark(message) {
     const elapsed = armedAt ? Math.round((GLib.get_monotonic_time() - armedAt) / 1000) : 0;
-    console.info(`Nodalix login transition: ${message} (+${elapsed} ms)`);
+    // log() always reaches the journal; GLib filters informational console output.
+    log(`Nodalix login transition: ${message} (+${elapsed} ms)`);
 }
 
 function backgroundFile() {
@@ -215,11 +217,39 @@ export function begin() {
         abort('no cover');
         return;
     }
-    // The cover is the first thing the compositor will draw. The greeter can go.
-    GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
-        gate?.release('first frame queued');
-        return GLib.SOURCE_REMOVE;
-    });
+    releaseAfterFirstPaint();
+}
+
+// The greeter should only go once the cover has been painted, so the cost of
+// the first frame (decoding the picture, compiling the blur) is paid while the
+// greeter is still on screen. If the session is not yet allowed to paint (its
+// VT is not active until GDM switches), no paint arrives: do not wait for it.
+function releaseAfterFirstPaint() {
+    let done = false;
+    let paintId = 0;
+    let timer = 0;
+    const go = reason => {
+        if (done)
+            return;
+        done = true;
+        if (paintId) {
+            const id = paintId;
+            paintId = 0;
+            global.stage.disconnect(id);
+        }
+        if (timer)
+            clearTimeout(timer);
+        gate?.release(reason);
+    };
+    try {
+        paintId = global.stage.connect('after-paint', () => go('first frame painted'));
+    } catch (error) {
+        logError(error, 'Nodalix login transition: cannot watch the first paint');
+    }
+    timer = setTimeout(() => {
+        timer = 0;
+        go('no paint yet');
+    }, FIRST_PAINT_WAIT);
 }
 
 // Called before the session's own start-up animation: wait, within limits, for

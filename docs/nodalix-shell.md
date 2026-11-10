@@ -46,10 +46,11 @@ Shell pinta algo, solo se ve un fondo negro (después, el gris oscuro de
 arranque de GNOME y una animación que compite con la carga de los módulos).
 Nodalix Shell lo corrige en `gnome/nodalix-shell/transition.js`:
 
-1. **Retiene el registro en GDM** hasta tener un primer fotograma, de modo que
-   la pantalla de acceso sigue visible hasta entonces. Si algo se atasca, el
-   registro se envía igualmente a los 3 s y la cubierta se retira a los 15 s:
-   un inicio de sesión nunca se queda esperando.
+1. **Retiene el registro en GDM** hasta que la cubierta se ha pintado (hasta
+   300 ms de espera si la sesión aún no puede pintar), de modo que la pantalla
+   de acceso sigue visible hasta entonces. Si algo se atasca, el registro se
+   envía igualmente a los 3 s y la cubierta se retira a los 15 s: un inicio de
+   sesión nunca se queda esperando.
 2. **El primer fotograma es el fondo del acceso**, con el mismo desenfoque y
    brillo que el greeter (`/var/lib/nodalix/login/background.jpg`, o el fondo
    de respaldo), en lugar del gris oscuro del sistema.

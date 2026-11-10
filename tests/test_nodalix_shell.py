@@ -209,6 +209,12 @@ import(copy).then(({HandoffGate, revealFrame}) => {
             self.assertIn(path, transition)
             self.assertIn(path, greeter)
         self.assertIn("NODALIX_LOGIN_TRANSITION", transition)
+        # Timestamps must reach the journal (console.info is filtered by GLib)
+        # and the greeter waits for the first paint, within a bounded time.
+        self.assertIn("log(`Nodalix login transition:", transition)
+        self.assertNotIn("console.info", transition)
+        self.assertIn("'after-paint'", transition)
+        self.assertRegex(transition, r"FIRST_PAINT_WAIT = \d+")
         # A stalled start-up must release GDM and remove the cover on its own.
         self.assertRegex(transition, r"HANDOFF_TIMEOUT = \d+")
         self.assertRegex(transition, r"GUARD_TIMEOUT = \d+")
