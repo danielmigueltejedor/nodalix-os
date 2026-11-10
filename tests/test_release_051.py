@@ -301,6 +301,37 @@ class ReleaseKeyMigrationTests(unittest.TestCase):
             file_owned_by_package(path, pacman=lambda *args, **kwargs: Locked())
 
 
+class HybridIconThemeTests(unittest.TestCase):
+    def test_default_schema_selects_nodalix_icons(self) -> None:
+        override = (ROOT / "gnome/session/90-nodalix.gschema.override").read_text(encoding="utf-8")
+        self.assertIn("icon-theme='Nodalix-Icons'", override)
+        self.assertIn("cursor-theme='Nodalix'", override)
+
+    def test_icon_and_cursor_packages_pin_same_theme_commit(self) -> None:
+        icons = (ROOT / "packaging/nodalix-colloid-icons/PKGBUILD").read_text(encoding="utf-8")
+        cursor = (ROOT / "packaging/nodalix-cursor-theme/PKGBUILD").read_text(encoding="utf-8")
+        self.assertIn("install-nodalix.sh", icons)
+        self.assertIn("Nodalix-Icons", icons)
+        self.assertIn("pkgver=0.5.1", icons)
+        self.assertIn("pkgver=0.5.1", cursor)
+        self.assertRegex(icons, r"_theme_commit=([0-9a-f]{40})")
+        commit = __import__("re").search(r"_theme_commit=([0-9a-f]{40})", icons).group(1)
+        self.assertIn(f"_theme_commit={commit}", cursor)
+        self.assertIn("sha256sums=", icons)
+        self.assertNotIn("sha256sums=('SKIP')", icons)
+        self.assertNotIn('sha256sums=("SKIP"', cursor)
+        self.assertIn("nodalix-colloid-icons>=0.5.1", (ROOT / "packaging/nodalix-gnome/PKGBUILD").read_text(encoding="utf-8"))
+
+    def test_legacy_adwaita_symbols_inherits_hybrid_theme(self) -> None:
+        theme = (ROOT / "gnome/session/index.theme").read_text(encoding="utf-8")
+        self.assertIn("Inherits=Nodalix-Icons,Adwaita,hicolor", theme)
+
+    def test_app_icons_prefer_hybrid_theme_variant(self) -> None:
+        script = (ROOT / "integrations/scripts/nodalix-app-icons.py").read_text(encoding="utf-8")
+        self.assertIn("'Nodalix-Icons'", script)
+        self.assertLess(script.index("'Nodalix-Icons'"), script.index("'Colloid-Teal'"))
+
+
 class StoreConflictPackagingTests(unittest.TestCase):
     def test_store_declares_bazaar_conflict_and_replace(self) -> None:
         pkgbuild = (ROOT / "packaging/nodalix-store/PKGBUILD").read_text(encoding="utf-8")

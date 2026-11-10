@@ -17,7 +17,7 @@ depends=(
   'mutter>=51' 'mutter<52' 'libnm' 'libnma-gtk4' 'libpipewire'
   'libpulse' 'libsecret' 'libsoup3' 'libx11' 'libxext'
   'libxfixes' 'pango' 'polkit' 'systemd-libs' 'unzip' 'upower'
-  'webkitgtk-6.0' 'nodalix-gnome>=0.5.0-6'
+  'webkitgtk-6.0' 'nodalix-gnome>=0.5.1-1'
   'nodalix-settings>=0.5.0-4' 'nodalix-video-wallpapers>=0.5.0-4'
 )
 makedepends=(

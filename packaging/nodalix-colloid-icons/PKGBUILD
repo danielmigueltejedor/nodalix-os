@@ -8,13 +8,12 @@ arch=('any')
 url='https://github.com/danielmigueltejedor/nodalix-icon-theme'
 license=('GPL-3.0-only')
 depends=('adwaita-icon-theme' 'hicolor-icon-theme')
-makedepends=('git' 'gtk-update-icon-cache')
-source=("nodalix-icon-theme::git+https://github.com/danielmigueltejedor/nodalix-icon-theme.git#commit=$_theme_commit")
-# Git sources are integrity-checked by their immutable commit ID.
-sha256sums=('SKIP')
+makedepends=('gtk-update-icon-cache')
+source=("nodalix-icon-theme-$_theme_commit.tar.gz::https://codeload.github.com/danielmigueltejedor/nodalix-icon-theme/tar.gz/$_theme_commit")
+sha256sums=('e86d651b1c58346fba389e17ab85fc9cab85390eeee3057a7e3f227534128f1e')
 
 package() {
-    cd "$srcdir/nodalix-icon-theme"
+    cd "$srcdir/nodalix-icon-theme-$_theme_commit"
     bash install-nodalix.sh -d "$pkgdir/usr/share/icons" -n Nodalix-Icons
     install -Dm644 nodalix/legacy-icons.json "$pkgdir/usr/share/nodalix/icon-theme/legacy-icons.json"
     install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"

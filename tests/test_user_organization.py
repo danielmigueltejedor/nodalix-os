@@ -112,11 +112,12 @@ class Organization(unittest.TestCase):
 
     def test_packaged_craft_artwork_precedes_old_theme_and_official_fallback(self):
         system = self.home / 'system'
-        packaged = system / 'icons/Colloid-Teal/apps/scalable'
+        packaged = system / 'icons/Nodalix-Icons/apps/scalable'
         packaged.mkdir(parents=True)
         identifier = 'ai.storyteller.figcraft'
         expected = packaged / (identifier + '.svg')
         expected.write_text('<svg>nodalix</svg>')
+        # Older Colloid installs remain searchable but must not win.
         local = self.home / 'themes/Colloid-Teal/apps/scalable'
         local.mkdir(parents=True)
         (local / expected.name).write_text('<svg>old theme</svg>')
@@ -148,7 +149,7 @@ class Organization(unittest.TestCase):
 
     def test_legacy_portable_icon_is_adopted_and_later_personal_edits_are_preserved(self):
         system = self.home / 'system'
-        packaged = system / 'icons/Colloid-Teal/apps/scalable'
+        packaged = system / 'icons/Nodalix-Icons/apps/scalable'
         packaged.mkdir(parents=True)
         expected = packaged / 'audacity4.svg'
         expected.write_text('<svg>maintained audacity</svg>')

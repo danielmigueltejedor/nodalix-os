@@ -54,9 +54,9 @@
     },
     {
       "id": "colloid-icons",
-      "name": "Colloid-Teal icon theme",
+      "name": "Nodalix Icons (Colloid apps + Adwaita controls)",
       "package": "nodalix-colloid-icons",
-      "version": "0.5.0",
+      "version": "0.5.1",
       "required": true,
       "restart": "none"
     },
@@ -88,7 +88,7 @@
       "id": "cursor-theme",
       "name": "Nodalix cursor theme",
       "package": "nodalix-cursor-theme",
-      "version": "0.5.0",
+      "version": "0.5.1",
       "required": true,
       "restart": "system"
     },
@@ -104,7 +104,7 @@
       "id": "gnome",
       "name": "Nodalix GNOME Shell",
       "package": "nodalix-gnome",
-      "version": "0.5.0",
+      "version": "0.5.1",
       "required": true,
       "restart": "system"
     },

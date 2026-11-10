@@ -64,7 +64,7 @@ class ProfileContentTests(unittest.TestCase):
         gnome = (ROOT / 'packaging/nodalix-gnome/PKGBUILD').read_text()
         self.assertIn('usr/lib/nodalix/nodalix_profile.py', gnome)
         revision = lambda text: int(re.search(r'^pkgrel=(\d+)', text, re.M).group(1))
-        required = int(re.search(r"nodalix-gnome>=0\.5\.0-(\d+)", pkgbuild).group(1))
+        required = int(re.search(r"nodalix-gnome>=0\.5\.\d+-(\d+)", pkgbuild).group(1))
         self.assertLessEqual(required, revision(gnome))
 
     def test_system_defaults_cover_the_desktop_preferences(self):

@@ -11,7 +11,14 @@ import re
 import shlex
 import stat
 
-THEME_VARIANTS = ('Colloid-Teal', 'Colloid-Teal-Dark', 'Colloid-Teal-Light', 'Colloid')
+# Prefer the 0.5.1 hybrid theme; keep Colloid names for older installs.
+THEME_VARIANTS = (
+    'Nodalix-Icons',
+    'Colloid-Teal',
+    'Colloid-Teal-Dark',
+    'Colloid-Teal-Light',
+    'Colloid',
+)
 
 
 def digest(text):

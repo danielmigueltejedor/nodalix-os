@@ -23,7 +23,12 @@ GNOME ni sustituye la arquitectura NXPM de `main` por la rama experimental
 - Migración idempotente `0.5.0-release-key` para claves públicas huérfanas.
 - `conflicts`/`replaces` de `bazaar` en `nodalix-store`.
 - Parche multi-monitor de Now Playing + `_centerRow` + exclusión de
-  clonado del indicador.
+  clonado del indicador; los indicadores del centro rellenan la altura del
+  panel para alinear hover y popups en monitores secundarios.
+- Tema híbrido `Nodalix-Icons` (apps Colloid + símbolos Adwaita) como
+  predeterminado; cursor Capitaine sigue en `cursor-theme=Nodalix`; ambos
+  paquetes fijan el mismo commit de `nodalix-icon-theme`. Migración solo del
+  valor legado `Nodalix-Adwaita-Symbols`.
 - Endurecimiento NXPM: catálogo atómico, descarga AppImage por streaming,
   comprobación Type-2, transacciones fuera del bucle GLib, rechazo si el
   actualizador o ALPM tienen candado.

@@ -34,14 +34,17 @@ def rebuild_cache(theme):
 
 
 current = subprocess.check_output(['gsettings', 'get', 'org.gnome.desktop.interface', 'icon-theme'], text=True).strip().strip("'")
-# The packaged Nodalix-Icons theme now owns app icons and delegates every
-# Shell/control symbol to Adwaita. Keep this helper only for legacy systems.
+# The packaged Nodalix-Icons theme owns app icons and inherits Adwaita for
+# Shell/control glyphs. Migrate only the legacy Nodalix default; leave custom
+# themes and the compatibility overlay alone.
 packaged_theme = Path('/usr/share/icons/Nodalix-Icons/index.theme')
 user_theme = Path(os.environ.get('XDG_DATA_HOME', str(Path.home()/'.local/share'))) / 'icons/Nodalix-Icons/index.theme'
 if packaged_theme.is_file() or user_theme.is_file():
     if current == NAME:
         subprocess.run(['gsettings', 'set', 'org.gnome.desktop.interface', 'icon-theme', 'Nodalix-Icons'], check=True)
-    raise SystemExit(0)
+        raise SystemExit(0)
+    if current == 'Nodalix-Icons':
+        raise SystemExit(0)
 theme = Path(os.environ.get('XDG_DATA_HOME', str(Path.home()/'.local/share'))) / 'icons' / NAME
 index = theme/'index.theme'
 if sys.argv[1:] == ['--refresh-window-controls']:
