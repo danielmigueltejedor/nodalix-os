@@ -522,7 +522,9 @@ export default class NodalixAutoTilingExtension extends Extension {
             Main.uiGroup.add_child(this._preview);
             this._preview.hide();
             this._grab.source = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 16, () => {
-                this._updateDropPreview();
+                // A held, motionless pointer cannot change the drop target;
+                // skip the tree copy and layout solve until it moves.
+                this._updateDropPreview(false);
                 return GLib.SOURCE_CONTINUE;
             });
         } else {
@@ -541,10 +543,14 @@ export default class NodalixAutoTilingExtension extends Extension {
         this._applyGroup(grab.group);
     }
 
+    _pointerPosition() {
+        const coords = this._grab.sprite?.get_coords?.();
+        return coords ? [coords.x, coords.y] : global.get_pointer();
+    }
+
     _dropAtPointer() {
         const grab = this._grab;
-        const coords = grab.sprite?.get_coords?.();
-        const [x, y] = coords ? [coords.x, coords.y] : global.get_pointer();
+        const [x, y] = this._pointerPosition();
         const workspace = grab.win.get_workspace();
         for (let monitor = 0; monitor < global.display.get_n_monitors(); monitor++) {
             const group = this._getGroup(workspace, monitor);
@@ -571,7 +577,12 @@ export default class NodalixAutoTilingExtension extends Extension {
         return Layout.insert(tree, grab.id, drop.target, drop.side === 'center' ? 'right' : drop.side);
     }
 
-    _updateDropPreview() {
+    _updateDropPreview(force = true) {
+        const [x, y] = this._pointerPosition();
+        const last = this._grab.lastPointer;
+        if (!force && last && last[0] === x && last[1] === y)
+            return;
+        this._grab.lastPointer = [x, y];
         const drop = this._dropAtPointer();
         this._grab.drop = null;
         if (!drop) {
