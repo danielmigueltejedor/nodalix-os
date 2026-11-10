@@ -39,9 +39,15 @@ No se aplican variables Ozone/GDK globales ni reglas de ventana por aplicación.
 
 ## Iconos y aplicaciones
 
-El tema `Nodalix-Adwaita-Symbols` sustituye símbolos de controles y paneles de
-Ajustes por los originales de GNOME/Adwaita; hereda Colloid para aplicaciones.
-`nodalix-shell-symbols` crea una variante de usuario que hereda su tema actual.
+El tema predeterminado `Nodalix-Icons` se construye desde el repositorio
+`nodalix-icon-theme`: incluye solo iconos de aplicaciones de Colloid y Nodalix,
+y hereda de Adwaita los símbolos de GNOME Shell, Wi-Fi, Bluetooth, controles
+y paneles de Ajustes. La herencia no copia ni congela los iconos de Adwaita.
+El cursor Capitaine se empaqueta aparte como `nodalix-cursor-theme` y se elige
+con `cursor-theme=Nodalix`. Ambos paquetes usan el mismo commit del repositorio.
+`Nodalix-Adwaita-Symbols` y `nodalix-shell-symbols` quedan disponibles como
+compatibilidad para instalaciones antiguas; el tema nuevo no hereda Colloid
+para los componentes de la interfaz.
 El gestor `nodalix-app-icons` excluye los paneles internos de Ajustes y los
 iconos simbólicos; retira solo las entradas que él creó y que siguen intactas.
 Así no sustituye los nombres de los controles por rutas de archivos de aplicaciones.

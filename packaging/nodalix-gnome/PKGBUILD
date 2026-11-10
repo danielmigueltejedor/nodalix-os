@@ -1,12 +1,12 @@
 pkgname=nodalix-gnome
-pkgver=0.5.0
-pkgrel=6
+pkgver=0.5.1
+pkgrel=1
 pkgdesc="GNOME Shell, GDM and native desktop integration for Nodalix"
 arch=("any")
 install=nodalix-gnome.install
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-depends=("cups" "cups-pk-helper" "python-dbus" "python-xlib" "python-gobject" "lz4" "gnome-shell>=1:51" "gnome-shell<1:52" "mutter>=51" "mutter<52" "xdg-terminal-exec" "ghostty" "gnome-session" "gdm" "nodalix-control-center" "nodalix-settings" "nodalix-cursor-theme" "nodalix-video-wallpapers" "gnome-settings-daemon" "gnome-keyring" "adwaita-fonts" "gnome-online-accounts" "gvfs" "gvfs-mtp" "gvfs-smb" "networkmanager" "bluez" "bluez-utils" "bluez-obex" "pipewire-pulse" "wireplumber" "rtkit" "power-profiles-daemon" "nautilus" "nautilus-python" "libsoup3" "zenity" "libnotify" "xdg-desktop-portal" "xdg-desktop-portal-gnome" "xdg-desktop-portal-gtk" "nodalix-integrations>=0.3.0")
+depends=("cups" "cups-pk-helper" "python-dbus" "python-xlib" "python-gobject" "lz4" "gnome-shell>=1:51" "gnome-shell<1:52" "mutter>=51" "mutter<52" "xdg-terminal-exec" "ghostty" "gnome-session" "gdm" "nodalix-control-center" "nodalix-settings" "nodalix-cursor-theme" "nodalix-colloid-icons>=0.5.1" "nodalix-video-wallpapers" "gnome-settings-daemon" "gnome-keyring" "adwaita-fonts" "gnome-online-accounts" "gvfs" "gvfs-mtp" "gvfs-smb" "networkmanager" "bluez" "bluez-utils" "bluez-obex" "pipewire-pulse" "wireplumber" "rtkit" "power-profiles-daemon" "nautilus" "nautilus-python" "libsoup3" "zenity" "libnotify" "xdg-desktop-portal" "xdg-desktop-portal-gnome" "xdg-desktop-portal-gtk" "nodalix-integrations>=0.3.0")
 optdepends=("gnome-calendar: default desktop application" "gnome-contacts: default desktop application" "gnome-maps: default desktop application" "gnome-weather: default desktop application" "papers: default desktop application" "showtime: default desktop application" "snapshot: default desktop application" "gnome-calculator: default desktop application" "gnome-clocks: default desktop application" "baobab: default desktop application" "gnome-text-editor: default desktop application")
 provides=("nodalix-shell=$pkgver")
 conflicts=("nodalix-shell" "nodalix-greeter-theme" "nodalix-hymission" "nodalix-wallpaper-engine")
