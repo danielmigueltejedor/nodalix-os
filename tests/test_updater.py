@@ -212,6 +212,28 @@ class ManifestValidationTests(unittest.TestCase):
             with self.assertRaisesRegex(UPDATER.IntegrityError, "not signed"):
                 UPDATER.manifest_for(release, config)
 
+    def test_installed_release_key_makes_every_remote_manifest_require_a_signature(self) -> None:
+        # An unsigned manifest without a kernel component must not slip through.
+        value = manifest()
+        release = gh_release("0.2.0", assets=["nodalix-manifest.json"])
+        config = {"manifest_asset": "nodalix-manifest.json", "require_signature": False}
+        with tempfile.TemporaryDirectory() as directory:
+            key = Path(directory) / "release.pub"
+            key.write_text("untrusted comment: test\nRWQ=\n")
+            with mock.patch.object(UPDATER, "PUBLIC_KEY_PATH", key), \
+                 mock.patch.object(UPDATER, "request", return_value=(json.dumps(value).encode(), {})):
+                with self.assertRaisesRegex(UPDATER.IntegrityError, "not signed"):
+                    UPDATER.manifest_for(release, config)
+
+    def test_without_a_release_key_unsigned_manifests_keep_working(self) -> None:
+        value = manifest()
+        release = gh_release("0.2.0", assets=["nodalix-manifest.json"])
+        config = {"manifest_asset": "nodalix-manifest.json", "require_signature": False}
+        with tempfile.TemporaryDirectory() as directory, \
+             mock.patch.object(UPDATER, "PUBLIC_KEY_PATH", Path(directory) / "missing.pub"), \
+             mock.patch.object(UPDATER, "request", return_value=(json.dumps(value).encode(), {})):
+            self.assertEqual(UPDATER.manifest_for(release, config), value)
+
     def test_explicit_local_kernel_candidate_retains_offline_mode(self) -> None:
         value = manifest([component(), component("linux-nodalix", version="7.3.1")])
         with tempfile.TemporaryDirectory() as directory:

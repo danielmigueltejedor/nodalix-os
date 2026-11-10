@@ -565,7 +565,11 @@ def manifest_for(release: dict, config: dict) -> dict:
     except (UnicodeError, ValueError) as error:
         raise ManifestError("Manifest JSON inválido") from error
     validate_manifest(manifest)
-    if any(item["package"] == "linux-nodalix" for item in manifest["components"]):
+    # Whether a manifest needs a signature must never be decided by the
+    # manifest itself: an attacker who replaces release assets could simply
+    # omit the "signing" block (and the kernel component). Every installation
+    # that ships the release key therefore requires a valid signature.
+    if PUBLIC_KEY_PATH.is_file() or any(item["package"] == "linux-nodalix" for item in manifest["components"]):
         config = {**config, "require_signature": True}
     verify_manifest_signature(raw, manifest, release, config)
     return manifest

@@ -65,6 +65,11 @@ else:
     print("no")
 PY
 ) || die "El manifiesto no contiene una firma válida para este lanzamiento."
+# The manifest must not decide whether it needs a signature: when this system
+# already trusts a Nodalix release key, an unsigned manifest is always refused.
+if [[ "$signature_required" != yes && -f "${NODALIX_RELEASE_PUBLIC_KEY_FILE:-/usr/share/nodalix/keys/release.pub}" ]]; then
+    die "El manifiesto de este lanzamiento no está firmado."
+fi
 if [[ "$signature_required" == yes ]]; then
     release_key=$(realpath -e -- "${NODALIX_RELEASE_PUBLIC_KEY_FILE:-/usr/share/nodalix/keys/release.pub}") \
         || die "Falta la clave pública de confianza de Nodalix."
