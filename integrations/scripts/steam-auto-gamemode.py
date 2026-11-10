@@ -144,16 +144,33 @@ def identity(p):
 
 
 def game_info(p):
+    return judge(p)[0]
+
+
+def judge(p):
+    """Return (game info or None, whether a None verdict is final).
+
+    A process without a usable SteamAppId can never become a game, because the
+    environment is fixed at exec(). One that does belong to a Steam app may
+    still be starting (Wine maps the game executable late), so it is re-checked.
+    """
     try:
         if p.stat().st_uid != UID:
-            return None
+            return None, True
         raw_env = (p / 'environ').read_bytes()
         if not (raw_env.startswith(b'SteamAppId=') or b'\0SteamAppId=' in raw_env):
-            return None
+            return None, True
         env = dict(item.split(b'=', 1) for item in raw_env.split(b'\0') if b'=' in item)
         appid = env.get(b'SteamAppId', b'')
         if not appid.isdigit() or appid == b'0':
-            return None
+            return None, True
+        return _steam_game(p, env, appid), False
+    except (OSError, ValueError, IndexError):
+        return None, False
+
+
+def _steam_game(p, env, appid):
+    try:
         exe = os.readlink(p / 'exe')
         install = os.fsdecode(env.get(b'STEAM_COMPAT_INSTALL_PATH', b''))
         if not install:
@@ -187,6 +204,53 @@ def game_info(p):
     return None
 
 
+ACTIVE_INTERVAL = 5   # seconds between scans while a game is tracked
+IDLE_INTERVAL = 10    # a game only needs GameMode a few seconds after it starts
+
+
+NEGATIVE_TTL = 300    # re-judge long-lived non-games even if exec() looks identical
+
+
+def process_key(p):
+    """Identity of what a PID currently runs: a new exec() changes it.
+
+    The stack and argument/environment addresses are re-randomised by every
+    exec(), so re-running the same executable with a different environment
+    still produces a new key. Without ASLR the TTL below is the safety net.
+    """
+    fields = (p / 'stat').read_text().rsplit(')', 1)[1].split()
+    return fields[19], fields[25], fields[45], fields[47], os.readlink(p / 'exe')
+
+
+def candidate_processes(tracked, ignored):
+    """Yield user processes not yet judged, without re-reading their environment.
+
+    SteamAppId is fixed when a program is exec()ed, so a process that was
+    judged not to be a game stays that way until it exec()s again (see
+    process_key) or NEGATIVE_TTL expires. This avoids reading every process
+    environment on every scan.
+    """
+    live = set()
+    for p in PROC.iterdir():
+        if not p.name.isdigit():
+            continue
+        pid = int(p.name)
+        live.add(pid)
+        if pid in tracked:
+            continue
+        if pid in ignored:
+            try:
+                key, expires = ignored[pid]
+                if process_key(p) == key and time.monotonic() < expires:
+                    continue
+            except (OSError, IndexError):
+                pass
+            del ignored[pid]
+        yield p
+    for pid in set(ignored) - live:
+        del ignored[pid]
+
+
 def stop(_signum, _frame):
     global running
     running = False
@@ -196,6 +260,7 @@ def main():
     global lib
     lib = load_gamemode()
     tracked = {}  # PID -> (kernel start time, GameMode registration owned by us)
+    ignored = {}  # PID -> (process key, expiry) already judged not to be a game
     power = PerformanceProfileHold()
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
@@ -215,11 +280,14 @@ def main():
                 # reused PID that might now belong to another client.
                 del tracked[pid]
                 print(f'Game exited: PID {pid}', flush=True)
-            for p in PROC.iterdir():
-                if not p.name.isdigit() or int(p.name) in tracked:
-                    continue
-                info = game_info(p)
+            for p in candidate_processes(tracked, ignored):
+                info, final = judge(p)
                 if not info:
+                    if final:
+                        try:
+                            ignored[int(p.name)] = (process_key(p), time.monotonic() + NEGATIVE_TTL)
+                        except (OSError, IndexError):
+                            pass
                     continue
                 try:
                     stamp = identity(p)
@@ -238,7 +306,7 @@ def main():
                 else:
                     print(f'GameMode request failed: {lib.real_gamemode_error_string()!r}', flush=True)
             power.sync(bool(tracked))
-            time.sleep(5)
+            time.sleep(ACTIVE_INTERVAL if tracked else IDLE_INTERVAL)
     finally:
         # Release the profile even when this service is stopped while a game
         # is running; the system bus also releases it if our process crashes.

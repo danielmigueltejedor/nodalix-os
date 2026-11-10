@@ -1,5 +1,5 @@
 pkgname=nodalix-integrations
-pkgver=0.5.1
+pkgver=0.5.2
 pkgrel=1
 pkgdesc="Nodalix desktop services independent of the compositor"
 arch=("any")
@@ -12,12 +12,14 @@ sha256sums=("SKIP")
 
 package() {
     install -Dm644 "$srcdir/integrations/assets/zram-generator.conf" "$pkgdir/usr/lib/systemd/zram-generator.conf"
+    install -Dm644 "$srcdir/integrations/assets/zram-setup-tuning.conf" \
+        "$pkgdir/usr/lib/systemd/system/systemd-zram-setup@.service.d/50-nodalix-zram-tuning.conf"
     for helper in steam-auto-gamemode steam-desktop-sync; do
         install -Dm755 "$srcdir/integrations/scripts/$helper.py" "$pkgdir/usr/bin/$helper"
     done
     install -Dm644 "$srcdir/integrations/scripts/craft_gnome.py" "$pkgdir/usr/lib/nodalix/craft_gnome.py"
     install -Dm755 "$srcdir/integrations/scripts/craft-gnome-launch" "$pkgdir/usr/bin/craft-gnome-launch"
-    for unit in steam-auto-gamemode.service steam-desktop-sync.service steam-desktop-sync.timer nodalix-craft-gnome.service; do
+    for unit in steam-auto-gamemode.service steam-desktop-sync.service steam-desktop-sync.timer nodalix-craft-gnome.service nodalix-craft-gnome.path; do
         install -Dm644 "$srcdir/integrations/systemd/$unit" "$pkgdir/usr/lib/systemd/user/$unit"
     done
     install -d "$pkgdir/usr/lib/systemd/user/graphical-session.target.wants"
@@ -40,7 +42,7 @@ package() {
     done
     # No standalone legacy LocalSend receiver: GNOME owns discovery via GLocalSend.
     install -d "$pkgdir/usr/lib/systemd/user/default.target.wants"
-    for unit in nodalix-user-layout.timer nodalix-user-layout.path nodalix-app-organizer.path nodalix-icloud-drive.service nodalix-icloud-sync.timer; do
+    for unit in nodalix-user-layout.timer nodalix-user-layout.path nodalix-app-organizer.path nodalix-craft-gnome.path nodalix-icloud-drive.service nodalix-icloud-sync.timer; do
         ln -s "../$unit" "$pkgdir/usr/lib/systemd/user/default.target.wants/$unit"
     done
 }

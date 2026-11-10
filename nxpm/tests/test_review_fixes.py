@@ -275,3 +275,68 @@ def test_update_notification_uses_the_translated_store_name():
     assert store_text({"LANG": "xx_YY"})[0] == "Store"
     assert store_text({})[0] == "Store"
     assert "{count}" in store_text({"LANG": "es_ES"})[2]
+
+
+class FakeClock:
+    def __init__(self):
+        self.now = 0.0
+
+    def __call__(self):
+        return self.now
+
+
+def test_idle_service_exits_only_when_it_has_nothing_to_remember():
+    from nxpm.service import IdleWatch
+    from nxpm.transactions import TransactionManager
+
+    clock = FakeClock()
+    manager = TransactionManager()
+    watch = IdleWatch(manager, timeout=100, clock=clock)
+    clock.now = 99
+    assert not watch.expired()
+    watch.touch()
+    clock.now = 198
+    assert not watch.expired()
+    clock.now = 199
+    assert watch.expired()
+
+    manager.submit("install", "a", "flatpak", lambda tx, mgr: None)
+    clock.now = 10_000
+    assert not watch.expired()  # history is kept in memory only
+
+
+def test_busy_service_never_exits():
+    from nxpm.service import IdleWatch
+    from nxpm.transactions import TransactionManager
+
+    clock = FakeClock()
+    manager = TransactionManager()
+    watch = IdleWatch(manager, timeout=1, clock=clock)
+    clock.now = 50
+    manager._active = "running"
+    assert manager.busy() and not watch.expired()
+    manager._active = None
+    assert watch.expired()
+
+
+def test_transaction_stays_busy_until_its_history_is_recorded():
+    from nxpm.transactions import TransactionManager
+
+    manager = TransactionManager()
+    seen = []
+    manager.add_listener(lambda record: seen.append((record.state, manager.busy())))
+    manager.submit("install", "a", "flatpak", lambda tx, mgr: None)
+    assert ("succeeded", True) in seen
+    assert not manager.busy() and manager.history(1)
+
+
+def test_idle_exit_needs_a_dbus_activation_file(tmp_path, monkeypatch):
+    from nxpm.service import BUS_NAME, activation_available
+
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("XDG_DATA_DIRS", str(tmp_path / "system"))
+    assert not activation_available()
+    services = tmp_path / "system" / "dbus-1" / "services"
+    services.mkdir(parents=True)
+    (services / f"{BUS_NAME}.service").write_text("[D-BUS Service]\n")
+    assert activation_available()

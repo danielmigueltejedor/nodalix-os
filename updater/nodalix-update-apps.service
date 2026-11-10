@@ -6,3 +6,6 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/nodalix-system-update user-apps
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7

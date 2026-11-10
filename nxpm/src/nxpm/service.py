@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import logging
+import os
+import time
+from pathlib import Path
 
 from nxpm import API_VERSION
 from nxpm.engine import Engine, build_engine
@@ -12,6 +15,42 @@ log = logging.getLogger("nxpm.service")
 IFACE = "os.nodalix.Nxpm1"
 PATH = "/os/nodalix/Nxpm"
 BUS_NAME = "os.nodalix.Nxpm"
+# The session bus restarts the service on the next call, so a daemon that has
+# nothing to remember can leave memory after a quiet period.
+IDLE_EXIT_SECONDS = 600
+IDLE_CHECK_SECONDS = 60
+
+
+def activation_available() -> bool:
+    """True when the session bus can restart this service on demand."""
+    home = os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local/share")
+    system = (os.environ.get("XDG_DATA_DIRS") or "/usr/local/share:/usr/share").split(":")
+    return any(
+        Path(base, "dbus-1", "services", f"{BUS_NAME}.service").is_file()
+        for base in [home, *system] if base
+    )
+
+
+class IdleWatch:
+    """Decides when the service may exit without losing anything.
+
+    Transaction history only lives in memory, so a service that has run any
+    transaction stays resident to keep answering GetHistory/GetTransaction.
+    """
+
+    def __init__(self, transactions, timeout: float = IDLE_EXIT_SECONDS, clock=time.monotonic) -> None:
+        self.transactions = transactions
+        self.timeout = timeout
+        self.clock = clock
+        self.last_call = clock()
+
+    def touch(self) -> None:
+        self.last_call = self.clock()
+
+    def expired(self) -> bool:
+        if self.transactions.busy() or self.transactions.history(1):
+            return False
+        return self.clock() - self.last_call >= self.timeout
 
 
 def variant_dict(data: dict):
@@ -62,10 +101,24 @@ def serve(engine: Engine | None = None) -> int:
 
     active = engine or build_engine()
     active.transactions.defer = True
-    service = NxpmObject(bus, active)
+    watch = IdleWatch(active.transactions)
+    service = NxpmObject(bus, active, watch)
     service.bus_name = name
     log.info("NXPM API %s is listening on %s", API_VERSION, BUS_NAME)
-    GLib.MainLoop().run()
+    loop = GLib.MainLoop()
+
+    def exit_when_idle() -> bool:
+        if watch.expired():
+            log.info("NXPM is idle; exiting until the next D-Bus call")
+            loop.quit()
+            return False
+        return True
+
+    # A daemon started by hand without a D-Bus activation file would not come
+    # back after exiting, so only an activatable service may leave when idle.
+    if activation_available():
+        GLib.timeout_add_seconds(IDLE_CHECK_SECONDS, exit_when_idle)
+    loop.run()
     return 0
 
 
@@ -74,7 +127,7 @@ def _package_rows(packages) -> list[dict]:
 
 
 class NxpmObject:
-    def __init__(self, bus, engine: Engine) -> None:
+    def __init__(self, bus, engine: Engine, watch: IdleWatch | None = None) -> None:
         import dbus.service
 
         class Object(dbus.service.Object):
@@ -82,6 +135,11 @@ class NxpmObject:
                 super().__init__(bus_connection, path)
                 self.engine = engine
                 engine.transactions.add_listener(self._changed)
+
+            def _message_cb(self, connection, message):
+                if watch is not None:
+                    watch.touch()
+                return super()._message_cb(connection, message)
 
             def _changed(self, transaction) -> None:
                 payload = (

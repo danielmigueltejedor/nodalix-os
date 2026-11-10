@@ -194,6 +194,18 @@ def reconcile_steam_startup(path):
     return True
 
 
+def preference_needs_update(path, section, key):
+    """True when the preference file exists and does not yet enable the title bar."""
+    path = Path(path)
+    if not path.is_file():
+        return False
+    data = json.loads(path.read_text())
+    if not isinstance(data, dict):
+        return False
+    group = data.get(section)
+    return group is None or (isinstance(group, dict) and group.get(key) is not True)
+
+
 def force_preference(path, section, key):
     path = Path(path)
     if not path.is_file():
@@ -252,11 +264,18 @@ def reconcile():
                 changed |= reconcile_desktop(path, state)
             except (OSError, ValueError, configparser.Error):
                 LOG.exception('Could not protect %s; will retry', path)
-    busy = {slug: app_busy(slug) for slug in ('photocraft','vectorcraft')}
+    # Scanning /proc for a running editor is only needed when a file would
+    # actually change, so the periodic reconcile stays cheap in the common case.
+    busy = {}
     for path, group, key in settings_paths():
-        if busy.get(path.parent.name,False):
-            continue
         try:
+            if not preference_needs_update(path, group, key):
+                continue
+            slug = path.parent.name
+            if slug not in busy:
+                busy[slug] = app_busy(slug)
+            if busy[slug]:
+                continue
             changed |= force_preference(path, group, key)
         except (OSError,ValueError):
             LOG.warning('Could not update preferences in %s; will retry',path)

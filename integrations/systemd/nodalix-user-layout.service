@@ -1,5 +1,12 @@
 [Unit]
 Description=Nodalix user-layout
+# nodalix-user-layout.path watches $HOME, so a burst of changes (extracting an
+# archive, a git clone) can start this unit more than five times in ten
+# seconds. The default start limit would then fail the unit and stop the path
+# unit from watching until the next login, as nodalix-app-organizer already
+# avoids.
+StartLimitIntervalSec=0
 [Service]
 Type=oneshot
 ExecStart=/usr/bin/nodalix-user-layout --apply
+Nice=10

@@ -9,6 +9,13 @@ Type=oneshot
 ExecStart=/usr/lib/nodalix-updater/update-transaction nodalix --automatic
 RestartForceExitStatus=75
 RestartSec=5min
+# Unattended runs (Persistent= catch-up included) happen while the user is
+# working: keep package extraction, initramfs generation and DKMS builds out
+# of the way of the desktop. Lowest best-effort I/O (not idle) so the package
+# lock is never held indefinitely by a starved update.
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
 
 # Nodalix package installation intentionally writes /usr, /etc and /var, so
 # ProtectSystem/RestrictSUIDSGID are deliberately not used here.

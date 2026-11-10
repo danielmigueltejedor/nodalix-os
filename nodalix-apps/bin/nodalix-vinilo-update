@@ -47,7 +47,7 @@ if [[ -L "$CURRENT" ]] &&
 else
     TMP="$(mktemp -d)"
     STAGE="$ROOT/.stage-${VERSION}-$$"
-    trap "rm -rf "$TMP" "$STAGE"" EXIT
+    trap 'rm -rf "$TMP" "$STAGE"' EXIT
 
     echo "Descargando SHA256SUMS..."
     curl -fL --retry 5 --retry-all-errors --retry-delay 2 --connect-timeout 15 -o "$TMP/SHA256SUMS" "$SUM_URL"

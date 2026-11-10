@@ -9,6 +9,13 @@ Type=oneshot
 ExecStart=/usr/lib/nodalix-updater/update-transaction firmware --automatic
 RestartForceExitStatus=75
 RestartSec=5min
+# Unattended runs (Persistent= catch-up included) happen while the user is
+# working: keep package extraction, initramfs generation and DKMS builds out
+# of the way of the desktop. Lowest best-effort I/O (not idle) so the package
+# lock is never held indefinitely by a starved update.
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
 
 # fwupdmgr delegates flashing to fwupd over D-Bus. Keep device/kernel access
 # compatible while isolating the client from user homes and unrelated state.
