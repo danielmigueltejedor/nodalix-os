@@ -33,7 +33,10 @@ while IFS= read -r uuid; do
   module_sources+=("gnome/extensions/$uuid")
 done <<< "$module_ids"
 tar --exclude='*/__pycache__' --exclude='gschemas.compiled' --zstd -C "$root" -cf "$work/nodalix-shell-overlays.tar.zst" \
-  gnome/nodalix-shell tools/prepare-nodalix-shell.py "${module_sources[@]}"
+  gnome/nodalix-shell \
+  tools/prepare-nodalix-shell.py \
+  tools/patch-nowplaying-multimonitor.py \
+  "${module_sources[@]}"
 sum=$(sha256sum "$work/nodalix-shell-overlays.tar.zst" | cut -d' ' -f1)
 sed -i "s/AUTO_OVERLAY_SHA256/$sum/" "$work/PKGBUILD"
 if [[ "${1:-}" == '--prepare-only' ]]; then

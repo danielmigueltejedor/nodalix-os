@@ -11,6 +11,78 @@
 #define WIDTH 144
 #define HEIGHT 108
 
+/* Thumbnails use a paintable with a fixed 144x108 intrinsic size, exactly like
+ * the static background chooser. A plain GtkPicture reports the pixel size of
+ * its image, which made every tile as large as its preview and produced one
+ * wallpaper per row. The texture is centre-cropped (cover) to the tile. */
+#define CC_TYPE_NODALIX_THUMBNAIL (cc_nodalix_thumbnail_get_type ())
+G_DECLARE_FINAL_TYPE (CcNodalixThumbnail, cc_nodalix_thumbnail, CC, NODALIX_THUMBNAIL, GObject)
+
+struct _CcNodalixThumbnail {
+  GObject parent_instance;
+  GdkTexture *texture;
+};
+
+static void cc_nodalix_thumbnail_paintable_init (GdkPaintableInterface *iface);
+G_DEFINE_FINAL_TYPE_WITH_CODE (CcNodalixThumbnail, cc_nodalix_thumbnail, G_TYPE_OBJECT,
+                               G_IMPLEMENT_INTERFACE (GDK_TYPE_PAINTABLE, cc_nodalix_thumbnail_paintable_init))
+
+static void
+cc_nodalix_thumbnail_finalize (GObject *object)
+{
+  g_clear_object (&CC_NODALIX_THUMBNAIL (object)->texture);
+  G_OBJECT_CLASS (cc_nodalix_thumbnail_parent_class)->finalize (object);
+}
+
+static void
+cc_nodalix_thumbnail_class_init (CcNodalixThumbnailClass *klass)
+{
+  G_OBJECT_CLASS (klass)->finalize = cc_nodalix_thumbnail_finalize;
+}
+
+static void
+cc_nodalix_thumbnail_init (CcNodalixThumbnail *self)
+{
+}
+
+static void
+thumbnail_snapshot (GdkPaintable *paintable, GdkSnapshot *snapshot, double width, double height)
+{
+  CcNodalixThumbnail *self = CC_NODALIX_THUMBNAIL (paintable);
+  if (!self->texture || width <= 0 || height <= 0)
+    return;
+  double source_width = gdk_texture_get_width (self->texture);
+  double source_height = gdk_texture_get_height (self->texture);
+  double scale = MAX (width / source_width, height / source_height);
+  double scaled_width = source_width * scale, scaled_height = source_height * scale;
+  graphene_rect_t clip = GRAPHENE_RECT_INIT (0, 0, width, height);
+  graphene_rect_t bounds = GRAPHENE_RECT_INIT ((width - scaled_width) / 2, (height - scaled_height) / 2,
+                                               scaled_width, scaled_height);
+  gtk_snapshot_push_clip (GTK_SNAPSHOT (snapshot), &clip);
+  gtk_snapshot_append_scaled_texture (GTK_SNAPSHOT (snapshot), self->texture, GSK_SCALING_FILTER_TRILINEAR, &bounds);
+  gtk_snapshot_pop (GTK_SNAPSHOT (snapshot));
+}
+
+static int thumbnail_width (GdkPaintable *paintable) { return WIDTH; }
+static int thumbnail_height (GdkPaintable *paintable) { return HEIGHT; }
+
+static void
+cc_nodalix_thumbnail_paintable_init (GdkPaintableInterface *iface)
+{
+  iface->snapshot = thumbnail_snapshot;
+  iface->get_intrinsic_width = thumbnail_width;
+  iface->get_intrinsic_height = thumbnail_height;
+}
+
+static GdkPaintable *
+thumbnail_new (const char *filename)
+{
+  CcNodalixThumbnail *self = g_object_new (CC_TYPE_NODALIX_THUMBNAIL, NULL);
+  if (filename && *filename)
+    self->texture = gdk_texture_new_from_filename (filename, NULL);
+  return GDK_PAINTABLE (self);
+}
+
 struct _CcNodalixBackgroundChooser {
   GtkBox parent_instance;
   GDBusProxy *proxy;
@@ -288,10 +360,9 @@ static void gallery_ready (GObject *source,GAsyncResult *result,gpointer data)
       for(guint i=0;i<json_array_get_length(items);i++) {
         JsonObject *item=json_array_get_object_element(items,i);
         const char *preview_path = json_object_get_string_member (item, "preview");
-        GtkWidget *picture = gtk_picture_new_for_filename (*preview_path ? preview_path : NULL);
-        gtk_picture_set_content_fit (GTK_PICTURE (picture), GTK_CONTENT_FIT_COVER);
-        gtk_picture_set_can_shrink(GTK_PICTURE(picture),FALSE);
-        gtk_widget_set_size_request(picture,WIDTH,HEIGHT);
+        g_autoptr(GdkPaintable) thumbnail = thumbnail_new (preview_path);
+        GtkWidget *picture = gtk_picture_new_for_paintable (thumbnail);
+        gtk_picture_set_can_shrink (GTK_PICTURE (picture), FALSE);
         GtkWidget *overlay=gtk_overlay_new();gtk_widget_set_overflow(overlay,GTK_OVERFLOW_HIDDEN);
         gtk_widget_add_css_class(overlay,"background-thumbnail");gtk_overlay_set_child(GTK_OVERLAY(overlay),picture);
         GtkWidget *play=gtk_image_new_from_icon_name("media-playback-start-symbolic");
@@ -300,13 +371,7 @@ static void gallery_ready (GObject *source,GAsyncResult *result,gpointer data)
         GtkWidget *check=gtk_image_new_from_icon_name("background-selected-symbolic");
         gtk_widget_set_halign(check,GTK_ALIGN_END);gtk_widget_set_valign(check,GTK_ALIGN_END);
         gtk_widget_add_css_class(check,"selected-check");gtk_overlay_add_overlay(GTK_OVERLAY(overlay),check);
-        GtkWidget *tile = gtk_box_new (GTK_ORIENTATION_VERTICAL, 4);
-        gtk_box_append (GTK_BOX (tile), overlay);
-        GtkWidget *caption = gtk_label_new (json_object_get_string_member (item, "title"));
-        gtk_label_set_ellipsize (GTK_LABEL (caption), PANGO_ELLIPSIZE_END);
-        gtk_label_set_max_width_chars (GTK_LABEL (caption), 19);
-        gtk_box_append (GTK_BOX (tile), caption);
-        GtkWidget *child=gtk_flow_box_child_new();gtk_flow_box_child_set_child(GTK_FLOW_BOX_CHILD(child),tile);
+        GtkWidget *child=gtk_flow_box_child_new();gtk_flow_box_child_set_child(GTK_FLOW_BOX_CHILD(child),overlay);
         gtk_widget_set_halign(child,GTK_ALIGN_CENTER);gtk_widget_set_valign(child,GTK_ALIGN_CENTER);
         const char *title = json_object_get_string_member (item, "title");
         const char *path = json_object_get_string_member (item, "path");
@@ -697,12 +762,19 @@ cc_nodalix_background_chooser_init (CcNodalixBackgroundChooser *self)
 
   self->gallery = GTK_FLOW_BOX (gtk_flow_box_new ());
   gtk_widget_add_css_class (GTK_WIDGET (self->gallery), "background-flowbox");
+  gtk_widget_set_margin_top (GTK_WIDGET (self->gallery), 12);
+  gtk_widget_set_margin_bottom (GTK_WIDGET (self->gallery), 12);
+  gtk_widget_set_margin_start (GTK_WIDGET (self->gallery), 12);
+  gtk_widget_set_margin_end (GTK_WIDGET (self->gallery), 12);
+  gtk_widget_set_halign (GTK_WIDGET (self->gallery), GTK_ALIGN_CENTER);
   gtk_flow_box_set_homogeneous (self->gallery, TRUE);
   gtk_flow_box_set_selection_mode (self->gallery, GTK_SELECTION_SINGLE);
+  gtk_flow_box_set_min_children_per_line (self->gallery, 1);
   gtk_flow_box_set_max_children_per_line (self->gallery, 8);
   gtk_flow_box_set_row_spacing (self->gallery, 12);
   gtk_flow_box_set_column_spacing (self->gallery, 12);
-  gtk_flow_box_set_activate_on_single_click (self->gallery, FALSE);
+  /* Same interaction as the static backgrounds: one click selects and applies. */
+  gtk_flow_box_set_activate_on_single_click (self->gallery, TRUE);
   gtk_flow_box_set_filter_func (self->gallery, filter_gallery, self, NULL);
   gtk_box_append (GTK_BOX (self), GTK_WIDGET (self->gallery));
 

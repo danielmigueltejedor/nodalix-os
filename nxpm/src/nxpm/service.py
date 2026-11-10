@@ -84,7 +84,12 @@ class NxpmObject:
                 engine.transactions.add_listener(self._changed)
 
             def _changed(self, transaction) -> None:
-                self.TransactionChanged(variant_dict(transaction.record().to_dict()))
+                payload = (
+                    transaction.to_dict()
+                    if hasattr(transaction, "to_dict") and not hasattr(transaction, "record")
+                    else transaction.record().to_dict()
+                )
+                self.TransactionChanged(variant_dict(payload))
 
             @dbus.service.signal(IFACE, signature="a{sv}")
             def TransactionChanged(self, transaction):

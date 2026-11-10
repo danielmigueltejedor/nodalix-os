@@ -115,7 +115,7 @@ def main():
             if not video.is_file() or video.stat().st_size != item['size'] or hashlib.file_digest(video.open('rb'),'sha256').hexdigest() != item['sha256']:
                 raise SystemExit(f'Missing or changed collection asset: {video}')
             shutil.copy2(video,stage/'collection'/video.name)
-            run(['ffmpeg','-hide_banner','-loglevel','error','-ss','1','-i',video,'-frames:v','1','-vf','scale=480:-2','-y',stage/'previews'/(video.stem+'.jpg')])
+            run(['ffmpeg','-hide_banner','-loglevel','error','-ss','1','-i',video,'-frames:v','1','-vf','scale=288:216:force_original_aspect_ratio=increase,crop=288:216','-q:v','3','-y',stage/'previews'/(video.stem+'.jpg')])
             run(['ffmpeg','-hide_banner','-loglevel','error','-ss','1','-i',video,'-frames:v','1','-q:v','2','-y',stage/'stills'/(video.stem+'.jpg')])
         collection=out/'nodalix-animated-collection.tar.zst';archive(stage,collection,['collection','previews','stills'])
         settings=out/f'nodalix-settings-{VERSION}.tar.zst';archive(ROOT,settings,['gnome/settings','docs/images/nodalix-logo.png'])

@@ -33,6 +33,8 @@ def elf_with_update(text: str) -> bytes:
     prefix[4] = 2
     prefix[5] = 1
     prefix[6] = 1
+    # AppImage Type-2 magic lives at offset 8.
+    prefix[8:11] = b"AI\x02"
     struct.pack_into("<Q", prefix, 40, table_offset)
     struct.pack_into("<HHH", prefix, 58, 64, 3, 2)
     return bytes(prefix) + info + names + sections
@@ -103,7 +105,7 @@ def test_appimage_import_registers_a_menu_entry(home):
     assert stored.is_file()
     assert stored.stat().st_mode & 0o111
     menu = home / "data" / "applications" / "os.nodalix.nxpm.Demo.desktop"
-    assert f"Exec={stored}" in menu.read_text(encoding="utf-8")
+    assert f'Exec="{stored}"' in menu.read_text(encoding="utf-8")
     assert AppImageBackend().list_updates()[0].id == "appimage:Demo"
 
 
@@ -142,6 +144,7 @@ def test_github_update_replaces_only_an_elf(home):
         def __init__(self, payload: bytes):
             self.payload = payload
             self.position = 0
+            self.headers = {"Content-Length": str(len(payload))}
 
         def read(self, amount=-1):
             if self.position >= len(self.payload):
@@ -213,3 +216,60 @@ def test_engine_import_and_remove_use_the_applications_folder(home):
     assert removed.state == "succeeded"
     assert load_catalog()["apps"] == {}
     assert not (applications_dir() / "Demo.AppImage").exists()
+
+
+def test_appimage_import_rejects_elf_without_type2_marker(home):
+    source = home / "Plain.AppImage"
+    payload = bytearray(elf_with_update("gh-releases-zsync|owner|repo|latest|Demo-*.AppImage.zsync"))
+    payload[8:11] = b"\x00\x00\x00"
+    source.write_bytes(payload)
+    with pytest.raises(NxpmError) as error:
+        AppImageBackend().import_file("appimage", str(source), lambda *_args: None)
+    assert error.value.code == "invalid-input"
+
+
+def test_catalog_write_is_atomic_and_quoted_exec(home):
+    from nxpm.applications import catalog_path, desktop_exec_escape, update_catalog, write_desktop
+
+    update_catalog(lambda data: data["apps"].__setitem__("Demo", {"name": "Demo"}))
+    path = catalog_path()
+    assert path.is_file()
+    assert not path.with_name(path.name + ".tmp").exists()
+    assert '"Demo"' in path.read_text(encoding="utf-8")
+
+    target = applications_dir() / "Demo App.AppImage"
+    target.write_bytes(elf_with_update("none"))
+    menu = write_desktop("Demo", "Demo", target, "comment")
+    text = menu.read_text(encoding="utf-8")
+    assert 'Exec="' in text
+    assert "Demo App.AppImage" in text
+    assert desktop_exec_escape('/tmp/a b%$`"\\c') == '"/tmp/a b%%\\$\\`\\"\\\\c"'
+    assert desktop_exec_escape("/opt/O'Brien/app") == '"/opt/O\'Brien/app"'
+    assert desktop_exec_escape("/opt/app;rm") == '"/opt/app;rm"'
+
+
+def test_engine_refuses_pacman_work_while_updater_lock_is_held(home, monkeypatch):
+    import fcntl
+    import os
+
+    from nxpm.config import load_config
+
+    lock = home / "update.lock"
+    lock.write_text("busy\n", encoding="utf-8")
+    monkeypatch.setenv("NXPM_UPDATER_LOCK", str(lock))
+    monkeypatch.setenv("NXPM_PACMAN_LOCK", str(home / "missing-db.lck"))
+    fd = os.open(lock, os.O_RDWR)
+    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+    class DummyPacman:
+        def upgrade_system(self, progress):
+            raise AssertionError("pacman upgrade must not run while the updater lock exists")
+
+    try:
+        engine = Engine(load_config(Path("/does/not/exist")), {"pacman": DummyPacman()})
+        transaction = engine.upgrade_system()
+        assert transaction.state == "failed"
+        assert "already applying" in (transaction.error or transaction.message).lower()
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)

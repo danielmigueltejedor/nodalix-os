@@ -217,6 +217,9 @@ def test_the_helper_directory_cannot_be_chosen_from_the_environment(monkeypatch,
     (tmp_path / "remove-package").write_text("#!/bin/sh\n")
     calls = []
     monkeypatch.delenv("NXPM_NO_PKEXEC", raising=False)
+    # A hostile NXPM_HELPER_DIR must not redirect pkexec, even when the real
+    # packaged helper directory is absent from this test environment.
+    monkeypatch.setattr("nxpm.engine.HELPER_DIR", str(tmp_path / "missing-system-helpers"))
     monkeypatch.setenv("NXPM_HELPER_DIR", str(tmp_path))
     monkeypatch.setattr(subprocess, "run", lambda command, **_k: calls.append(command))
     monkeypatch.setattr("os.geteuid", lambda: 1000)
@@ -259,3 +262,16 @@ def test_install_session_removes_only_generated_user_overrides(monkeypatch, tmp_
     assert custom.exists()
     assert "Removed outdated user override" in out
     assert "already in place" in out
+
+
+def test_update_notification_uses_the_translated_store_name():
+    from nxpm.check import store_text
+
+    assert store_text({"LANG": "es_ES.UTF-8"})[0] == "Tienda"
+    assert store_text({"LANGUAGE": "ca:es", "LANG": "en_US.UTF-8"})[0] == "Botiga"
+    assert store_text({"LANGUAGE": "en:es", "LANG": "es_ES.UTF-8"})[0] == "Store"
+    assert store_text({"LC_ALL": "C", "LANG": "es_ES.UTF-8"})[0] == "Store"  # C locale wins
+    assert store_text({"LANG": "en_US.UTF-8"})[0] == "Store"
+    assert store_text({"LANG": "xx_YY"})[0] == "Store"
+    assert store_text({})[0] == "Store"
+    assert "{count}" in store_text({"LANG": "es_ES"})[2]

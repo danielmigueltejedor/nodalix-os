@@ -449,6 +449,9 @@ jobs:
   publish:
     permissions:
       contents: write
+    concurrency:
+      group: nodalix-release-publish-${{ needs.test.outputs.release_tag }}
+      cancel-in-progress: false
     needs:
       - test
       - build
@@ -587,11 +590,27 @@ jobs:
           fi
 
           mapfile -t RELEASE_ASSETS < <(python3 tools/release_iso.py --assets-dir dist/release)
+
+          # Stable assets may be uploaded only while the GitHub Release is still
+          # a draft. A published stable tag is immutable, including the empty
+          # zero-asset case that would otherwise leave the updater on
+          # manifest_missing mid-upload. Prereleases may still clobber.
+          release_json=$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --json isDraft,isPrerelease,assets,tagName)
+          python3 tools/release_upload_policy.py \
+            --release-json "$release_json" \
+            --tag "$RELEASE_TAG"
+          is_draft=$(printf '%s' "$release_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["isDraft"])')
+          is_prerelease=$(printf '%s' "$release_json" | python3 -c 'import json,sys; print(json.load(sys.stdin)["isPrerelease"])')
+
+          upload_flags=(--repo "$GITHUB_REPOSITORY")
+          if [[ "$is_draft" == "True" || "$is_prerelease" == "True" ]]; then
+            upload_flags+=(--clobber)
+          fi
           gh release upload \
             "$RELEASE_TAG" \
             "${RELEASE_ASSETS[@]}" \
-            --clobber \
-            --repo "$GITHUB_REPOSITORY"
+            "${upload_flags[@]}"
 
           # A new release stays invisible to the updater until every
           # asset has been uploaded successfully.

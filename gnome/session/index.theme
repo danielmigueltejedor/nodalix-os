@@ -1,7 +1,7 @@
 [Icon Theme]
 Name=Nodalix Adwaita Symbols
 Comment=Adwaita controls with existing application icons
-Inherits=Colloid-Teal,hicolor
+Inherits=Nodalix-Icons,Adwaita,hicolor
 Directories=symbolic/actions,symbolic/devices,symbolic/status,symbolic/categories,symbolic/settings,symbolic/window-controls
 
 [symbolic/actions]

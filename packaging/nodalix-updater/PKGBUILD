@@ -1,5 +1,5 @@
 pkgname=nodalix-updater
-pkgver=0.5.0
+pkgver=0.5.1
 pkgrel=1
 pkgdesc="Nodalix GitHub Releases update service"
 arch=('any')
@@ -34,9 +34,7 @@ package() {
   cp -a --no-preserve=ownership "$srcdir/updater/vendor/cachyos-repo" \
     "$pkgdir/usr/lib/nodalix-updater/"
   install -Dm644 "$srcdir/updater/updater.json" "$pkgdir/etc/nodalix/updater.json"
-  if [[ -f "$srcdir/updater/release.pub" ]]; then
-    install -Dm644 "$srcdir/updater/release.pub" "$pkgdir/usr/share/nodalix/keys/release.pub"
-  fi
+  install -Dm644 "$srcdir/updater/release.pub" "$pkgdir/usr/share/nodalix/keys/release.pub"
   install -Dm644 "$srcdir/updater/nodalix-update-check.service" "$pkgdir/usr/lib/systemd/system/nodalix-update-check.service"
   install -Dm644 "$srcdir/updater/nodalix-update-check.timer" "$pkgdir/usr/lib/systemd/system/nodalix-update-check.timer"
   install -Dm644 "$srcdir/updater/nodalix-update-system.service" "$pkgdir/usr/lib/systemd/system/nodalix-update-system.service"

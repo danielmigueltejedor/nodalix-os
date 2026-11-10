@@ -95,14 +95,25 @@ class AppImageBackend:
         raise NxpmError("unsupported", "Import an AppImage or a Debian package into Applications.")
 
     def _import_appimage(self, path: str, progress) -> Package:
+        from nxpm.updates_appimage import look_like_appimage
+
         source = open_user_file(path)
         with source.open("rb") as handle:
-            if not is_elf(handle.read(4)):
-                raise NxpmError("invalid-input", "That file is not an AppImage.")
+            header = handle.read(4)
+        if not is_elf(header):
+            raise NxpmError("invalid-input", "That file is not an AppImage.")
+        if not look_like_appimage(source):
+            raise NxpmError(
+                "invalid-input",
+                "NXPM only imports Type-2 AppImages (ELF files marked AI\\x02).",
+            )
         key = _unique_key(safe_key(source.stem))
         progress(0.2, "Copying the AppImage into Applications")
         destination = applications_dir() / f"{key}.AppImage"
         shutil.copyfile(source, destination)
+        if not look_like_appimage(destination):
+            destination.unlink(missing_ok=True)
+            raise NxpmError("failed", "The copied AppImage failed verification.")
         destination.chmod(0o755)
         information = update_information(destination)
         name = _embedded_name(destination) or key

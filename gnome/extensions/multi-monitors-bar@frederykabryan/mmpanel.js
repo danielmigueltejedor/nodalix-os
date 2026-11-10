@@ -371,12 +371,21 @@ const MultiMonitorsPanel = GObject.registerClass(
             });
             this.add_child(this._centerBox);
 
-            // Wrapper inside center box to center its single child (dateMenu)
+            // Wrapper keeps the center cluster visually centered while still
+            // allowing several indicators (dateMenu + Now Playing, …).
             this._centerBin = new St.Widget({
                 layout_manager: new Clutter.BinLayout(),
                 x_expand: true,
                 y_expand: true,  // Allow full height for dateMenu hover
             });
+            this._centerRow = new St.BoxLayout({
+                name: 'panelCenterRow',
+                x_expand: false,
+                y_expand: true,
+                x_align: Clutter.ActorAlign.CENTER,
+                y_align: Clutter.ActorAlign.FILL,
+            });
+            this._centerBin.add_child(this._centerRow);
             this._centerBox.add_child(this._centerBin);
 
             // Right box should align to the end
@@ -670,7 +679,9 @@ const MultiMonitorsPanel = GObject.registerClass(
                     }
                 }
                 const container = indicator.container || indicator;
-                if (box === this._centerBox && container.get_parent() === this._centerBin) {
+                if (box === this._centerBox &&
+                    (container.get_parent() === this._centerRow ||
+                     container.get_parent() === this._centerBin)) {
                     container.show();
                     indicator.visible = true;
                     return;
@@ -1053,19 +1064,30 @@ const MultiMonitorsPanel = GObject.registerClass(
             // Show container BEFORE adding (like main Panel)
             container.show();
 
-            // If targeting center box, place the item in the center wrapper and center it
-            if (box === this._centerBox && this._centerBin) {
-                // Remove any existing children from centerBin first
-                this._centerBin.remove_all_children();
+            // Center indicators share one row so dateMenu and Now Playing coexist.
+            // Every center PanelMenu.Button must FILL the panel height: otherwise
+            // the hover plate shrinks and menus anchored to St.Side.TOP open
+            // above the panel bottom (visible on mixed-DPI secondary monitors).
+            if (box === this._centerBox && this._centerRow) {
                 container.x_align = Clutter.ActorAlign.CENTER;
-                // Use FILL for dateMenu so hover takes full panel height
-                if (role === 'dateMenu') {
-                    container.y_align = Clutter.ActorAlign.FILL;
-                    container.y_expand = true;
+                container.y_align = Clutter.ActorAlign.FILL;
+                container.y_expand = true;
+                const parent = container.get_parent();
+                if (parent === this._centerRow) {
+                    const current = this._centerRow.get_children().indexOf(container);
+                    if (current >= 0 && current !== position) {
+                        this._centerRow.remove_child(container);
+                        this._centerRow.insert_child_at_index(
+                            container,
+                            Math.max(0, Math.min(position, this._centerRow.get_n_children())));
+                    }
                 } else {
-                    container.y_align = Clutter.ActorAlign.CENTER;
+                    if (parent)
+                        parent.remove_child(container);
+                    this._centerRow.insert_child_at_index(
+                        container,
+                        Math.max(0, Math.min(position, this._centerRow.get_n_children())));
                 }
-                this._centerBin.add_child(container);
             } else {
                 // Add to box at position
                 box.insert_child_at_index(container, position);
@@ -1229,6 +1251,12 @@ const MultiMonitorsPanel = GObject.registerClass(
             for (const role in this.statusArea) {
                 const indicator = this.statusArea[role];
                 const mainIndicator = Main.panel.statusArea[role] || null;
+
+                // Now Playing owns per-monitor hosts with roles like
+                // nowplaying@…::<monitorIndex>. They are absent from the
+                // primary-panel desired set; leave their lifecycle alone.
+                if (typeof role === 'string' && role.startsWith('nowplaying@'))
+                    continue;
 
                 if (!desiredRoles.has(role)) {
                     this._destroyIndicator(role);

@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Callable
 
 from .to_0_2_0 import LEGACY_UNOWNED_FILES, applies_0_1_1_to_0_2_0
+from .to_0_5_1 import RELEASE_KEY_FILES, applies_release_key_cleanup
 
 MAX_BACKUP_BYTES = 32 * 1024 * 1024
 
@@ -36,18 +37,45 @@ def file_owned_by_package(
     path: Path,
     pacman: Callable[..., object] | None = None,
 ) -> bool:
+    """Return True when pacman reports ownership.
+
+    Unexpected pacman failures (locks, missing binary) raise MigrationError so
+    callers do not treat query errors as evidence that a path is unowned.
+    """
     runner = pacman
     if runner is None:
         import subprocess
 
         runner = subprocess.run
-    result = runner(
-        ["pacman", "-Qo", str(path)],
-        capture_output=True,
-        text=True,
-        check=False,
+    try:
+        result = runner(
+            ["pacman", "-Qo", str(path)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError as error:
+        raise MigrationError(f"could not query package ownership for {path}: {error}") from error
+    code = int(getattr(result, "returncode", 1))
+    if code == 0:
+        return True
+    stderr = str(getattr(result, "stderr", "") or "")
+    stdout = str(getattr(result, "stdout", "") or "")
+    combined = f"{stdout}\n{stderr}".lower()
+    # pacman -Qo prints "error: No package owns …" / "Ningún paquete contiene …"
+    # for a normal unowned path (exit 1). Treat only that as unowned.
+    unowned = (
+        "no package owns" in combined
+        or "ningún paquete contiene" in combined
+        or "ningun paquete contiene" in combined
     )
-    return int(getattr(result, "returncode", 1)) == 0
+    if code == 1 and unowned:
+        return False
+    if "unable to lock" in combined or "db.lck" in combined or code != 1 or not unowned:
+        raise MigrationError(
+            f"could not query package ownership for {path} (pacman exit {code})"
+        )
+    return False
 
 
 def _copy_legacy(source: Path, destination: Path) -> dict:
@@ -89,8 +117,9 @@ def remove_unowned_legacy_files(
     backup_dir: Path,
     owned_check: Callable[[Path], bool] | None = None,
     log: Callable[[str], None] | None = None,
+    migration_id: str = "0.1.1-to-0.2.0",
 ) -> dict:
-    """Idempotent cleanup of known unowned 0.1.1 leftovers.
+    """Idempotent cleanup of known unowned leftovers.
 
     Owned files are left untouched. Missing files are a no-op.
     """
@@ -127,7 +156,7 @@ def remove_unowned_legacy_files(
         write_log(f"removed {path} (unowned)")
 
     payload = {
-        "id": "0.1.1-to-0.2.0",
+        "id": migration_id,
         "timestamp": utc_now(),
         "files": list(files),
         "removed": removed,
@@ -151,25 +180,41 @@ def run_migrations(
     """Execute migrations whose version *or filesystem* gate matches."""
     results: list[dict] = []
     legacy_files = files or LEGACY_UNOWNED_FILES
+    key_files = RELEASE_KEY_FILES
     migrations = [
         {
             "id": "0.1.1-to-0.2.0",
             "applies": applies_0_1_1_to_0_2_0,
+            "files": legacy_files,
             "run": lambda: remove_unowned_legacy_files(
                 files=legacy_files,
                 backup_dir=state_dir / "migrations" / "0.1.1-to-0.2.0",
                 owned_check=owned_check,
                 log=log,
+                migration_id="0.1.1-to-0.2.0",
             ),
-        }
+        },
+        {
+            "id": "0.5.0-release-key",
+            "applies": applies_release_key_cleanup,
+            "files": key_files,
+            "run": lambda: remove_unowned_legacy_files(
+                files=key_files,
+                backup_dir=state_dir / "migrations" / "0.5.0-release-key",
+                owned_check=owned_check,
+                log=log,
+                migration_id="0.5.0-release-key",
+            ),
+        },
     ]
     for migration in migrations:
+        migration_files = migration.get("files")
         if not migration["applies"](
             current_version,
             target_version,
             compare_versions,
             owned_check=owned_check,
-            files=legacy_files,
+            files=migration_files,
         ):
             if log is not None:
                 log(f"skip migration {migration['id']} ({current_version} -> {target_version})")

@@ -39,9 +39,15 @@ No se aplican variables Ozone/GDK globales ni reglas de ventana por aplicación.
 
 ## Iconos y aplicaciones
 
-El tema `Nodalix-Adwaita-Symbols` sustituye símbolos de controles y paneles de
-Ajustes por los originales de GNOME/Adwaita; hereda Colloid para aplicaciones.
-`nodalix-shell-symbols` crea una variante de usuario que hereda su tema actual.
+El tema predeterminado `Nodalix-Icons` se construye desde el repositorio
+`nodalix-icon-theme`: incluye solo iconos de aplicaciones de Colloid y Nodalix,
+y hereda de Adwaita los símbolos de GNOME Shell, Wi-Fi, Bluetooth, controles
+y paneles de Ajustes. La herencia no copia ni congela los iconos de Adwaita.
+El cursor Capitaine se empaqueta aparte como `nodalix-cursor-theme` y se elige
+con `cursor-theme=Nodalix`. Ambos paquetes usan el mismo commit del repositorio.
+`Nodalix-Adwaita-Symbols` y `nodalix-shell-symbols` quedan disponibles como
+compatibilidad para instalaciones antiguas; el tema nuevo no hereda Colloid
+para los componentes de la interfaz.
 El gestor `nodalix-app-icons` excluye los paneles internos de Ajustes y los
 iconos simbólicos; retira solo las entradas que él creó y que siguen intactas.
 Así no sustituye los nombres de los controles por rutas de archivos de aplicaciones.
@@ -183,8 +189,14 @@ conservando las demás extensiones que estén configuradas en ese perfil.
 La colección proporciona un fotograma 4K estático del fondo animado; GDM no
 inicia el reproductor de vídeo. En el equipo se configuró el fondo actual
 Mystic Lights, accesible públicamente en `/usr/share/nodalix/wallpaper-stills`.
-Los cambios posteriores del fondo del usuario no se copian automáticamente
-al perfil de acceso, que es compartido por todas las cuentas del equipo.
+El perfil de acceso es compartido por todas las cuentas del equipo, así que
+cambiarlo exige autenticación. `nodalix-settings` lo mantiene al día: al elegir
+un fondo estático después de uno animado (o cambiar la imagen del escritorio con
+el servicio de Ajustes activo) publica esa imagen una sola vez, recuerda cuál
+fue la última (`~/.local/state/nodalix/login-background.json`) y no vuelve a
+pedir autenticación por la misma imagen. Las imágenes que no son JPEG se
+convierten antes como usuario y el fondo `.xml` dinámico usa su primer fotograma.
+Al detener el fondo animado también se retira el póster del protector de pantalla.
 
 Se probó el modo GDM real en un compositor aislado y se comprobó visualmente
 que el fondo aparece detrás de los controles y del logo compacto. La sesión

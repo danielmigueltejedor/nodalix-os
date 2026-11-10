@@ -18,6 +18,38 @@ log = logging.getLogger("nxpm")
 # Root-owned programs that Polkit authorizes by path. pkexec never runs the
 # user's interpreter or a module found through the user's environment.
 HELPER_DIR = "/usr/lib/nodalix-nxpm"
+PACMAN_LOCK = "/var/lib/pacman/db.lck"
+UPDATER_LOCK = "/var/lib/nodalix-updater/update.lock"
+
+
+def _updater_flock_held(path: str) -> bool:
+    """True only while another process holds the updater exclusive flock."""
+    import fcntl
+
+    if not os.path.exists(path):
+        return False
+    try:
+        fd = os.open(path, os.O_RDWR)
+    except OSError:
+        return False
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        return False
+    except BlockingIOError:
+        return True
+    finally:
+        os.close(fd)
+
+
+def ensure_package_manager_idle() -> None:
+    """Refuse privileged pacman work while another Nodalix/ALPM client holds a lock."""
+    updater_lock = os.environ.get("NXPM_UPDATER_LOCK", UPDATER_LOCK)
+    if _updater_flock_held(updater_lock):
+        raise NxpmError("failed", "Nodalix is already applying a system update.")
+    pacman_lock = os.environ.get("NXPM_PACMAN_LOCK", PACMAN_LOCK)
+    if os.path.exists(pacman_lock):
+        raise NxpmError("failed", "Another package manager is using the system databases.")
 
 
 class Engine:
@@ -89,6 +121,7 @@ class Engine:
             raise NxpmError("disabled", "Official repository updates are disabled.")
 
         def runner(transaction: Transaction, manager: TransactionManager) -> None:
+            ensure_package_manager_idle()
             if os.geteuid() == 0:
                 self.backends["pacman"].upgrade_system(lambda progress, message: self._progress(transaction, manager, progress, message))
                 return
@@ -101,6 +134,7 @@ class Engine:
             raise NxpmError("disabled", "Official repository changes are disabled.")
 
         def runner(transaction: Transaction, manager: TransactionManager) -> None:
+            ensure_package_manager_idle()
             if os.geteuid() == 0:
                 self.backends["pacman"].remove_package(
                     package_id,

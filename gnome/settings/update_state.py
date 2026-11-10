@@ -9,11 +9,17 @@ import tempfile
 def nodalix_status_label(data):
     """Translate the updater's stable API codes into text for Settings."""
     status=data.get('status','')
+    if status == 'repair_needed' or (data.get('missing_required') and status != 'update_available'):
+        missing = data.get('missing_required') or []
+        if missing:
+            return 'Reparación necesaria: faltan ' + ', '.join(str(item) for item in missing)
+        return 'Reparación necesaria: faltan paquetes obligatorios de Nodalix'
     if data.get('update_available') or status=='update_available':
         version=data.get('latest_version') or data.get('version')
         return 'Nueva versión: '+str(version) if version else 'Hay una actualización de Nodalix disponible'
     labels={
         'up_to_date':'Nodalix está actualizado',
+        'repair_needed':'Reparación necesaria: faltan paquetes obligatorios de Nodalix',
         'no_release':'Todavía no hay versiones publicadas',
         'no_compatible_release':'No hay una versión nueva compatible con el canal seleccionado',
         'manifest_missing':'La publicación no contiene la información necesaria para actualizar',
