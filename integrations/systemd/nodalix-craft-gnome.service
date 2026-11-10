@@ -2,6 +2,17 @@
 Description=Controles nativos de GNOME para las apps Craft
 PartOf=graphical-session.target
 After=graphical-session-pre.target
+# Without a Craft application there is nothing to guard. Skipping the unit
+# avoids a resident Python process, an X11 connection (which makes GNOME start
+# Xwayland on demand) and a periodic /proc scan. nodalix-craft-gnome.path
+# starts it as soon as a Craft launcher appears; craft-gnome-launch starts it
+# too, and the condition is checked again each time.
+ConditionPathExistsGlob=|/usr/share/applications/ai.storyteller.*.desktop
+ConditionPathExistsGlob=|/var/lib/flatpak/exports/share/applications/ai.storyteller.*.desktop
+ConditionPathExistsGlob=|%h/.local/share/applications/ai.storyteller.*.desktop
+ConditionPathExistsGlob=|%h/.local/share/flatpak/exports/share/applications/ai.storyteller.*.desktop
+ConditionPathExistsGlob=|%h/.config/autostart/ai.storyteller.*.desktop
+ConditionPathExists=|/usr/bin/artcraft-launcher
 
 [Service]
 Type=simple
