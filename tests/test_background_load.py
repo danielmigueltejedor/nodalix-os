@@ -40,6 +40,7 @@ class CraftHelperIsOnlyRunWhenNeededTests(unittest.TestCase):
         self.assertIn("Unit=nodalix-craft-gnome.service", path)
         self.assertIn("PathChanged=/usr/share/applications", path)
         self.assertIn("PathChanged=%h/.local/share/flatpak/exports/share/applications", path)
+        self.assertIn("PathChanged=%h/.config/autostart", path)
         package = read("packaging/nodalix-integrations/PKGBUILD")
         self.assertRegex(package, r"nodalix-craft-gnome\.service nodalix-craft-gnome\.path; do")
         self.assertRegex(package, r"default\.target\.wants.*\n(?:.*\n)*?.*nodalix-craft-gnome\.path")
