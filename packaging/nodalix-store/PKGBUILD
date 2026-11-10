@@ -3,7 +3,7 @@ pkgver=0.5.0
 pkgrel=2
 # Nodalix Store is built from danielmigueltejedor/tienda,
 # pinned to an exact commit like every other external Nodalix source.
-_store_commit=976955805f31865b7bce980ff6e7f056993810c6
+_store_commit=4e589717e7649b53e1b9b38103877331d71f2721
 pkgdesc='Nodalix Store: the default app store of Nodalix OS (Flatpak and official packages through NXPM)'
 arch=('x86_64')
 url='https://github.com/danielmigueltejedor/tienda'
@@ -19,7 +19,7 @@ replaces=('bazaar')
 makedepends=('meson' 'ninja' 'vala' 'blueprint-compiler' 'gettext' 'libxml2' 'desktop-file-utils'
              'python' 'python-babel' 'perl' 'glib2-devel')
 source=("tienda-$_store_commit.tar.gz::https://codeload.github.com/danielmigueltejedor/tienda/tar.gz/$_store_commit")
-sha256sums=('c868983b6e98d531b70533522b838a4bfd78612b653c6abca07a581bc1406f9a')
+sha256sums=('88895b2413867777f9ca4291ee89a35a2bee1f50476ea2fae99efd93036ae504')
 
 build() {
     cd "$srcdir/tienda-$_store_commit"
