@@ -24,6 +24,10 @@
 
 ---
 
+<p align="center">
+  <img src="./docs/screenshots/desktop.webp" alt="The Nodalix OS desktop: GNOME Shell on Wayland with the floating dock and a Nodalix wallpaper">
+</p>
+
 Nodalix is an Arch Linux desktop developed as one integrated system rather than a collection of unrelated dotfiles.
 
 The shell, settings, application management, system updater, iPhone integration, visual identity, installation tools and release infrastructure are versioned and shipped together to provide a consistent desktop from first boot onwards.
@@ -46,6 +50,27 @@ The [0.4.0 preparation audit](docs/preparation-0.4.0.md) records the status of a
 | Designed for keyboard and pointer use | Recovery paths kept available | Desktop notifications and media controls |
 
 Nodalix is designed to feel like a complete operating system while retaining the flexibility and package ecosystem of Arch Linux.
+
+<table>
+  <tr>
+    <td width="50%"><img src="./docs/screenshots/quick-settings.webp" alt="Quick Settings with network, dark style, LocalSend, Phone Link and auto-tiling"></td>
+    <td width="50%"><img src="./docs/screenshots/updates.webp" alt="Settings, System, Updates: Nodalix, programs and kernel, Nodalix apps, Flatpak and firmware"></td>
+  </tr>
+  <tr>
+    <td><p align="center"><sub><b>Quick Settings</b> · network, dark style, LocalSend, Phone Link and tiling</sub></p></td>
+    <td><p align="center"><sub><b>Updates</b> · the whole system from one place in Settings</sub></p></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="./docs/screenshots/appearance.webp" alt="Settings, Appearance: style, accent colour and the Nodalix wallpapers"></td>
+    <td width="50%"><img src="./docs/screenshots/login.webp" alt="The Nodalix login screen"></td>
+  </tr>
+  <tr>
+    <td><p align="center"><sub><b>Appearance</b> · style, accent colour and Nodalix wallpapers</sub></p></td>
+    <td><p align="center"><sub><b>Login</b> · GDM with the Nodalix identity</sub></p></td>
+  </tr>
+</table>
+
+<sub>Screenshots of the Nodalix 0.5.2 live ISO, running in a virtual machine with the Spanish locale.</sub>
 
 ## Core components
 
