@@ -1065,15 +1065,13 @@ const MultiMonitorsPanel = GObject.registerClass(
             container.show();
 
             // Center indicators share one row so dateMenu and Now Playing coexist.
+            // Every center PanelMenu.Button must FILL the panel height: otherwise
+            // the hover plate shrinks and menus anchored to St.Side.TOP open
+            // above the panel bottom (visible on mixed-DPI secondary monitors).
             if (box === this._centerBox && this._centerRow) {
                 container.x_align = Clutter.ActorAlign.CENTER;
-                if (role === 'dateMenu') {
-                    container.y_align = Clutter.ActorAlign.FILL;
-                    container.y_expand = true;
-                } else {
-                    container.y_align = Clutter.ActorAlign.CENTER;
-                    container.y_expand = false;
-                }
+                container.y_align = Clutter.ActorAlign.FILL;
+                container.y_expand = true;
                 const parent = container.get_parent();
                 if (parent === this._centerRow) {
                     const current = this._centerRow.get_children().indexOf(container);

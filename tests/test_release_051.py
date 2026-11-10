@@ -459,6 +459,17 @@ export default class NowPlayingExtension extends Extension {
             ROOT / "gnome/extensions/multi-monitors-bar@frederykabryan/monitorIndicatorPolicy.js"
         ).read_text(encoding="utf-8")
         self.assertIn("this._centerRow", panel)
+        self.assertIn(
+            "Every center PanelMenu.Button must FILL the panel height",
+            panel,
+        )
+        self.assertRegex(
+            panel,
+            r"if \(box === this\._centerBox && this\._centerRow\) \{\s*"
+            r"container\.x_align = Clutter\.ActorAlign\.CENTER;\s*"
+            r"container\.y_align = Clutter\.ActorAlign\.FILL;\s*"
+            r"container\.y_expand = true;",
+        )
         self.assertIn("nowplaying@epogonii.github.io", policy)
         build = (ROOT / "tools/build-nodalix-shell.sh").read_text(encoding="utf-8")
         self.assertIn("patch-nowplaying-multimonitor.py", build)
