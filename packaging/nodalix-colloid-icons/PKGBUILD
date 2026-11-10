@@ -1,6 +1,6 @@
 pkgname=nodalix-colloid-icons
-pkgver=0.5.1
-pkgrel=2
+pkgver=0.5.2
+pkgrel=1
 _theme_commit=20e6275a0053299cb25bacd94df8d0f0bac2c0c2
 options=("!strip")
 pkgdesc='Nodalix desktop icons: Colloid applications with Adwaita system symbols'
