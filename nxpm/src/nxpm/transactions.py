@@ -75,6 +75,10 @@ class TransactionManager:
             self.pump()
         return transaction
 
+    def busy(self) -> bool:
+        with self._lock:
+            return self._active is not None or bool(self._queue)
+
     def get(self, transaction_id: str) -> Transaction:
         with self._lock:
             transaction = self._items.get(transaction_id)

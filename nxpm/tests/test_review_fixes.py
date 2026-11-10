@@ -275,3 +275,45 @@ def test_update_notification_uses_the_translated_store_name():
     assert store_text({"LANG": "xx_YY"})[0] == "Store"
     assert store_text({})[0] == "Store"
     assert "{count}" in store_text({"LANG": "es_ES"})[2]
+
+
+class FakeClock:
+    def __init__(self):
+        self.now = 0.0
+
+    def __call__(self):
+        return self.now
+
+
+def test_idle_service_exits_only_when_it_has_nothing_to_remember():
+    from nxpm.service import IdleWatch
+    from nxpm.transactions import TransactionManager
+
+    clock = FakeClock()
+    manager = TransactionManager()
+    watch = IdleWatch(manager, timeout=100, clock=clock)
+    clock.now = 99
+    assert not watch.expired()
+    watch.touch()
+    clock.now = 198
+    assert not watch.expired()
+    clock.now = 199
+    assert watch.expired()
+
+    manager.submit("install", "a", "flatpak", lambda tx, mgr: None)
+    clock.now = 10_000
+    assert not watch.expired()  # history is kept in memory only
+
+
+def test_busy_service_never_exits():
+    from nxpm.service import IdleWatch
+    from nxpm.transactions import TransactionManager
+
+    clock = FakeClock()
+    manager = TransactionManager()
+    watch = IdleWatch(manager, timeout=1, clock=clock)
+    clock.now = 50
+    manager._active = "running"
+    assert manager.busy() and not watch.expired()
+    manager._active = None
+    assert watch.expired()
