@@ -295,7 +295,14 @@ export async function beforeReveal() {
         return;
     try {
         await Promise.all([
-            modulesIdle ? waitUpTo(modulesIdle(), MODULES_WAIT) : Promise.resolve(),
+            (async () => {
+                try {
+                    if (modulesIdle)
+                        await waitUpTo(modulesIdle(), MODULES_WAIT);
+                } catch (error) {
+                    logError(error, 'Nodalix login transition: waiting for the desktop modules failed');
+                }
+            })(),
             waitUpTo(painted, PAINT_WAIT),
         ]);
         if (paintedAt) {
