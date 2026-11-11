@@ -92,12 +92,15 @@ class MenuBar {
 			this._fallback.onAppOpen = () => this._proxy.RequestMenuTree();
 		this._fallback?.setNativeMenusPresent(this._native.hasMenus() || this._shortcuts.hasMenus());
 		this._fallback?.setAppItems(this._native.appItems());
+		// The native buttons were built for the previous setting: build them again.
+		this.refresh();
 	}
 
 	/** Native tree beats shortcut mapping beats generic fallback. */
 	setMenuTree(items) {
 		const app = this._winTracker.focus_app;
-		this._native.setItems(items, app?.get_name() ?? '');
+		// The app menu is only taken out of the native buttons when a fallback button will show it.
+		this._native.setItems(items, this._fallback ? app?.get_name() ?? '' : '');
 		this._fallback?.setAppItems(this._native.appItems());
 		if (items.length > 0) {
 			this._shortcuts.setMapping(null);

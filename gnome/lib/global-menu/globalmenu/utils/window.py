@@ -130,7 +130,9 @@ class WindowManager(object):
 		key = win_data.get('nodalix_window_id', '')
 		app = key.split(':', 1)[0] if key and not key.startswith('window:') else None
 		gtk = {k: v for k, v in win_data.items() if k.startswith('gtk_')}
-		if app and gtk.get('gtk_menubar_object_path'):
+		if app and (gtk.get('gtk_menubar_object_path')
+				or (gtk.get('gtk_app_menu_object_path') and app not in cls._gtk_menus)):
+			# An exporter of only an app menu is cached too, but never over one that has a menubar.
 			cls._gtk_menus[app] = gtk
 		elif app and app in cls._gtk_menus:
 			# Only while the app that exported it is still running: a restarted app has a new
