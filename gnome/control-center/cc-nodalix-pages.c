@@ -11,7 +11,6 @@ struct _CcNodalixUpdatesPage {
   GDBusProxy *proxy;
   GCancellable *cancel;
   GtkLabel *status;
-  GtkLabel *identity;
   GtkSpinner *progress;
   GtkTextBuffer *log;
   GtkTextBuffer *packages;
@@ -45,8 +44,6 @@ static void state_ready(GObject *source, GAsyncResult *result, gpointer data)
     g_autoptr(JsonParser) parser = json_parser_new();
     if (json_parser_load_from_data(parser, text, -1, &error)) {
       JsonObject *state = json_node_get_object(json_parser_get_root(parser));
-      if (json_object_has_member(state, "identity"))
-        gtk_label_set_text(self->identity, json_object_get_string_member(state, "identity"));
       gboolean busy = json_object_get_boolean_member(state, "busy") || json_object_get_boolean_member(state, "checking");
       gboolean mandatory = json_object_get_boolean_member(state, "reboot_mandatory");
       gboolean automatic_busy = json_object_has_member(state,"automatic_busy") && json_object_get_boolean_member(state,"automatic_busy");
@@ -199,9 +196,6 @@ static void cc_nodalix_updates_page_init(CcNodalixUpdatesPage *self)
   AdwPreferencesGroup *group=ADW_PREFERENCES_GROUP(adw_preferences_group_new());
   adw_preferences_group_set_title(group,"Actualizaciones de Nodalix");
   adw_preferences_group_set_description(group,"Mantén al día el escritorio, las aplicaciones, los programas y el kernel.");
-  self->identity=GTK_LABEL(gtk_label_new("Consultando la versión instalada…"));
-  gtk_label_set_wrap(self->identity,TRUE);
-  adw_preferences_group_add(group,GTK_WIDGET(self->identity));
   for (guint i=0;i<5;i++) {
     self->rows[i]=ADW_ACTION_ROW(adw_action_row_new());
     adw_preferences_row_set_title(ADW_PREFERENCES_ROW(self->rows[i]),titles[i]);
