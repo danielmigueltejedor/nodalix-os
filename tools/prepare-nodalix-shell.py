@@ -12,7 +12,7 @@ import shutil
 import sys
 
 GNOME_VERSION = "51.1"
-RESOURCES = ("main.js", "connect.js", "modules.js", "modules.json")
+RESOURCES = ("main.js", "connect.js", "modules.js", "modules.json", "handoff.js", "transition.js")
 
 MAIN_IMPORT = "import * as Panel from './panel.js';\n"
 MAIN_INITIALIZE = "    await _initializeUI();\n"
@@ -24,6 +24,12 @@ EXTENSION_DISCOVERY = "            const uuid = info.get_name();\n            co
 GETTEXT_DETECTION = """        const extensionLine = stack.find(
             line => line.includes(basePath));"""
 EXTENSION_FILTER = "        return extensions.filter(item => !disabledExtensions.includes(item));\n"
+# Greeter -> session hand-off (see gnome/nodalix-shell/transition.js).
+MAIN_REGISTER = "    LoginManager.registerSessionWithGDM();\n"
+LAYOUT_IMPORT = "import * as Main from './main.js';\n"
+LAYOUT_FIRST_FRAME = "        this._systemBackground.show();\n        global.stage.show();\n"
+LAYOUT_SESSION_ANIMATION = "    async _startupAnimationSession() {\n        if (Main.sessionMode.hasOverview) {\n"
+LAYOUT_COMPLETE = "        this._systemBackground.destroy();\n        this._systemBackground = null;\n"
 
 
 def replace_once(path: Path, old: str, new: str) -> None:
@@ -44,7 +50,13 @@ def prepare(source: Path, overlay: Path) -> None:
     resources = source / "js/js-resources.gresource.xml"
     extensions = source / "js/ui/extensionSystem.js"
     gettext = source / "js/extensions/sharedInternals.js"
+    layout = source / "js/ui/layout.js"
     for path, needle in (
+        (main, MAIN_REGISTER),
+        (layout, LAYOUT_IMPORT),
+        (layout, LAYOUT_FIRST_FRAME),
+        (layout, LAYOUT_SESSION_ANIMATION),
+        (layout, LAYOUT_COMPLETE),
         (main, MAIN_IMPORT),
         (main, MAIN_INITIALIZE),
         (main, MAIN_LAYOUT),
@@ -81,6 +93,26 @@ def prepare(source: Path, overlay: Path) -> None:
     replace_once(
         main, MAIN_LAYOUT,
         "    global.connect('shutdown', Nodalix.stop);\n" + MAIN_LAYOUT)
+    # Keep the greeter on screen until the session has a first frame to show,
+    # then reveal the desktop with a "desblur" instead of the dark start-up.
+    replace_once(
+        main, MAIN_REGISTER,
+        "    Nodalix.registerSession(() => LoginManager.registerSessionWithGDM());\n")
+    replace_once(
+        layout, LAYOUT_IMPORT,
+        LAYOUT_IMPORT + "import * as NodalixTransition from '../nodalix/transition.js';\n")
+    replace_once(
+        layout, LAYOUT_FIRST_FRAME,
+        "        NodalixTransition.begin();\n" + LAYOUT_FIRST_FRAME)
+    replace_once(
+        layout, LAYOUT_SESSION_ANIMATION,
+        "    async _startupAnimationSession() {\n"
+        "        await NodalixTransition.beforeReveal();\n"
+        "        NodalixTransition.reveal();\n"
+        "        if (Main.sessionMode.hasOverview) {\n")
+    replace_once(
+        layout, LAYOUT_COMPLETE,
+        "        NodalixTransition.finish();\n" + LAYOUT_COMPLETE)
     replace_once(
         resources, RESOURCE_ANCHOR,
         RESOURCE_ANCHOR + "".join(f"    <file>nodalix/{name}</file>\n" for name in RESOURCES))

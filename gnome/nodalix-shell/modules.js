@@ -2,6 +2,7 @@ import Gio from 'gi://Gio';
 import St from 'gi://St';
 
 import {ExtensionState, ExtensionType, loadExtensionMetadata} from '../misc/extensionUtils.js';
+import * as Transition from './transition.js';
 
 const manifest = Gio.File.new_for_uri(import.meta.url).get_parent().get_child('modules.json');
 const [, bytes] = manifest.load_contents(null);
@@ -9,6 +10,9 @@ const {bundled, desktopPackages} = JSON.parse(new TextDecoder().decode(bytes));
 const bundledIds = new Set(bundled);
 const packagedIds = new Set(desktopPackages);
 export const PHONE_LINK_ID = 'nodalix-connect@getnodalia.com';
+// The video wallpaper starts a renderer process and a media pipeline. Launching
+// them while the login transition animates costs frames, so they wait for it.
+const AFTER_TRANSITION = new Set(['hanabi-extension@jeffshee.github.io']);
 const records = new Map();
 
 function moduleDirectory(uuid) {
@@ -46,7 +50,26 @@ export class DesktopModules {
             .map(key => global.settings.connect(`changed::${key}`, () => this.schedule()));
         this.sessionSignal = sessionMode.connect('updated', () => this.schedule());
         this.colorSignal = St.Settings.get().connect('notify::color-scheme', () => this.reloadStyles());
+        this.idleWaiters = [];
+        Transition.setModulesIdle(() => this.whenIdle());
         this.schedule();
+    }
+
+    // Resolves once every module that may start now has been enabled.
+    whenIdle() {
+        if (!this.running && !this.requested)
+            return Promise.resolve();
+        return new Promise(resolve => this.idleWaiters.push(resolve));
+    }
+
+    waitForTransition() {
+        if (this.waitingForTransition)
+            return;
+        this.waitingForTransition = true;
+        Transition.whenSettled().then(() => {
+            this.waitingForTransition = false;
+            this.schedule();
+        }).catch(error => logError(error, 'Nodalix Shell: waiting for the login transition failed'));
     }
 
     selectedModules() {
@@ -71,6 +94,8 @@ export class DesktopModules {
             this.running = false;
             if (this.requested && !this.stopped)
                 this.schedule();
+            else
+                this.idleWaiters.splice(0).forEach(resolve => resolve());
         }).catch(error => logError(error, 'Nodalix Shell module reconciliation failed'));
     }
 
@@ -84,8 +109,13 @@ export class DesktopModules {
         for (const uuid of desired) {
             if (this.stopped || this.requested)
                 return;
-            if (!records.has(uuid))
-                await this.enable(uuid);
+            if (records.has(uuid))
+                continue;
+            if (AFTER_TRANSITION.has(uuid) && !Transition.settled()) {
+                this.waitForTransition();
+                continue;
+            }
+            await this.enable(uuid);
         }
     }
 
@@ -152,6 +182,7 @@ export class DesktopModules {
 
     destroy() {
         this.stopped = true;
+        this.idleWaiters.splice(0).forEach(resolve => resolve());
         for (const id of this.settingsSignals)
             global.settings.disconnect(id);
         this.sessionMode.disconnect(this.sessionSignal);

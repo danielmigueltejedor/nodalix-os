@@ -2,6 +2,8 @@
 import {NodalixConnect} from './connect.js';
 import {DesktopModules, PHONE_LINK_ID} from './modules.js';
 
+export {registerSession} from './transition.js';
+
 let started = false;
 const components = [];
 
