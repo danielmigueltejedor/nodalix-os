@@ -275,6 +275,15 @@ export class FallbackMenu {
 				this._appButton = btn;
 		});
 
+		this._pendingAppItems = null;
+		this._appCloseId = this._appButton?.menu.connect('open-state-changed', (_menu, open) => {
+			if (!open && this._pendingAppItems) {
+				const items = this._pendingAppItems;
+				this._pendingAppItems = null;
+				this._appButton.setItems(items);
+			}
+		}) ?? 0;
+
 		this.updateAppName();
 	}
 
@@ -283,9 +292,20 @@ export class FallbackMenu {
 		this._appButton?.setLabel(app?.get_name() ?? 'Desktop');
 	}
 
-	/** The app's own menu under its name, or the generic app actions when `source` is null. */
+	/**
+	 * The app's own menu under its name, or the generic app actions when `source` is null. An
+	 * open menu is not emptied under the pointer: the change waits until it closes.
+	 */
 	setAppItems(source) {
-		this._appButton?.setItems(source ?? appMenuSpecs);
+		const items = source ?? appMenuSpecs;
+		if (!this._appButton)
+			return;
+		if (this._appButton.menu.isOpen) {
+			this._pendingAppItems = items;
+			return;
+		}
+		this._pendingAppItems = null;
+		this._appButton.setItems(items);
 	}
 
 	setNativeMenusPresent(present) {
@@ -307,6 +327,9 @@ export class FallbackMenu {
 
 	destroy() {
 		this._cancelPendingShow();
+		if (this._appCloseId)
+			this._appButton?.menu.disconnect(this._appCloseId);
+		this._appCloseId = 0;
 		this._buttons.forEach(btn => btn.destroy());
 		this._buttons = [];
 		this._appButton = null;

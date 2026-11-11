@@ -64,6 +64,8 @@ class MenuBar {
 		this._proxy = proxy;
 		this._fallback = fallbackMenu ?? null;
 		this._native = new NativeMenu(proxy, uuid);
+		// A tree applied after its menus closed may bring a new app menu for the name button.
+		this._native.onRebuilt = () => this._fallback?.setAppItems(this._native.appItems());
 		this._shortcuts = new ShortcutMenu(uuid);
 		this._store = store;
 		this._settings = settings;
@@ -137,6 +139,7 @@ class MenuBar {
 			// Whether the app has a menu of its own is still unknown, so show
 			// the shortcut menu now and let a native tree displace it
 			this._native.clear();
+			this._fallback?.setAppItems(null);
 			this._shortcuts.setMapping(this._shortcutMapping, this._targetWindow);
 			this._fallback?.setNativeMenusPresent(true);
 		} else {
@@ -173,6 +176,7 @@ class MenuBar {
 
 	_showNothing() {
 		this._native.clear();
+		this._fallback?.setAppItems(null);
 		this._shortcuts.setMapping(null);
 		this._fallback?.setNativeMenusPresent(false);
 	}

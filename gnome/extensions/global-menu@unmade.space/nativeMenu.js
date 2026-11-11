@@ -144,8 +144,11 @@ export class NativeMenu {
 		// the button must not be destroyed mid-emission
 		this._rebuildIdleId = GLib.idle_add(GLib.PRIORITY_DEFAULT, () => {
 			this._rebuildIdleId = 0;
-			if (this._pendingNodes && !this._anyOpen())
+			if (this._pendingNodes && !this._anyOpen()) {
 				this._rebuild(this._pendingNodes);
+				// The app's own menu may have changed with the tree: the name button reads it now.
+				this.onRebuilt?.();
+			}
 			return GLib.SOURCE_REMOVE;
 		});
 	}

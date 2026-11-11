@@ -280,14 +280,14 @@ class DbusAppMenu(object):
 			for name, path, owner in menus:
 				if owner == int(pid):
 					return name, path
-			raise dbus.exceptions.DBusException('no menu registered for pid %s' % pid)
 
-		# A shell that does not send the pid still names the window's app: take the menu of the
-		# one process whose program has that name, never a guess between several.
+		# Without a pid, or when the pid's process registered nothing (a launcher wrapping the
+		# app), the window still names its app: take the menu of the one process whose program
+		# has that name, never a guess between several.
 		app = _app_name(self.window.get_utf8_prop('_NODALIX_WINDOW_ID'))
-		found = [(name, path) for name, path, owner in menus if app and _program(owner) == app]
+		found = {(name, path) for name, path, owner in menus if app and _program(owner) == app}
 		if len(found) == 1:
-			return found[0]
+			return found.pop()
 		raise dbus.exceptions.DBusException('no X11 id, no pid and no single menu for %s' % app)
 
 	def get_results(self):

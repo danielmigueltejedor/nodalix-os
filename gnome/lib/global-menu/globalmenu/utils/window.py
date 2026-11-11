@@ -133,8 +133,23 @@ class WindowManager(object):
 		if app and gtk.get('gtk_menubar_object_path'):
 			cls._gtk_menus[app] = gtk
 		elif app and app in cls._gtk_menus:
-			win_data.update(cls._gtk_menus[app])
+			# Only while the app that exported it is still running: a restarted app has a new
+			# bus name, and its first main window will store it again.
+			if cls._owner_alive(cls._gtk_menus[app].get('gtk_unique_bus_name')):
+				win_data.update(cls._gtk_menus[app])
+			else:
+				del cls._gtk_menus[app]
 		return win_data
+
+	@staticmethod
+	def _owner_alive(bus_name):
+		if not bus_name:
+			return False
+		try:
+			import dbus
+			return bool(dbus.SessionBus().name_has_owner(bus_name))
+		except Exception:
+			return False
 
 	@classmethod
 	def new_window(cls, win_data={}):
