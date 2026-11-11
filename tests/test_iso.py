@@ -39,6 +39,18 @@ class IsoPolicyTests(unittest.TestCase):
         self.assertEqual(policy(profile, False, managed_kernel=True),
                          {'optimized': False, 'kernel': 'linux-nodalix', 'reason': 'Nodalix release kernel'})
 
+    def test_live_root_carries_the_release_identity(self):
+        # The live Updates page read "No disponible" without this file.
+        build = runpy.run_path(str(ROOT / 'tools/build-iso.py'))
+        identity = build['release_identity']
+        self.assertEqual(identity('0.6.0'),
+            'NAME="Nodalix"\nVERSION="0.6.0"\nVERSION_ID="0.6.0"\nCHANNEL="stable"\n')
+        self.assertIn('CHANNEL="beta"', identity('0.6.0-beta.1'))
+        source = (ROOT / 'tools/build-iso.py').read_text(encoding='utf-8')
+        self.assertIn('(root / "etc/nodalix-release").write_text(', source)
+        recipe = (ROOT / 'packaging/nodalix-release/PKGBUILD').read_text(encoding='utf-8')
+        self.assertIn("printf 'NAME=\"Nodalix\"\\nVERSION=\"%s\"\\nVERSION_ID=\"%s\"\\nCHANNEL=\"%s\"\\n'", recipe)
+
     def test_release_definition_matches_actual_package_recipes(self):
         import sys
         sys.path.insert(0, str(ROOT / 'tools'))

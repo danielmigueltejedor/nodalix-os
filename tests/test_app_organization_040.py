@@ -84,3 +84,38 @@ assert json.loads(backup.read_text())['children']==['my-folder','nodalix-craft']
             result=subprocess.run([sys.executable,'-c','SOURCE='+repr(str(SOURCE))+'\n'+code],
                                   env=env,capture_output=True,text=True)
             self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+
+    def test_gnome_stock_folders_are_retired_unless_renamed(self):
+        # GNOME's own "Utilities" and "System" folders sat beside Nodalix's,
+        # so the live ISO showed two "Utilidades" in the app grid.
+        code=r'''
+import runpy
+from pathlib import Path
+from gi.repository import Gio
+m=runpy.run_path(SOURCE)
+home=Path.home();apps=home/'apps';apps.mkdir()
+for name,categories in (('editor.desktop','Utility;TextEditor;'),('monitor.desktop','System;Monitor;')):
+    (apps/name).write_text('[Desktop Entry]\nType=Application\nName='+name+'\nExec=/usr/bin/true\nCategories='+categories+'\n')
+def folder(name):
+    return Gio.Settings.new_with_path('org.gnome.desktop.app-folders.folder','/org/gnome/desktop/app-folders/folders/'+name+'/')
+settings=Gio.Settings.new('org.gnome.desktop.app-folders')
+settings.set_strv('folder-children',['System','Utilities','YaST','Pardus'])
+folder('System').set_string('name','X-GNOME-Shell-System.directory')
+folder('System').set_strv('apps',['monitor.desktop'])
+folder('Utilities').set_string('name','Mis utilidades')
+folder('Utilities').set_strv('apps',['editor.desktop'])
+folder('YaST').set_string('name','suse-yast.directory')
+folder('Pardus').set_string('name','X-Pardus-Apps.directory')
+groups=m['organize'](home,[apps])
+children=settings.get_strv('folder-children')
+assert 'System' not in children and 'YaST' not in children and 'Pardus' not in children,children
+assert 'Utilities' in children,children
+assert groups['administration']==['monitor.desktop'],groups
+assert 'utilities' not in groups,groups
+'''
+        with tempfile.TemporaryDirectory() as directory:
+            env=dict(os.environ,HOME=directory,XDG_STATE_HOME=directory+'/.local/state',
+                     GSETTINGS_BACKEND='memory',XDG_CURRENT_DESKTOP='GNOME')
+            result=subprocess.run([sys.executable,'-c','SOURCE='+repr(str(SOURCE))+'\n'+code],
+                                  env=env,capture_output=True,text=True)
+            self.assertEqual(result.returncode,0,result.stdout+result.stderr)

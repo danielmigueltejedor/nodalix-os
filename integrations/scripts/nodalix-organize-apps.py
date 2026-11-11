@@ -13,6 +13,13 @@ FOLDERS = {
     'utilities':'Utilidades', 'other':'Otros',
 }
 CRAFT_PUBLISHERS = ('ai.storyteller.', 'com.storytold.', 'io.tangencylabs.')
+# GNOME ships these folders in its schema defaults. Nodalix's own folders
+# replace them, so they are retired unless the user renamed one.
+GNOME_STOCK_FOLDERS = {
+    'System':'X-GNOME-Shell-System.directory',
+    'Utilities':'X-GNOME-Shell-Utilities.directory',
+    'YaST':'suse-yast.directory', 'Pardus':'X-Pardus-Apps.directory',
+}
 ENGINEERING_PATTERNS = ('matlab','simulink','octave','paraview','opencad','freecad',
     'openscad','gmsh','salome','ansys','comsol','openfoam','cadcraft','solidcraft')
 
@@ -95,9 +102,11 @@ def organize(home=None,directories=None):
     settings=Gio.Settings.new('org.gnome.desktop.app-folders')
     current=list(settings.get_strv('folder-children'))
     managed=set(FOLDERS)|{'nodalix'}
-    custom=[folder for folder in current if folder not in managed]
     folders={folder:Gio.Settings.new_with_path('org.gnome.desktop.app-folders.folder',
         '/org/gnome/desktop/app-folders/folders/'+folder+'/') for folder in current}
+    stock={folder for folder in current
+        if GNOME_STOCK_FOLDERS.get(folder)==folders[folder].get_string('name')}
+    custom=[folder for folder in current if folder not in managed|stock]
     # Ordinary apps already in a personal folder stay there. ArtCraft suite
     # membership is additional to an app's purpose and any personal folders.
     reserved=set()
