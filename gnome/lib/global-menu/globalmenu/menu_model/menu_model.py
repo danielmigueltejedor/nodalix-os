@@ -226,7 +226,7 @@ class DbusAppMenu(object):
 		try:
 			obj        = self.session.get_object(bus_name, bus_path)
 			interface  = dbus.Interface(obj, bus_name)
-			name, path = interface.GetMenuForWindow(self.window.get_xid())
+			name, path = self._menu_for_window(interface)
 			obj        = self.session.get_object(name, path)
 			interface  = dbus.Interface(obj, 'com.canonical.dbusmenu')
 
@@ -238,6 +238,27 @@ class DbusAppMenu(object):
 			return interface
 		except dbus.exceptions.DBusException:
 			return None
+
+	def _menu_for_window(self, registrar):
+		# An X11 window (native or XWayland) is registered by its id, as before.
+		xid = self.window.get_xid()
+		if xid:
+			return registrar.GetMenuForWindow(xid)
+
+		# A Wayland window has no id the registrar knows: take the menu
+		# registered by the process that owns the window.
+		pid = self.window.get_utf8_prop('_PID')
+		if not pid:
+			raise dbus.exceptions.DBusException('no X11 id and no pid')
+		bus = self.session.get_object('org.freedesktop.DBus', '/org/freedesktop/DBus')
+		bus = dbus.Interface(bus, 'org.freedesktop.DBus')
+		for name, path in registrar.GetMenus().values():
+			try:
+				if int(bus.GetConnectionUnixProcessID(name)) == int(pid):
+					return name, path
+			except dbus.exceptions.DBusException:
+				continue
+		raise dbus.exceptions.DBusException('no menu registered for pid %s' % pid)
 
 	def get_results(self):
 		if self.interface:
