@@ -1,6 +1,6 @@
 pkgname=nodalix-colloid-icons
 pkgver=0.5.1
-pkgrel=2
+pkgrel=3
 _theme_commit=20e6275a0053299cb25bacd94df8d0f0bac2c0c2
 options=("!strip")
 pkgdesc='Nodalix desktop icons: Colloid applications with Adwaita system symbols'
@@ -15,6 +15,10 @@ sha256sums=('f2336619132e71168e729a5663eed413cb6f08b133885064eea1c0e95a902322')
 package() {
     cd "$srcdir/nodalix-icon-theme-$_theme_commit"
     bash install-nodalix.sh -d "$pkgdir/usr/share/icons" -n Nodalix-Icons
+    # The pinned installer stages through mktemp, which leaves the theme 0700:
+    # only root could read it and every app icon fell back to Adwaita.
+    find "$pkgdir/usr/share/icons/Nodalix-Icons" -type d -exec chmod 0755 {} +
+    find "$pkgdir/usr/share/icons/Nodalix-Icons" -type f -exec chmod 0644 {} +
     install -Dm644 nodalix/legacy-icons.json "$pkgdir/usr/share/nodalix/icon-theme/legacy-icons.json"
     install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

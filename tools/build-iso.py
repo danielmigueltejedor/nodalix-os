@@ -40,6 +40,20 @@ def safe_package_filename(package: str, name: str) -> bool:
     return name.startswith(("nodalix-", "gnome-rounded-blur-"))
 
 
+def release_identity(version: str) -> str:
+    """The /etc/nodalix-release that the nodalix-release package installs.
+
+    The live root does not install that package, because it depends on every
+    release component, so the ISO writes the same file itself. Without it the
+    live session's Updates page reports the version as "No disponible".
+    """
+    channel = "beta" if "-beta." in version or "-rc." in version else "stable"
+    return (
+        f'NAME="Nodalix"\nVERSION="{version}"\n'
+        f'VERSION_ID="{version}"\nCHANNEL="{channel}"\n'
+    )
+
+
 def prepare(assets: Path, work: Path) -> tuple[Path, str]:
     if work.exists():
         raise ValueError(
@@ -333,6 +347,11 @@ locale-gen
 printf 'LANG=en_US.UTF-8\\n' > /etc/locale.conf
 """,
         encoding="utf-8",
+    )
+
+    (root / "etc").mkdir(parents=True, exist_ok=True)
+    (root / "etc/nodalix-release").write_text(
+        release_identity(version), encoding="utf-8"
     )
 
     sudoers = root / "etc/sudoers.d/nodalix-live"
