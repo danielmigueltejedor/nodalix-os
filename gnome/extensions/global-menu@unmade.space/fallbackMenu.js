@@ -283,6 +283,11 @@ export class FallbackMenu {
 		this._appButton?.setLabel(app?.get_name() ?? 'Desktop');
 	}
 
+	/** The app's own menu under its name, or the generic app actions when `source` is null. */
+	setAppItems(source) {
+		this._appButton?.setItems(source ?? appMenuSpecs);
+	}
+
 	setNativeMenusPresent(present) {
 		this._cancelPendingShow();
 		if (present) {

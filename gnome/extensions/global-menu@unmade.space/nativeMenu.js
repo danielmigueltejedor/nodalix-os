@@ -29,17 +29,30 @@ export class NativeMenu {
 		this._shownJson = null;
 		this._pendingNodes = null;
 		this._rebuildIdleId = 0;
+		this._appNode = null;
+		this._appName = '';
+	}
+
+	/**
+	 * The items of the app's own menu, the one named after the app (Vinilo's "Vinilo", a Mac
+	 * app's application menu), as a function source; null when the app exports none. The bar
+	 * shows them under the app's name instead of a second button with the same name.
+	 */
+	appItems() {
+		const node = this._appNode;
+		return node ? () => this._toSpecs(node.children ?? []) : null;
 	}
 
 	hasMenus() {
-		return this._buttons.length > 0;
+		return this._buttons.length > 0 || this._appNode !== null;
 	}
 
-	setItems(nodes) {
+	setItems(nodes, appName = '') {
+		this._appName = (appName ?? '').toLowerCase();
 		// The daemon re-sends the tree on every menu open and window switch,
 		// almost always unchanged, and rebuilding on that churns panel actors
 		// and popup contents for nothing
-		const json = JSON.stringify(nodes);
+		const json = JSON.stringify([this._appName, nodes]);
 		if (json === this._shownJson) {
 			this._pendingNodes = null;
 			return;
@@ -63,6 +76,7 @@ export class NativeMenu {
 		this._pendingNodes = null;
 		this._buttons.forEach(btn => btn.destroy());
 		this._buttons = [];
+		this._appNode = null;
 	}
 
 	destroy() {
@@ -77,9 +91,14 @@ export class NativeMenu {
 		return this._buttons.some(btn => btn.menu.isOpen);
 	}
 
-	_rebuild(nodes, json = JSON.stringify(nodes)) {
+	_rebuild(nodes, json = JSON.stringify([this._appName, nodes])) {
 		this.clear();
 		const topLevel = nodes.filter(n => !n.separator && stripMnemonic(n.label));
+		// Only the first menu can be the app's own, as on a Mac: a later one with the app's name
+		// is something else
+		const first = topLevel[0];
+		if (first && this._appName && stripMnemonic(first.label).toLowerCase() === this._appName)
+			this._appNode = topLevel.shift();
 		topLevel.forEach((node, index) => {
 			const btn = new MenuBarButton(stripMnemonic(node.label), {
 				// Ask the daemon for fresh toggle/enabled state on open

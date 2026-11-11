@@ -85,11 +85,14 @@ class MenuBar {
 	setFallback(fallbackMenu) {
 		this._fallback = fallbackMenu;
 		this._fallback?.setNativeMenusPresent(this._native.hasMenus() || this._shortcuts.hasMenus());
+		this._fallback?.setAppItems(this._native.appItems());
 	}
 
 	/** Native tree beats shortcut mapping beats generic fallback. */
 	setMenuTree(items) {
-		this._native.setItems(items);
+		const app = this._winTracker.focus_app;
+		this._native.setItems(items, app?.get_name() ?? '');
+		this._fallback?.setAppItems(this._native.appItems());
 		if (items.length > 0) {
 			this._shortcuts.setMapping(null);
 			this._fallback?.setNativeMenusPresent(true);
