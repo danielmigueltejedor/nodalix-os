@@ -136,7 +136,9 @@ class WindowManager(object):
 			# Only while the app that exported it is still running: a restarted app has a new
 			# bus name, and its first main window will store it again.
 			if cls._owner_alive(cls._gtk_menus[app].get('gtk_unique_bus_name')):
-				win_data.update(cls._gtk_menus[app])
+				# Only what the window lacks: its own window path and bus stay its own.
+				for key, value in cls._gtk_menus[app].items():
+					win_data.setdefault(key, value)
 			else:
 				del cls._gtk_menus[app]
 		return win_data
