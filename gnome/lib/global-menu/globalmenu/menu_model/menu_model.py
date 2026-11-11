@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import dbus
+import os
 import traceback
 import time
 
@@ -10,6 +11,25 @@ from ..treelib import Tree
 
 from globalmenu.menu_model.menu_item import DbusGtkMenuItem, DbusAppMenuItem
 
+
+
+
+def _app_name(window_key):
+	"""'Vortia.desktop:12' or 'dev.example.Vortia.desktop:12' -> 'vortia'."""
+	if not window_key or window_key.startswith('window:'):
+		return None
+	app = window_key.split(':', 1)[0]
+	if app.endswith('.desktop'):
+		app = app[:-len('.desktop')]
+	return app.rsplit('.', 1)[-1].lower() or None
+
+
+def _program(pid):
+	"""The lower-case file name of the program running as `pid`, or None."""
+	try:
+		return os.path.basename(os.readlink('/proc/%d/exe' % pid)).lower()
+	except OSError:
+		return None
 
 class DbusGtkMenu(object):
 
@@ -248,17 +268,27 @@ class DbusAppMenu(object):
 		# A Wayland window has no id the registrar knows: take the menu
 		# registered by the process that owns the window.
 		pid = self.window.get_utf8_prop('_PID')
-		if not pid:
-			raise dbus.exceptions.DBusException('no X11 id and no pid')
 		bus = self.session.get_object('org.freedesktop.DBus', '/org/freedesktop/DBus')
 		bus = dbus.Interface(bus, 'org.freedesktop.DBus')
+		menus = []
 		for name, path in registrar.GetMenus().values():
 			try:
-				if int(bus.GetConnectionUnixProcessID(name)) == int(pid):
-					return name, path
+				menus.append((name, path, int(bus.GetConnectionUnixProcessID(name))))
 			except dbus.exceptions.DBusException:
 				continue
-		raise dbus.exceptions.DBusException('no menu registered for pid %s' % pid)
+		if pid:
+			for name, path, owner in menus:
+				if owner == int(pid):
+					return name, path
+			raise dbus.exceptions.DBusException('no menu registered for pid %s' % pid)
+
+		# A shell that does not send the pid still names the window's app: take the menu of the
+		# one process whose program has that name, never a guess between several.
+		app = _app_name(self.window.get_utf8_prop('_NODALIX_WINDOW_ID'))
+		found = [(name, path) for name, path, owner in menus if app and _program(owner) == app]
+		if len(found) == 1:
+			return found[0]
+		raise dbus.exceptions.DBusException('no X11 id, no pid and no single menu for %s' % app)
 
 	def get_results(self):
 		if self.interface:

@@ -120,12 +120,29 @@ class WindowManager(object):
 			cls.matcher = Bamf.Matcher.get_default()
 		return cls.matcher
 
+	# The Gtk menu properties of each app's last window that had them, by app id
+	_gtk_menus = {}
+
+	@classmethod
+	def _with_app_menu(cls, win_data):
+		"""A dialog or other secondary window exports no menu of its own: give it the menu of
+		its app's main window, so the bar keeps the app's menus while the dialog has focus."""
+		key = win_data.get('nodalix_window_id', '')
+		app = key.split(':', 1)[0] if key and not key.startswith('window:') else None
+		gtk = {k: v for k, v in win_data.items() if k.startswith('gtk_')}
+		if app and gtk.get('gtk_menubar_object_path'):
+			cls._gtk_menus[app] = gtk
+		elif app and app in cls._gtk_menus:
+			win_data.update(cls._gtk_menus[app])
+		return win_data
+
 	@classmethod
 	def new_window(cls, win_data={}):
 		if not wayland:
 			return Window(cls._get_matcher().get_active_window())
 
 		# Wayland
+		win_data = cls._with_app_menu(dict(win_data))
 		win = Window()
 		for p in win_data:
 			if p == 'xid':
