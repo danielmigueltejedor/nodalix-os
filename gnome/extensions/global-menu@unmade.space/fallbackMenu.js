@@ -264,9 +264,12 @@ export class FallbackMenu {
 		this._buttons = [];
 		this._appButton = null;
 		this._showTimeoutId = 0;
+		// Called when the app menu opens, so its labels and enabled states are asked for afresh
+		this.onAppOpen = null;
 
 		MENU_DATA.forEach((entry, index) => {
-			const btn = new MenuBarButton(entry.label, entry.appName ? {appName: true} : {});
+			const btn = new MenuBarButton(entry.label,
+				entry.appName ? {appName: true, onOpen: () => this.onAppOpen?.()} : {});
 			btn.setItems(entry.appActions ? appMenuSpecs : entry.windowActions ? windowMenuSpecs : toSpecs(entry.items));
 			// MENU_DATA[0] is the app name, so the index doubles as the rank
 			addBarButton(`${uuid}-fallback-${index}`, btn, index);
@@ -306,6 +309,11 @@ export class FallbackMenu {
 		}
 		this._pendingAppItems = null;
 		this._appButton.setItems(items);
+	}
+
+	/** Closes the app menu, so a change of target window never leaves the old window's items open. */
+	closeAppMenu() {
+		this._appButton?.menu.close();
 	}
 
 	setNativeMenusPresent(present) {

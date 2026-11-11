@@ -31,6 +31,30 @@ def _program(pid):
 	except OSError:
 		return None
 
+def _parent(pid):
+	"""The parent process id of `pid`, or None."""
+	try:
+		with open('/proc/%d/stat' % pid) as f:
+			# The command name (field 2) may hold spaces and parentheses: split after the last ')'.
+			return int(f.read().rsplit(')', 1)[1].split()[1])
+	except (OSError, ValueError, IndexError):
+		return None
+
+def _descends(pid, ancestor):
+	"""Whether `pid` is `ancestor` or one of its descendants (bounded walk up the process tree)."""
+	for _ in range(64):
+		if pid == ancestor:
+			return True
+		pid = _parent(pid)
+		if not pid or pid < 2:
+			return False
+	return False
+
+def _same_instance(a, b):
+	"""Two processes belong to one instance of an app when one launched the other, as a
+	launcher wrapper does for the program it starts."""
+	return _descends(a, b) or _descends(b, a)
+
 class DbusGtkMenu(object):
 
 	def __init__(self, session, window):
@@ -283,9 +307,13 @@ class DbusAppMenu(object):
 
 		# Without a pid, or when the pid's process registered nothing (a launcher wrapping the
 		# app), the window still names its app: take the menu of the one process whose program
-		# has that name, never a guess between several.
+		# has that name, never a guess between several. When the window's pid is known, that
+		# process must also be part of the window's own instance (launched by it or launching
+		# it), so a second instance of the app never lends its menu.
 		app = _app_name(self.window.get_utf8_prop('_NODALIX_WINDOW_ID'))
-		found = {(name, path) for name, path, owner in menus if app and _program(owner) == app}
+		pid = int(pid) if pid else None
+		found = {(name, path) for name, path, owner in menus
+			if app and _program(owner) == app and (not pid or _same_instance(owner, pid))}
 		if len(found) == 1:
 			return found.pop()
 		raise dbus.exceptions.DBusException('no X11 id, no pid and no single menu for %s' % app)

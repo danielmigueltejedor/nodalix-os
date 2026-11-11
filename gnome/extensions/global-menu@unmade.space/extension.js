@@ -63,6 +63,8 @@ class MenuBar {
 		this._winTracker = Shell.WindowTracker.get_default();
 		this._proxy = proxy;
 		this._fallback = fallbackMenu ?? null;
+		if (this._fallback)
+			this._fallback.onAppOpen = () => this._proxy.RequestMenuTree();
 		this._native = new NativeMenu(proxy, uuid);
 		// A tree applied after its menus closed may bring a new app menu for the name button.
 		this._native.onRebuilt = () => this._fallback?.setAppItems(this._native.appItems());
@@ -86,6 +88,8 @@ class MenuBar {
 
 	setFallback(fallbackMenu) {
 		this._fallback = fallbackMenu;
+		if (this._fallback)
+			this._fallback.onAppOpen = () => this._proxy.RequestMenuTree();
 		this._fallback?.setNativeMenusPresent(this._native.hasMenus() || this._shortcuts.hasMenus());
 		this._fallback?.setAppItems(this._native.appItems());
 	}
@@ -109,6 +113,8 @@ class MenuBar {
 
 	/** Rebuild for the currently focused window. */
 	refresh() {
+		// The app menu belongs to the window that was focused: close it before it is retargeted.
+		this._fallback?.closeAppMenu();
 		this._fallback?.updateAppName();
 		this._shortcutMapping = null;
 
