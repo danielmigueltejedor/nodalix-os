@@ -291,6 +291,23 @@ const hanabi = 'hanabi-extension@jeffshee.github.io';
             MODULE.prepare(self.source, self.overlay)
         self.assertFalse((self.source / "js/nodalix").exists())
 
+    def test_missing_or_duplicate_transition_anchor_fails_without_writing(self):
+        layout = self.source / "js/ui/layout.js"
+        main = self.source / "js/ui/main.js"
+        original = {layout: layout.read_text(), main: main.read_text()}
+        cases = ((layout, MODULE.LAYOUT_IMPORT), (layout, MODULE.LAYOUT_FIRST_FRAME),
+                 (layout, MODULE.LAYOUT_SESSION_ANIMATION), (layout, MODULE.LAYOUT_COMPLETE),
+                 (main, MODULE.MAIN_REGISTER))
+        for path, anchor in cases:
+            for text in (original[path].replace(anchor, ""), original[path] + anchor):
+                path.write_text(text)
+                with self.assertRaisesRegex(ValueError, "anchor"):
+                    MODULE.prepare(self.source, self.overlay)
+                self.assertFalse((self.source / "js/nodalix").exists())
+                self.assertEqual(main.read_text(), text if path == main else original[main])
+                self.assertEqual(layout.read_text(), text if path == layout else original[layout])
+            path.write_text(original[path])
+
     def test_overlay_cannot_be_applied_twice(self):
         MODULE.prepare(self.source, self.overlay)
         with self.assertRaises(ValueError):
