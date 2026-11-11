@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 
 import dbus
+import os
 import traceback
 import time
 
@@ -10,6 +11,49 @@ from ..treelib import Tree
 
 from globalmenu.menu_model.menu_item import DbusGtkMenuItem, DbusAppMenuItem
 
+
+
+
+def _app_name(window_key):
+	"""'Vortia.desktop:12' or 'dev.example.Vortia.desktop:12' -> 'vortia'."""
+	if not window_key or window_key.startswith('window:'):
+		return None
+	app = window_key.split(':', 1)[0]
+	if app.endswith('.desktop'):
+		app = app[:-len('.desktop')]
+	return app.rsplit('.', 1)[-1].lower() or None
+
+
+def _program(pid):
+	"""The lower-case file name of the program running as `pid`, or None."""
+	try:
+		return os.path.basename(os.readlink('/proc/%d/exe' % pid)).lower()
+	except OSError:
+		return None
+
+def _parent(pid):
+	"""The parent process id of `pid`, or None."""
+	try:
+		with open('/proc/%d/stat' % pid) as f:
+			# The command name (field 2) may hold spaces and parentheses: split after the last ')'.
+			return int(f.read().rsplit(')', 1)[1].split()[1])
+	except (OSError, ValueError, IndexError):
+		return None
+
+def _descends(pid, ancestor):
+	"""Whether `pid` is `ancestor` or one of its descendants (bounded walk up the process tree)."""
+	for _ in range(64):
+		if pid == ancestor:
+			return True
+		pid = _parent(pid)
+		if not pid or pid < 2:
+			return False
+	return False
+
+def _same_instance(a, b):
+	"""Two processes belong to one instance of an app when one launched the other, as a
+	launcher wrapper does for the program it starts."""
+	return _descends(a, b) or _descends(b, a)
 
 class DbusGtkMenu(object):
 
@@ -248,17 +292,31 @@ class DbusAppMenu(object):
 		# A Wayland window has no id the registrar knows: take the menu
 		# registered by the process that owns the window.
 		pid = self.window.get_utf8_prop('_PID')
-		if not pid:
-			raise dbus.exceptions.DBusException('no X11 id and no pid')
 		bus = self.session.get_object('org.freedesktop.DBus', '/org/freedesktop/DBus')
 		bus = dbus.Interface(bus, 'org.freedesktop.DBus')
+		menus = []
 		for name, path in registrar.GetMenus().values():
 			try:
-				if int(bus.GetConnectionUnixProcessID(name)) == int(pid):
-					return name, path
+				menus.append((name, path, int(bus.GetConnectionUnixProcessID(name))))
 			except dbus.exceptions.DBusException:
 				continue
-		raise dbus.exceptions.DBusException('no menu registered for pid %s' % pid)
+		if pid:
+			for name, path, owner in menus:
+				if owner == int(pid):
+					return name, path
+
+		# Without a pid, or when the pid's process registered nothing (a launcher wrapping the
+		# app), the window still names its app: take the menu of the one process whose program
+		# has that name, never a guess between several. When the window's pid is known, that
+		# process must also be part of the window's own instance (launched by it or launching
+		# it), so a second instance of the app never lends its menu.
+		app = _app_name(self.window.get_utf8_prop('_NODALIX_WINDOW_ID'))
+		pid = int(pid) if pid else None
+		found = {(name, path) for name, path, owner in menus
+			if app and _program(owner) == app and (not pid or _same_instance(owner, pid))}
+		if len(found) == 1:
+			return found.pop()
+		raise dbus.exceptions.DBusException('no X11 id, no pid and no single menu for %s' % app)
 
 	def get_results(self):
 		if self.interface:

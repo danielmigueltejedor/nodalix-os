@@ -63,7 +63,11 @@ class MenuBar {
 		this._winTracker = Shell.WindowTracker.get_default();
 		this._proxy = proxy;
 		this._fallback = fallbackMenu ?? null;
+		if (this._fallback)
+			this._fallback.onAppOpen = () => this._proxy.RequestMenuTree();
 		this._native = new NativeMenu(proxy, uuid);
+		// A tree applied after its menus closed may bring a new app menu for the name button.
+		this._native.onRebuilt = () => this._fallback?.setAppItems(this._native.appItems());
 		this._shortcuts = new ShortcutMenu(uuid);
 		this._store = store;
 		this._settings = settings;
@@ -84,12 +88,20 @@ class MenuBar {
 
 	setFallback(fallbackMenu) {
 		this._fallback = fallbackMenu;
+		if (this._fallback)
+			this._fallback.onAppOpen = () => this._proxy.RequestMenuTree();
 		this._fallback?.setNativeMenusPresent(this._native.hasMenus() || this._shortcuts.hasMenus());
+		this._fallback?.setAppItems(this._native.appItems());
+		// The native buttons were built for the previous setting: build them again.
+		this.refresh();
 	}
 
 	/** Native tree beats shortcut mapping beats generic fallback. */
 	setMenuTree(items) {
-		this._native.setItems(items);
+		const app = this._winTracker.focus_app;
+		// The app menu is only taken out of the native buttons when a fallback button will show it.
+		this._native.setItems(items, this._fallback ? app?.get_name() ?? '' : '');
+		this._fallback?.setAppItems(this._native.appItems());
 		if (items.length > 0) {
 			this._shortcuts.setMapping(null);
 			this._fallback?.setNativeMenusPresent(true);
@@ -104,6 +116,8 @@ class MenuBar {
 
 	/** Rebuild for the currently focused window. */
 	refresh() {
+		// The app menu belongs to the window that was focused: close it before it is retargeted.
+		this._fallback?.closeAppMenu();
 		this._fallback?.updateAppName();
 		this._shortcutMapping = null;
 
@@ -134,6 +148,7 @@ class MenuBar {
 			// Whether the app has a menu of its own is still unknown, so show
 			// the shortcut menu now and let a native tree displace it
 			this._native.clear();
+			this._fallback?.setAppItems(null);
 			this._shortcuts.setMapping(this._shortcutMapping, this._targetWindow);
 			this._fallback?.setNativeMenusPresent(true);
 		} else {
@@ -170,6 +185,7 @@ class MenuBar {
 
 	_showNothing() {
 		this._native.clear();
+		this._fallback?.setAppItems(null);
 		this._shortcuts.setMapping(null);
 		this._fallback?.setNativeMenusPresent(false);
 	}

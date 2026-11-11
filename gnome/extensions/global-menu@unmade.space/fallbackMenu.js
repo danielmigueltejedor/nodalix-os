@@ -264,9 +264,12 @@ export class FallbackMenu {
 		this._buttons = [];
 		this._appButton = null;
 		this._showTimeoutId = 0;
+		// Called when the app menu opens, so its labels and enabled states are asked for afresh
+		this.onAppOpen = null;
 
 		MENU_DATA.forEach((entry, index) => {
-			const btn = new MenuBarButton(entry.label, entry.appName ? {appName: true} : {});
+			const btn = new MenuBarButton(entry.label,
+				entry.appName ? {appName: true, onOpen: () => this.onAppOpen?.()} : {});
 			btn.setItems(entry.appActions ? appMenuSpecs : entry.windowActions ? windowMenuSpecs : toSpecs(entry.items));
 			// MENU_DATA[0] is the app name, so the index doubles as the rank
 			addBarButton(`${uuid}-fallback-${index}`, btn, index);
@@ -275,12 +278,42 @@ export class FallbackMenu {
 				this._appButton = btn;
 		});
 
+		this._pendingAppItems = null;
+		this._appCloseId = this._appButton?.menu.connect('open-state-changed', (_menu, open) => {
+			if (!open && this._pendingAppItems) {
+				const items = this._pendingAppItems;
+				this._pendingAppItems = null;
+				this._appButton.setItems(items);
+			}
+		}) ?? 0;
+
 		this.updateAppName();
 	}
 
 	updateAppName() {
 		const app = Shell.WindowTracker.get_default().focus_app;
 		this._appButton?.setLabel(app?.get_name() ?? 'Desktop');
+	}
+
+	/**
+	 * The app's own menu under its name, or the generic app actions when `source` is null. An
+	 * open menu is not emptied under the pointer: the change waits until it closes.
+	 */
+	setAppItems(source) {
+		const items = source ?? appMenuSpecs;
+		if (!this._appButton)
+			return;
+		if (this._appButton.menu.isOpen) {
+			this._pendingAppItems = items;
+			return;
+		}
+		this._pendingAppItems = null;
+		this._appButton.setItems(items);
+	}
+
+	/** Closes the app menu, so a change of target window never leaves the old window's items open. */
+	closeAppMenu() {
+		this._appButton?.menu.close();
 	}
 
 	setNativeMenusPresent(present) {
@@ -302,6 +335,9 @@ export class FallbackMenu {
 
 	destroy() {
 		this._cancelPendingShow();
+		if (this._appCloseId)
+			this._appButton?.menu.disconnect(this._appCloseId);
+		this._appCloseId = 0;
 		this._buttons.forEach(btn => btn.destroy());
 		this._buttons = [];
 		this._appButton = null;

@@ -120,12 +120,48 @@ class WindowManager(object):
 			cls.matcher = Bamf.Matcher.get_default()
 		return cls.matcher
 
+	# The Gtk menu properties of each app's last window that had them, by app id
+	_gtk_menus = {}
+
+	@classmethod
+	def _with_app_menu(cls, win_data):
+		"""A dialog or other secondary window exports no menu of its own: give it the menu of
+		its app's main window, so the bar keeps the app's menus while the dialog has focus."""
+		key = win_data.get('nodalix_window_id', '')
+		app = key.split(':', 1)[0] if key and not key.startswith('window:') else None
+		gtk = {k: v for k, v in win_data.items() if k.startswith('gtk_')}
+		if app and (gtk.get('gtk_menubar_object_path')
+				or (gtk.get('gtk_app_menu_object_path') and app not in cls._gtk_menus)):
+			# An exporter of only an app menu is cached too, but never over one that has a menubar.
+			cls._gtk_menus[app] = gtk
+		elif app and app in cls._gtk_menus:
+			# Only while the app that exported it is still running: a restarted app has a new
+			# bus name, and its first main window will store it again.
+			if cls._owner_alive(cls._gtk_menus[app].get('gtk_unique_bus_name')):
+				# Only what the window lacks: its own window path and bus stay its own.
+				for key, value in cls._gtk_menus[app].items():
+					win_data.setdefault(key, value)
+			else:
+				del cls._gtk_menus[app]
+		return win_data
+
+	@staticmethod
+	def _owner_alive(bus_name):
+		if not bus_name:
+			return False
+		try:
+			import dbus
+			return bool(dbus.SessionBus().name_has_owner(bus_name))
+		except Exception:
+			return False
+
 	@classmethod
 	def new_window(cls, win_data={}):
 		if not wayland:
 			return Window(cls._get_matcher().get_active_window())
 
 		# Wayland
+		win_data = cls._with_app_menu(dict(win_data))
 		win = Window()
 		for p in win_data:
 			if p == 'xid':
