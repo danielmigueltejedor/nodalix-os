@@ -197,12 +197,17 @@ class MenuBar {
 
 	// What the daemon needs to find the window's exported menu. The X11 id is
 	// dug out of the description because Wayland windows have none, and the
-	// gtk_* properties are only set on windows that export a GMenu.
+	// gtk_* properties are only set on windows that export a GMenu. The pid
+	// lets the daemon find a dbusmenu a Wayland window registered by process
+	// (Qt does not register one there; Nodalia's Qt apps do it themselves).
 	_windowData(win) {
 		const data = {xid: '0'};
 		const description = win.get_description()?.match(/0x[0-9a-f]+/);
 		if (description)
 			data.xid = String(Number.parseInt(description[0]));
+		const pid = win.get_pid();
+		if (pid > 0)
+			data.pid = String(pid);
 
 		const gtkProps = [
 			'gtk_unique_bus_name',
