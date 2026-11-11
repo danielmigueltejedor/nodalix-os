@@ -215,6 +215,13 @@ import(copy).then(({HandoffGate, revealFrame}) => {
         self.assertNotIn("console.info", transition)
         self.assertIn("'after-paint'", transition)
         self.assertRegex(transition, r"FIRST_PAINT_WAIT = \d+")
+        # The reveal waits for the cover to be on screen: a session under GDM
+        # cannot paint before the registration, so animating earlier is invisible.
+        self.assertRegex(transition, r"COVER_HOLD = \d+")
+        self.assertRegex(transition, r"PAINT_WAIT = \d+")
+        self.assertIn("mark('cover painted')", transition)
+        self.assertLess(transition.index("export async function beforeReveal"),
+                        transition.index("waitUpTo(painted, PAINT_WAIT)"))
         # A stalled start-up must release GDM and remove the cover on its own.
         self.assertRegex(transition, r"HANDOFF_TIMEOUT = \d+")
         self.assertRegex(transition, r"GUARD_TIMEOUT = \d+")

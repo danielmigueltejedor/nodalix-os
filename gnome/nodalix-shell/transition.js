@@ -31,7 +31,9 @@ const REVEAL_TIME = 650;       // ms of desblur
 const MODULES_WAIT = 1500;     // ms to wait for the desktop modules before revealing
 const HANDOFF_TIMEOUT = 3000;  // ms before the session registers with GDM regardless
 const GUARD_TIMEOUT = 15000;   // ms after which the cover is removed no matter what
-const FIRST_PAINT_WAIT = 300;  // ms to wait for the first paint before letting the greeter go
+const FIRST_PAINT_WAIT = 100;  // ms to wait for the first paint before letting the greeter go
+const PAINT_WAIT = 3000;       // ms to wait for the cover to be on screen before revealing
+const COVER_HOLD = 400;        // ms the cover stays fully visible once it is on screen
 
 const State = {IDLE: 'idle', ARMED: 'armed', COVERED: 'covered', REVEALING: 'revealing', DONE: 'done'};
 
@@ -41,6 +43,9 @@ let cover = null;
 let guard = 0;
 let armedAt = 0;
 let modulesIdle = null;
+let paintId = 0;
+let paintedAt = 0;
+let painted = Promise.resolve();
 const settleWaiters = [];
 
 function mark(message) {
@@ -62,7 +67,29 @@ function enabled() {
         GLib.getenv('NODALIX_LOGIN_TRANSITION') !== '0';
 }
 
+function sleep(ms) {
+    let timer = 0;
+    const promise = new Promise(resolve => {
+        timer = setTimeout(resolve, ms);
+    });
+    return {promise, cancel: () => clearTimeout(timer)};
+}
+
+// Resolves when promise does, or after ms, whichever comes first.
+async function waitUpTo(promise, ms) {
+    const timeout = sleep(ms);
+    try {
+        await Promise.race([promise, timeout.promise]);
+    } finally {
+        timeout.cancel();
+    }
+}
+
 function settle() {
+    if (paintId) {
+        global.stage.disconnect(paintId);
+        paintId = 0;
+    }
     if (guard) {
         clearTimeout(guard);
         guard = 0;
@@ -217,59 +244,67 @@ export function begin() {
         abort('no cover');
         return;
     }
+    watchFirstPaint();
     releaseAfterFirstPaint();
 }
 
-// The greeter should only go once the cover has been painted, so the cost of
-// the first frame (decoding the picture, compiling the blur) is paid while the
-// greeter is still on screen. If the session is not yet allowed to paint (its
-// VT is not active until GDM switches), no paint arrives: do not wait for it.
-function releaseAfterFirstPaint() {
-    let done = false;
-    let paintId = 0;
-    let timer = 0;
-    const go = reason => {
-        if (done)
-            return;
-        done = true;
-        if (paintId) {
-            const id = paintId;
-            paintId = 0;
-            global.stage.disconnect(id);
+// The first paint of the cover is the moment the session becomes visible. Under
+// GDM the session cannot paint until GDM has switched to it, which only happens
+// after the registration, so nothing before that point is ever on screen.
+function watchFirstPaint() {
+    painted = new Promise(resolve => {
+        try {
+            paintId = global.stage.connect('after-paint', () => {
+                global.stage.disconnect(paintId);
+                paintId = 0;
+                paintedAt = GLib.get_monotonic_time();
+                mark('cover painted');
+                resolve();
+            });
+        } catch (error) {
+            logError(error, 'Nodalix login transition: cannot watch the first paint');
+            resolve();
         }
-        if (timer)
-            clearTimeout(timer);
-        gate?.release(reason);
-    };
-    try {
-        paintId = global.stage.connect('after-paint', () => go('first frame painted'));
-    } catch (error) {
-        logError(error, 'Nodalix login transition: cannot watch the first paint');
-    }
-    timer = setTimeout(() => {
-        timer = 0;
-        go('no paint yet');
-    }, FIRST_PAINT_WAIT);
+    });
 }
 
-// Called before the session's own start-up animation: wait, within limits, for
-// the desktop to be complete so the reveal does not compete with module start-up.
+// The greeter should go as soon as the cover could be painted. A session that
+// is already allowed to paint reports it within a frame; one that is not gets a
+// short wait, since no paint can arrive until GDM has switched to it.
+function releaseAfterFirstPaint() {
+    const timeout = sleep(FIRST_PAINT_WAIT);
+    let released = false;
+    const go = reason => {
+        if (released)
+            return;
+        released = true;
+        timeout.cancel();
+        gate?.release(reason);
+    };
+    painted.then(() => go('first frame painted'))
+        .catch(error => logError(error, 'Nodalix login transition: first paint failed'));
+    timeout.promise.then(() => go('no paint yet'))
+        .catch(error => logError(error, 'Nodalix login transition: hand-off timer failed'));
+}
+
+// Called before the session's own start-up animation. Waits, within limits, for
+// the desktop to be complete (so the reveal does not compete with module
+// start-up) and for the cover to have been on screen for a moment.
 export async function beforeReveal() {
-    if (state !== State.COVERED || !modulesIdle)
+    if (state !== State.COVERED)
         return;
-    let timer = 0;
     try {
-        await Promise.race([
-            modulesIdle(),
-            new Promise(resolve => {
-                timer = setTimeout(resolve, MODULES_WAIT);
-            }),
+        await Promise.all([
+            modulesIdle ? waitUpTo(modulesIdle(), MODULES_WAIT) : Promise.resolve(),
+            waitUpTo(painted, PAINT_WAIT),
         ]);
+        if (paintedAt) {
+            const remaining = COVER_HOLD - (GLib.get_monotonic_time() - paintedAt) / 1000;
+            if (remaining > 0)
+                await sleep(remaining).promise;
+        }
     } catch (error) {
-        logError(error, 'Nodalix login transition: waiting for the desktop modules failed');
-    } finally {
-        if (timer)
-            clearTimeout(timer);
+        logError(error, 'Nodalix login transition: waiting to reveal the desktop failed');
     }
 }
 

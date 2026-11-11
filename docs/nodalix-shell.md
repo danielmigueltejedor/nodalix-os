@@ -47,7 +47,7 @@ arranque de GNOME y una animación que compite con la carga de los módulos).
 Nodalix Shell lo corrige en `gnome/nodalix-shell/transition.js`:
 
 1. **Retiene el registro en GDM** hasta que la cubierta se ha pintado (hasta
-   300 ms de espera si la sesión aún no puede pintar), de modo que la pantalla
+   100 ms de espera si la sesión aún no puede pintar), de modo que la pantalla
    de acceso sigue visible hasta entonces. Si algo se atasca, el registro se
    envía igualmente a los 3 s y la cubierta se retira a los 15 s: un inicio de
    sesión nunca se queda esperando.
@@ -55,9 +55,12 @@ Nodalix Shell lo corrige en `gnome/nodalix-shell/transition.js`:
    brillo que el greeter (`/var/lib/nodalix/login/background.jpg`, o el fondo
    de respaldo), en lugar del gris oscuro del sistema.
 3. **Desblur**: cuando el escritorio está completo (módulos habilitados, con un
-   máximo de 1,5 s), el desenfoque y el oscurecimiento se animan hasta cero
-   durante 650 ms y la cubierta se desvanece sobre el escritorio real. La
-   animación de arranque de GNOME se ejecuta debajo.
+   máximo de 1,5 s) y la cubierta lleva 400 ms en pantalla, el desenfoque y el
+   oscurecimiento se animan hasta cero durante 650 ms y la cubierta se
+   desvanece sobre el escritorio real. La animación de arranque de GNOME se
+   ejecuta debajo. Bajo GDM la sesión no puede pintar hasta que GDM cambia a
+   ella, es decir, después del registro; por eso la animación espera al primer
+   pintado real (`cover painted` en el diario) y no al registro.
 4. Hanabi (fondo de vídeo) espera a que termine la transición para no lanzar su
    proceso de reproducción mientras se anima.
 
@@ -69,8 +72,7 @@ Cada paso queda en el diario con la marca de tiempo relativa al fin de la
 construcción de la interfaz, para medir en hardware real:
 
 ```bash
-journalctl --user -b -t gnome-shell | grep 'Nodalix login transition'
-journalctl --user -b -t gnome-shell | grep -E 'Registering session with GDM|GNOME Shell started'
+sudo journalctl -b -o short-precise --no-pager | grep -E 'Nodalix login transition|Registering session with GDM|GNOME Shell started'
 ```
 
 `tools/prepare-nodalix-shell.py` añade cuatro puntos de enganche en
