@@ -348,11 +348,11 @@ impl Browser {
             ("columns", "Show in columns"),
         ] {
             let button = gtk::ToggleButton::new();
-            match view {
-                "list" => button.set_icon_name("view-list-symbolic"),
-                "grid" => button.set_icon_name("view-grid-symbolic"),
-                _ => button.set_child(Some(&crate::icons::columns_glyph())),
-            }
+            button.set_icon_name(match view {
+                "list" => "view-list-symbolic",
+                "grid" => "view-grid-symbolic",
+                _ => "view-columns-symbolic",
+            });
             button.set_action_name(Some("win.view"));
             button.set_action_target_value(Some(&view.to_variant()));
             button.set_tooltip_text(Some(tr(tip)));
@@ -1414,6 +1414,7 @@ impl Browser {
         row.set_widget_name(path);
         let content = gtk::Box::new(gtk::Orientation::Horizontal, 12);
         let image = gtk::Image::from_icon_name(icon);
+        image.set_pixel_size(20);
         content.append(&image);
         let label = gtk::Label::new(Some(title));
         label.set_xalign(0.0);

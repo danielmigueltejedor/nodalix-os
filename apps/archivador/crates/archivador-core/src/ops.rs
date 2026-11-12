@@ -44,7 +44,8 @@ pub fn rename(path: &Path, new_name: &str) -> io::Result<PathBuf> {
 }
 
 /// Copies a file, a folder with everything in it, or a link (as a link) to `target`, which must
-/// not exist. A folder cannot be copied into itself.
+/// not exist. A folder cannot be copied into itself. Inside a folder, sockets, pipes and devices
+/// are left out: they are not data, and `copy` would refuse them and stop the whole copy.
 pub fn copy(source: &Path, target: &Path) -> io::Result<()> {
     if target.starts_with(source) {
         return Err(io::Error::new(
@@ -52,17 +53,35 @@ pub fn copy(source: &Path, target: &Path) -> io::Result<()> {
             "a folder cannot be copied into itself",
         ));
     }
+    if !is_copyable(&source.symlink_metadata()?) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "a socket, pipe or device cannot be copied",
+        ));
+    }
+    copy_tree(source, target)
+}
+
+fn is_copyable(meta: &fs::Metadata) -> bool {
+    let kind = meta.file_type();
+    kind.is_file() || kind.is_dir() || kind.is_symlink()
+}
+
+fn copy_tree(source: &Path, target: &Path) -> io::Result<()> {
     let meta = source.symlink_metadata()?;
     if meta.file_type().is_symlink() {
         std::os::unix::fs::symlink(fs::read_link(source)?, target)
     } else if meta.is_dir() {
         fs::create_dir(target)?;
-        fs::set_permissions(target, meta.permissions())?;
         for child in fs::read_dir(source)? {
             let child = child?;
-            copy(&child.path(), &target.join(child.file_name()))?;
+            // A special file is not data; leave it out rather than fail the whole folder.
+            if child.metadata().is_ok_and(|m| is_copyable(&m)) || child.path().is_symlink() {
+                copy_tree(&child.path(), &target.join(child.file_name()))?;
+            }
         }
-        Ok(())
+        // Last: a folder that cannot be written to could not take its own files before.
+        fs::set_permissions(target, meta.permissions())
     } else {
         fs::copy(source, target).map(|_| ())
     }
@@ -126,6 +145,40 @@ mod tests {
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         dir
+    }
+
+    #[test]
+    fn a_folder_without_write_permission_is_copied_with_its_files() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = temp("readonly");
+        let source = dir.join("src");
+        fs::create_dir(&source).unwrap();
+        fs::write(source.join("a"), "A").unwrap();
+        fs::set_permissions(&source, fs::Permissions::from_mode(0o555)).unwrap();
+        copy(&source, &dir.join("copy")).unwrap();
+        assert_eq!(fs::read_to_string(dir.join("copy/a")).unwrap(), "A");
+        let mode = fs::metadata(dir.join("copy")).unwrap().permissions().mode();
+        assert_eq!(mode & 0o777, 0o555);
+        // So the test can clean up.
+        fs::set_permissions(&source, fs::Permissions::from_mode(0o755)).unwrap();
+        fs::set_permissions(dir.join("copy"), fs::Permissions::from_mode(0o755)).unwrap();
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn special_files_in_a_folder_are_left_out() {
+        let dir = temp("special");
+        let source = dir.join("src");
+        fs::create_dir(&source).unwrap();
+        fs::write(source.join("a"), "A").unwrap();
+        let fifo = std::ffi::CString::new(source.join("pipe").to_str().unwrap()).unwrap();
+        assert_eq!(unsafe { libc::mkfifo(fifo.as_ptr(), 0o600) }, 0);
+        copy(&source, &dir.join("copy")).unwrap();
+        assert!(dir.join("copy/a").is_file());
+        assert!(!dir.join("copy/pipe").exists());
+        // On its own it is an error, not a copy that silently did nothing.
+        assert!(copy(&source.join("pipe"), &dir.join("pipe-copy")).is_err());
+        fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
