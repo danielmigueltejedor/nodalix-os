@@ -28,6 +28,23 @@ class NdlThemeTests(unittest.TestCase):
         for name in registered:
             self.assertTrue((NDL / name).is_file(), name)
 
+    def test_icons_the_widget_sheet_asks_for_are_shipped_and_registered(self):
+        sheet = (NDL / 'nodalia-gtk.css').read_text()
+        wanted = set(re.findall(r'-gtk-icontheme\("(ndl-[a-z-]+)"\)', sheet))
+        shipped = {p.stem for p in (NDL / 'icons').glob('*.svg')}
+        registered = set(re.findall(r"'(ndl-[a-z-]+-symbolic)'", (CC / 'apply.py').read_text()))
+        self.assertTrue(wanted)
+        self.assertLessEqual(wanted, shipped)
+        self.assertLessEqual(wanted, registered)
+        self.assertIn('add_resource_path', (CC / 'cc-nodalix-theme.c').read_text())
+
+    def test_font_sizes_follow_the_system_text_scale(self):
+        # GTK scales pt and em with Large Text, never px.
+        css = re.sub(r'/\*.*?\*/', '', (NDL / 'nodalix-overrides.css').read_text(), flags=re.S)
+        for token in re.findall(r'--ndl-font-size-[a-z]+:\s*([^;]+);', css):
+            self.assertTrue(token.strip().endswith('pt'), token)
+        self.assertNotRegex(css, r'font-size:\s*[\d.]+px')
+
     def test_overrides_keep_the_system_font_and_use_only_gtk_properties(self):
         css = re.sub(r'/\*.*?\*/', '', (NDL / 'nodalix-overrides.css').read_text(), flags=re.S)
         self.assertIn('--ndl-font-family-ui: "Adwaita Sans"', css)
@@ -35,6 +52,14 @@ class NdlThemeTests(unittest.TestCase):
         self.assertNotIn('Inter', css)
         # GTK CSS has no `overflow`: it is a widget property set in the blueprint.
         self.assertNotRegex(css, r'(?m)^\s*overflow\s*:')
+
+    def test_license_is_installed_and_preflight_checks_the_ndl_destinations(self):
+        pkgbuild = (ROOT / 'packaging/nodalix-control-center/PKGBUILD').read_text()
+        self.assertIn('gnome/control-center/ndl/LICENSE', pkgbuild)
+        self.assertIn('"MIT"', pkgbuild)
+        apply_py = (CC / 'apply.py').read_text()
+        self.assertLess(apply_py.index('NDL_SHEETS = ('), apply_py.index('# Validate every directory'))
+        self.assertIn('target("shell/ndl")', apply_py)
 
     def test_loader_can_be_switched_off_and_follows_the_system_style(self):
         loader = (CC / 'cc-nodalix-theme.c').read_text()

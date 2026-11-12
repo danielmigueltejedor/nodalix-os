@@ -1,0 +1,17 @@
+[package]
+name = "nodalix-settings"
+description = "Nodalix Settings, built with the Nodalia Design Language."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "nodalix-settings"
+path = "src/main.rs"
+
+[dependencies]
+ajustes-core = { path = "../ajustes-core" }
+monitor-core.workspace = true
+nodalia-gtk.workspace = true
+nodalix-ui.workspace = true

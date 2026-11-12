@@ -4,7 +4,7 @@ pkgrel=19
 pkgdesc="GNOME Settings with native Nodalix updates and animated backgrounds"
 arch=("x86_64")
 url="https://github.com/danielmigueltejedor/nodalix-os"
-license=("GPL-2.0-or-later" "GPL-3.0-or-later")
+license=("GPL-2.0-or-later" "GPL-3.0-or-later" "MIT")
 provides=("gnome-control-center=51.0")
 conflicts=("gnome-control-center")
 depends=("nodalix-settings>=0.5.0-2" "accountsservice" "bolt" "cairo" "colord-gtk4" "cups-pk-helper" "dconf" "fontconfig" "gcr-4" "gdk-pixbuf2" "glib2" "glibc" "gnome-bluetooth-3.0" "gnome-color-manager" "gnome-desktop-4" "gnome-online-accounts" "gnome-settings-daemon" "gnome-shell" "gnutls" "graphene" "gsettings-desktop-schemas" "gsound" "gst-plugins-good" "gtk4" "hicolor-icon-theme" "json-glib" "krb5" "libadwaita" "libcolord" "libcups" "libepoxy" "libgcc" "libgoa" "libgtop" "libgudev" "libibus" "libmalcontent" "libmm-glib" "libnm" "libnma-gtk4" "libpulse" "libpwquality" "libsecret" "libsoup3" "libwacom" "libx11" "libxi" "libxml2" "pango" "polkit" "smbclient" "sound-theme-freedesktop" "tecla" "udisks2" "upower" "wayland" "gnome-keybindings")
@@ -29,4 +29,6 @@ package() {
   rm -r "$pkgdir/usr/share/gnome-control-center/keybindings"
   rm "$pkgdir/usr/share/pkgconfig/gnome-keybindings.pc"
   rm "$pkgdir/usr/share/gettext/its/gnome-keybindings.its" "$pkgdir/usr/share/gettext/its/gnome-keybindings.loc"
+  # The NDL style sheets compiled into Settings are MIT-licensed.
+  install -Dm644 "$srcdir/gnome/control-center/ndl/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE-NDL"
 }

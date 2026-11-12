@@ -1,0 +1,16 @@
+[package]
+name = "nodalix-monitor"
+description = "Nodalix System Monitor, built with the Nodalia Design Language."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "nodalix-monitor"
+path = "src/main.rs"
+
+[dependencies]
+monitor-core.workspace = true
+nodalia-gtk.workspace = true
+nodalix-ui.workspace = true
