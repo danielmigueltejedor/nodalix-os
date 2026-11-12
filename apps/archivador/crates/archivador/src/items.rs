@@ -5,10 +5,12 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use archivador_core::entry::Entry;
 use archivador_core::format;
-use ndl::gtk::{self, gio, glib, prelude::*};
+use ndl::gtk::{self, gdk, gio, glib, prelude::*};
 use nodalia_gtk as ndl;
 
 use crate::object::FileObject;
+use crate::thumbs;
+use crate::transfer;
 
 thread_local! {
     static MODIFIED: gtk::SizeGroup = gtk::SizeGroup::new(gtk::SizeGroupMode::Horizontal);
@@ -27,6 +29,50 @@ pub fn align_size(widget: &impl IsA<gtk::Widget>) {
 
 /// Called when a file is right-clicked: the widget, the position inside it, and the file's index.
 pub type ContextMenu = Rc<dyn Fn(&gtk::Widget, f64, f64, u32)>;
+
+/// What a file's row or tile needs from the window.
+#[derive(Clone)]
+pub struct Hooks {
+    pub menu: ContextMenu,
+    /// The paths a drag that starts on this file carries: all that are selected, if it is one of
+    /// them, else just it.
+    pub drag_paths: Rc<dyn Fn(u32) -> Vec<std::path::PathBuf>>,
+    /// Files dropped on the folder at this position; whether they are copied. True if taken.
+    pub drop_into: Rc<dyn Fn(u32, Vec<std::path::PathBuf>, bool) -> bool>,
+}
+
+/// Lets the file be dragged out, and a folder take what is dropped on it.
+fn attach_drag_and_drop(item: &gtk::ListItem, widget: &gtk::Widget, hooks: &Hooks) {
+    let source = gtk::DragSource::new();
+    source.set_actions(gdk::DragAction::COPY | gdk::DragAction::MOVE);
+    let (position, drag_paths) = (item.clone(), hooks.drag_paths.clone());
+    source.connect_prepare(move |_, _, _| {
+        let paths = drag_paths(position.position());
+        (!paths.is_empty()).then(|| transfer::drag_content(&paths))
+    });
+    source.connect_drag_begin(|source, _| {
+        if let Some(widget) = source.widget() {
+            source.set_icon(Some(&gtk::WidgetPaintable::new(Some(&widget))), 0, 0);
+        }
+    });
+    widget.add_controller(source);
+
+    let target = gtk::DropTarget::new(
+        gdk::FileList::static_type(),
+        gdk::DragAction::COPY | gdk::DragAction::MOVE,
+    );
+    let folder = item.clone();
+    target.connect_accept(move |_, _| object(&folder).is_some_and(|f| f.entry().is_dir));
+    let (position, drop_into) = (item.clone(), hooks.drop_into.clone());
+    target.connect_drop(move |target, value, _, _| {
+        drop_into(
+            position.position(),
+            transfer::paths_of(value),
+            transfer::drop_copies(target),
+        )
+    });
+    widget.add_controller(target);
+}
 
 fn icon_for(entry: &Entry) -> gio::Icon {
     if entry.is_dir {
@@ -62,6 +108,33 @@ fn modified_text(time: Option<SystemTime>) -> String {
         .unwrap_or_default()
 }
 
+/// Shows the file's icon, and its thumbnail in place of it once that is ready. The image's name
+/// is the file it was last asked to show, so a row that was recycled meanwhile is left alone.
+fn show_icon(image: &gtk::Image, entry: &Entry, thumb_size: i32) {
+    let path = entry.path.to_string_lossy().into_owned();
+    image.set_widget_name(&path);
+    // Rounded corners only clip what is drawn inside when the widget says so.
+    image.set_overflow(gtk::Overflow::Hidden);
+    image.remove_css_class("archivador-thumb");
+    if let Some(texture) = thumbs::cached(entry, thumb_size) {
+        image.set_paintable(Some(&texture));
+        image.add_css_class("archivador-thumb");
+        return;
+    }
+    image.set_from_gicon(&icon_for(entry));
+    if thumbs::wanted(entry) {
+        let image = image.downgrade();
+        thumbs::load(entry, thumb_size, move |texture| {
+            if let Some(image) = image.upgrade() {
+                if image.widget_name() == path {
+                    image.set_paintable(Some(&texture));
+                    image.add_css_class("archivador-thumb");
+                }
+            }
+        });
+    }
+}
+
 fn on_right_click(item: &gtk::ListItem, widget: &gtk::Widget, menu: &ContextMenu) {
     let click = gtk::GestureClick::builder().button(3).build();
     let (item, menu, target) = (item.clone(), menu.clone(), widget.clone());
@@ -77,7 +150,7 @@ fn object(item: &gtk::ListItem) -> Option<FileObject> {
 }
 
 /// A row per file: icon, name, modification time, size.
-pub fn list_factory(menu: ContextMenu) -> gtk::SignalListItemFactory {
+pub fn list_factory(hooks: Hooks) -> gtk::SignalListItemFactory {
     let factory = gtk::SignalListItemFactory::new();
     factory.connect_setup(move |_, item| {
         let Some(item) = item.downcast_ref::<gtk::ListItem>() else {
@@ -109,7 +182,8 @@ pub fn list_factory(menu: ContextMenu) -> gtk::SignalListItemFactory {
         ] {
             row.append(widget);
         }
-        on_right_click(item, row.upcast_ref(), &menu);
+        on_right_click(item, row.upcast_ref(), &hooks.menu);
+        attach_drag_and_drop(item, row.upcast_ref(), &hooks);
         item.set_child(Some(&row));
     });
     factory.connect_bind(|_, item| {
@@ -122,7 +196,7 @@ pub fn list_factory(menu: ContextMenu) -> gtk::SignalListItemFactory {
         let entry = file.entry();
         let mut cells = std::iter::successors(row.first_child(), |w| w.next_sibling());
         if let Some(icon) = cells.next().and_downcast::<gtk::Image>() {
-            icon.set_from_gicon(&icon_for(&entry));
+            show_icon(&icon, &entry, 96);
         }
         if let Some(name) = cells.next().and_downcast::<gtk::Label>() {
             name.set_label(&entry.name);
@@ -142,7 +216,7 @@ pub fn list_factory(menu: ContextMenu) -> gtk::SignalListItemFactory {
 }
 
 /// A tile per file: a large icon above the name.
-pub fn grid_factory(menu: ContextMenu) -> gtk::SignalListItemFactory {
+pub fn grid_factory(hooks: Hooks) -> gtk::SignalListItemFactory {
     let factory = gtk::SignalListItemFactory::new();
     factory.connect_setup(move |_, item| {
         let Some(item) = item.downcast_ref::<gtk::ListItem>() else {
@@ -152,7 +226,7 @@ pub fn grid_factory(menu: ContextMenu) -> gtk::SignalListItemFactory {
         tile.add_css_class("archivador-tile");
         tile.set_halign(gtk::Align::Center);
         let icon = gtk::Image::new();
-        icon.set_pixel_size(64);
+        icon.set_pixel_size(80);
         let name = gtk::Label::new(None);
         name.set_wrap(true);
         name.set_wrap_mode(gtk::pango::WrapMode::WordChar);
@@ -163,7 +237,8 @@ pub fn grid_factory(menu: ContextMenu) -> gtk::SignalListItemFactory {
         name.set_justify(gtk::Justification::Center);
         tile.append(&icon);
         tile.append(&name);
-        on_right_click(item, tile.upcast_ref(), &menu);
+        on_right_click(item, tile.upcast_ref(), &hooks.menu);
+        attach_drag_and_drop(item, tile.upcast_ref(), &hooks);
         item.set_child(Some(&tile));
     });
     factory.connect_bind(|_, item| {
@@ -175,7 +250,7 @@ pub fn grid_factory(menu: ContextMenu) -> gtk::SignalListItemFactory {
         };
         let entry = file.entry();
         if let Some(icon) = tile.first_child().and_downcast::<gtk::Image>() {
-            icon.set_from_gicon(&icon_for(&entry));
+            show_icon(&icon, &entry, 256);
         }
         if let Some(name) = tile.last_child().and_downcast::<gtk::Label>() {
             name.set_label(&entry.name);

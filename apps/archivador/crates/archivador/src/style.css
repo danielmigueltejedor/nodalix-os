@@ -77,6 +77,11 @@
   padding: var(--ndl-space-xl);
 }
 
+/* A thumbnail: the picture itself, with softened corners. */
+.archivador-thumb {
+  border-radius: var(--ndl-radius-sm);
+}
+
 /* The files. */
 .archivador-files {
   background-color: transparent;

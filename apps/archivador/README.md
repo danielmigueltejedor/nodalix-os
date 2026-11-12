@@ -10,22 +10,22 @@ sorting) and goes its own way elsewhere.
 
 | Area | State |
 | --- | --- |
-| Browsing | Folders as a list or a grid, back, forward, parent, path bar, places and drives in the sidebar, live updates when the folder changes. Sort by name, date, size or type, reverse order, hidden files, search in the folder (just start typing). |
-| Editing | New folder, rename, copy, cut, paste (names never overwrite: `name (2)`), move to the trash, delete for good. Copy and delete run off the main thread. |
+| Browsing | Folders as a list (with a column header that sorts) or a grid, image thumbnails, back, forward, parent, a path bar you can click or type in (Ctrl+L), places and drives in the sidebar with eject, live updates when the folder changes, a status line with the count or the selection. Sort by name, date, size or type, reverse order, hidden files, search in the folder (just start typing). |
+| Editing | New folder, rename, copy, cut, paste (names never overwrite: `name (2)`), move to the trash, delete for good, properties (folder sizes are added up in the background), Open With…. Copy, move and delete run off the main thread, with a spinner in the header. |
+| Clipboard and drag and drop | Copy and cut use the system clipboard (GNOME's `x-special/gnome-copied-files`, URI lists and file lists), so they paste to and from other file managers. Files drag out to other apps and in from them; onto a folder, a place in the sidebar, the trash, or the empty part of the folder. A drag inside Archivador moves, with Ctrl it copies; one from another app copies. |
 | Trash | The freedesktop.org home trash, so what Archivador trashes shows in every other file manager. Restore, delete, empty. A file that cannot be trashed (another drive) offers to be deleted instead. |
 | LocalSend | Right click, *Send with LocalSend…*: lists the nearby devices from the session service (`com.nodalix.LocalSend`) and sends through `/usr/lib/nodalix/localsend-send`, as the system menu always did. |
 | Remembers | View, sort order, reverse and hidden files, in `~/.config/nodalix/archivador.json`. |
 
-Not done yet: drag and drop, thumbnails, properties, open with…, tabs, connecting to servers,
-mounting and ejecting drives, a system clipboard that other apps can paste from (copy and cut work
-between Archivador windows only), progress for long copies, the Nautilus extension API.
+Not done yet: tabs, connecting to servers, mounting drives that are not mounted, progress with a
+cancel button for long copies, bookmarks, the Nautilus extension API.
 
 ## Layout
 
 | Crate | What it is |
 | --- | --- |
 | `crates/archivador-core` | Everything that is not drawing: reading and sorting folders, natural name order, unique names, copy / move / delete, the trash, the clipboard, the places, history, LocalSend devices and the send command, settings. No GTK; unit tested. |
-| `crates/archivador` | The GTK application: window (`browser.rs`), the rows and tiles (`items.rs`), dialogs, the LocalSend dialog. |
+| `crates/archivador` | The GTK application: window (`browser.rs`), the rows and tiles (`items.rs`), thumbnails, clipboard and drag and drop formats (`transfer.rs`), properties, dialogs, the LocalSend dialog. |
 | `../crates/nodalix-ui` | NDL set up for Nodalix OS (system font, text scaling), shared with the other native apps. |
 
 ```sh

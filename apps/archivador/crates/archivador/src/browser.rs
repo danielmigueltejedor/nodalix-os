@@ -16,10 +16,11 @@ use nodalia_gtk as ndl;
 
 use crate::dialogs;
 use crate::i18n::{fmt, items, tr};
-use crate::items::{self as look, ContextMenu};
+use crate::items::{self as look, ContextMenu, Hooks};
 use crate::object::FileObject;
 use crate::properties;
 use crate::share;
+use crate::transfer;
 
 /// The place that stands for the trash in the history and in the sidebar.
 const TRASH: &str = "trash:///";
@@ -29,8 +30,6 @@ thread_local! {
     /// keeps one alive until its window closes.
     static OPEN: RefCell<Vec<Rc<Browser>>> = const { RefCell::new(Vec::new()) };
 
-    /// What was copied or cut, shared by every window of the app.
-    static CLIPBOARD: RefCell<Option<Clipboard>> = const { RefCell::new(None) };
 }
 
 struct State {
@@ -561,9 +560,90 @@ impl Browser {
                 this.popup(widget, x, y, true);
             })
         };
+        let drag_paths: Rc<dyn Fn(u32) -> Vec<PathBuf>> = {
+            let this = self.weak();
+            Rc::new(move |position| {
+                let Some(this) = this.upgrade() else {
+                    return Vec::new();
+                };
+                if !this.selection.is_selected(position) {
+                    this.selection.select_item(position, true);
+                }
+                this.selected().into_iter().map(|e| e.path).collect()
+            })
+        };
+        let drop_into: Rc<dyn Fn(u32, Vec<PathBuf>, bool) -> bool> = {
+            let this = self.weak();
+            Rc::new(move |position, paths, copy| {
+                let Some(this) = this.upgrade() else {
+                    return false;
+                };
+                let Some(folder) = this.store.item(position).and_downcast::<FileObject>() else {
+                    return false;
+                };
+                this.drop_files(paths, folder.entry().path, copy)
+            })
+        };
+        let hooks = Hooks {
+            menu,
+            drag_paths,
+            drop_into,
+        };
         self.list_view
-            .set_factory(Some(&look::list_factory(menu.clone())));
-        self.grid_view.set_factory(Some(&look::grid_factory(menu)));
+            .set_factory(Some(&look::list_factory(hooks.clone())));
+        self.grid_view.set_factory(Some(&look::grid_factory(hooks)));
+
+        // Dropping on the empty part of the folder puts the files in it.
+        let target = gtk::DropTarget::new(
+            gdk::FileList::static_type(),
+            gdk::DragAction::COPY | gdk::DragAction::MOVE,
+        );
+        let this = self.weak();
+        target.connect_drop(move |target, value, _, _| {
+            let Some(this) = this.upgrade() else {
+                return false;
+            };
+            let dir = this.current_dir();
+            !is_trash(&dir)
+                && this.drop_files(
+                    transfer::paths_of(value),
+                    dir,
+                    transfer::drop_copies(target),
+                )
+        });
+        self.pages.add_controller(target);
+
+        // Dropping on a place in the sidebar puts them there, and on the trash trashes them.
+        let target = gtk::DropTarget::new(
+            gdk::FileList::static_type(),
+            gdk::DragAction::COPY | gdk::DragAction::MOVE,
+        );
+        let this = self.weak();
+        target.connect_drop(move |target, value, _, y| {
+            let Some(this) = this.upgrade() else {
+                return false;
+            };
+            let Some(row) = this
+                .sidebar
+                .row_at_y(y as i32)
+                .filter(|r| r.is_selectable())
+            else {
+                return false;
+            };
+            this.drop_files(
+                transfer::paths_of(value),
+                PathBuf::from(row.widget_name().as_str()),
+                transfer::drop_copies(target),
+            )
+        });
+        self.sidebar.add_controller(target);
+
+        let this = self.weak();
+        self.window.clipboard().connect_changed(move |_| {
+            if let Some(this) = this.upgrade() {
+                this.update_actions();
+            }
+        });
 
         let activate = {
             let this = self.weak();
@@ -898,7 +978,7 @@ impl Browser {
             .filter(|&i| self.selection.is_selected(i))
             .count();
         let some = selected > 0;
-        let pasteable = CLIPBOARD.with(|c| c.borrow().is_some());
+        let pasteable = transfer::has_files(&self.window.clipboard());
         self.set_enabled("back", can_back);
         self.set_enabled("forward", can_forward);
         self.set_enabled("up", can_up);
@@ -1419,49 +1499,95 @@ impl Browser {
         if paths.is_empty() {
             return;
         }
-        CLIPBOARD.with(|c| *c.borrow_mut() = Some(Clipboard::new(mode, paths)));
+        // The system clipboard, so that other apps can paste what is copied here.
+        let _ = self
+            .window
+            .clipboard()
+            .set_content(Some(&transfer::clipboard_content(mode, &paths)));
         self.update_actions();
     }
 
     fn paste(self: &Rc<Self>) {
         let dir = self.current_dir();
-        let Some(clipboard) = CLIPBOARD.with(|c| c.borrow().clone()) else {
-            return;
-        };
         if is_trash(&dir) {
             return;
         }
         let this = self.weak();
-        self.working(true);
+        let system = self.window.clipboard();
         glib::spawn_future_local(async move {
-            let cut = clipboard.mode == Mode::Cut;
-            let target = dir.clone();
-            let result = gio::spawn_blocking(move || clipboard.paste(&target)).await;
+            let Some(clipboard) = transfer::read(&system).await else {
+                return;
+            };
             let Some(this) = this.upgrade() else { return };
-            this.working(false);
-            match result {
-                Ok(Ok(pasted)) => {
-                    if cut {
-                        CLIPBOARD.with(|c| *c.borrow_mut() = None);
-                    }
-                    if this.current_dir() == dir {
-                        this.state.borrow_mut().select = pasted.clone();
-                        this.reload();
-                    }
-                    this.update_actions();
-                }
-                Ok(Err(error)) => {
-                    this.reload();
-                    this.toast(&error.to_string());
-                }
-                Err(_) => this.toast("?"),
+            let cut = clipboard.mode == Mode::Cut;
+            let paths = this.transfer(clipboard, dir).await;
+            if cut && paths.is_some() {
+                // What was moved is no longer where the clipboard says it is.
+                let _ = system.set_content(None::<&gdk::ContentProvider>);
             }
         });
     }
 
+    /// Puts the files of `clipboard` in `dir`, off the main thread, and says how it went. Returns
+    /// where they ended up, or nothing if it failed.
+    async fn transfer(self: &Rc<Self>, clipboard: Clipboard, dir: PathBuf) -> Option<Vec<PathBuf>> {
+        self.working(true);
+        let target = dir.clone();
+        let result = gio::spawn_blocking(move || clipboard.paste(&target)).await;
+        self.working(false);
+        match result {
+            Ok(Ok(pasted)) => {
+                if self.current_dir() == dir {
+                    self.state.borrow_mut().select = pasted.clone();
+                    self.reload();
+                }
+                self.update_actions();
+                Some(pasted)
+            }
+            Ok(Err(error)) => {
+                self.reload();
+                self.toast(&error.to_string());
+                None
+            }
+            Err(_) => {
+                self.toast("?");
+                None
+            }
+        }
+    }
+
+    /// Files dropped on a folder, a place or the trash. Moves them, or copies when asked to.
+    fn drop_files(self: &Rc<Self>, paths: Vec<PathBuf>, target: PathBuf, copy: bool) -> bool {
+        if is_trash(&target) {
+            self.trash_paths(paths);
+            return true;
+        }
+        let paths: Vec<PathBuf> = paths
+            .into_iter()
+            // Not onto itself or into itself, and a move into the folder it is in does nothing.
+            .filter(|p| !target.starts_with(p) && (copy || p.parent() != Some(target.as_path())))
+            .collect();
+        if paths.is_empty() || !target.is_dir() {
+            return false;
+        }
+        let mode = if copy { Mode::Copy } else { Mode::Cut };
+        let this = self.clone();
+        glib::spawn_future_local(async move {
+            this.transfer(Clipboard::new(mode, paths), target).await;
+        });
+        true
+    }
+
     fn trash_selected(self: &Rc<Self>) {
-        let selected = self.selected();
-        if selected.is_empty() || is_trash(&self.current_dir()) {
+        if is_trash(&self.current_dir()) {
+            return;
+        }
+        let paths: Vec<PathBuf> = self.selected().into_iter().map(|e| e.path).collect();
+        self.trash_paths(paths);
+    }
+
+    fn trash_paths(self: &Rc<Self>, paths: Vec<PathBuf>) {
+        if paths.is_empty() {
             return;
         }
         let date = glib::DateTime::now_local()
@@ -1471,22 +1597,25 @@ impl Browser {
             .unwrap_or_default();
         let bin = trash();
         let mut moved = 0;
-        let mut refused: Vec<(Entry, String)> = Vec::new();
-        for entry in selected {
-            match bin.trash(&entry.path, &date) {
+        let mut refused: Vec<(PathBuf, String)> = Vec::new();
+        for path in paths {
+            match bin.trash(&path, &date) {
                 Ok(()) => moved += 1,
-                Err(error) => refused.push((entry, error.to_string())),
+                Err(error) => refused.push((path, error.to_string())),
             }
         }
         self.reload();
         if moved > 0 {
             self.toast(&fmt("Moved {} to the trash", &items(moved)));
         }
-        if let Some((entry, error)) = refused.first() {
-            let paths: Vec<PathBuf> = refused.iter().map(|(e, _)| e.path.clone()).collect();
+        if let Some((path, error)) = refused.first() {
+            let paths: Vec<PathBuf> = refused.iter().map(|(p, _)| p.clone()).collect();
+            let name = path
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
             let body = format!(
-                "{}: {error}\n\n{}",
-                entry.name,
+                "{name}: {error}\n\n{}",
                 tr("It will be deleted for good. This can't be undone.")
             );
             let this = self.weak();

@@ -7,6 +7,8 @@ mod items;
 mod object;
 mod properties;
 mod share;
+mod thumbs;
+mod transfer;
 
 use std::path::PathBuf;
 
