@@ -70,6 +70,11 @@ pub async fn system() -> Option<gio::DBusConnection> {
     gio::bus_get_future(gio::BusType::System).await.ok()
 }
 
+/// The session bus, or `None` when there is none.
+pub async fn session() -> Option<gio::DBusConnection> {
+    gio::bus_get_future(gio::BusType::Session).await.ok()
+}
+
 /// Calls a method and returns its reply, giving up after five seconds.
 pub async fn call(
     connection: &gio::DBusConnection,

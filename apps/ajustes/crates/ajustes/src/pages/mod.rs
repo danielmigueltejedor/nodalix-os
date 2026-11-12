@@ -5,6 +5,7 @@ pub mod applications;
 pub mod bluetooth;
 pub mod bus;
 pub mod datetime;
+pub mod displays;
 pub mod gs;
 pub mod keyboard;
 pub mod localsend;

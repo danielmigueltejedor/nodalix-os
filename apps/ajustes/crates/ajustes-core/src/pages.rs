@@ -73,7 +73,7 @@ pub const SECTIONS: &[(&str, &[Page])] = &[
     (
         "Devices",
         &[
-            legacy("display", "Displays", "video-display-symbolic", "display"),
+            native("display", "Displays", "video-display-symbolic"),
             native("sound", "Sound", "audio-volume-high-symbolic"),
             native("power", "Power", "battery-symbolic"),
             native("keyboard", "Keyboard", "input-keyboard-symbolic"),
@@ -142,8 +142,8 @@ mod tests {
     fn finds_by_id() {
         assert_eq!(find("about").map(|p| p.kind), Some(Kind::Native));
         assert_eq!(
-            find("display").map(|p| p.kind),
-            Some(Kind::Legacy("display"))
+            find("printers").map(|p| p.kind),
+            Some(Kind::Legacy("printers"))
         );
         assert!(find("nope").is_none());
     }
