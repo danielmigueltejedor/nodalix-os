@@ -120,3 +120,9 @@ Primary references:
 https://github.com/GNOME/gnome-shell/blob/51.0/js/ui/unlockDialog.js,
 https://gjs.guide/extensions/overview/anatomy.html,
 https://github.com/GNOME/gdm/blob/51.0/NEWS.
+
+## Diseño NDL
+
+`apply.py` instala además la capa del lenguaje de diseño de Nodalia
+(`cc-nodalix-theme.c`, hojas fijadas en `ndl/`) y marca la barra lateral y el
+contenido como islas en `cc-window.blp`. Ver `docs/ndl.md` y `ndl/PROVENANCE.md`.
