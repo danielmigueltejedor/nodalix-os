@@ -10,6 +10,7 @@ from pathlib import Path
 import re
 import shlex
 import stat
+import tempfile
 
 # Prefer the 0.5.1 hybrid theme; keep Colloid names for older installs.
 THEME_VARIANTS = (
@@ -163,6 +164,17 @@ def official_craft_icon(identifier, entry, roots):
     return None
 
 
+def write_atomic(path, text):
+    with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=path.parent, delete=False) as stream:
+        staged = Path(stream.name)
+        try:
+            stream.write(text)
+            stream.close()
+            staged.replace(path)
+        finally:
+            staged.unlink(missing_ok=True)
+
+
 def synchronize(home, data_roots=None, theme_roots=None):
     data_home = Path(os.environ.get('XDG_DATA_HOME', str(home / '.local/share')))
     state_home = Path(os.environ.get('XDG_STATE_HOME', str(home / '.local/state')))
@@ -180,6 +192,13 @@ def synchronize(home, data_roots=None, theme_roots=None):
         old = json.loads(manifest.read_text())
     except (OSError, ValueError):
         old = {}
+    if not isinstance(old, dict):
+        old = {}
+    old = {
+        name: row for name, row in old.items()
+        if name.endswith('.desktop') and Path(name).name == name
+        and isinstance(row, dict) and isinstance(row.get('source'), str)
+    }
     entries = {}
     # First location wins, matching XDG desktop-file precedence.
     for root in roots:
@@ -188,6 +207,8 @@ def synchronize(home, data_roots=None, theme_roots=None):
             for source in sorted(folder.rglob('*.desktop')):
                 identifier = str(source.relative_to(folder)).replace('/', '-')
                 destination = apps / identifier
+                if destination.is_symlink():
+                    continue
                 previous = old.get(identifier, {})
                 if source == destination and previous.get('source') != str(source) and previous.get('source'):
                     if digest(source.read_text()) == previous.get('written_hash'):
@@ -221,29 +242,28 @@ def synchronize(home, data_roots=None, theme_roots=None):
             # Restore only our unchanged output if a theme icon disappears.
             if previous and destination.exists() and digest(destination.read_text()) == previous.get('written_hash'):
                 if source == destination:
-                    destination.write_text(previous.get('original', text))
+                    write_atomic(destination, previous.get('original', text))
                 else:
                     destination.unlink()
             continue
         replacement = replace_icon(text, icon)
         if not destination.exists() or destination.read_text() != replacement:
-            temporary = destination.with_suffix('.desktop.nodalix-new')
-            temporary.write_text(replacement)
-            temporary.replace(destination)
+            write_atomic(destination, replacement)
         updated[identifier] = {'source': str(source), 'original': text if source == destination else '',
                                'written_hash': digest(replacement)}
         chosen[identifier] = icon
     for identifier, previous in old.items():
         source = Path(previous['source'])
         destination = apps / identifier
-        if not source.exists() and destination.exists() and digest(destination.read_text()) == previous.get('written_hash'):
+        if (not source.exists() and not destination.is_symlink() and destination.is_file()
+                and digest(destination.read_text()) == previous.get('written_hash')):
             destination.unlink()
     for path, text in (
         (manifest, json.dumps(updated, ensure_ascii=False, indent=2) + '\n'),
         (state / 'resolved.json', json.dumps(chosen, ensure_ascii=False) + '\n'),
     ):
-        if not path.is_file() or path.read_text() != text:
-            path.write_text(text)
+        if path.is_symlink() or not path.is_file() or path.read_text() != text:
+            write_atomic(path, text)
     return chosen
 
 
