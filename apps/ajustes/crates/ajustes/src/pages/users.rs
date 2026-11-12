@@ -113,11 +113,26 @@ pub fn build(toasts: &ndl::ToastOverlay) -> gtk::ScrolledWindow {
         kind.set_subtitle(tr(account_type(account)));
         let icon = text("IconFile");
         if !icon.is_empty() && std::path::Path::new(&icon).is_file() {
+            // A picture's natural size is the photo's own, so it goes in a scrolled window that
+            // does not pass that size on: the circle stays 96 px whatever the file measures.
             let photo = gtk::Picture::for_filename(&icon);
             photo.set_content_fit(gtk::ContentFit::Cover);
-            photo.set_size_request(96, 96);
+            photo.set_can_shrink(true);
+            photo.set_hexpand(true);
+            photo.set_vexpand(true);
+            let fixed = gtk::ScrolledWindow::builder()
+                .hscrollbar_policy(gtk::PolicyType::Never)
+                .vscrollbar_policy(gtk::PolicyType::Never)
+                .min_content_width(96)
+                .min_content_height(96)
+                .max_content_width(96)
+                .max_content_height(96)
+                .propagate_natural_width(false)
+                .propagate_natural_height(false)
+                .child(&photo)
+                .build();
             picture.remove(&glyph);
-            picture.append(&photo);
+            picture.append(&fixed);
         }
 
         {
