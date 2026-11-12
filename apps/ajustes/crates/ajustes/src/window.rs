@@ -49,7 +49,7 @@ pub fn present(app: &gtk::Application) {
     let window = ndl::ApplicationWindow::new(app);
     window.set_title(Some(tr("Settings")));
     window.set_default_size(1000, 700);
-    window.set_icon_name(Some("preferences-system"));
+    window.set_icon_name(Some("os.nodalix.Settings"));
 
     let toasts = ndl::ToastOverlay::new();
     let updates = UpdatesPage::new();

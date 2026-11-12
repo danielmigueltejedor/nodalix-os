@@ -8,6 +8,8 @@ const ES: &[(&str, &str)] = &[
     ("Search processes", "Buscar procesos"),
     ("End process", "Terminar proceso"),
     ("Force quit", "Forzar cierre"),
+    ("Copy ID", "Copiar ID"),
+    ("Copy command", "Copiar comando"),
     ("Stop", "Detener"),
     ("Continue", "Continuar"),
     ("Name", "Nombre"),
