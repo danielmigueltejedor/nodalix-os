@@ -101,4 +101,4 @@ wait "$wake_pid" || wake_status=$?
 cat /src/dist/migration-evidence/suspend.log
 cut -c1-600 /src/dist/migration-evidence/boot.log
 grep -q 'NODALIX_VM_MIGRATION_PASS' /src/dist/migration-evidence/boot.log
-test "$wake_status" -eq 0
+[[ "$wake_status" -eq 0 ]]

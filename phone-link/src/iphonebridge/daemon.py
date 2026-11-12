@@ -444,7 +444,7 @@ class Daemon:
         self._maintain_phone_connection()
         return False
 
-    def _restart_ancs_after_le(self) -> bool:
+    def _restart_ancs_after_le(self) -> bool:  # NOSONAR: GLib one-shot source, False removes it
         self._ancs_restart_id = None
 
         if (
@@ -473,7 +473,7 @@ class Daemon:
 
         return False
 
-    def _maintain_phone_connection(self) -> bool:
+    def _maintain_phone_connection(self) -> bool:  # NOSONAR: GLib periodic source, True keeps it running
         now = time.monotonic()
 
         if (

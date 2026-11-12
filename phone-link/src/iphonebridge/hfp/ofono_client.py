@@ -313,7 +313,7 @@ class HfpManager:
             delay, self._power_retry_tick
         )
 
-    def _power_retry_tick(self) -> bool:
+    def _power_retry_tick(self) -> bool:  # NOSONAR: GLib one-shot source, False removes it
         self._power_retry_id = None
 
         if self._modem_path is None:
