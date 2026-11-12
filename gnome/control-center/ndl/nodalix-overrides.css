@@ -24,3 +24,35 @@ row.spin spinbutton {
   border: none;
   box-shadow: none;
 }
+
+/* Tamaño de letra: GTK no aplica «Texto grande» a los px, solo a pt y em. Los
+ * tamaños de NDL (px) pasan a pt con la misma apariencia a 96 ppp (1 px =
+ * 0,75 pt) para que el texto siga la preferencia del sistema. */
+:root {
+  --ndl-font-size-caption: 8.25pt;
+  --ndl-font-size-small: 9pt;
+  --ndl-font-size-body: 9.75pt;
+  --ndl-font-size-large: 11.25pt;
+  --ndl-font-size-title: 13.5pt;
+  --ndl-font-size-headline: 18pt;
+  --ndl-font-size-display: 24pt;
+}
+
+.ndl-view-title {
+  font-size: 33pt;
+}
+
+.ndl-micro {
+  font-size: 7.875pt;
+}
+
+.ndl-about .title-1 {
+  font-size: 24pt;
+}
+
+/* NDL quita el contorno de los controles de ventana con más especificidad que
+ * su regla de foco: aquí el foco de teclado vuelve a verse. */
+headerbar windowcontrols > button:not(.suggested-action):not(.destructive-action):focus-visible {
+  outline: var(--ndl-border-width-thick) solid var(--ndl-color-border-focus);
+  outline-offset: 1px;
+}

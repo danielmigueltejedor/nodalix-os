@@ -94,6 +94,10 @@ cc_nodalix_theme_init (void)
   gtk_style_context_add_provider_for_display (
       display, GTK_STYLE_PROVIDER (mode_provider), NDL_PRIORITY);
 
+  /* The widget sheet draws check marks and window glyphs with these icons. */
+  gtk_icon_theme_add_resource_path (gtk_icon_theme_get_for_display (display),
+                                    "/org/gnome/Settings/icons");
+
   install_resource (display, "nodalia-metrics-regular.css");
   install_resource (display, "nodalia-gtk.css");
   install_resource (display, "nodalix-overrides.css");
