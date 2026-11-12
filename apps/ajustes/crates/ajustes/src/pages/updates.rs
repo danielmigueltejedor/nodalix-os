@@ -1,7 +1,7 @@
 //! Updates, a client of the session service `com.nodalix.Settings`, which keeps running when
 //! Settings closes and does the privileged work through its own helper.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use ajustes_core::updates::UpdateState;
@@ -31,6 +31,10 @@ pub struct UpdatesPage {
     source_rows: RefCell<Vec<ndl::ActionRow>>,
     log: gtk::TextView,
     log_expander: gtk::Expander,
+    /// One mark kept at the end of the log, moved rather than created again for each change.
+    log_end: gtk::TextMark,
+    /// A retry after a failed reading is already scheduled.
+    retry_pending: Cell<bool>,
     state: RefCell<UpdateState>,
 }
 
@@ -86,6 +90,9 @@ impl UpdatesPage {
         log_expander.set_visible(false);
         content.append(&log_expander);
 
+        let log_end = log
+            .buffer()
+            .create_mark(None, &log.buffer().end_iter(), false);
         let page = Rc::new(Self {
             widget: scroller(&content),
             toasts: RefCell::new(None),
@@ -100,6 +107,8 @@ impl UpdatesPage {
             source_rows: RefCell::new(Vec::new()),
             log,
             log_expander,
+            log_end,
+            retry_pending: Cell::new(false),
             state: RefCell::new(UpdateState::default()),
         });
 
@@ -155,6 +164,15 @@ impl UpdatesPage {
                         }
                         None
                     });
+                    // The service can start, stop or restart while Settings is open.
+                    let weak = Rc::downgrade(&page);
+                    proxy.connect_notify_local(Some("g-name-owner"), move |proxy, _| {
+                        if proxy.name_owner().is_some() {
+                            if let Some(page) = weak.upgrade() {
+                                page.refresh();
+                            }
+                        }
+                    });
                     *page.proxy.borrow_mut() = Some(proxy);
                     page.refresh();
                 }
@@ -169,6 +187,20 @@ impl UpdatesPage {
         self.status.set_subtitle("");
         self.check.set_sensitive(false);
         self.update_all.set_sensitive(false);
+    }
+
+    /// A reading failed on a proxy that exists: say so, and try again shortly, since nothing
+    /// else would bring the page back if the service answers a moment later.
+    fn service_unavailable(self: &Rc<Self>, detail: &str) {
+        self.service_missing(detail);
+        if self.retry_pending.replace(true) {
+            return;
+        }
+        let page = self.clone();
+        glib::timeout_add_seconds_local_once(5, move || {
+            page.retry_pending.set(false);
+            page.refresh();
+        });
     }
 
     fn refresh(self: &Rc<Self>) {
@@ -189,10 +221,10 @@ impl UpdatesPage {
                         .unwrap_or_default();
                     match UpdateState::parse(&json) {
                         Ok(state) => page.render(state),
-                        Err(error) => page.service_missing(&error.to_string()),
+                        Err(error) => page.service_unavailable(&error.to_string()),
                     }
                 }
-                Err(error) => page.service_missing(&error.to_string()),
+                Err(error) => page.service_unavailable(&error.to_string()),
             }
         });
     }
@@ -271,11 +303,9 @@ impl UpdatesPage {
             if self.state.borrow().log != state.log {
                 self.log.buffer().set_text(&state.log);
                 // Follow the end of the log while an update runs.
-                let end = self
-                    .log
-                    .buffer()
-                    .create_mark(None, &self.log.buffer().end_iter(), false);
-                self.log.scroll_to_mark(&end, 0.0, false, 0.0, 0.0);
+                let buffer = self.log.buffer();
+                buffer.move_mark(&self.log_end, &buffer.end_iter());
+                self.log.scroll_to_mark(&self.log_end, 0.0, false, 0.0, 0.0);
             }
         }
         *self.state.borrow_mut() = state;

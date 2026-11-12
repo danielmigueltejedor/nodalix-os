@@ -54,11 +54,31 @@ fn choice_row(
         .model(&gtk::StringList::new(&labels))
         .build();
     row.set_selected(index_of(table, &settings.string(key)));
+    // A key an administrator locked cannot be changed from here.
+    row.set_sensitive(settings.is_writable(key));
+    {
+        // Keeps the row in step with the key when something else changes it while this window
+        // is open. Setting `selected` only when it differs avoids writing the value back.
+        let row = row.clone();
+        settings.connect_changed(Some(key), move |settings, key| {
+            let wanted = index_of(table, &settings.string(key));
+            if row.selected() != wanted {
+                row.set_selected(wanted);
+            }
+        });
+    }
     {
         let settings = settings.clone();
         row.connect_selected_notify(move |row| {
-            if let Some((_, value)) = table.get(row.selected() as usize) {
-                let _ = settings.set_string(key, value);
+            let Some((_, value)) = table.get(row.selected() as usize) else {
+                return;
+            };
+            if settings.string(key) == *value {
+                return;
+            }
+            if settings.set_string(key, value).is_err() {
+                // Refused: show what is really stored, not the choice that did not apply.
+                row.set_selected(index_of(table, &settings.string(key)));
             }
         });
     }

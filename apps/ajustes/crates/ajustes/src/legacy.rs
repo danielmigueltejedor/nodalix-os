@@ -9,17 +9,28 @@ use crate::i18n::tr;
 /// Opens a panel of the previous Settings. The panel name comes from `ajustes_core::pages`, a
 /// fixed list of plain names, and is passed as one argument, never through a shell.
 pub fn open_panel(from: &impl IsA<gtk::Widget>, panel: &str) {
-    if let Err(error) = Command::new("gnome-control-center").arg(panel).spawn() {
-        eprintln!("gnome-control-center {panel}: {error}");
-        if let Some(overlay) = from
-            .ancestor(ndl::ToastOverlay::static_type())
-            .and_downcast::<ndl::ToastOverlay>()
-        {
-            overlay.add_toast(ndl::Toast::new(&format!(
-                "{}: {error}",
-                tr("Could not open the previous Settings")
-            )));
+    match Command::new("gnome-control-center").arg(panel).spawn() {
+        // A child that is never waited for stays a zombie after it exits. A short-lived thread
+        // waits for it, so the GTK thread never does.
+        Ok(mut child) => {
+            std::thread::spawn(move || {
+                let _ = child.wait();
+            });
         }
+        Err(error) => report_launch_error(from, panel, &error),
+    }
+}
+
+fn report_launch_error(from: &impl IsA<gtk::Widget>, panel: &str, error: &std::io::Error) {
+    eprintln!("gnome-control-center {panel}: {error}");
+    if let Some(overlay) = from
+        .ancestor(ndl::ToastOverlay::static_type())
+        .and_downcast::<ndl::ToastOverlay>()
+    {
+        overlay.add_toast(ndl::Toast::new(&format!(
+            "{}: {error}",
+            tr("Could not open the previous Settings")
+        )));
     }
 }
 

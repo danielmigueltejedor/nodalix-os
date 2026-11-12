@@ -25,21 +25,35 @@ pub fn init(app_css: &str) {
     }
 }
 
-/// Whether the user's language is Spanish, read from the usual environment variables.
+/// Whether the user's language is Spanish, chosen the way gettext chooses it.
 pub fn spanish() -> bool {
     static ES: OnceLock<bool> = OnceLock::new();
     *ES.get_or_init(|| {
-        let from = |vars: &[&str]| {
-            vars.iter()
-                .filter_map(|k| std::env::var(k).ok())
-                .find(|v| !v.is_empty())
-        };
-        language_is_spanish(from(&["LC_ALL", "LC_MESSAGES", "LANGUAGE", "LANG"]).as_deref())
+        let var = |k: &str| std::env::var(k).ok().filter(|v| !v.is_empty());
+        let locale = var("LC_ALL")
+            .or_else(|| var("LC_MESSAGES"))
+            .or_else(|| var("LANG"));
+        language_is_spanish(var("LANGUAGE").as_deref(), locale.as_deref())
     })
 }
 
-fn language_is_spanish(value: Option<&str>) -> bool {
-    value.is_some_and(|v| v.starts_with("es"))
+/// `language` is the `LANGUAGE` preference list (`es:en`), `locale` the first of `LC_ALL`,
+/// `LC_MESSAGES` and `LANG` that is set. In the C and POSIX locales translations are off and
+/// `LANGUAGE` is ignored; otherwise its first entry that is English or Spanish wins over the
+/// locale, which only decides when the list names neither.
+fn language_is_spanish(language: Option<&str>, locale: Option<&str>) -> bool {
+    if locale.is_none_or(|l| l == "C" || l == "POSIX" || l.starts_with("C.")) {
+        return false;
+    }
+    let listed = language
+        .unwrap_or("")
+        .split(':')
+        .find_map(|entry| match entry {
+            e if e.starts_with("es") => Some(true),
+            e if e.starts_with("en") => Some(false),
+            _ => None,
+        });
+    listed.unwrap_or_else(|| locale.is_some_and(|l| l.starts_with("es")))
 }
 
 /// A tiny catalog: English is the source text and `es` lists its Spanish translations as
@@ -60,10 +74,24 @@ mod tests {
 
     #[test]
     fn spanish_locales() {
-        assert!(language_is_spanish(Some("es_ES.UTF-8")));
-        assert!(language_is_spanish(Some("es")));
-        assert!(!language_is_spanish(Some("en_US.UTF-8")));
-        assert!(!language_is_spanish(None));
+        assert!(language_is_spanish(None, Some("es_ES.UTF-8")));
+        assert!(language_is_spanish(None, Some("es")));
+        assert!(!language_is_spanish(None, Some("en_US.UTF-8")));
+        assert!(!language_is_spanish(None, None));
+    }
+
+    #[test]
+    fn language_beats_the_locale_except_in_c() {
+        // LC_MESSAGES=en_US with LANGUAGE=es: gettext picks Spanish.
+        assert!(language_is_spanish(Some("es"), Some("en_US.UTF-8")));
+        assert!(!language_is_spanish(Some("en:es"), Some("es_ES.UTF-8")));
+        // A list that names neither falls back to the locale.
+        assert!(language_is_spanish(Some("fr:de"), Some("es_ES.UTF-8")));
+        assert!(language_is_spanish(Some("fr:es"), Some("en_US.UTF-8")));
+        // In the C locale LANGUAGE is ignored.
+        assert!(!language_is_spanish(Some("es"), Some("C")));
+        assert!(!language_is_spanish(Some("es"), Some("POSIX")));
+        assert!(!language_is_spanish(Some("es"), None));
     }
 
     #[test]
