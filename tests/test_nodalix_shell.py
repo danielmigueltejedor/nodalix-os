@@ -254,7 +254,7 @@ class Widget {
 class Effect { set(values) { Object.assign(this, values); } }
 const factory = new Function('Clutter', 'Gio', 'GLib', 'Shell', 'St', 'LoginManager', 'Main',
     'HandoffGate', 'revealFrame', 'log', 'logError', 'global',
-    source + '; return {registerSession, begin, reveal, finish, settled, whenSettled, setModulesIdle};');
+    source + '; return {registerSession, begin, reveal, finish, settled, whenSettled, setModulesIdle, whenFirstFrame, trace};');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 async function scenario({sessionActive, proxyDelay = 0}) {
     const messages = [];
@@ -331,6 +331,34 @@ const marks = messages => messages.map(m => m.replace(/^Nodalix login transition
     await sleep(900);
     assert.ok(marks(messages).includes('desktop revealed'), messages.join('\n'));
 
+    // The desktop modules wait for the cover's first frame (plus a moment to reach the screen).
+    ({module, messages, handlers} = await scenario({sessionActive: true}));
+    let loadable = false;
+    assert.strictEqual(await Promise.race([module.whenFirstFrame(), Promise.resolve('idle')]), undefined);   // no transition: no wait
+    module.registerSession(() => {});
+    module.begin();
+    module.whenFirstFrame().then(() => { loadable = true; });
+    await sleep(30);
+    assert.strictEqual(loadable, false);
+    handlers['after-paint']();
+    await sleep(20);
+    assert.strictEqual(loadable, false);        // the frame is still on its way to the screen
+    await sleep(200);
+    assert.strictEqual(loadable, true, messages.join('\n'));
+    assert.ok(marks(messages).includes('desktop modules may load: cover painted'), messages.join('\n'));
+    module.trace('module test ready in 5 ms');
+    assert.ok(marks(messages).includes('module test ready in 5 ms'), messages.join('\n'));
+
+    // Without a first frame the modules are released by the bound, never held forever.
+    ({module, messages, handlers} = await scenario({sessionActive: true}));
+    module.registerSession(() => {});
+    module.begin();
+    let bounded = false;
+    module.whenFirstFrame().then(() => { bounded = true; });
+    await sleep(1700);
+    assert.strictEqual(bounded, true, messages.join('\n'));
+    assert.ok(marks(messages).includes('desktop modules may load: no first frame yet'), messages.join('\n'));
+
     // A session lookup that finishes after the transition is over connects nothing.
     ({module, messages, handlers} = await scenario({sessionActive: false, proxyDelay: 1000}));
     module.registerSession(() => {});
@@ -342,6 +370,7 @@ const marks = messages => messages.map(m => m.replace(/^Nodalix login transition
     assert.ok(marks(messages).includes('desktop revealed'), messages.join('\n'));
     assert.strictEqual(handlers['g-properties-changed'], undefined, 'a watcher leaked after settle()');
     assert.ok(!marks(messages).includes('session not active yet'), messages.join('\n'));
+    process.exit(0);    // scenarios that never finish leave their safety timers pending
 })().catch(error => { console.error(error); process.exit(1); });
 """
         subprocess.run(["node", "-e", script, str(self.overlay / "transition.js")], check=True)
@@ -363,6 +392,8 @@ const hanabi = 'hanabi-extension@jeffshee.github.io';
         settled: () => settled,
         whenSettled: () => new Promise(resolve => waiters.push(resolve)),
         setModulesIdle: () => {},
+        whenFirstFrame: () => Promise.resolve(),
+        trace: () => {},
     };
     const {DesktopModules, AFTER_TRANSITION, records} = factory(
         {}, {}, Transition, {}, {}, () => {}, error => { throw error; }, 'phone', new Set(), new Set());
@@ -398,6 +429,31 @@ const hanabi = 'hanabi-extension@jeffshee.github.io';
     manager.idleWaiters.splice(0).forEach(resolve => resolve());
     await Promise.resolve();
     assert.strictEqual(done, true);
+    // Nothing is enabled before the login cover has had its first frame.
+    let frame = false;
+    const frameWaiters = [];
+    Transition.whenFirstFrame = () => frame ? Promise.resolve() : new Promise(resolve => frameWaiters.push(resolve));
+    enabled.length = 0;
+    records.clear();
+    Object.assign(manager, {requested: true});
+    const pass = manager.reconcile();
+    await new Promise(resolve => setTimeout(resolve, 20));
+    assert.deepStrictEqual(enabled, []);
+    assert.strictEqual(manager.requested, true);       // a pending pass keeps whenIdle waiting
+    frame = true;
+    frameWaiters.splice(0).forEach(resolve => resolve());
+    await pass;
+    assert.deepStrictEqual(enabled, ['dash', hanabi, 'blur']);
+    // A shell that shuts down while waiting for the frame enables nothing.
+    frame = false;
+    enabled.length = 0;
+    records.clear();
+    Object.assign(manager, {requested: true, stopped: false});
+    const late = manager.reconcile();
+    manager.stopped = true;
+    frameWaiters.splice(0).forEach(resolve => resolve());
+    await late;
+    assert.deepStrictEqual(enabled, []);
 })().catch(error => { console.error(error); process.exit(1); });
 """
         subprocess.run(["node", "-e", script, str(self.overlay / "modules.js")], check=True)
