@@ -3,6 +3,7 @@
 mod disks;
 mod graph;
 mod i18n;
+mod icons;
 mod process_object;
 mod processes;
 mod resources;
