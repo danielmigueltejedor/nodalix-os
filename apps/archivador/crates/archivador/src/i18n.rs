@@ -20,6 +20,7 @@ const ES: &[(&str, &str)] = &[
     ("Show as a list", "Ver como lista"),
     ("Show in columns", "Ver en columnas"),
     ("Cloud", "Nube"),
+    ("Applications", "Aplicaciones"),
     (
         "Not connected. Click to connect",
         "Sin conexión. Pulsa para conectar",

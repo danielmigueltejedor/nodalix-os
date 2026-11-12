@@ -63,8 +63,30 @@ fn folder_icon_name(path: &std::path::Path) -> &'static str {
         .map_or("folder", |(_, name)| name)
 }
 
+/// The picture the file carries as its own: the icon GNOME's file managers keep in the file's
+/// `metadata::custom-icon`, as Nodalix's Applications folder does for each of its apps.
+fn custom_icon(entry: &Entry) -> Option<gio::Icon> {
+    const KEY: &str = "metadata::custom-icon";
+    let info = gio::File::for_path(&entry.path)
+        .query_info(KEY, gio::FileQueryInfoFlags::NONE, gio::Cancellable::NONE)
+        .ok()?;
+    let value = info.attribute_string(KEY)?;
+    let file = if value.starts_with('/') {
+        gio::File::for_path(value.as_str())
+    } else if value.starts_with("file:") {
+        gio::File::for_uri(&value)
+    } else {
+        return None;
+    };
+    file.query_exists(gio::Cancellable::NONE)
+        .then(|| gio::FileIcon::new(&file).upcast())
+}
+
 /// The names to try for this file, most specific first.
 pub fn icon_for(entry: &Entry) -> gio::Icon {
+    if let Some(icon) = custom_icon(entry) {
+        return icon;
+    }
     if entry.is_dir {
         return gio::ThemedIcon::from_names(&[folder_icon_name(&entry.path), "folder"]).upcast();
     }

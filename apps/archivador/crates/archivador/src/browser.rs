@@ -108,6 +108,14 @@ fn save_settings(settings: &Settings) {
     let _ = std::fs::write(file, settings.to_text());
 }
 
+/// `$XDG_STATE_HOME`, which glib has no function for.
+fn state_dir() -> PathBuf {
+    std::env::var_os("XDG_STATE_HOME")
+        .map(PathBuf::from)
+        .filter(|p| p.is_absolute())
+        .unwrap_or_else(|| crate::home().join(".local/state"))
+}
+
 /// Whether something is mounted at `path`.
 fn is_mounted(path: &Path) -> bool {
     std::fs::read_to_string("/proc/self/mountinfo").is_ok_and(|info| cloud::is_mounted(&info, path))
@@ -1479,7 +1487,13 @@ impl Browser {
         let home = crate::home();
         let dirs = std::fs::read_to_string(glib::user_config_dir().join("user-dirs.dirs"))
             .unwrap_or_default();
-        for place in places::standard(&home, &dirs, Path::is_dir) {
+        let layout = std::fs::read_to_string(state_dir().join("nodalix/layout/paths.json"))
+            .unwrap_or_default();
+        let applications = places::applications(&home, &layout, Path::is_dir);
+        for place in places::standard(&home, &dirs, Path::is_dir)
+            .into_iter()
+            .chain(applications)
+        {
             let (row, _) =
                 self.sidebar_row(tr(place.title), place.icon, &place.path.to_string_lossy());
             self.sidebar.append(&row);
