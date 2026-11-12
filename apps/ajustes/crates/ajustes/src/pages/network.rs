@@ -35,6 +35,7 @@ pub struct NetworkPage {
     toasts: RefCell<Option<ndl::ToastOverlay>>,
     bus: Rc<bus::SystemRefresh>,
     internet: ndl::ActionRow,
+    internet_icon: gtk::Image,
     wired: ndl::PreferencesGroup,
     rows: RefCell<Vec<ndl::ActionRow>>,
     shown: RefCell<Vec<Adapter>>,
@@ -95,6 +96,21 @@ async fn read(connection: &gio::DBusConnection) -> Option<Reading> {
     })
 }
 
+/// Icons for a connectivity state, each list tried in order: a theme may lack some names.
+fn connectivity_icons(state: u32) -> &'static [&'static str] {
+    match state {
+        4 => &[
+            "network-transmit-receive-symbolic",
+            "network-wired-symbolic",
+        ],
+        3 | 2 => &["network-error-symbolic", "network-wired-symbolic"],
+        _ => &[
+            "network-offline-symbolic",
+            "network-wired-disconnected-symbolic",
+        ],
+    }
+}
+
 fn connectivity_text(state: u32) -> &'static str {
     match state {
         4 => tr("Connected to the internet"),
@@ -122,6 +138,8 @@ impl NetworkPage {
         let internet = ndl::ActionRow::builder()
             .title(tr("Looking for the network…"))
             .build();
+        let internet_icon = gtk::Image::from_icon_name("network-offline-symbolic");
+        internet.add_prefix(&internet_icon);
         top.add(&internet);
         content.append(&top);
 
@@ -142,6 +160,7 @@ impl NetworkPage {
             toasts: RefCell::new(None),
             bus: Rc::default(),
             internet,
+            internet_icon,
             wired,
             rows: RefCell::new(Vec::new()),
             shown: RefCell::new(Vec::new()),
@@ -194,6 +213,10 @@ impl NetworkPage {
     fn show(self: &Rc<Self>, reading: Reading) {
         self.internet
             .set_title(connectivity_text(reading.connectivity));
+        self.internet_icon
+            .set_from_gicon(&gio::ThemedIcon::from_names(connectivity_icons(
+                reading.connectivity,
+            )));
         self.wired.set_visible(!reading.adapters.is_empty());
         if *self.shown.borrow() == reading.adapters {
             return;
