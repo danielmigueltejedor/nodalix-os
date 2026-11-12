@@ -5,6 +5,7 @@ mod dialogs;
 mod i18n;
 mod items;
 mod object;
+mod properties;
 mod share;
 
 use std::path::PathBuf;
@@ -33,6 +34,7 @@ const ACCELS: &[(&str, &[&str])] = &[
     ("win.trash", &["Delete"]),
     ("win.delete", &["<Shift>Delete"]),
     ("win.open", &["<Ctrl>o"]),
+    ("win.properties", &["<Alt>Return"]),
     ("win.search", &["<Ctrl>f"]),
     ("win.location", &["<Ctrl>l"]),
     ("win.show-hidden", &["<Ctrl>h"]),

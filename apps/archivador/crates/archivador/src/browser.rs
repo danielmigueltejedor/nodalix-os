@@ -18,6 +18,7 @@ use crate::dialogs;
 use crate::i18n::{fmt, items, tr};
 use crate::items::{self as look, ContextMenu};
 use crate::object::FileObject;
+use crate::properties;
 use crate::share;
 
 /// The place that stands for the trash in the history and in the sidebar.
@@ -665,6 +666,11 @@ impl Browser {
         }
         if on_files {
             section.append_item(&item(tr("Open"), "win.open", "document-open-symbolic"));
+            section.append_item(&item(
+                tr("Open With…"),
+                "win.open-with",
+                "system-run-symbolic",
+            ));
             menu.append_section(None, &section);
             let edit = gio::Menu::new();
             edit.append_item(&item(tr("Copy"), "win.copy", "edit-copy-symbolic"));
@@ -676,6 +682,11 @@ impl Browser {
                 tr("Send with LocalSend…"),
                 "win.send",
                 "send-to-symbolic",
+            ));
+            share.append_item(&item(
+                tr("Properties"),
+                "win.properties",
+                "document-properties-symbolic",
             ));
             menu.append_section(None, &share);
             let danger = gio::Menu::new();
@@ -744,6 +755,21 @@ impl Browser {
         self.action("refresh", |t| t.reload());
         self.action("select-all", |t| {
             t.selection.select_all();
+        });
+        self.action("open-with", |t| {
+            let mut selected = t.selected();
+            if selected.len() == 1 {
+                let entry = selected.remove(0);
+                let launcher = gtk::FileLauncher::new(Some(&gio::File::for_path(&entry.path)));
+                launcher.set_always_ask(true);
+                launcher.launch(Some(&t.window), None::<&gio::Cancellable>, |_| {});
+            }
+        });
+        self.action("properties", |t| {
+            let selected = t.selected();
+            if !selected.is_empty() {
+                properties::present(&t.window, selected);
+            }
         });
         self.action("open", |t| {
             for entry in t.selected() {
@@ -877,6 +903,8 @@ impl Browser {
         self.set_enabled("forward", can_forward);
         self.set_enabled("up", can_up);
         self.set_enabled("open", some && !in_trash);
+        self.set_enabled("open-with", selected == 1 && !in_trash);
+        self.set_enabled("properties", some && !in_trash);
         self.set_enabled("copy", some && !in_trash);
         self.set_enabled("cut", some && !in_trash);
         self.set_enabled("rename", selected == 1 && !in_trash);
@@ -1219,7 +1247,7 @@ impl Browser {
     }
 
     /// Places, drives and the trash.
-    fn rebuild_sidebar(&self) {
+    fn rebuild_sidebar(self: &Rc<Self>) {
         while let Some(row) = self.sidebar.row_at_index(0) {
             self.sidebar.remove(&row);
         }
@@ -1257,8 +1285,44 @@ impl Browser {
                 &path.to_string_lossy(),
             );
             icon.set_from_gicon(&mount.symbolic_icon());
+            if mount.can_unmount() || mount.can_eject() {
+                self.add_eject(&row, &mount);
+            }
             self.sidebar.append(&row);
         }
+    }
+
+    /// The button at the end of a drive's row that unmounts it, and ejects it when it can.
+    fn add_eject(self: &Rc<Self>, row: &gtk::ListBoxRow, mount: &gio::Mount) {
+        let Some(content) = row.child().and_downcast::<gtk::Box>() else {
+            return;
+        };
+        let button = gtk::Button::from_icon_name("media-eject-symbolic");
+        button.add_css_class("flat");
+        button.add_css_class("archivador-eject");
+        button.set_tooltip_text(Some(tr("Eject")));
+        button.set_valign(gtk::Align::Center);
+        let (this, mount) = (self.weak(), mount.clone());
+        button.connect_clicked(move |_| {
+            let (this, name) = (this.clone(), mount.name().to_string());
+            let done = move |result: Result<(), glib::Error>| {
+                if let (Err(error), Some(this)) = (result, this.upgrade()) {
+                    this.toast(&format!(
+                        "{}: {}",
+                        fmt("Can't unmount {}", &name),
+                        error.message()
+                    ));
+                }
+            };
+            let none = None::<&gio::MountOperation>;
+            let cancel = None::<&gio::Cancellable>;
+            if mount.can_eject() {
+                mount.eject_with_operation(gio::MountUnmountFlags::NONE, none, cancel, done);
+            } else {
+                mount.unmount_with_operation(gio::MountUnmountFlags::NONE, none, cancel, done);
+            }
+        });
+        content.append(&button);
     }
 
     /// Highlights the sidebar row that is the folder we are in.

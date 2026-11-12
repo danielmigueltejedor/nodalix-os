@@ -60,6 +60,23 @@
   border-top: var(--ndl-border-width-thin) solid var(--ndl-color-border-subtle);
 }
 
+/* The eject button on a drive in the sidebar: quiet until the row is hovered. */
+.archivador-eject {
+  min-height: 0;
+  min-width: 0;
+  padding: var(--ndl-space-xs);
+  opacity: 0.6;
+}
+
+.archivador-eject:hover {
+  opacity: 1;
+}
+
+/* The properties dialog. */
+.archivador-properties {
+  padding: var(--ndl-space-xl);
+}
+
 /* The files. */
 .archivador-files {
   background-color: transparent;
