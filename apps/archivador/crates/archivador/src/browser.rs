@@ -6,6 +6,7 @@ use std::rc::{Rc, Weak};
 use std::time::Duration;
 
 use archivador_core::clipboard::{Clipboard, Mode};
+use archivador_core::cloud;
 use archivador_core::entry::{self, Entry, SortKey};
 use archivador_core::history::History;
 use archivador_core::settings::{Settings, View};
@@ -76,6 +77,8 @@ pub struct Browser {
     monitor: RefCell<Option<gio::FileMonitor>>,
     reload_queued: Cell<bool>,
     syncing: Cell<bool>,
+    /// The cloud accounts in the sidebar, as Settings listed them.
+    clouds: RefCell<Vec<cloud::Account>>,
 }
 
 fn trash() -> Trash {
@@ -103,6 +106,25 @@ fn save_settings(settings: &Settings) {
         let _ = std::fs::create_dir_all(dir);
     }
     let _ = std::fs::write(file, settings.to_text());
+}
+
+/// Whether something is mounted at `path`.
+fn is_mounted(path: &Path) -> bool {
+    std::fs::read_to_string("/proc/self/mountinfo").is_ok_and(|info| cloud::is_mounted(&info, path))
+}
+
+/// Runs `systemctl --user <action> <unit>`; the error is what it said.
+fn systemctl(action: &str, unit: &str) -> Result<(), String> {
+    let output = std::process::Command::new("systemctl")
+        .args(["--user", action, unit])
+        .output()
+        .map_err(|e| e.to_string())?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        let said = String::from_utf8_lossy(&output.stderr);
+        Err(said.lines().next().unwrap_or("").trim().to_owned())
+    }
 }
 
 fn view_name(view: View) -> &'static str {
@@ -247,6 +269,7 @@ impl Browser {
             monitor: RefCell::new(None),
             reload_queued: Cell::new(false),
             syncing: Cell::new(false),
+            clouds: RefCell::new(Vec::new()),
         });
         this.build();
         this.load();
@@ -300,7 +323,17 @@ impl Browser {
                 let (Some(this), name) = (this.upgrade(), row.widget_name()) else {
                     return;
                 };
-                this.navigate(PathBuf::from(name.as_str()));
+                let path = PathBuf::from(name.as_str());
+                let account = this
+                    .clouds
+                    .borrow()
+                    .iter()
+                    .find(|a| a.mount_point(&crate::home()) == path)
+                    .cloned();
+                match account {
+                    Some(account) if !is_mounted(&path) => this.connect_cloud(account),
+                    _ => this.navigate(path),
+                }
             });
         }
         {
@@ -1482,6 +1515,99 @@ impl Browser {
             }
             self.sidebar.append(&row);
         }
+
+        // The cloud accounts Settings has set up.
+        let accounts = std::fs::read_to_string(glib::user_config_dir().join("nodalix/cloud.json"))
+            .map(|text| cloud::parse(&text))
+            .unwrap_or_default();
+        if !accounts.is_empty() {
+            self.sidebar.append(&Self::heading(tr("Cloud")));
+        }
+        for account in &accounts {
+            let point = account.mount_point(&crate::home());
+            let (row, _) = self.sidebar_row(
+                &account.name,
+                "ndl-cloud-symbolic",
+                &point.to_string_lossy(),
+            );
+            if is_mounted(&point) {
+                self.add_disconnect(&row, account);
+            } else {
+                row.set_tooltip_text(Some(tr("Not connected. Click to connect")));
+                row.add_css_class("archivador-offline");
+            }
+            self.sidebar.append(&row);
+        }
+        self.clouds.replace(accounts);
+    }
+
+    /// Starts the service that mounts the account, then shows it.
+    fn connect_cloud(self: &Rc<Self>, account: cloud::Account) {
+        self.working(true);
+        let this = self.weak();
+        glib::spawn_future_local(async move {
+            let unit = account.unit();
+            let result = gio::spawn_blocking(move || systemctl("start", &unit)).await;
+            let Some(this) = this.upgrade() else { return };
+            this.working(false);
+            // The row was selected by the click; the folder shown has not changed.
+            this.sync_sidebar();
+            let point = account.mount_point(&crate::home());
+            match result {
+                Ok(Ok(())) if is_mounted(&point) => {
+                    this.rebuild_sidebar();
+                    this.navigate(point);
+                }
+                Ok(Ok(())) => {
+                    this.toast(&fmt("Can't connect {}", &account.name));
+                }
+                Ok(Err(message)) => {
+                    this.toast(&format!(
+                        "{}: {message}",
+                        fmt("Can't connect {}", &account.name)
+                    ));
+                }
+                Err(_) => this.toast(&fmt("Can't connect {}", &account.name)),
+            }
+        });
+    }
+
+    /// The button at the end of a connected account's row that stops its mount.
+    fn add_disconnect(self: &Rc<Self>, row: &gtk::ListBoxRow, account: &cloud::Account) {
+        let Some(content) = row.child().and_downcast::<gtk::Box>() else {
+            return;
+        };
+        let button = gtk::Button::from_icon_name("media-eject-symbolic");
+        button.add_css_class("flat");
+        button.add_css_class("archivador-eject");
+        button.set_tooltip_text(Some(tr("Disconnect")));
+        button.set_valign(gtk::Align::Center);
+        let (this, account) = (self.weak(), account.clone());
+        button.connect_clicked(move |_| {
+            let (this, account) = (this.clone(), account.clone());
+            let Some(strong) = this.upgrade() else { return };
+            // Leave the mount before it goes, or the window is left showing a folder that is gone.
+            let point = account.mount_point(&crate::home());
+            if strong.current_dir().starts_with(&point) {
+                strong.navigate(crate::home());
+            }
+            strong.working(true);
+            glib::spawn_future_local(async move {
+                let unit = account.unit();
+                let result = gio::spawn_blocking(move || systemctl("stop", &unit)).await;
+                let Some(this) = this.upgrade() else { return };
+                this.working(false);
+                if let Ok(Err(message)) = result {
+                    this.toast(&format!(
+                        "{}: {message}",
+                        fmt("Can't disconnect {}", &account.name)
+                    ));
+                }
+                this.rebuild_sidebar();
+                this.sync_sidebar();
+            });
+        });
+        content.append(&button);
     }
 
     /// The button at the end of a drive's row that unmounts it, and ejects it when it can.
