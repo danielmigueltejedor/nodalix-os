@@ -107,6 +107,9 @@ class ArchivadorTests(unittest.TestCase):
         # Without `replaces`, a system update never swaps the file manager on its own.
         self.assertNotIn('replaces=', text)
         self.assertIn('pkgver=51.1.0', text)
+        # Arch's stack does not ship SELinux: meson fails if the feature is enabled and libselinux is absent.
+        self.assertIn('-Dselinux=disabled', text)
+        self.assertNotIn('libselinux', text)
 
     def test_release_script_builds_it(self):
         script = (ROOT / 'tools/build-packages.sh').read_text()

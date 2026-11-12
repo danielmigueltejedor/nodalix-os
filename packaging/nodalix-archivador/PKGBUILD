@@ -13,7 +13,7 @@ conflicts=("nautilus")
 # by installing the stock package first (see tools/build-packages.sh).
 depends=("gnome-autoar" "gnome-desktop-4" "gtk4" "libadwaita" "glycin" "glycin-gtk4"
          "libportal" "libportal-gtk4" "tinysparql" "icu" "gexiv2" "gst-plugins-base-libs"
-         "gdk-pixbuf2" "libcloudproviders" "libselinux" "gvfs" "dconf" "gsettings-desktop-schemas")
+         "gdk-pixbuf2" "libcloudproviders" "gvfs" "dconf" "gsettings-desktop-schemas")
 makedepends=("meson" "ninja" "gobject-introspection" "blueprint-compiler" "python" "glib2-devel"
              "gettext" "desktop-file-utils" "appstream" "libxml2")
 # Prepared by tools/build-archivador-package.py from a pinned Nautilus 51.1 tree.
@@ -24,7 +24,7 @@ prepare() {
 }
 build() {
   meson setup "$srcdir/build" "$srcdir/nautilus" --prefix=/usr --buildtype=release \
-    -Dtests=none -Ddocs=false
+    -Dtests=none -Ddocs=false -Dselinux=disabled -Dcloudproviders=auto
   meson compile -C "$srcdir/build"
 }
 package() {
