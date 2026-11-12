@@ -26,21 +26,23 @@ jobs:
         run: pacman -Syu --noconfirm --needed git rust gtk4 pango cairo glib2 pkgconf xorg-server-xvfb dbus
       - uses: actions/checkout@v4
       - name: Format
-        working-directory: apps/monitor
+        working-directory: apps
         run: cargo fmt --all --check
       - name: Lint
-        working-directory: apps/monitor
+        working-directory: apps
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: Test
-        working-directory: apps/monitor
+        working-directory: apps
         run: xvfb-run -a cargo test --workspace
-      - name: The app starts and shows its window
-        working-directory: apps/monitor
+      - name: The apps start and show their window
+        working-directory: apps
         run: |
-          cargo build -p nodalix-monitor
+          cargo build -p nodalix-monitor -p nodalix-settings
           export GSK_RENDERER=cairo GTK_A11Y=none
-          xvfb-run -a dbus-run-session -- bash -c '
-            ./target/debug/nodalix-monitor & pid=$!
-            sleep 6
-            kill -0 "$pid" && kill "$pid"
-          '
+          for app in nodalix-monitor nodalix-settings; do
+            xvfb-run -a dbus-run-session -- bash -c "
+              ./target/debug/$app & pid=\$!
+              sleep 6
+              kill -0 \"\$pid\" && kill \"\$pid\"
+            "
+          done

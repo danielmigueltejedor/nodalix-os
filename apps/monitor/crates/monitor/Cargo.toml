@@ -11,5 +11,6 @@ name = "nodalix-monitor"
 path = "src/main.rs"
 
 [dependencies]
-monitor-core = { path = "../monitor-core" }
-nodalia-gtk = { git = "https://github.com/danielmigueltejedor/nodalia-design", rev = "58724b0258c5f3258bbbe7bdd81b9d3801096be0" }
+monitor-core.workspace = true
+nodalia-gtk.workspace = true
+nodalix-ui.workspace = true

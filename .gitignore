@@ -10,4 +10,4 @@ __pycache__/
 packaging/*/*.tar.zst
 packaging/*/src/
 packaging/*/pkg/
-/apps/*/target/
+/apps/target/

@@ -20,20 +20,8 @@ It replaces GNOME System Monitor and does the same three jobs:
 
 ## Build and test
 
-```sh
-cd apps/monitor
-cargo test --workspace          # needs GTK 4.20 or newer for the app crate
-cargo clippy --workspace --all-targets -- -D warnings
-cargo run -p nodalix-monitor
-```
+See `../README.md` for how to build and test the native apps.
 
-`nodalia-gtk` is a git dependency pinned to an exact commit of nodalia-design.
-When NDL changes, bump the `rev` in `crates/monitor/Cargo.toml`.
-
-## Fonts and colours
-
-Nodalix uses the system font (Adwaita Sans) and ships no other, so `style.css` points NDL's font
-variables at it and converts NDL's px sizes to pt, which GTK scales with the system text size.
 Every colour in the app comes from an NDL token; the graphs read their colour from the widget's
 CSS `color`.
 

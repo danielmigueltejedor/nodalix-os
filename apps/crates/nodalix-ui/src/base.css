@@ -1,0 +1,34 @@
+/* Nodalix OS on top of NDL. Loaded after NDL's sheets, before an app's own.
+ *
+ * Typography: Nodalix uses the system font (Adwaita Sans) and ships neither Inter nor Sora, so
+ * NDL's font variables point at it. GTK does not scale px sizes with the system's text size,
+ * only pt and em, so NDL's px sizes become pt at the same look (1 px = 0.75 pt at 96 dpi). */
+:root {
+  --ndl-font-family-ui: "Adwaita Sans", Cantarell, sans-serif;
+  --ndl-font-family-display: "Adwaita Sans", Cantarell, sans-serif;
+  --ndl-font-size-caption: 8.25pt;
+  --ndl-font-size-small: 9pt;
+  --ndl-font-size-body: 9.75pt;
+  --ndl-font-size-large: 11.25pt;
+  --ndl-font-size-title: 13.5pt;
+  --ndl-font-size-headline: 18pt;
+  --ndl-font-size-display: 24pt;
+}
+
+.ndl-micro { font-size: 7.875pt; }
+.ndl-view-title { font-size: 33pt; }
+.ndl-about .title-1 { font-size: 24pt; }
+
+/* Keyboard focus stays visible on the window controls. */
+headerbar windowcontrols > button:not(.suggested-action):not(.destructive-action):focus-visible {
+  outline: var(--ndl-border-width-thick) solid var(--ndl-color-border-focus);
+  outline-offset: 1px;
+}
+
+/* NDL's headerbar button rule is more specific than its chip rule, so a chip in the header bar
+ * would lose its checked colours: say them again here. */
+headerbar button.ndl-chip:checked {
+  background-color: var(--ndl-color-text-primary);
+  border-color: var(--ndl-color-text-primary);
+  color: var(--ndl-color-surface-window);
+}

@@ -27,25 +27,9 @@ const STYLE: &str = include_str!("style.css");
 
 fn main() -> glib::ExitCode {
     let app = gtk::Application::builder().application_id(APP_ID).build();
-    app.connect_startup(|_| {
-        ndl::init();
-        install_style();
-    });
+    app.connect_startup(|_| nodalix_ui::init(STYLE));
     app.connect_activate(build_window);
     app.run()
-}
-
-fn install_style() {
-    let Some(display) = gtk::gdk::Display::default() else {
-        return;
-    };
-    let provider = gtk::CssProvider::new();
-    provider.load_from_string(STYLE);
-    gtk::style_context_add_provider_for_display(
-        &display,
-        &provider,
-        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION + 50,
-    );
 }
 
 /// A pill the user picks a view with.

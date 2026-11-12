@@ -1,0 +1,24 @@
+/* Settings' own pieces. Colours and sizes come from NDL's tokens; nothing is a literal. */
+.settings-logo {
+  min-height: 96px;
+}
+
+.settings-os-name {
+  font-size: 18pt;
+  font-weight: var(--ndl-font-weight-semibold);
+}
+
+.settings-log {
+  font-family: monospace;
+  font-size: var(--ndl-font-size-small);
+  background-color: var(--ndl-color-surface-sunken);
+  border-radius: var(--ndl-radius-lg);
+  padding: var(--ndl-space-md);
+}
+
+.settings-banner {
+  background-color: var(--ndl-color-status-warning-bg);
+  color: var(--ndl-color-status-warning-fg);
+  border-radius: var(--ndl-radius-lg);
+  padding: var(--ndl-space-md) var(--ndl-space-lg);
+}

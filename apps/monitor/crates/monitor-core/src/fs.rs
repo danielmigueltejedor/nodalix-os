@@ -105,7 +105,8 @@ pub fn parse_mounts(text: &str) -> Vec<(String, String, String)> {
     out
 }
 
-fn stat(path: &str) -> Option<(u64, u64)> {
+/// Total and available bytes of the file system holding `path`.
+pub fn usage(path: &str) -> Option<(u64, u64)> {
     let c = CString::new(path).ok()?;
     let mut s: libc::statvfs = unsafe { std::mem::zeroed() };
     // SAFETY: `c` is a valid NUL-terminated path and `s` is a valid out pointer.
@@ -123,7 +124,7 @@ pub fn read() -> Vec<Mount> {
     parse_mounts(&text)
         .into_iter()
         .filter_map(|(device, mount_point, fs_type)| {
-            let (total, free) = stat(&mount_point)?;
+            let (total, free) = usage(&mount_point)?;
             (total > 0).then_some(Mount {
                 device,
                 mount_point,
