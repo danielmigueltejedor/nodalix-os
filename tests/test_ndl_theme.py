@@ -53,6 +53,14 @@ class NdlThemeTests(unittest.TestCase):
         # GTK CSS has no `overflow`: it is a widget property set in the blueprint.
         self.assertNotRegex(css, r'(?m)^\s*overflow\s*:')
 
+    def test_license_is_installed_and_preflight_checks_the_ndl_destinations(self):
+        pkgbuild = (ROOT / 'packaging/nodalix-control-center/PKGBUILD').read_text()
+        self.assertIn('gnome/control-center/ndl/LICENSE', pkgbuild)
+        self.assertIn('"MIT"', pkgbuild)
+        apply_py = (CC / 'apply.py').read_text()
+        self.assertLess(apply_py.index('NDL_SHEETS = ('), apply_py.index('# Validate every directory'))
+        self.assertIn('target("shell/ndl")', apply_py)
+
     def test_loader_can_be_switched_off_and_follows_the_system_style(self):
         loader = (CC / 'cc-nodalix-theme.c').read_text()
         self.assertIn('NODALIX_NDL', loader)

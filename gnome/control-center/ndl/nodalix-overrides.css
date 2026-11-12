@@ -56,3 +56,11 @@ headerbar windowcontrols > button:not(.suggested-action):not(.destructive-action
   outline: var(--ndl-border-width-thick) solid var(--ndl-color-border-focus);
   outline-offset: 1px;
 }
+
+/* La búsqueda de Ajustes muestra una descripción en cada fila de la barra
+ * lateral; en la fila seleccionada (invertida) debe usar el color de primer
+ * plano de la fila y no el secundario, que pierde contraste sobre el fondo. */
+.navigation-sidebar > row:selected .dim-label,
+.navigation-sidebar > listview > row:selected .dim-label {
+  color: var(--ndl-color-surface-window);
+}

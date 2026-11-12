@@ -7,6 +7,12 @@ root = Path.cwd().resolve()
 source = Path(__file__).resolve().parent
 
 
+NDL_ICONS = ('ndl-check-symbolic', 'ndl-minus-symbolic', 'ndl-window-minimize-symbolic',
+             'ndl-window-maximize-symbolic', 'ndl-window-restore-symbolic', 'ndl-window-close-symbolic')
+NDL_SHEETS = ('nodalia-light.css', 'nodalia-dark.css', 'nodalia-light-hc.css', 'nodalia-dark-hc.css',
+              'nodalia-metrics-regular.css', 'nodalia-gtk.css', 'nodalix-overrides.css')
+
+
 def target(relative):
     path = root / relative
     if path.resolve() != path:
@@ -35,6 +41,13 @@ for directory, files in {
 }.items():
     for filename in files:
         target(f"{directory}/{filename}")
+# The NDL destinations too: a link left by a previous build must not redirect a copy.
+target("shell/ndl")
+target("shell/ndl/icons")
+for name in NDL_SHEETS:
+    target(f"shell/ndl/{name}")
+for name in NDL_ICONS:
+    target(f"shell/ndl/icons/{name}.svg")
 
 if 'cc_nodalix_updates_page' in (root/'panels/system/cc-system-panel.c').read_text():
     raise SystemExit('Already patched')
@@ -250,10 +263,6 @@ p.write_text(t.replace(anchor,'''            if (g_strcmp0 (first_arg, "storage"
 # Nodalia Design Language (NDL) on top of libadwaita: the pinned sheets are
 # compiled into the binary, installed below Settings' own style.css, and the
 # split view becomes two islands. See ndl/PROVENANCE.md.
-NDL_ICONS = ('ndl-check-symbolic', 'ndl-minus-symbolic', 'ndl-window-minimize-symbolic',
-             'ndl-window-maximize-symbolic', 'ndl-window-restore-symbolic', 'ndl-window-close-symbolic')
-NDL_SHEETS = ('nodalia-light.css', 'nodalia-dark.css', 'nodalia-light-hc.css', 'nodalia-dark-hc.css',
-              'nodalia-metrics-regular.css', 'nodalia-gtk.css', 'nodalix-overrides.css')
 for name in ('cc-nodalix-theme.c', 'cc-nodalix-theme.h'):
     shutil.copy2(source/name, root/'shell'/name)
 (root/'shell/ndl').mkdir(exist_ok=True)
