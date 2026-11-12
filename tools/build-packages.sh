@@ -196,6 +196,18 @@ if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
       appstream dbus
   fi
   makepkg_one "$store_dir"
+  if [[ ${NODALIX_SKIP_NATIVE_BUILD:-0} != 1 ]]; then
+    # Archivador (Nautilus with the NDL layer) is built from a pinned Nautilus tree. Installing the
+    # stock package first pulls in every runtime library it links, as the Arch package declares them.
+    if [[ ${NODALIX_CI_CONTAINER:-} == 1 ]]; then
+      sudo pacman -S --needed --noconfirm nautilus gobject-introspection blueprint-compiler \
+        gettext desktop-file-utils appstream libxml2 python glib2-devel
+    fi
+    python3 "$root/tools/build-archivador-package.py" --output "$root/dist/native-archivador"
+    # Built and kept apart on purpose: it conflicts with nautilus, and the clean-install, upgrade and
+    # signed-repository jobs install every package of $outdir together. It joins the release set when
+    # Archivador becomes the default file manager (docs/archivador.md).
+  fi
   makepkg_one "$keyring_dir"
   makepkg_one "$release_dir"
   find "$workdir" -mindepth 2 -maxdepth 2 -type f -name '*.pkg.tar.zst' ! -name '*-debug-*' -exec cp {} "$outdir/" \;

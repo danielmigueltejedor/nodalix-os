@@ -10,6 +10,7 @@ interfaz.
 |---|---|---|
 | Ajustes | Capa NDL + islas (barra lateral y contenido) | `gnome/control-center/` (`ndl/`, `cc-nodalix-theme.c`, `apply.py`) |
 | Tienda | Capa NDL | repo `tienda`, `src/ndl/` y `src/bz-ndl-theme.c` |
+| Archivador (Nautilus) | Capa NDL + islas (barra lateral y contenido) | `gnome/archivador/`, ver [archivador.md](archivador.md) |
 | Monitor del sistema | Pendiente de definir qué app es | — |
 
 ## Cómo funciona
@@ -30,7 +31,8 @@ interfaz.
 Copia las ocho hojas de `packages/gtk/crate/src/css/` del commit nuevo en
 `gnome/control-center/ndl/` y en `tienda/src/ndl/`, actualiza `PROVENANCE.md` y
 `SHA256SUMS` en ambos y mira el resultado en Ajustes y Tienda antes de
-fusionar. Las dos copias deben ser idénticas.
+fusionar. Las dos copias deben ser idénticas. Archivador no lleva copia: lee las hojas de
+`gnome/control-center/ndl/` al empaquetarse.
 
 ## Verificación
 
