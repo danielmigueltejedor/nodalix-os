@@ -11,6 +11,7 @@ Nodalix has been shipping with its own pages.
 | --- | --- |
 | Appearance | Native: colour scheme, accent colour, text size, animations. |
 | Updates | Native: a client of the session service `com.nodalix.Settings` (the same service the previous Settings used; it keeps running when the window closes and does the privileged work through its own helper). |
+| LocalSend | Native: a client of the same session service (`GetLocalSend`, `SetLocalSend*`); name, receive folder, auto-accept and auto-disable options, nearby devices with favourites. |
 | About | Native. |
 | Everything else (network, Wi-Fi, Bluetooth, displays, sound, power, keyboard, mouse, printers, users…) | Listed in the sidebar; each opens the previous GNOME panel of the same name in its own window until it is ported. |
 

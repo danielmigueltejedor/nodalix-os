@@ -1,5 +1,6 @@
 pub mod about;
 pub mod appearance;
+pub mod localsend;
 pub mod updates;
 
 use nodalia_gtk::{self as ndl, gtk, gtk::prelude::*};

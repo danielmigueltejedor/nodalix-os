@@ -5,7 +5,7 @@ use nodalia_gtk::{self as ndl, gtk, gtk::prelude::*};
 
 use crate::i18n::tr;
 use crate::legacy;
-use crate::pages::{about, appearance, updates::UpdatesPage};
+use crate::pages::{about, appearance, localsend::LocalSendPage, updates::UpdatesPage};
 
 fn sidebar_row(page: &Page) -> gtk::ListBoxRow {
     let row = gtk::ListBoxRow::new();
@@ -51,12 +51,15 @@ pub fn present(app: &gtk::Application) {
     let toasts = ndl::ToastOverlay::new();
     let updates = UpdatesPage::new();
     updates.set_toasts(&toasts);
+    let localsend = LocalSendPage::new();
+    localsend.set_toasts(&toasts);
 
     // The content area: one stack child per page.
     let stack = gtk::Stack::new();
     stack.set_transition_type(gtk::StackTransitionType::Crossfade);
     stack.add_named(&appearance::build(), Some("appearance"));
     stack.add_named(&updates.widget, Some("updates"));
+    stack.add_named(&localsend.widget, Some("localsend"));
     stack.add_named(&about::build(), Some("about"));
     for page in pages::all() {
         if let Kind::Legacy(panel) = page.kind {

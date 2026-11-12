@@ -62,6 +62,11 @@ pub const SECTIONS: &[(&str, &[Page])] = &[
             legacy("wifi", "Wi-Fi", "network-wireless-symbolic", "wifi"),
             legacy("bluetooth", "Bluetooth", "bluetooth-symbolic", "bluetooth"),
             legacy("sharing", "Sharing", "emblem-shared-symbolic", "sharing"),
+            native(
+                "localsend",
+                "LocalSend",
+                "network-transmit-receive-symbolic",
+            ),
             legacy(
                 "online-accounts",
                 "Online accounts",
