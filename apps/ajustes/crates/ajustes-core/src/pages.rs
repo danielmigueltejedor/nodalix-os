@@ -61,7 +61,7 @@ pub const SECTIONS: &[(&str, &[Page])] = &[
             ),
             legacy("wifi", "Wi-Fi", "network-wireless-symbolic", "wifi"),
             legacy("bluetooth", "Bluetooth", "bluetooth-symbolic", "bluetooth"),
-            legacy("sharing", "Sharing", "emblem-shared-symbolic", "sharing"),
+            native("sharing", "Sharing", "preferences-system-sharing-symbolic"),
             native(
                 "localsend",
                 "LocalSend",
@@ -79,20 +79,10 @@ pub const SECTIONS: &[(&str, &[Page])] = &[
         "Devices",
         &[
             legacy("display", "Displays", "video-display-symbolic", "display"),
-            legacy("sound", "Sound", "audio-volume-high-symbolic", "sound"),
-            legacy("power", "Power", "battery-symbolic", "power"),
-            legacy(
-                "keyboard",
-                "Keyboard",
-                "input-keyboard-symbolic",
-                "keyboard",
-            ),
-            legacy(
-                "mouse",
-                "Mouse and touchpad",
-                "input-mouse-symbolic",
-                "mouse",
-            ),
+            native("sound", "Sound", "audio-volume-high-symbolic"),
+            native("power", "Power", "battery-symbolic"),
+            native("keyboard", "Keyboard", "input-keyboard-symbolic"),
+            native("mouse", "Mouse and touchpad", "input-mouse-symbolic"),
             legacy("printers", "Printers", "printer-symbolic", "printers"),
             legacy("color", "Color", "preferences-color-symbolic", "color"),
         ],
@@ -100,41 +90,32 @@ pub const SECTIONS: &[(&str, &[Page])] = &[
     (
         "System",
         &[
-            legacy(
+            native(
                 "notifications",
                 "Notifications",
-                "notification-symbolic",
-                "notifications",
+                "preferences-system-notifications-symbolic",
             ),
-            legacy(
-                "multitasking",
-                "Multitasking",
-                "view-grid-symbolic",
-                "multitasking",
-            ),
+            native("multitasking", "Multitasking", "view-grid-symbolic"),
             legacy(
                 "applications",
                 "Apps",
                 "view-app-grid-symbolic",
                 "applications",
             ),
-            legacy(
+            native(
                 "privacy",
                 "Privacy and security",
                 "preferences-system-privacy-symbolic",
-                "privacy",
             ),
-            legacy(
+            native(
                 "accessibility",
                 "Accessibility",
                 "preferences-desktop-accessibility-symbolic",
-                "universal-access",
             ),
-            legacy(
+            native(
                 "datetime",
                 "Date and time",
                 "preferences-system-time-symbolic",
-                "datetime",
             ),
             legacy(
                 "region",

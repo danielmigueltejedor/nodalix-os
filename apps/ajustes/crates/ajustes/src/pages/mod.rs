@@ -1,6 +1,18 @@
 pub mod about;
+pub mod accessibility;
 pub mod appearance;
+pub mod bus;
+pub mod datetime;
+pub mod gs;
+pub mod keyboard;
 pub mod localsend;
+pub mod multitasking;
+pub mod notifications;
+pub mod pointing;
+pub mod power;
+pub mod privacy;
+pub mod sharing;
+pub mod sound;
 pub mod updates;
 
 use nodalia_gtk::{self as ndl, gtk, gtk::prelude::*};

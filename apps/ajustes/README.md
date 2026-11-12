@@ -13,7 +13,8 @@ Nodalix has been shipping with its own pages.
 | Updates | Native: a client of the session service `com.nodalix.Settings` (the same service the previous Settings used; it keeps running when the window closes and does the privileged work through its own helper). |
 | LocalSend | Native: a client of the same session service (`GetLocalSend`, `SetLocalSend*`); name, receive folder, auto-accept and auto-disable options, nearby devices with favourites. |
 | About | Native. |
-| Everything else (network, Wi-Fi, Bluetooth, displays, sound, power, keyboard, mouse, printers, users…) | Listed in the sidebar; each opens the previous GNOME panel of the same name in its own window until it is ported. |
+| Sharing, Sound, Power, Keyboard, Mouse and touchpad, Notifications, Multitasking, Privacy and security, Accessibility, Date and time | Native: GSettings keys through one set of row helpers (`pages/gs.rs`, which skips a key the system does not have), plus D-Bus for what is not a setting (power mode and battery, time zone and NTP, device name) and `pactl` for sound. Keyboard layouts and shortcuts still open the previous panel. |
+| Everything else (network, Wi-Fi, Bluetooth, displays, printers, users, color, online accounts, apps, region…) | Listed in the sidebar; each opens the previous GNOME panel of the same name in its own window until it is ported. |
 
 Still to port from the previous Settings, in the order they are used most: animated backgrounds
 (inside Appearance), LocalSend, storage, then the GNOME panels.

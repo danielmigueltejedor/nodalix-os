@@ -24,6 +24,7 @@ const ES: &[(&str, &str)] = &[
     ("Download", "Descarga"),
     ("Upload", "Subida"),
     ("Cores", "Núcleos"),
+    ("of", "de"),
     ("Used", "Usado"),
     ("Free", "Libre"),
     ("About", "Acerca de"),
