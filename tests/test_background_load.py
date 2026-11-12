@@ -33,7 +33,7 @@ class CraftHelperIsOnlyRunWhenNeededTests(unittest.TestCase):
         for place in ("/usr/share/applications/", "/var/lib/flatpak/exports/",
                       "%h/.local/share/applications/", "%h/.local/share/flatpak/exports/"):
             self.assertTrue(any(place in item for item in conditions), place)
-        self.assertTrue(all("ai.storyteller." in item or "artcraft-launcher" in item for item in conditions))
+        self.assertTrue(all("ai.storyteller." in item for item in conditions))
 
     def test_path_unit_starts_the_service_after_a_later_install(self) -> None:
         path = read("integrations/systemd/nodalix-craft-gnome.path")

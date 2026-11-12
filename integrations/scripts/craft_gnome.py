@@ -14,7 +14,7 @@ import sys
 import tempfile
 
 SLUGS = ('photocraft','vectorcraft','filmcraft','lightcraft','pdfcraft','effectcraft',
-         'designcraft','wordcraft','deckcraft','gridcraft','cadcraft','soundcraft','figcraft','artcraft-launcher')
+         'designcraft','wordcraft','deckcraft','gridcraft','cadcraft','soundcraft','figcraft')
 IDS = frozenset('ai.storyteller.' + slug for slug in SLUGS)
 APP_CLASSES = frozenset(SLUGS) | IDS
 BASE = Path(os.environ.get('CRAFT_GNOME_STATE', str(Path(os.environ.get('XDG_STATE_HOME', Path.home()/'.local/state'))/'nodalix-craft-gnome')))
@@ -506,7 +506,6 @@ def launch(key, args):
     for name in ('WAYLAND_DISPLAY','WAYLAND_SOCKET'):
         env.pop(name,None)
     env['PDFCRAFT_TITLEBAR'] = 'system'
-    env['ARTCRAFT_LAUNCHER_NO_DESKTOP_INTEGRATION'] = '1'
     os.execvpe(argv[0],argv,env)
 
 
@@ -523,7 +522,7 @@ def main():
     elif options.launch:
         launch(options.launch,extra)
     elif options.flatpaks:
-        for appid in sorted(IDS-{'ai.storyteller.figcraft','ai.storyteller.artcraft-launcher'}):
+        for appid in sorted(IDS-{'ai.storyteller.figcraft'}):
             force_flatpak(appid)
     else:
         reconcile()
