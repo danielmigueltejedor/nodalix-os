@@ -48,9 +48,11 @@ impl Sampler {
             .map_or(0.0, |t| now.duration_since(t).as_secs_f64());
         self.last_at = Some(now);
 
-        let cpu_now = cpu::read_sample().unwrap_or_default();
-        let (cpu_total, cores) = match &self.cpu {
-            Some(prev) => (
+        // A failed reading is no baseline either: zeros would make the next good one read as
+        // the whole time since boot.
+        let cpu_now = cpu::read_sample();
+        let (cpu_total, cores) = match (&self.cpu, &cpu_now) {
+            (Some(prev), Some(cpu_now)) => (
                 cpu::usage(prev.total, cpu_now.total),
                 // By core number: when a core goes offline the others keep their own baseline.
                 cpu_now
@@ -66,12 +68,10 @@ impl Sampler {
                     })
                     .collect(),
             ),
-            None => (
-                0.0,
-                cpu_now.cores.iter().map(|(id, _)| (*id, 0.0)).collect(),
-            ),
+            (None, Some(now)) => (0.0, now.cores.iter().map(|(id, _)| (*id, 0.0)).collect()),
+            (_, None) => (0.0, Vec::new()),
         };
-        self.cpu = Some(cpu_now);
+        self.cpu = cpu_now;
 
         // A failed reading is no baseline: storing zeros would make the next good one look like
         // everything since boot arrived in one interval.

@@ -81,10 +81,15 @@ fn build_window(app: &gtk::Application) {
         (&c_disks, "disks"),
     ] {
         tabs.append(button);
-        let stack = stack.clone();
+        let (stack, disks) = (stack.clone(), disks.clone());
         button.connect_toggled(move |b| {
             if b.is_active() {
                 stack.set_visible_child_name(page);
+                // The mounts may have changed while another page was showing; the ten-second
+                // cadence below takes over from here.
+                if page == "disks" {
+                    disks.update();
+                }
             }
         });
     }
@@ -220,7 +225,7 @@ fn build_window(app: &gtk::Application) {
             sampler.clone(),
             procs.clone(),
             Rc::new(resources),
-            disks,
+            disks.clone(),
             stack.clone(),
         );
         glib::timeout_add_local(Duration::from_secs(1), move || {

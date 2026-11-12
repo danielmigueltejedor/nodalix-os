@@ -35,6 +35,9 @@ fn column(
     text: fn(&Row) -> String,
 ) -> gtk::ColumnViewColumn {
     let factory = gtk::SignalListItemFactory::new();
+    // The label follows the list item's `item` property and the row's `revision`, so one binding
+    // made here serves every row the item is reused for; binding again on each rebind would
+    // pile up watches on the same label.
     factory.connect_setup(move |_, item| {
         let item = item.downcast_ref::<gtk::ListItem>().expect("a list item");
         let label = gtk::Label::new(None);
@@ -44,13 +47,7 @@ fn column(
             label.add_css_class("numeric");
         }
         item.set_child(Some(&label));
-    });
-    factory.connect_bind(move |_, item| {
-        let item = item.downcast_ref::<gtk::ListItem>().expect("a list item");
-        let label = item
-            .child()
-            .and_downcast::<gtk::Label>()
-            .expect("the label made in setup");
+
         let item_expr = item.property_expression("item");
         let revision = gtk::PropertyExpression::new(
             ProcessObject::static_type(),
