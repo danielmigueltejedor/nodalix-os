@@ -6,46 +6,16 @@ use std::rc::Rc;
 
 use nodalia_gtk::{
     self as ndl, gtk,
-    gtk::{gio, glib, prelude::*},
+    gtk::{glib, prelude::*},
 };
 
 use ajustes_core::printers::{self, Printer, State};
 
+use super::cmd::{run, run_full};
 use super::{column, scroller};
 use crate::i18n::tr;
 
 type Reload = Rc<dyn Fn()>;
-
-/// Runs a command (never through a shell) and returns what it printed, or `None` if it could not
-/// run or failed.
-async fn run(argv: &[&str]) -> Option<String> {
-    let process = gio::Subprocess::newv(
-        &argv.iter().map(std::ffi::OsStr::new).collect::<Vec<_>>(),
-        gio::SubprocessFlags::STDOUT_PIPE | gio::SubprocessFlags::STDERR_SILENCE,
-    )
-    .ok()?;
-    let (out, _) = process.communicate_utf8_future(None).await.ok()?;
-    process
-        .is_successful()
-        .then(|| out.map(|s| s.to_string()))?
-}
-
-/// What a command printed to stderr and whether it worked.
-async fn run_full(argv: &[&str]) -> (bool, String) {
-    let Ok(process) = gio::Subprocess::newv(
-        &argv.iter().map(std::ffi::OsStr::new).collect::<Vec<_>>(),
-        gio::SubprocessFlags::STDOUT_SILENCE | gio::SubprocessFlags::STDERR_PIPE,
-    ) else {
-        return (false, String::new());
-    };
-    let Ok((_, err)) = process.communicate_utf8_future(None).await else {
-        return (false, String::new());
-    };
-    (
-        process.is_successful(),
-        err.map(|s| s.to_string()).unwrap_or_default(),
-    )
-}
 
 /// Changes the print system's setup: as the person first, and through `pkexec` (which asks for
 /// the password) if CUPS says they may not. The error text is what the tool said.

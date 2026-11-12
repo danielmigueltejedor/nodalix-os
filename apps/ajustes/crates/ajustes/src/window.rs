@@ -6,10 +6,10 @@ use nodalia_gtk::{self as ndl, gtk, gtk::prelude::*};
 use crate::i18n::tr;
 use crate::legacy;
 use crate::pages::{
-    about, accessibility, accounts, appearance, applications, bluetooth::BluetoothPage, color,
-    datetime, displays, keyboard, localsend::LocalSendPage, multitasking, network::NetworkPage,
-    notifications, pointing, power, printers, privacy, region, sharing, sound,
-    updates::UpdatesPage, users, wifi::WifiPage,
+    about, accessibility, accounts, appearance, applications, bluetooth::BluetoothPage, cloud,
+    color, datetime, displays, keyboard, localsend::LocalSendPage, multitasking,
+    network::NetworkPage, notifications, pointing, power, printers, privacy, region, sharing,
+    sound, updates::UpdatesPage, users, wifi::WifiPage,
 };
 
 fn sidebar_row(page: &Page) -> gtk::ListBoxRow {
@@ -98,6 +98,7 @@ pub fn present(app: &gtk::Application) {
     stack.add_named(&displays::build(&toasts), Some("display"));
     stack.add_named(&printers::build(&toasts), Some("printers"));
     stack.add_named(&accounts::build(&toasts), Some("online-accounts"));
+    stack.add_named(&cloud::build(&toasts), Some("cloud"));
     stack.add_named(&color::build(&toasts), Some("color"));
     stack.add_named(&datetime::build(&toasts), Some("datetime"));
     for page in pages::all() {

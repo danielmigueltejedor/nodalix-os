@@ -6,6 +6,8 @@ pub mod applications;
 pub mod backgrounds;
 pub mod bluetooth;
 pub mod bus;
+pub mod cloud;
+pub mod cmd;
 pub mod color;
 pub mod datetime;
 pub mod displays;

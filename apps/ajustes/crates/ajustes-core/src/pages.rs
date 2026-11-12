@@ -66,6 +66,7 @@ pub const SECTIONS: &[(&str, &[Page])] = &[
                 "network-transmit-receive-symbolic",
             ),
             native("online-accounts", "Online accounts", "goa-panel-symbolic"),
+            native("cloud", "Cloud storage", "folder-remote-symbolic"),
         ],
     ),
     (

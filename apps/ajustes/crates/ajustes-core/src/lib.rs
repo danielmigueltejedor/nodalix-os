@@ -4,6 +4,7 @@
 pub mod apps;
 pub mod audio;
 pub mod bluetooth;
+pub mod cloud;
 pub mod color;
 pub mod displays;
 pub mod keyboard;
