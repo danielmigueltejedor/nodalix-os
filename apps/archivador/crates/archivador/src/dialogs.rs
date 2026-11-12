@@ -102,6 +102,15 @@ pub fn confirm(
     );
     dialog.set_close_response("cancel");
     dialog.set_default_response(Some("cancel"));
-    dialog.connect_response(Some("accept"), move |_, _| accept());
+    // Nothing else owns the alert: its buttons reach it through weak references, so it would be
+    // dropped as this returns and every one of them would do nothing. A slot keeps it until
+    // it has been answered.
+    let keep = Rc::new(RefCell::new(Some(dialog.clone())));
+    dialog.connect_response(None, move |_, id| {
+        keep.borrow_mut().take();
+        if id == "accept" {
+            accept();
+        }
+    });
     dialog.present(Some(parent));
 }
