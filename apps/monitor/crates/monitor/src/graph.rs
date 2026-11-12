@@ -105,12 +105,16 @@ fn draw(
     cr.line_to(w, h);
     cr.line_to(x_of(0, n, w), h);
     cr.close_path();
-    cr.set_source_rgba(
+    // The fill fades towards the bottom, so the line reads first.
+    let fade = gtk::cairo::LinearGradient::new(0.0, 0.0, 0.0, h);
+    let (r, g, b) = (
         color.red().into(),
         color.green().into(),
         color.blue().into(),
-        0.18,
     );
+    fade.add_color_stop_rgba(0.0, r, g, b, 0.32);
+    fade.add_color_stop_rgba(1.0, r, g, b, 0.02);
+    let _ = cr.set_source(&fade);
     let _ = cr.fill();
     trace(cr);
     cr.set_source_rgba(
@@ -121,7 +125,19 @@ fn draw(
     );
     cr.set_line_width(2.0);
     cr.set_line_join(gtk::cairo::LineJoin::Round);
+    cr.set_line_cap(gtk::cairo::LineCap::Round);
     let _ = cr.stroke();
+    // A dot on the newest sample.
+    if let Some(last) = data.back() {
+        cr.arc(
+            (w - 3.0).max(0.0),
+            y_of(*last).clamp(3.0, (h - 3.0).max(3.0)),
+            3.0,
+            0.0,
+            std::f64::consts::TAU,
+        );
+        let _ = cr.fill();
+    }
 }
 
 #[cfg(test)]

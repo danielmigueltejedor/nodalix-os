@@ -20,8 +20,10 @@ pub struct ResourceView {
     /// One bar per online core, by core number; follows cores coming and going.
     core_bars: RefCell<Vec<(u32, gtk::ProgressBar)>>,
     mem_value: gtk::Label,
+    mem_detail: gtk::Label,
     mem_graph: Graph,
     swap_value: gtk::Label,
+    swap_detail: gtk::Label,
     swap_graph: Graph,
     down_value: gtk::Label,
     up_value: gtk::Label,
@@ -64,6 +66,16 @@ fn dim() -> gtk::Label {
     l
 }
 
+/// "of 15.7 GiB · 4 %": what the big number is a share of.
+fn usage_detail(used: u64, total: u64) -> String {
+    let percent = if total == 0 {
+        0.0
+    } else {
+        used as f64 * 100.0 / total as f64
+    };
+    format!("{} {} · {:.0} %", tr("of"), format_bytes(total), percent)
+}
+
 impl ResourceView {
     pub fn new() -> Self {
         let model = std::fs::read_to_string("/proc/cpuinfo")
@@ -88,13 +100,17 @@ impl ResourceView {
 
         let (mem_card, _) = card(tr("Memory"), None);
         let mem_value = big_value();
+        let mem_detail = dim();
         let mem_graph = Graph::new("monitor-graph-success", 1.0);
         mem_card.append(&mem_value);
+        mem_card.append(&mem_detail);
         mem_card.append(&mem_graph.area);
         let (swap_card, _) = card(tr("Swap"), None);
         let swap_value = big_value();
+        let swap_detail = dim();
         let swap_graph = Graph::new("monitor-graph-warning", 1.0);
         swap_card.append(&swap_value);
+        swap_card.append(&swap_detail);
         swap_card.append(&swap_graph.area);
 
         let (net_card, _) = card(tr("Network"), None);
@@ -133,8 +149,10 @@ impl ResourceView {
             core_grid: grid,
             core_bars: RefCell::new(Vec::new()),
             mem_value,
+            mem_detail,
             mem_graph,
             swap_value,
+            swap_detail,
             swap_graph,
             down_value,
             up_value,
@@ -152,17 +170,26 @@ impl ResourceView {
             bars.len() == cores.len() && bars.iter().zip(cores).all(|((a, _), (b, _))| a == b);
         if !same {
             for (_, bar) in bars.drain(..) {
-                if let Some(slot) = bar.parent() {
+                // The bar sits in a cell that sits in the grid's own child.
+                if let Some(slot) = bar.parent().and_then(|cell| cell.parent()) {
                     self.core_grid.remove(&slot);
                 }
             }
             for (id, _) in cores {
+                let cell = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+                let number = gtk::Label::new(Some(&(id + 1).to_string()));
+                number.add_css_class("dim-label");
+                number.add_css_class("numeric");
+                number.set_width_chars(2);
+                number.set_xalign(1.0);
                 let bar = gtk::ProgressBar::new();
                 bar.set_hexpand(true);
                 bar.set_valign(gtk::Align::Center);
-                bar.set_size_request(140, -1);
+                bar.set_size_request(120, -1);
                 bar.set_tooltip_text(Some(&format!("{} {}", tr("CPU"), id + 1)));
-                self.core_grid.append(&bar);
+                cell.append(&number);
+                cell.append(&bar);
+                self.core_grid.append(&cell);
                 bars.push((*id, bar));
             }
             self.cores_label
@@ -180,21 +207,17 @@ impl ResourceView {
         self.sync_core_bars(&s.cores);
 
         let m = &s.memory;
-        self.mem_value.set_text(&format!(
-            "{} / {}",
-            format_bytes(m.used()),
-            format_bytes(m.total)
-        ));
+        self.mem_value.set_text(&format_bytes(m.used()));
+        self.mem_detail.set_text(&usage_detail(m.used(), m.total));
         self.mem_graph.push(m.fraction());
-        self.swap_value.set_text(&if m.swap_total == 0 {
-            "—".to_string()
+        if m.swap_total == 0 {
+            self.swap_value.set_text("—");
+            self.swap_detail.set_text("");
         } else {
-            format!(
-                "{} / {}",
-                format_bytes(m.swap_used()),
-                format_bytes(m.swap_total)
-            )
-        });
+            self.swap_value.set_text(&format_bytes(m.swap_used()));
+            self.swap_detail
+                .set_text(&usage_detail(m.swap_used(), m.swap_total));
+        }
         self.swap_graph.push(m.swap_fraction());
 
         self.down_value.set_text(&format!(
@@ -222,5 +245,17 @@ impl ResourceView {
             .max(100.0 * 1024.0);
         self.down_graph.set_max(top);
         self.up_graph.set_max(top);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_detail_says_how_much_of_the_total_is_used() {
+        assert!(usage_detail(1024 * 1024, 4 * 1024 * 1024).ends_with("25 %"));
+        // No total (no swap) is not a division by zero.
+        assert!(usage_detail(0, 0).ends_with("0 %"));
     }
 }

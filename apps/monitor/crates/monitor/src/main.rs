@@ -18,7 +18,7 @@ use nodalia_gtk as ndl;
 
 use crate::disks::DiskView;
 use crate::i18n::tr;
-use crate::processes::ProcessView;
+use crate::processes::{Copy, ProcessView};
 use crate::resources::ResourceView;
 use crate::sampler::Sampler;
 
@@ -50,7 +50,7 @@ fn build_window(app: &gtk::Application) {
     let window = ndl::ApplicationWindow::new(app);
     window.set_title(Some(tr("System Monitor")));
     window.set_default_size(960, 680);
-    window.set_icon_name(Some("utilities-system-monitor"));
+    window.set_icon_name(Some("os.nodalix.Monitor"));
 
     let sampler = Rc::new(RefCell::new(Sampler::default()));
     let first = sampler.borrow_mut().sample(true);
@@ -147,11 +147,53 @@ fn build_window(app: &gtk::Application) {
         window.add_action(&action);
         action
     };
+    let a_term = signal_action("term", Signal::Terminate);
     let a_kill = signal_action("kill", Signal::Kill);
     let a_stop = signal_action("stop", Signal::Stop);
     let a_cont = signal_action("cont", Signal::Continue);
-    for a in [&a_kill, &a_stop, &a_cont] {
+    let copy_action = |name: &str, what: Copy| {
+        let action = gio::SimpleAction::new(name, None);
+        let procs = procs.clone();
+        action.connect_activate(move |_, _| procs.copy_selected(what));
+        window.add_action(&action);
+        action
+    };
+    let a_copy_pid = copy_action("copy-pid", Copy::Pid);
+    let a_copy_command = copy_action("copy-command", Copy::Command);
+    let process_actions = [a_term, a_kill, a_stop, a_cont, a_copy_pid, a_copy_command];
+    for a in &process_actions {
         a.set_enabled(false);
+    }
+    // What a right click on a process offers.
+    {
+        let context = gio::Menu::new();
+        let signals = gio::Menu::new();
+        for (label, action, icon) in [
+            (
+                tr("End process"),
+                "win.term",
+                "media-playback-stop-symbolic",
+            ),
+            (tr("Force quit"), "win.kill", "process-stop-symbolic"),
+            (tr("Stop"), "win.stop", "media-playback-pause-symbolic"),
+            (tr("Continue"), "win.cont", "media-playback-start-symbolic"),
+        ] {
+            signals.append_item(&ndl::menu_item(label, action, icon));
+        }
+        context.append_section(None, &signals);
+        let copy = gio::Menu::new();
+        copy.append_item(&ndl::menu_item(
+            tr("Copy ID"),
+            "win.copy-pid",
+            "edit-copy-symbolic",
+        ));
+        copy.append_item(&ndl::menu_item(
+            tr("Copy command"),
+            "win.copy-command",
+            "edit-copy-symbolic",
+        ));
+        context.append_section(None, &copy);
+        procs.set_context_menu(context.upcast_ref());
     }
     {
         let (procs, toasts) = (procs.clone(), toasts.clone());
@@ -169,7 +211,7 @@ fn build_window(app: &gtk::Application) {
         move || {
             let enabled = ready.get() && selected.get();
             end.set_sensitive(enabled);
-            for action in [&a_kill, &a_stop, &a_cont] {
+            for action in &process_actions {
                 action.set_enabled(enabled);
             }
         }
@@ -195,7 +237,7 @@ fn build_window(app: &gtk::Application) {
         let parent = window.clone();
         about.connect_activate(move |_, _| {
             ndl::AboutDialog::builder()
-                .application_icon("utilities-system-monitor")
+                .application_icon("os.nodalix.Monitor")
                 .application_name(tr("System Monitor"))
                 .developer_name("Nodalix")
                 .version(env!("CARGO_PKG_VERSION"))
