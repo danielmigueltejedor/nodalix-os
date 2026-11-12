@@ -30,7 +30,7 @@ jobs:
       contents: read
       actions: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           persist-credentials: false
       - name: Require a successful CI run of this repository on main
@@ -50,7 +50,7 @@ jobs:
             echo "Run $CANDIDATE_RUN is not a successful CI run of $GITHUB_REPOSITORY on main" >&2
             exit 1
           }
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: nodalix-0.4.0-candidate
           path: dist/packages
@@ -65,7 +65,7 @@ jobs:
             -e NODALIX_REPO_GPG_KEY -e NODALIX_REPO_GPG_PASSPHRASE \
             -v "$PWD":/src -w /src archlinux:latest bash tools/ci-publish-repo.sh
           sudo chown -R "$(id -u):$(id -g)" dist/pages
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:
           path: dist/pages
   deploy:
@@ -79,4 +79,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
