@@ -1,0 +1,10 @@
+[package]
+name = "nodalix-ui"
+description = "What every native Nodalix app shares: NDL set up for Nodalix OS (system font, text scaling) and a small translation helper."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+nodalia-gtk.workspace = true

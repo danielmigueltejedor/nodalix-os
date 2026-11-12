@@ -1,0 +1,48 @@
+name: Native apps
+
+# The Rust apps under apps/ (System Monitor, and the ones that follow). They build against the
+# GTK that Arch ships, which is the GTK Nodalix runs.
+on:
+  push:
+    branches: [main, gnome-first]
+    paths: ['apps/**', '.github/workflows/apps.yml']
+  pull_request:
+    paths: ['apps/**', '.github/workflows/apps.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: apps-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container: archlinux:base-devel
+    steps:
+      - name: Install the toolchain and GTK
+        run: pacman -Syu --noconfirm --needed git rust gtk4 pango cairo glib2 pkgconf xorg-server-xvfb dbus
+      - uses: actions/checkout@v4
+      - name: Format
+        working-directory: apps
+        run: cargo fmt --all --check
+      - name: Lint
+        working-directory: apps
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      - name: Test
+        working-directory: apps
+        run: xvfb-run -a cargo test --locked --workspace
+      - name: The apps start and show their window
+        working-directory: apps
+        run: |
+          cargo build --locked -p nodalix-monitor -p nodalix-settings
+          export GSK_RENDERER=cairo GTK_A11Y=none
+          for app in nodalix-monitor nodalix-settings; do
+            xvfb-run -a dbus-run-session -- bash -c "
+              ./target/debug/$app & pid=\$!
+              sleep 6
+              kill -0 \"\$pid\" && kill \"\$pid\"
+            "
+          done
