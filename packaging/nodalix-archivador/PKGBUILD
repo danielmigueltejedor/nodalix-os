@@ -7,8 +7,9 @@ url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
 # Same binary, application id, D-Bus names and extension API as Nautilus, so portals,
 # nautilus-python extensions and every caller of `nautilus` keep working.
-provides=("nautilus=51.1")
-conflicts=("nautilus")
+# Arch splits the extension library into libnautilus-extension, which this package also ships.
+provides=("nautilus=51.1" "libnautilus-extension=51.1")
+conflicts=("nautilus" "libnautilus-extension")
 # Runtime libraries are the ones Arch's nautilus links; the build tool installs them
 # by installing the stock package first (see tools/build-packages.sh).
 depends=("gnome-autoar" "gnome-desktop-4" "gtk4" "libadwaita" "glycin" "glycin-gtk4"

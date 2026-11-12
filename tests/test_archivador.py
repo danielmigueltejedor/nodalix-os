@@ -102,8 +102,9 @@ class ArchivadorTests(unittest.TestCase):
 
     def test_package_is_a_drop_in_for_nautilus_but_opt_in(self):
         text = PKGBUILD.read_text()
-        self.assertIn('provides=("nautilus=51.1")', text)
-        self.assertIn('conflicts=("nautilus")', text)
+        self.assertIn('provides=("nautilus=51.1" "libnautilus-extension=51.1")', text)
+        self.assertIn('conflicts=("nautilus" "libnautilus-extension")', text)
+        self.assertIn('"libnautilus-extension=51.1"', text)
         # Without `replaces`, a system update never swaps the file manager on its own.
         self.assertNotIn('replaces=', text)
         self.assertIn('pkgver=51.1.0', text)
@@ -114,6 +115,8 @@ class ArchivadorTests(unittest.TestCase):
     def test_release_script_builds_it(self):
         script = (ROOT / 'tools/build-packages.sh').read_text()
         self.assertIn('build-archivador-package.py', script)
+        # Kept out of the set the install jobs put on one system: it conflicts with nautilus.
+        self.assertNotIn('dist/native-archivador" -mindepth', script)
 
 
 if __name__ == '__main__':

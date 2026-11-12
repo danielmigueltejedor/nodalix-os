@@ -18,10 +18,15 @@ del propio sistema.
 
 ## Paquete
 
-`nodalix-archivador` (`packaging/nodalix-archivador/`): `provides nautilus=51.1` y
-`conflicts nautilus`. **Sin `replaces`**: de momento es opcional y una actualización del
+`nodalix-archivador` (`packaging/nodalix-archivador/`): `provides` y `conflicts` de `nautilus` y
+`libnautilus-extension` (Arch separa la biblioteca de extensiones; Archivador también la lleva). **Sin `replaces`**: de momento es opcional y una actualización del
 sistema no cambia el gestor de archivos por su cuenta. Hacerlo el predeterminado (dependencia
 de `nodalix-gnome`, ISO, componente de la release) queda para cuando se haya probado.
+
+`tools/build-packages.sh` lo compila (así el CI verifica que construye) pero **no lo mete en
+el conjunto de paquetes de la release**: los trabajos de instalación limpia, actualización y
+repositorio firmado instalan todo ese conjunto en un mismo sistema, y Archivador choca con
+`nautilus`. Para obtenerlo hoy: `python3 tools/build-archivador-package.py` en Arch.
 
 Se prepara con `tools/build-archivador-package.py`: exporta Nautilus y libgxdp de sus commits
 fijados, y `apply.py` aplica la capa en `prepare()`.
