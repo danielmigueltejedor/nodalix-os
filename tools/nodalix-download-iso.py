@@ -7,7 +7,8 @@ REPOSITORY='danielmigueltejedor/nodalix-os'
 
 def valid_file(row):
     name=row.get('asset','')
-    if not name or Path(name).name!=name or '\\' in name:raise ValueError('Nombre de descarga no válido')
+    if not isinstance(name, str) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]*', name):
+        raise ValueError('Nombre de descarga no válido')
     if type(row.get('size')) is not int or row['size']<1:raise ValueError('Tamaño no válido')
     if not re.fullmatch('[0-9a-f]{64}',row.get('sha256','')):raise ValueError('SHA-256 no válido')
 

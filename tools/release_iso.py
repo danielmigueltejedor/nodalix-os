@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Describe and split complete ISO images for GitHub's per-asset size limit."""
-import argparse, hashlib, json, os
+import argparse, hashlib, json, os, stat, tempfile
 from pathlib import Path
 
 PART_BYTES = 2_000_000_000
@@ -21,16 +21,16 @@ def iso_metadata(image, part_bytes=PART_BYTES):
         index=1
         while source.tell()<size:
             target=image.with_name(image.name+f'.part{index:02d}')
-            temporary=target.with_name(target.name+'.tmp')
+            fd, temporary = tempfile.mkstemp(prefix='.iso-part-', suffix='.tmp', dir=target.parent)
             part=hashlib.sha256();written=0
             try:
-                with temporary.open('wb') as output:
+                with os.fdopen(fd, 'wb') as output:
                     while written<part_bytes:
                         chunk=source.read(min(1024*1024,part_bytes-written))
                         if not chunk:break
                         output.write(chunk);written+=len(chunk);part.update(chunk);whole.update(chunk)
                 os.replace(temporary,target)
-            finally:temporary.unlink(missing_ok=True)
+            finally:Path(temporary).unlink(missing_ok=True)
             parts.append({'asset':target.name,'sha256':part.hexdigest(),'size':written})
             index+=1
     if whole.hexdigest()!=checksum or sum(p['size'] for p in parts)!=size:
@@ -39,9 +39,18 @@ def iso_metadata(image, part_bytes=PART_BYTES):
 
 def publication_assets(directory):
     directory=Path(directory)
-    iso=json.loads((directory/'nodalix-manifest.json').read_text()).get('iso',{})
-    assembled=iso.get('filename') if iso.get('parts') else None
-    return [p for p in sorted(directory.iterdir()) if p.is_file() and p.name!=assembled and not p.name.endswith('.tmp')]
+    manifest = directory / 'nodalix-manifest.json'
+    fd = os.open(manifest, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    with os.fdopen(fd, encoding='utf-8') as stream:
+        if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+            raise ValueError('Release manifest is not a regular file')
+        iso = json.load(stream).get('iso', {})
+    assembled = iso.get('filename') if iso.get('parts') else None
+    return [
+        path for path in sorted(directory.iterdir())
+        if not path.is_symlink() and path.is_file()
+        and path.name != assembled and not path.name.endswith('.tmp')
+    ]
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)

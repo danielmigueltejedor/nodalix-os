@@ -32,6 +32,19 @@ class ReleaseIsoPartsTests(unittest.TestCase):
         names={p.name for p in publication_assets(self.root)}
         self.assertNotIn(self.image.name,names)
         self.assertTrue({p['asset'] for p in meta['parts']}.issubset(names))
+    def test_publication_skips_symbolic_links(self):
+        (self.root / 'nodalix-manifest.json').write_text('{"iso": {}}')
+        link = self.root / 'copy.iso'
+        link.symlink_to(self.image)
+        self.assertNotIn(link, publication_assets(self.root))
+
+    def test_part_names_must_be_plain_asset_names(self):
+        valid = {'asset': 'nodalix-0.3.0-x86_64.iso.part01', 'size': 10, 'sha256': '0' * 64}
+        downloader.valid_file(valid)
+        for name in ('.', '..', 'invalid name', 'part%20name'):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                downloader.valid_file({**valid, 'asset': name})
+
     def test_small_images_retain_single_asset_compatibility(self):
         meta=iso_metadata(self.image,len(self.payload))
         self.assertEqual(meta['asset'],self.image.name)
