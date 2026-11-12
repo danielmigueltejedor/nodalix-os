@@ -45,7 +45,7 @@ pub struct Hooks {
 }
 
 /// How long a drag has to rest on a folder before the window goes into it.
-const SPRING: std::time::Duration = std::time::Duration::from_millis(700);
+pub const SPRING: std::time::Duration = std::time::Duration::from_millis(700);
 
 /// What a drag shows under the pointer: the icon of the file, and, for several, how many.
 fn drag_icon(drag: &gdk::Drag, entry: &Entry, count: usize) {

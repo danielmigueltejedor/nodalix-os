@@ -18,7 +18,7 @@ use nodalia_gtk as ndl;
 use crate::columns::{Columns, Options};
 use crate::dialogs;
 use crate::i18n::{fmt, items, tr};
-use crate::items::{self as look, ContextMenu, Hooks};
+use crate::items::{self as look, ContextMenu, Hooks, SPRING};
 use crate::object::FileObject;
 use crate::properties;
 use crate::share;
@@ -95,6 +95,35 @@ pub struct Browser {
 
 fn trash() -> Trash {
     Trash::new(&glib::user_data_dir())
+}
+
+/// A press on a file is the start of a drag, and the list would draw a selection box for as long
+/// as it takes the drag to begin, and leave it there afterwards. Only a press on the empty part
+/// is meant to draw one, so the box is hidden for the others.
+fn hide_rubberband_on_files(view: &impl IsA<gtk::Widget>) {
+    let press = gtk::GestureClick::new();
+    press.set_propagation_phase(gtk::PropagationPhase::Capture);
+    press.connect_pressed(|gesture, _, x, y| {
+        let Some(view) = gesture.widget() else { return };
+        let mut node = view.pick(x, y, gtk::PickFlags::DEFAULT);
+        let mut on_file = false;
+        while let Some(widget) = node {
+            if widget == view {
+                break;
+            }
+            if matches!(widget.css_name().as_str(), "row" | "child") {
+                on_file = true;
+                break;
+            }
+            node = widget.parent();
+        }
+        if on_file {
+            view.add_css_class("archivador-on-file");
+        } else {
+            view.remove_css_class("archivador-on-file");
+        }
+    });
+    view.add_controller(press);
 }
 
 fn is_trash(path: &Path) -> bool {
@@ -710,6 +739,8 @@ impl Browser {
             drop_into,
             open_folder,
         };
+        hide_rubberband_on_files(&self.list_view);
+        hide_rubberband_on_files(&self.grid_view);
         self.list_view
             .set_factory(Some(&look::list_factory(hooks.clone())));
         self.grid_view
@@ -755,13 +786,74 @@ impl Browser {
         });
         self.pages.add_controller(target);
 
-        // Dropping on a place in the sidebar puts them there, and on the trash trashes them.
+        // Dropping on a place in the sidebar puts them there, and on the trash trashes them. A drag
+        // that rests on a place lights it up and, after a moment, goes into it.
         let target = gtk::DropTarget::new(
             gdk::FileList::static_type(),
             gdk::DragAction::COPY | gdk::DragAction::MOVE,
         );
+        let over: Rc<RefCell<Option<(gtk::ListBoxRow, Option<glib::SourceId>)>>> = Rc::default();
+        let clear = {
+            let over = over.clone();
+            move || {
+                if let Some((row, timer)) = over.borrow_mut().take() {
+                    row.remove_css_class("archivador-drop-target");
+                    if let Some(timer) = timer {
+                        timer.remove();
+                    }
+                }
+            }
+        };
+        {
+            let (this, over, clear) = (self.weak(), over.clone(), clear.clone());
+            target.connect_motion(move |_, _, y| {
+                let Some(this) = this.upgrade() else {
+                    return gdk::DragAction::empty();
+                };
+                let row = this
+                    .sidebar
+                    .row_at_y(y as i32)
+                    .filter(|r| r.is_selectable());
+                let Some(row) = row else {
+                    clear();
+                    return gdk::DragAction::empty();
+                };
+                if over.borrow().as_ref().is_some_and(|(r, _)| *r == row) {
+                    return gdk::DragAction::MOVE;
+                }
+                clear();
+                row.add_css_class("archivador-drop-target");
+                let path = PathBuf::from(row.widget_name().as_str());
+                // The trash is not a place to look into, and a cloud that is not connected has
+                // nothing to show yet.
+                let opens = !is_trash(&path)
+                    && !this
+                        .clouds
+                        .borrow()
+                        .iter()
+                        .any(|a| a.mount_point(&crate::home()) == path && !is_mounted(&path));
+                let timer = opens.then(|| {
+                    let (again, over) = (this.weak(), over.clone());
+                    glib::timeout_add_local_once(SPRING, move || {
+                        if let Some((_, timer)) = over.borrow_mut().as_mut() {
+                            timer.take();
+                        }
+                        if let Some(this) = again.upgrade() {
+                            this.navigate(path);
+                        }
+                    })
+                });
+                over.borrow_mut().replace((row, timer));
+                gdk::DragAction::MOVE
+            });
+        }
+        target.connect_leave({
+            let clear = clear.clone();
+            move |_| clear()
+        });
         let this = self.weak();
         target.connect_drop(move |target, value, _, y| {
+            clear();
             let Some(this) = this.upgrade() else {
                 return false;
             };

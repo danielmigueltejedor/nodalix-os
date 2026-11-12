@@ -57,6 +57,10 @@ fn main() -> glib::ExitCode {
         .build();
     app.connect_startup(|app| {
         nodalix_ui::init(STYLE);
+        // A drag should start as soon as the pointer means it, not after a long pull.
+        if let Some(settings) = gtk::Settings::default() {
+            settings.set_gtk_dnd_drag_threshold(4);
+        }
         for (action, keys) in ACCELS {
             app.set_accels_for_action(action, keys);
         }
