@@ -23,9 +23,35 @@ pub fn size(bytes: u64) -> String {
     }
 }
 
+/// `rwxr-xr-x`: the permission bits of a mode, as `ls -l` writes them.
+pub fn permissions(mode: u32) -> String {
+    [
+        (0o400, 'r'),
+        (0o200, 'w'),
+        (0o100, 'x'),
+        (0o040, 'r'),
+        (0o020, 'w'),
+        (0o010, 'x'),
+        (0o004, 'r'),
+        (0o002, 'w'),
+        (0o001, 'x'),
+    ]
+    .iter()
+    .map(|&(bit, letter)| if mode & bit != 0 { letter } else { '-' })
+    .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn permissions_are_written_like_ls() {
+        assert_eq!(permissions(0o755), "rwxr-xr-x");
+        assert_eq!(permissions(0o644), "rw-r--r--");
+        assert_eq!(permissions(0o100600), "rw-------");
+        assert_eq!(permissions(0), "---------");
+    }
 
     #[test]
     fn sizes_use_powers_of_a_thousand() {

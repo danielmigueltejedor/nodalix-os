@@ -34,6 +34,7 @@ const ACCELS: &[(&str, &[&str])] = &[
     ("win.delete", &["<Shift>Delete"]),
     ("win.open", &["<Ctrl>o"]),
     ("win.search", &["<Ctrl>f"]),
+    ("win.location", &["<Ctrl>l"]),
     ("win.show-hidden", &["<Ctrl>h"]),
     ("win.close", &["<Ctrl>w"]),
 ];

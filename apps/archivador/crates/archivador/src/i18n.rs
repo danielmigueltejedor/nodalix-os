@@ -84,6 +84,8 @@ const ES: &[(&str, &str)] = &[
         "Archivador, el gestor de archivos de Nodalix.",
     ),
     ("Close", "Cerrar"),
+    ("{} found", "{} encontrados"),
+    ("{} selected", "{} seleccionados"),
     ("Can't open {}", "No se puede abrir {}"),
     ("Moved {} to the trash", "{} movidos a la papelera"),
     ("Deleted {}", "{} eliminados"),

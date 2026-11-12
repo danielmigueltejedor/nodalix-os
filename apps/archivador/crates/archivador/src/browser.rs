@@ -54,6 +54,15 @@ pub struct Browser {
     empty: ndl::StatusPage,
     path_bar: gtk::Box,
     path_scroll: gtk::ScrolledWindow,
+    /// The path bar, or the field a path can be typed in (Ctrl+L).
+    path_stack: gtk::Stack,
+    location: gtk::Entry,
+    /// The column header of the list, and the arrow that shows the sort order in it.
+    columns: gtk::Box,
+    arrows: Vec<(SortKey, gtk::Image, gtk::Button)>,
+    status: gtk::Label,
+    spinner: gtk::Spinner,
+    busy: Cell<u32>,
     sidebar: gtk::ListBox,
     trash_icon: RefCell<Option<gtk::Image>>,
     search_bar: gtk::SearchBar,
@@ -168,6 +177,20 @@ impl Browser {
 
         let view_button = gtk::Button::new();
 
+        let location = gtk::Entry::new();
+        location.set_hexpand(true);
+        let path_stack = gtk::Stack::new();
+        path_stack.set_hexpand(true);
+        path_stack.add_named(&path_scroll, Some("bar"));
+        path_stack.add_named(&location, Some("entry"));
+
+        let (columns, arrows) = Self::column_header();
+        let status = gtk::Label::new(None);
+        status.add_css_class("archivador-status");
+        status.set_xalign(0.0);
+        let spinner = gtk::Spinner::new();
+        spinner.set_visible(false);
+
         let this = Rc::new(Self {
             window,
             toasts: ndl::ToastOverlay::new(),
@@ -179,6 +202,13 @@ impl Browser {
             empty,
             path_bar,
             path_scroll,
+            path_stack,
+            location,
+            columns,
+            arrows,
+            status,
+            spinner,
+            busy: Cell::new(0),
             sidebar,
             trash_icon: RefCell::new(None),
             search_bar,
@@ -281,12 +311,15 @@ impl Browser {
             nav.append(&button);
         }
         header.pack_start(&nav);
-        header.set_title_widget(Some(&self.path_scroll));
+        header.set_title_widget(Some(&self.path_stack));
+        self.build_location();
+        self.connect_columns();
 
         let menu_button = gtk::MenuButton::new();
         menu_button.set_icon_name("open-menu-symbolic");
         menu_button.set_popover(Some(&self.main_menu()));
         header.pack_end(&menu_button);
+        header.pack_end(&self.spinner);
         self.view_button.set_action_name(Some("win.toggle-view"));
         header.pack_end(&self.view_button);
         let new_folder = gtk::Button::from_icon_name("folder-new-symbolic");
@@ -315,7 +348,9 @@ impl Browser {
         // The content.
         let column = gtk::Box::new(gtk::Orientation::Vertical, 0);
         column.append(&self.search_bar);
+        column.append(&self.columns);
         column.append(&self.pages);
+        column.append(&self.status);
         let content = ndl::ToolbarView::new();
         content.add_top_bar(&header);
         content.set_content(Some(&column));
@@ -326,6 +361,192 @@ impl Browser {
         self.toasts.set_child(Some(&split));
         self.window.set_content(Some(&self.toasts));
         self.apply_view();
+    }
+
+    /// The strip above the list: Name, Modified and Size, each one sorting by itself.
+    fn column_header() -> (gtk::Box, Vec<(SortKey, gtk::Image, gtk::Button)>) {
+        let strip = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+        strip.add_css_class("archivador-columns");
+        // The icon's width, so Name starts where the names do.
+        let spacer = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+        spacer.set_size_request(24, -1);
+        strip.append(&spacer);
+        let mut arrows = Vec::new();
+        for (key, title) in [
+            (SortKey::Name, "Name"),
+            (SortKey::Modified, "Modified"),
+            (SortKey::Size, "Size"),
+        ] {
+            let button = gtk::Button::new();
+            button.add_css_class("flat");
+            let content = gtk::Box::new(gtk::Orientation::Horizontal, 4);
+            let label = gtk::Label::new(Some(tr(title)));
+            let arrow = gtk::Image::new();
+            arrow.set_pixel_size(12);
+            if key == SortKey::Name {
+                button.set_hexpand(true);
+                content.set_halign(gtk::Align::Start);
+                content.append(&label);
+                content.append(&arrow);
+            } else {
+                content.set_halign(gtk::Align::End);
+                content.append(&arrow);
+                content.append(&label);
+                if key == SortKey::Modified {
+                    look::align_modified(&button);
+                } else {
+                    look::align_size(&button);
+                }
+            }
+            button.set_child(Some(&content));
+            strip.append(&button);
+            arrows.push((key, arrow, button));
+        }
+        (strip, arrows)
+    }
+
+    /// Clicking a column sorts by it; clicking the one that sorts already reverses the order.
+    fn connect_columns(self: &Rc<Self>) {
+        for (key, _, button) in &self.arrows {
+            let (this, key) = (self.weak(), *key);
+            button.connect_clicked(move |_| {
+                let Some(this) = this.upgrade() else { return };
+                let current = this.state.borrow().settings;
+                if current.sort == key {
+                    let descending = !current.descending;
+                    this.change(|s| s.descending = descending);
+                    this.window
+                        .change_action_state("descending", &descending.to_variant());
+                } else {
+                    this.change(|s| s.sort = key);
+                    this.window
+                        .change_action_state("sort", &sort_name(key).to_variant());
+                }
+            });
+        }
+    }
+
+    /// Ctrl+L: the path bar turns into a field to type a path in.
+    fn build_location(self: &Rc<Self>) {
+        let this = self.weak();
+        self.location.connect_activate(move |entry| {
+            let Some(this) = this.upgrade() else { return };
+            let typed = entry.text().to_string();
+            let path = match typed.strip_prefix('~') {
+                Some(rest) => PathBuf::from(format!("{}{rest}", crate::home().display())),
+                None => PathBuf::from(&typed),
+            };
+            this.path_stack.set_visible_child_name("bar");
+            if path.is_dir() {
+                this.navigate(path);
+                this.focus_files();
+            } else if path.exists() {
+                let entry = Entry {
+                    name: typed,
+                    path,
+                    ..Entry::default()
+                };
+                this.open(&entry);
+            } else {
+                this.toast(&fmt("Can't open {}", &typed));
+            }
+        });
+        let keys = gtk::EventControllerKey::new();
+        let this = self.weak();
+        keys.connect_key_pressed(move |_, key, _, _| {
+            if key == gdk::Key::Escape {
+                if let Some(this) = this.upgrade() {
+                    this.path_stack.set_visible_child_name("bar");
+                    this.focus_files();
+                }
+                return glib::Propagation::Stop;
+            }
+            glib::Propagation::Proceed
+        });
+        self.location.add_controller(keys);
+        let focus = gtk::EventControllerFocus::new();
+        let this = self.weak();
+        focus.connect_leave(move |_| {
+            if let Some(this) = this.upgrade() {
+                this.path_stack.set_visible_child_name("bar");
+            }
+        });
+        self.location.add_controller(focus);
+    }
+
+    fn show_location(&self) {
+        let dir = self.current_dir();
+        if is_trash(&dir) {
+            return;
+        }
+        self.location.set_text(&dir.to_string_lossy());
+        self.path_stack.set_visible_child_name("entry");
+        self.location.grab_focus();
+        self.location.select_region(0, -1);
+    }
+
+    fn focus_files(&self) {
+        match self.state.borrow().settings.view {
+            View::List => self.list_view.grab_focus(),
+            View::Grid => self.grid_view.grab_focus(),
+        };
+    }
+
+    /// The little spinner in the header while something runs in the background.
+    fn working(&self, on: bool) {
+        let count = if on {
+            self.busy.get() + 1
+        } else {
+            self.busy.get().saturating_sub(1)
+        };
+        self.busy.set(count);
+        self.spinner.set_visible(count > 0);
+        self.spinner.set_spinning(count > 0);
+    }
+
+    /// The line under the files: how many there are, or what is selected.
+    fn update_status(&self) {
+        let selected = self.selected();
+        let text = if selected.is_empty() {
+            let total = self.store.n_items() as usize;
+            if self.state.borrow().search.is_empty() {
+                items(total)
+            } else {
+                fmt("{} found", &items(total))
+            }
+        } else {
+            let bytes: u64 = selected.iter().filter(|e| !e.is_dir).map(|e| e.size).sum();
+            let mut text = fmt("{} selected", &items(selected.len()));
+            if bytes > 0 {
+                text = format!("{text} · {}", archivador_core::format::size(bytes));
+            }
+            text
+        };
+        self.status.set_label(&text);
+        self.status.set_visible(self.store.n_items() > 0);
+    }
+
+    /// The arrow in the column header that shows how the list is sorted.
+    fn update_columns(&self) {
+        let (key, descending, view) = {
+            let s = self.state.borrow().settings;
+            (s.sort, s.descending, s.view)
+        };
+        for (column, arrow, _) in &self.arrows {
+            if *column == key {
+                arrow.set_icon_name(Some(if descending {
+                    "pan-up-symbolic"
+                } else {
+                    "pan-down-symbolic"
+                }));
+                arrow.set_visible(true);
+            } else {
+                arrow.set_icon_name(None);
+                arrow.set_visible(false);
+            }
+        }
+        self.columns
+            .set_visible(view == View::List && self.store.n_items() > 0);
     }
 
     fn build_views(self: &Rc<Self>) {
@@ -370,6 +591,7 @@ impl Browser {
         self.selection.connect_selection_changed(move |_, _, _| {
             if let Some(this) = this.upgrade() {
                 this.update_actions();
+                this.update_status();
             }
         });
     }
@@ -544,6 +766,7 @@ impl Browser {
             }
         });
         self.action("search", |t| t.search_bar.set_search_mode(true));
+        self.action("location", |t| t.show_location());
         self.action("close", |t| t.window.close());
         self.action("toggle-view", |t| {
             {
@@ -893,6 +1116,8 @@ impl Browser {
         } else {
             self.apply_view();
         }
+        self.update_columns();
+        self.update_status();
         self.update_actions();
     }
 
@@ -907,6 +1132,8 @@ impl Browser {
         if self.store.n_items() > 0 {
             self.pages.set_visible_child_name(name);
         }
+        self.update_columns();
+        self.update_status();
     }
 
     // ----- the chrome around the folder ----------------------------------------------------
@@ -1141,11 +1368,13 @@ impl Browser {
             return;
         }
         let this = self.weak();
+        self.working(true);
         glib::spawn_future_local(async move {
             let cut = clipboard.mode == Mode::Cut;
             let target = dir.clone();
             let result = gio::spawn_blocking(move || clipboard.paste(&target)).await;
             let Some(this) = this.upgrade() else { return };
+            this.working(false);
             match result {
                 Ok(Ok(pasted)) => {
                     if cut {
@@ -1241,6 +1470,7 @@ impl Browser {
     fn remove_for_good(self: &Rc<Self>, paths: Vec<PathBuf>) {
         let in_trash = is_trash(&self.current_dir());
         let this = self.weak();
+        self.working(true);
         glib::spawn_future_local(async move {
             let count = paths.len();
             let result = gio::spawn_blocking(move || {
@@ -1261,6 +1491,7 @@ impl Browser {
             })
             .await;
             let Some(this) = this.upgrade() else { return };
+            this.working(false);
             this.reload();
             match result {
                 Ok(Ok(())) => this.toast(&fmt("Deleted {}", &items(count))),
@@ -1301,9 +1532,11 @@ impl Browser {
             move || {
                 let Some(this) = this.upgrade() else { return };
                 let again = this.weak();
+                this.working(true);
                 glib::spawn_future_local(async move {
                     let result = gio::spawn_blocking(|| trash().empty()).await;
                     let Some(this) = again.upgrade() else { return };
+                    this.working(false);
                     this.reload();
                     if let Ok(Err(error)) = result {
                         this.toast(&error.to_string());

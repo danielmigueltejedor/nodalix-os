@@ -94,6 +94,28 @@ pub fn delete(path: &Path) -> io::Result<()> {
     }
 }
 
+/// What a file or folder takes up: the bytes of every regular file inside it, and how many files
+/// that is. Links are counted as themselves, never followed, so a link back up the tree cannot
+/// make the walk endless. Entries that cannot be read are skipped.
+pub fn tree_size(path: &Path) -> (u64, u64) {
+    let mut total = (0, 0);
+    let mut pending = vec![path.to_path_buf()];
+    while let Some(next) = pending.pop() {
+        let Ok(meta) = next.symlink_metadata() else {
+            continue;
+        };
+        if meta.is_dir() {
+            if let Ok(children) = fs::read_dir(&next) {
+                pending.extend(children.flatten().map(|c| c.path()));
+            }
+        } else {
+            total.0 += meta.len();
+            total.1 += 1;
+        }
+    }
+    total
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -186,6 +208,22 @@ mod tests {
         delete(&dir.join("real")).unwrap();
         assert!(!dir.join("real").exists());
         assert!(delete(&dir.join("missing")).is_err());
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_folders_size_adds_up_what_is_inside_and_ignores_links() {
+        let dir = temp("tree");
+        fs::create_dir_all(dir.join("a/b")).unwrap();
+        fs::write(dir.join("a/one"), "12345").unwrap();
+        fs::write(dir.join("a/b/two"), "123").unwrap();
+        std::os::unix::fs::symlink(&dir, dir.join("a/loop")).unwrap();
+        let (bytes, files) = tree_size(&dir.join("a"));
+        // The link counts as a file of its own, with the length of its target path.
+        assert_eq!(files, 3);
+        assert!(bytes >= 8);
+        assert_eq!(tree_size(&dir.join("a/one")), (5, 1));
+        assert_eq!(tree_size(&dir.join("missing")), (0, 0));
         fs::remove_dir_all(&dir).unwrap();
     }
 }

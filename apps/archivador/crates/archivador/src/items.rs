@@ -10,6 +10,21 @@ use nodalia_gtk as ndl;
 
 use crate::object::FileObject;
 
+thread_local! {
+    static MODIFIED: gtk::SizeGroup = gtk::SizeGroup::new(gtk::SizeGroupMode::Horizontal);
+    static SIZE: gtk::SizeGroup = gtk::SizeGroup::new(gtk::SizeGroupMode::Horizontal);
+}
+
+/// Makes the column header's cell as wide as the rows' modified-time cells.
+pub fn align_modified(widget: &impl IsA<gtk::Widget>) {
+    MODIFIED.with(|g| g.add_widget(widget));
+}
+
+/// Makes the column header's cell as wide as the rows' size cells.
+pub fn align_size(widget: &impl IsA<gtk::Widget>) {
+    SIZE.with(|g| g.add_widget(widget));
+}
+
 /// Called when a file is right-clicked: the widget, the position inside it, and the file's index.
 pub type ContextMenu = Rc<dyn Fn(&gtk::Widget, f64, f64, u32)>;
 
@@ -80,10 +95,12 @@ pub fn list_factory(menu: ContextMenu) -> gtk::SignalListItemFactory {
         modified.add_css_class("archivador-meta");
         modified.set_width_chars(11);
         modified.set_xalign(1.0);
+        align_modified(&modified);
         let size = gtk::Label::new(None);
         size.add_css_class("archivador-meta");
         size.set_width_chars(10);
         size.set_xalign(1.0);
+        align_size(&size);
         for widget in [
             icon.upcast_ref::<gtk::Widget>(),
             name.upcast_ref(),
