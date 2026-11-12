@@ -22,7 +22,7 @@ def download_iso(manifest,base_url,output=None):
         raise ValueError('Partes de ISO no válidas')
     output=Path(output) if output else Path(name)
     try:
-        fd = os.open(output, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        fd = os.open(output, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)  # NOSONAR: --output is the path the user chose for their own download
     except FileNotFoundError:
         pass
     else:
@@ -53,7 +53,7 @@ def download_iso(manifest,base_url,output=None):
             destination.flush();os.fsync(destination.fileno())
         if whole.hexdigest()!=iso['sha256']:raise ValueError('SHA-256 de la ISO completa incorrecto')
         # Never overwrite a file created by another process during the download.
-        os.link(temporary,output)
+        os.link(temporary,output)  # NOSONAR: same user-chosen --output; link never overwrites
         print(f'ISO completa y verificada: {output}',flush=True)
         return output
     finally:Path(temporary).unlink(missing_ok=True)
