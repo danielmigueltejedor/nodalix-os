@@ -15,7 +15,10 @@ pub struct ResourceView {
     pub widget: gtk::ScrolledWindow,
     cpu_value: gtk::Label,
     cpu_graph: Graph,
-    core_bars: Vec<gtk::LevelBar>,
+    cores_label: gtk::Label,
+    core_grid: gtk::FlowBox,
+    /// One bar per online core, by core number; follows cores coming and going.
+    core_bars: RefCell<Vec<(u32, gtk::ProgressBar)>>,
     mem_value: gtk::Label,
     mem_graph: Graph,
     swap_value: gtk::Label,
@@ -62,7 +65,7 @@ fn dim() -> gtk::Label {
 }
 
 impl ResourceView {
-    pub fn new(core_count: usize) -> Self {
+    pub fn new() -> Self {
         let model = std::fs::read_to_string("/proc/cpuinfo")
             .ok()
             .and_then(|t| parse_model(&t));
@@ -73,7 +76,6 @@ impl ResourceView {
         cpu_card.append(&cpu_value);
         cpu_card.append(&cpu_graph.area);
         let cores_label = dim();
-        cores_label.set_text(&format!("{}: {core_count}", tr("Cores")));
         cpu_card.append(&cores_label);
         let grid = gtk::FlowBox::new();
         grid.set_selection_mode(gtk::SelectionMode::None);
@@ -82,15 +84,6 @@ impl ResourceView {
         grid.set_homogeneous(true);
         grid.set_column_spacing(12);
         grid.set_row_spacing(6);
-        let core_bars: Vec<gtk::LevelBar> = (0..core_count)
-            .map(|i| {
-                let bar = gtk::LevelBar::for_interval(0.0, 1.0);
-                bar.set_hexpand(true);
-                bar.set_tooltip_text(Some(&format!("{} {}", tr("CPU"), i + 1)));
-                grid.append(&bar);
-                bar
-            })
-            .collect();
         cpu_card.append(&grid);
 
         let (mem_card, _) = card(tr("Memory"), None);
@@ -136,7 +129,9 @@ impl ResourceView {
             widget,
             cpu_value,
             cpu_graph,
-            core_bars,
+            cores_label,
+            core_grid: grid,
+            core_bars: RefCell::new(Vec::new()),
             mem_value,
             mem_graph,
             swap_value,
@@ -149,13 +144,40 @@ impl ResourceView {
         }
     }
 
+    /// Makes the bars match the cores in the reading: a first reading that failed leaves none,
+    /// and a core can go offline or come back.
+    fn sync_core_bars(&self, cores: &[(u32, f64)]) {
+        let mut bars = self.core_bars.borrow_mut();
+        let same =
+            bars.len() == cores.len() && bars.iter().zip(cores).all(|((a, _), (b, _))| a == b);
+        if !same {
+            for (_, bar) in bars.drain(..) {
+                if let Some(slot) = bar.parent() {
+                    self.core_grid.remove(&slot);
+                }
+            }
+            for (id, _) in cores {
+                let bar = gtk::ProgressBar::new();
+                bar.set_hexpand(true);
+                bar.set_valign(gtk::Align::Center);
+                bar.set_size_request(140, -1);
+                bar.set_tooltip_text(Some(&format!("{} {}", tr("CPU"), id + 1)));
+                self.core_grid.append(&bar);
+                bars.push((*id, bar));
+            }
+            self.cores_label
+                .set_text(&format!("{}: {}", tr("Cores"), cores.len()));
+        }
+        for ((_, bar), (_, usage)) in bars.iter().zip(cores) {
+            bar.set_fraction(*usage);
+        }
+    }
+
     pub fn update(&self, s: &Snapshot) {
         self.cpu_value
             .set_text(&format!("{:.0} %", s.cpu_total * 100.0));
         self.cpu_graph.push(s.cpu_total);
-        for (bar, usage) in self.core_bars.iter().zip(&s.cores) {
-            bar.set_value(*usage);
-        }
+        self.sync_core_bars(&s.cores);
 
         let m = &s.memory;
         self.mem_value.set_text(&format!(

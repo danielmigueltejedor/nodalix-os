@@ -14,7 +14,8 @@ pub const HISTORY: usize = 60;
 
 pub struct Snapshot {
     pub cpu_total: f64,
-    pub cores: Vec<f64>,
+    /// Online cores by number, each with its busy fraction.
+    pub cores: Vec<(u32, f64)>,
     pub memory: Memory,
     /// Bytes per second, download then upload.
     pub net: (f64, f64),
@@ -27,7 +28,8 @@ pub struct Sampler {
     last_at: Option<Instant>,
     cpu: Option<CpuSample>,
     net: Option<NetTotals>,
-    ticks: HashMap<u32, u64>,
+    /// CPU ticks of the previous reading, by pid and start time: a reused pid is a new process.
+    ticks: HashMap<(u32, u64), u64>,
 }
 
 /// Appends to a bounded history.
@@ -50,33 +52,49 @@ impl Sampler {
         let (cpu_total, cores) = match &self.cpu {
             Some(prev) => (
                 cpu::usage(prev.total, cpu_now.total),
+                // By core number: when a core goes offline the others keep their own baseline.
                 cpu_now
                     .cores
                     .iter()
-                    .zip(prev.cores.iter())
-                    .map(|(n, p)| cpu::usage(*p, *n))
+                    .map(|(id, now)| {
+                        let usage = prev
+                            .cores
+                            .iter()
+                            .find(|(pid, _)| pid == id)
+                            .map_or(0.0, |(_, before)| cpu::usage(*before, *now));
+                        (*id, usage)
+                    })
                     .collect(),
             ),
-            None => (0.0, vec![0.0; cpu_now.cores.len()]),
+            None => (
+                0.0,
+                cpu_now.cores.iter().map(|(id, _)| (*id, 0.0)).collect(),
+            ),
         };
         self.cpu = Some(cpu_now);
 
-        let net_now = net::read().unwrap_or_default();
-        let rate = self
-            .net
-            .map_or((0.0, 0.0), |p| net::rate(p, net_now, seconds));
-        self.net = Some(net_now);
+        // A failed reading is no baseline: storing zeros would make the next good one look like
+        // everything since boot arrived in one interval.
+        let net_now = net::read();
+        let rate = match (self.net, net_now) {
+            (Some(before), Some(now)) => net::rate(before, now, seconds),
+            _ => (0.0, 0.0),
+        };
+        self.net = net_now;
 
         let all = procs::read_all();
         let mut ticks = HashMap::with_capacity(all.len());
         let processes = all
             .into_iter()
             .map(|p| {
-                ticks.insert(p.pid, p.cpu_ticks);
+                ticks.insert((p.pid, p.start_time), p.cpu_ticks);
                 // A process we have not seen before has no interval yet: show 0, not its lifetime.
-                let percent = self.ticks.get(&p.pid).map_or(0.0, |before| {
-                    procs::cpu_percent(*before, p.cpu_ticks, seconds)
-                });
+                let percent = self
+                    .ticks
+                    .get(&(p.pid, p.start_time))
+                    .map_or(0.0, |before| {
+                        procs::cpu_percent(*before, p.cpu_ticks, seconds)
+                    });
                 (p, percent)
             })
             .collect();
@@ -119,5 +137,9 @@ mod tests {
         let second = s.sample();
         assert!((0.0..=1.0).contains(&second.cpu_total));
         assert_eq!(second.cores.len(), first.cores.len());
+        assert!(second
+            .cores
+            .iter()
+            .all(|(_, usage)| (0.0..=1.0).contains(usage)));
     }
 }

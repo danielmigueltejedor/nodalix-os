@@ -105,7 +105,8 @@ pub fn parse_mounts(text: &str) -> Vec<(String, String, String)> {
     out
 }
 
-/// Total and available bytes of the file system holding `path`.
+/// Total and free bytes of the file system holding `path`. Free counts every free block, the
+/// ones reserved for root included, so that total minus free is what is really in use.
 pub fn usage(path: &str) -> Option<(u64, u64)> {
     let c = CString::new(path).ok()?;
     let mut s: libc::statvfs = unsafe { std::mem::zeroed() };
@@ -114,7 +115,7 @@ pub fn usage(path: &str) -> Option<(u64, u64)> {
         return None;
     }
     let block = s.f_frsize as u64;
-    Some((s.f_blocks as u64 * block, s.f_bavail as u64 * block))
+    Some((s.f_blocks as u64 * block, s.f_bfree as u64 * block))
 }
 
 pub fn read() -> Vec<Mount> {

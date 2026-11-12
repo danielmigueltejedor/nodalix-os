@@ -12,6 +12,9 @@ pub struct Process {
     pub uid: u32,
     /// utime + stime, in clock ticks.
     pub cpu_ticks: u64,
+    /// Start time in clock ticks since boot. With the pid it names one process for good: a pid
+    /// can be handed to another process later, its start time cannot repeat.
+    pub start_time: u64,
     /// Resident set size in bytes.
     pub rss: u64,
     pub threads: u32,
@@ -19,9 +22,21 @@ pub struct Process {
     pub cmdline: String,
 }
 
+/// The fields of `/proc/<pid>/stat` the monitor uses.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Stat {
+    pub pid: u32,
+    pub name: String,
+    pub state: char,
+    pub cpu_ticks: u64,
+    pub start_time: u64,
+    pub rss: u64,
+    pub threads: u32,
+}
+
 /// Parses `/proc/<pid>/stat`. The name sits in parentheses and may itself contain spaces and
 /// parentheses, so the last `)` ends it.
-pub fn parse_stat(text: &str, page_size: u64) -> Option<(u32, String, char, u64, u64, u32)> {
+pub fn parse_stat(text: &str, page_size: u64) -> Option<Stat> {
     let open = text.find('(')?;
     let close = text.rfind(')')?;
     if close < open {
@@ -31,7 +46,8 @@ pub fn parse_stat(text: &str, page_size: u64) -> Option<(u32, String, char, u64,
     let name = text[open + 1..close].to_string();
     let rest: Vec<&str> = text[close + 1..].split_whitespace().collect();
     // rest[0] is the state; utime and stime are fields 14 and 15 of the full line, which are
-    // rest[11] and rest[12]; num_threads is field 20, rest[17]; rss in pages is field 24, rest[21].
+    // rest[11] and rest[12]; num_threads is field 20, rest[17]; starttime is field 22, rest[19];
+    // rss in pages is field 24, rest[21].
     if rest.len() < 22 {
         return None;
     }
@@ -39,15 +55,17 @@ pub fn parse_stat(text: &str, page_size: u64) -> Option<(u32, String, char, u64,
     let utime: u64 = rest[11].parse().ok()?;
     let stime: u64 = rest[12].parse().ok()?;
     let threads: u32 = rest[17].parse().ok()?;
+    let start_time: u64 = rest[19].parse().ok()?;
     let rss_pages: i64 = rest[21].parse().ok()?;
-    Some((
+    Some(Stat {
         pid,
         name,
         state,
-        utime + stime,
-        rss_pages.max(0) as u64 * page_size,
+        cpu_ticks: utime + stime,
+        start_time,
+        rss: rss_pages.max(0) as u64 * page_size,
         threads,
-    ))
+    })
 }
 
 /// Parses the real uid out of `/proc/<pid>/status`.
@@ -104,7 +122,7 @@ pub fn read_all() -> Vec<Process> {
         let Ok(stat) = std::fs::read_to_string(dir.join("stat")) else {
             continue;
         };
-        let Some((_, name, state, cpu_ticks, rss, threads)) = parse_stat(&stat, page) else {
+        let Some(st) = parse_stat(&stat, page) else {
             continue;
         };
         let uid = std::fs::read_to_string(dir.join("status"))
@@ -116,12 +134,13 @@ pub fn read_all() -> Vec<Process> {
             .unwrap_or_default();
         out.push(Process {
             pid,
-            name,
-            state,
+            name: st.name,
+            state: st.state,
             uid,
-            cpu_ticks,
-            rss,
-            threads,
+            cpu_ticks: st.cpu_ticks,
+            start_time: st.start_time,
+            rss: st.rss,
+            threads: st.threads,
             cmdline,
         });
     }
@@ -158,20 +177,70 @@ pub fn read_users() -> HashMap<u32, String> {
         .unwrap_or_default()
 }
 
-/// Signals a process. Returns the OS error when the kernel refuses (not owner, no such process).
-pub fn signal(pid: u32, signal: Signal) -> std::io::Result<()> {
+/// Signals the process that was read as `pid` with this `start_time`, and nothing else.
+///
+/// A pid can be reused once its process is gone, and `kill(pid)` would then hit a stranger. So
+/// this takes a pidfd first (which pins the pid to one process), checks that process is the one
+/// that was sampled by its start time, and signals through the pidfd. Returns the OS error when
+/// the kernel refuses (not owner, no such process); a process that is no longer the sampled one
+/// reads as "no such process".
+pub fn signal(pid: u32, start_time: u64, signal: Signal) -> std::io::Result<()> {
     let sig = match signal {
         Signal::Terminate => libc::SIGTERM,
         Signal::Kill => libc::SIGKILL,
         Signal::Stop => libc::SIGSTOP,
         Signal::Continue => libc::SIGCONT,
     };
-    // SAFETY: kill takes plain integers and has no memory preconditions.
-    if unsafe { libc::kill(pid as libc::pid_t, sig) } == 0 {
-        Ok(())
-    } else {
-        Err(std::io::Error::last_os_error())
+    let gone = || std::io::Error::from_raw_os_error(libc::ESRCH);
+    // SAFETY: pidfd_open takes two plain integers and returns a descriptor or -1.
+    let fd = unsafe { libc::syscall(libc::SYS_pidfd_open, pid as libc::pid_t, 0) };
+    if fd < 0 {
+        let error = std::io::Error::last_os_error();
+        if error.raw_os_error() != Some(libc::ENOSYS) {
+            return Err(error);
+        }
+        // A kernel without pidfds: check the identity and accept the small remaining window.
+        return if current_start_time(pid) == Some(start_time) {
+            // SAFETY: kill takes plain integers and has no memory preconditions.
+            if unsafe { libc::kill(pid as libc::pid_t, sig) } == 0 {
+                Ok(())
+            } else {
+                Err(std::io::Error::last_os_error())
+            }
+        } else {
+            Err(gone())
+        };
     }
+    let fd = fd as libc::c_int;
+    // The pidfd now holds the pid, so what /proc says about it is about the process it names.
+    let result = if current_start_time(pid) == Some(start_time) {
+        // SAFETY: `fd` is the pidfd opened above; a null siginfo and zero flags are allowed.
+        let rc = unsafe {
+            libc::syscall(
+                libc::SYS_pidfd_send_signal,
+                fd,
+                sig,
+                std::ptr::null::<libc::siginfo_t>(),
+                0,
+            )
+        };
+        if rc == 0 {
+            Ok(())
+        } else {
+            Err(std::io::Error::last_os_error())
+        }
+    } else {
+        Err(gone())
+    };
+    // SAFETY: `fd` is open and owned here.
+    unsafe { libc::close(fd) };
+    result
+}
+
+/// Start time of the process now holding `pid`, if there is one.
+fn current_start_time(pid: u32) -> Option<u64> {
+    let text = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+    parse_stat(&text, 1).map(|s| s.start_time)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -205,13 +274,26 @@ mod tests {
 
     #[test]
     fn parses_a_name_with_spaces_and_parentheses() {
-        let (pid, name, state, ticks, rss, threads) = parse_stat(STAT, 4096).unwrap();
-        assert_eq!(pid, 1234);
-        assert_eq!(name, "my (odd) app");
-        assert_eq!(state, 'S');
-        assert_eq!(ticks, 200);
-        assert_eq!(rss, 2500 * 4096);
-        assert_eq!(threads, 7);
+        let st = parse_stat(STAT, 4096).unwrap();
+        assert_eq!(st.pid, 1234);
+        assert_eq!(st.name, "my (odd) app");
+        assert_eq!(st.state, 'S');
+        assert_eq!(st.cpu_ticks, 200);
+        assert_eq!(st.start_time, 5000);
+        assert_eq!(st.rss, 2500 * 4096);
+        assert_eq!(st.threads, 7);
+    }
+
+    #[test]
+    fn signalling_checks_the_start_time_first() {
+        // Our own pid with a start time it cannot have: refused as "no such process", and the
+        // signal (SIGCONT, harmless) is never sent through a wrong identity.
+        let me = std::process::id();
+        let start = current_start_time(me).expect("our own stat");
+        let wrong = signal(me, start + 1, Signal::Continue).unwrap_err();
+        assert_eq!(wrong.raw_os_error(), Some(libc::ESRCH));
+        // The right start time goes through.
+        signal(me, start, Signal::Continue).unwrap();
     }
 
     #[test]
@@ -267,7 +349,7 @@ mod tests {
     #[test]
     fn signalling_a_missing_process_reports_the_error() {
         // pid_max is at most 2^22; this one cannot exist.
-        assert!(signal(u32::MAX / 2, Signal::Terminate).is_err());
+        assert!(signal(u32::MAX / 2, 0, Signal::Terminate).is_err());
     }
 
     #[test]

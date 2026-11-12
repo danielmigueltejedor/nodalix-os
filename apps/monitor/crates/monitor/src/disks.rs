@@ -1,8 +1,11 @@
 //! Mounted file systems.
 
+use std::cell::Cell;
+use std::rc::Rc;
+
 use monitor_core::format_bytes;
 use monitor_core::fs::{self, Mount};
-use nodalia_gtk::gtk::{self, prelude::*};
+use nodalia_gtk::gtk::{self, gio, glib, prelude::*};
 use nodalia_gtk::ActionRow;
 
 use crate::i18n::tr;
@@ -10,10 +13,13 @@ use crate::i18n::tr;
 pub struct DiskView {
     pub widget: gtk::ScrolledWindow,
     list: gtk::ListBox,
+    /// A read is in flight: a hung network mount can make `statvfs` wait for good, so reads run
+    /// on a worker thread, one at a time, and the window never waits for them.
+    reading: Cell<bool>,
 }
 
 impl DiskView {
-    pub fn new() -> Self {
+    pub fn new() -> Rc<Self> {
         let list = gtk::ListBox::new();
         list.set_selection_mode(gtk::SelectionMode::None);
         list.add_css_class("boxed-list");
@@ -26,7 +32,11 @@ impl DiskView {
             .child(&clamp)
             .vexpand(true)
             .build();
-        let view = Self { widget, list };
+        let view = Rc::new(Self {
+            widget,
+            list,
+            reading: Cell::new(false),
+        });
         view.update();
         view
     }
@@ -56,12 +66,24 @@ impl DiskView {
         row
     }
 
-    /// Disks change rarely; the caller refreshes this less often than the other views.
-    pub fn update(&self) {
+    /// Disks change rarely; the caller refreshes this less often than the other views. The
+    /// list keeps showing the last reading until the new one arrives.
+    pub fn update(self: &Rc<Self>) {
+        if self.reading.replace(true) {
+            return;
+        }
+        let view = self.clone();
+        glib::spawn_future_local(async move {
+            let mounts = gio::spawn_blocking(fs::read).await.unwrap_or_default();
+            view.reading.set(false);
+            view.show(&mounts);
+        });
+    }
+
+    fn show(&self, mounts: &[Mount]) {
         while let Some(child) = self.list.first_child() {
             self.list.remove(&child);
         }
-        let mounts = fs::read();
         if mounts.is_empty() {
             let empty = gtk::Label::new(Some(tr("No mounted file systems")));
             empty.add_css_class("dim-label");
@@ -69,7 +91,7 @@ impl DiskView {
             empty.set_margin_bottom(24);
             self.list.append(&empty);
         }
-        for m in &mounts {
+        for m in mounts {
             self.list.append(&Self::row(m));
         }
     }

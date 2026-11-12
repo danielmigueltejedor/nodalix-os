@@ -7,11 +7,13 @@ pub struct CpuTimes {
     pub total: u64,
 }
 
-/// One sample: the aggregate line and every core, in order.
+/// One sample: the aggregate line and every core that is online, each with its number. A core
+/// that goes offline leaves a gap in `/proc/stat`, so cores are matched by number, never by
+/// position.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct CpuSample {
     pub total: CpuTimes,
-    pub cores: Vec<CpuTimes>,
+    pub cores: Vec<(u32, CpuTimes)>,
 }
 
 fn parse_line(line: &str) -> Option<CpuTimes> {
@@ -42,8 +44,8 @@ pub fn parse_stat(text: &str) -> Option<CpuSample> {
         if name == "cpu" {
             sample.total = parse_line(line)?;
             have_total = true;
-        } else if name.starts_with("cpu") && name[3..].chars().all(|c| c.is_ascii_digit()) {
-            sample.cores.push(parse_line(line)?);
+        } else if let Some(id) = name.strip_prefix("cpu").and_then(|n| n.parse::<u32>().ok()) {
+            sample.cores.push((id, parse_line(line)?));
         }
     }
     have_total.then_some(sample)
@@ -90,11 +92,23 @@ mod tests {
         );
         assert_eq!(
             s.cores[0],
-            CpuTimes {
-                busy: 60,
-                total: 500
-            }
+            (
+                0,
+                CpuTimes {
+                    busy: 60,
+                    total: 500
+                }
+            )
         );
+        assert_eq!(s.cores[1].0, 1);
+    }
+
+    #[test]
+    fn cores_keep_their_number_when_one_is_offline() {
+        // cpu1 is offline: the lines left are cpu0 and cpu2, and cpu2 must not read as cpu1.
+        let s = parse_stat("cpu 1 0 0 1 0 0 0 0\ncpu0 1 0 0 1\ncpu2 4 0 0 4\n").unwrap();
+        let ids: Vec<u32> = s.cores.iter().map(|(id, _)| *id).collect();
+        assert_eq!(ids, vec![0, 2]);
     }
 
     #[test]

@@ -17,6 +17,8 @@ pub struct ProcessView {
     pub widget: gtk::Box,
     store: gio::ListStore,
     by_pid: RefCell<HashMap<u32, ProcessObject>>,
+    query: Rc<RefCell<String>>,
+    filter: gtk::CustomFilter,
     users: HashMap<u32, String>,
     view: gtk::ColumnView,
     selection: gtk::SingleSelection,
@@ -199,6 +201,8 @@ impl ProcessView {
             widget,
             store,
             by_pid: RefCell::new(HashMap::new()),
+            query,
+            filter,
             users: procs::read_users(),
             view,
             selection,
@@ -207,14 +211,30 @@ impl ProcessView {
     }
 
     /// Brings the table in line with a reading: update in place, add the new, drop the gone.
+    /// A process is the pid together with its start time, so a pid handed to another process
+    /// is a new row, not the old one under a new name.
     pub fn update(&self, snapshot: &Snapshot) {
         let mut by_pid = self.by_pid.borrow_mut();
-        let mut seen = std::collections::HashSet::with_capacity(snapshot.processes.len());
+        let seen: std::collections::HashSet<(u32, u64)> = snapshot
+            .processes
+            .iter()
+            .map(|(p, _)| (p.pid, p.start_time))
+            .collect();
+        let gone: Vec<u32> = by_pid
+            .iter()
+            .filter(|(pid, obj)| !seen.contains(&(**pid, obj.row().start_time)))
+            .map(|(pid, _)| *pid)
+            .collect();
+        let selected = self.selected_process();
+        for pid in &gone {
+            by_pid.remove(pid);
+        }
+
         let mut added = Vec::new();
         for (p, cpu) in &snapshot.processes {
-            seen.insert(p.pid);
             let row = Row {
                 pid: p.pid,
+                start_time: p.start_time,
                 name: p.name.clone(),
                 user: self
                     .users
@@ -236,45 +256,46 @@ impl ProcessView {
                 }
             }
         }
-        let gone: Vec<u32> = by_pid
-            .keys()
-            .copied()
-            .filter(|pid| !seen.contains(pid))
-            .collect();
-        if !gone.is_empty() {
-            for pid in &gone {
-                by_pid.remove(pid);
-            }
-            // Rebuilding the store is one items-changed for any number of exits.
-            let keep: Vec<ProcessObject> = by_pid.values().cloned().collect();
-            let selected = self.selected_pid();
-            self.store.splice(0, self.store.n_items(), &keep);
-            drop(by_pid);
-            if let Some(pid) = selected {
-                self.select_pid(pid);
-            }
-            by_pid = self.by_pid.borrow_mut();
-        }
-        if !added.is_empty() {
+
+        if gone.is_empty() {
             self.store.extend_from_slice(&added);
+        } else {
+            // Rebuilding the store is one items-changed for any number of exits. It already
+            // holds the new rows, since they are in `by_pid` by now.
+            let all: Vec<ProcessObject> = by_pid.values().cloned().collect();
+            self.store.splice(0, self.store.n_items(), &all);
         }
         drop(by_pid);
+        if !gone.is_empty() {
+            if let Some((pid, start)) = selected {
+                self.select_process(pid, start);
+            }
+        }
+        // Names and command lines change under a running pid; a filter does not watch rows.
+        if !self.query.borrow().is_empty() {
+            self.filter.changed(gtk::FilterChange::Different);
+        }
         if let Some(sorter) = self.view.sorter() {
             sorter.changed(gtk::SorterChange::Different);
         }
     }
 
-    pub fn selected_pid(&self) -> Option<u32> {
+    /// The selected process as (pid, start time).
+    fn selected_process(&self) -> Option<(u32, u64)> {
         self.selection
             .selected_item()
             .and_downcast::<ProcessObject>()
-            .map(|o| o.row().pid)
+            .map(|o| {
+                let r = o.row();
+                (r.pid, r.start_time)
+            })
     }
 
-    fn select_pid(&self, pid: u32) {
+    fn select_process(&self, pid: u32, start_time: u64) {
         for i in 0..self.selection.n_items() {
             if let Some(o) = self.selection.item(i).and_downcast::<ProcessObject>() {
-                if o.row().pid == pid {
+                let r = o.row();
+                if r.pid == pid && r.start_time == start_time {
                     self.selection.set_selected(i);
                     return;
                 }
@@ -294,8 +315,8 @@ impl ProcessView {
 
     /// Signals the selected process; the error text is for a toast.
     pub fn signal_selected(&self, signal: Signal) -> Result<(), String> {
-        let pid = self.selected_pid().ok_or_else(String::new)?;
-        procs::signal(pid, signal).map_err(|e| {
+        let (pid, start_time) = self.selected_process().ok_or_else(String::new)?;
+        procs::signal(pid, start_time, signal).map_err(|e| {
             let name = self
                 .by_pid
                 .borrow()

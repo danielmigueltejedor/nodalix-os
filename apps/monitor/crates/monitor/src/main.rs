@@ -55,9 +55,10 @@ fn build_window(app: &gtk::Application) {
     let sampler = Rc::new(RefCell::new(Sampler::default()));
     let first = sampler.borrow_mut().sample();
     let procs = ProcessView::new();
-    let resources = ResourceView::new(first.cores.len());
+    let resources = ResourceView::new();
     let disks = DiskView::new();
     procs.update(&first);
+    resources.update(&first);
 
     let stack = gtk::Stack::new();
     stack.set_transition_type(gtk::StackTransitionType::Crossfade);
@@ -219,7 +220,7 @@ fn build_window(app: &gtk::Application) {
             sampler.clone(),
             procs.clone(),
             Rc::new(resources),
-            Rc::new(disks),
+            disks,
             stack.clone(),
         );
         glib::timeout_add_local(Duration::from_secs(1), move || {

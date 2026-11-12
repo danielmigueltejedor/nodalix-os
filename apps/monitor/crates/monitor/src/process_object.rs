@@ -10,6 +10,8 @@ use nodalia_gtk::gtk::glib::subclass::prelude::*;
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Row {
     pub pid: u32,
+    /// With the pid, names one process: a pid can be reused, a start time cannot.
+    pub start_time: u64,
     pub name: String,
     pub user: String,
     pub cpu: f64,
