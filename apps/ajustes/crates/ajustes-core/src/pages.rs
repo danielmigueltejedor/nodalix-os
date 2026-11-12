@@ -112,7 +112,7 @@ pub const SECTIONS: &[(&str, &[Page])] = &[
                 "Region and language",
                 "preferences-desktop-locale-symbolic",
             ),
-            legacy("users", "Users", "system-users-symbolic", "users"),
+            native("users", "Users", "system-users-symbolic"),
             native("about", "About", "help-about-symbolic"),
         ],
     ),

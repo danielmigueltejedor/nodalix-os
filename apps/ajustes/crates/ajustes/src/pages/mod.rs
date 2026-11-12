@@ -19,6 +19,7 @@ pub mod region;
 pub mod sharing;
 pub mod sound;
 pub mod updates;
+pub mod users;
 pub mod wifi;
 
 use nodalia_gtk::{self as ndl, gtk, gtk::prelude::*};
