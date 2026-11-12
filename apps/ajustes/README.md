@@ -50,4 +50,3 @@ shares them with the file manager through one file and one service per account:
 - Settings adds (browser sign-in through `rclone authorize`; iCloud with the Apple ID, password and
   the six-digit code), removes, connects and disconnects. The file manager only reads the list
   and starts or stops the unit.
-
