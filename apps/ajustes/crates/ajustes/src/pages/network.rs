@@ -1,7 +1,7 @@
 //! Network: whether there is internet, and the wired adapters with their address and a switch to
 //! connect or disconnect each. VPN, proxy and addresses stay in the previous panel.
 
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::rc::Rc;
 
 use ajustes_core::network::{self as core, DeviceState};
@@ -33,12 +33,11 @@ struct Reading {
 pub struct NetworkPage {
     pub widget: gtk::ScrolledWindow,
     toasts: RefCell<Option<ndl::ToastOverlay>>,
-    connection: RefCell<Option<gio::DBusConnection>>,
+    bus: Rc<bus::SystemRefresh>,
     internet: ndl::ActionRow,
     wired: ndl::PreferencesGroup,
     rows: RefCell<Vec<ndl::ActionRow>>,
     shown: RefCell<Vec<Adapter>>,
-    fetching: Cell<bool>,
 }
 
 /// The first IPv4 address in `AddressData`, a list of dictionaries with an `address` text.
@@ -141,12 +140,11 @@ impl NetworkPage {
         let page = Rc::new(Self {
             widget: scroller(&content),
             toasts: RefCell::new(None),
-            connection: RefCell::new(None),
+            bus: Rc::default(),
             internet,
             wired,
             rows: RefCell::new(Vec::new()),
             shown: RefCell::new(Vec::new()),
-            fetching: Cell::new(false),
         });
         {
             let weak = Rc::downgrade(&page);
@@ -175,21 +173,12 @@ impl NetworkPage {
     }
 
     pub fn refresh(self: &Rc<Self>) {
-        if self.fetching.replace(true) {
-            return;
-        }
         let page = self.clone();
-        glib::spawn_future_local(async move {
-            let cached = page.connection.borrow().clone();
-            let connection = match cached {
-                Some(c) => Some(c),
-                None => bus::system().await,
-            };
+        self.bus.run(move |connection, guard| async move {
             let reading = match &connection {
                 Some(c) => read(c).await,
                 None => None,
             };
-            *page.connection.borrow_mut() = connection;
             match reading {
                 Some(reading) => page.show(reading),
                 None => {
@@ -198,7 +187,7 @@ impl NetworkPage {
                     page.wired.set_visible(false);
                 }
             }
-            page.fetching.set(false);
+            drop(guard);
         });
     }
 
@@ -251,7 +240,7 @@ impl NetworkPage {
     /// Disconnects the adapter, or connects it with whichever saved connection suits it
     /// (NetworkManager picks one when it is given "/").
     async fn switch(self: &Rc<Self>, device: &str, connected: bool) {
-        let Some(connection) = self.connection.borrow().clone() else {
+        let Some(connection) = self.bus.cached() else {
             return;
         };
         let result = if connected {

@@ -1,5 +1,9 @@
 //! D-Bus helpers for the pages that talk to system services (power profiles, time, hostname).
 
+use std::cell::{Cell, RefCell};
+use std::future::Future;
+use std::rc::Rc;
+
 use nodalia_gtk::gtk::{
     gio::{self, prelude::*},
     glib,
@@ -68,6 +72,68 @@ pub fn on_change(proxy: &gio::DBusProxy, f: impl Fn() + 'static) {
 /// The system bus, or `None` when there is none.
 pub async fn system() -> Option<gio::DBusConnection> {
     gio::bus_get_future(gio::BusType::System).await.ok()
+}
+
+/// A page's system bus connection and its in-flight refresh.
+#[derive(Default)]
+pub(super) struct SystemRefresh {
+    connection: RefCell<Option<gio::DBusConnection>>,
+    pending: Cell<bool>,
+}
+
+pub(super) struct RefreshGuard(Rc<SystemRefresh>);
+
+impl Drop for RefreshGuard {
+    fn drop(&mut self) {
+        self.0.pending.set(false);
+    }
+}
+
+impl SystemRefresh {
+    pub(super) fn cached(&self) -> Option<gio::DBusConnection> {
+        self.connection.borrow().clone()
+    }
+
+    fn begin(self: &Rc<Self>) -> Option<RefreshGuard> {
+        if self.pending.replace(true) {
+            return None;
+        }
+        Some(RefreshGuard(self.clone()))
+    }
+
+    pub(super) fn run<F>(
+        self: &Rc<Self>,
+        refresh: impl FnOnce(Option<gio::DBusConnection>, RefreshGuard) -> F + 'static,
+    ) where
+        F: Future<Output = ()> + 'static,
+    {
+        let Some(guard) = self.begin() else {
+            return;
+        };
+        let bus = self.clone();
+        glib::spawn_future_local(async move {
+            let connection = match bus.cached() {
+                Some(connection) => Some(connection),
+                None => system().await,
+            };
+            *bus.connection.borrow_mut() = connection.clone();
+            refresh(connection, guard).await;
+        });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_refresh_can_restart_only_after_its_guard_is_released() {
+        let bus = Rc::new(SystemRefresh::default());
+        let guard = bus.begin().expect("the first refresh should start");
+        assert!(bus.begin().is_none());
+        drop(guard);
+        assert!(bus.begin().is_some());
+    }
 }
 
 /// The session bus, or `None` when there is none.

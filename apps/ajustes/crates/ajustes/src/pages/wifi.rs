@@ -38,7 +38,7 @@ struct Reading {
 pub struct WifiPage {
     pub widget: gtk::ScrolledWindow,
     toasts: RefCell<Option<ndl::ToastOverlay>>,
-    connection: RefCell<Option<gio::DBusConnection>>,
+    bus: Rc<bus::SystemRefresh>,
     status: ndl::ActionRow,
     radio: ndl::SwitchRow,
     networks: ndl::PreferencesGroup,
@@ -52,7 +52,6 @@ pub struct WifiPage {
     active: RefCell<Option<String>>,
     known: RefCell<HashMap<String, String>>,
     polls: Cell<u32>,
-    fetching: Cell<bool>,
     loading: Cell<bool>,
 }
 
@@ -262,7 +261,7 @@ impl WifiPage {
         let page = Rc::new(Self {
             widget: scroller(&content),
             toasts: RefCell::new(None),
-            connection: RefCell::new(None),
+            bus: Rc::default(),
             status,
             radio,
             networks,
@@ -276,7 +275,6 @@ impl WifiPage {
             active: RefCell::new(None),
             known: RefCell::new(HashMap::new()),
             polls: Cell::new(0),
-            fetching: Cell::new(false),
             loading: Cell::new(true),
         });
 
@@ -347,16 +345,8 @@ impl WifiPage {
 
     /// Looks at NetworkManager and shows what it found.
     pub fn refresh(self: &Rc<Self>) {
-        if self.fetching.replace(true) {
-            return;
-        }
         let page = self.clone();
-        glib::spawn_future_local(async move {
-            let cached = page.connection.borrow().clone();
-            let connection = match cached {
-                Some(c) => Some(c),
-                None => bus::system().await,
-            };
+        self.bus.run(move |connection, guard| async move {
             let result = match &connection {
                 Some(c) => {
                     let polls = page.polls.get();
@@ -365,12 +355,11 @@ impl WifiPage {
                 }
                 None => Err(tr("NetworkManager is not available.").to_string()),
             };
-            *page.connection.borrow_mut() = connection;
             match result {
                 Ok(reading) => page.show(reading),
                 Err(message) => page.show_unavailable(&message),
             }
-            page.fetching.set(false);
+            drop(guard);
         });
     }
 
@@ -471,7 +460,7 @@ impl WifiPage {
     }
 
     async fn set_radio(self: &Rc<Self>, on: bool) {
-        let Some(connection) = self.connection.borrow().clone() else {
+        let Some(connection) = self.bus.cached() else {
             return;
         };
         let parameters = (NM, "WirelessEnabled", on.to_variant()).to_variant();
@@ -533,7 +522,7 @@ impl WifiPage {
 
     async fn activate(self: &Rc<Self>, connection_path: &str, point: &AccessPoint) {
         let (Some(connection), Some(device), Some(saved), Some(ap)) = (
-            self.connection.borrow().clone(),
+            self.bus.cached(),
             self.device_path(),
             bus::object_path(connection_path),
             bus::object_path(&point.path),
@@ -558,7 +547,7 @@ impl WifiPage {
 
     async fn add_and_activate(self: &Rc<Self>, point: &AccessPoint, password: Option<&str>) {
         let (Some(connection), Some(device), Some(ap)) = (
-            self.connection.borrow().clone(),
+            self.bus.cached(),
             self.device_path(),
             bus::object_path(&point.path),
         ) else {
@@ -588,10 +577,8 @@ impl WifiPage {
     }
 
     async fn disconnect(self: &Rc<Self>) {
-        let (Some(connection), Some(device)) = (
-            self.connection.borrow().clone(),
-            self.device.borrow().clone(),
-        ) else {
+        let (Some(connection), Some(device)) = (self.bus.cached(), self.device.borrow().clone())
+        else {
             return;
         };
         if let Err(error) = bus::call(&connection, NM, &device, DEVICE, "Disconnect", None).await {
