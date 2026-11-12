@@ -240,6 +240,10 @@ const ES: &[(&str, &str)] = &[
     ("Networks", "Redes"),
     ("This computer has no Wi-Fi adapter.", "Este equipo no tiene adaptador Wi-Fi."),
     ("Wi-Fi is off.", "El Wi-Fi está desactivado."),
+    (
+        "Turn it on to see and join the networks around.",
+        "Actívalo para ver y unirte a las redes cercanas.",
+    ),
     ("Not connected", "Sin conexión"),
     ("Connected", "Conectado"),
     ("Saved", "Guardada"),

@@ -33,6 +33,7 @@ const ES: &[(&str, &str)] = &[
     ("of", "de"),
     ("Used", "Usado"),
     ("Free", "Libre"),
+    ("No size limit", "Sin límite de tamaño"),
     ("About", "Acerca de"),
     ("Running", "En ejecución"),
     ("Sleeping", "Durmiendo"),

@@ -32,3 +32,31 @@ headerbar button.ndl-chip:checked {
   border-color: var(--ndl-color-text-primary);
   color: var(--ndl-color-surface-window);
 }
+
+/* A button inside a row sits on the raised surface, which in the dark schemes is the very colour
+ * of NDL's control background, so it would read as bare text. Lift it one step. */
+row button:not(.flat):not(.suggested-action):not(.destructive-action):not(:checked) {
+  background-color: var(--ndl-color-control-bg-hover);
+}
+
+row button:not(.flat):not(.suggested-action):not(.destructive-action):not(:checked):hover {
+  background-color: var(--ndl-color-control-bg-pressed);
+}
+
+/* Scrollbars are overlays that hide at rest, so a long page gave no sign of continuing below the
+ * window's edge. GTK draws these nodes on the side that still has content. */
+scrolledwindow > undershoot.top {
+  background-image: linear-gradient(to bottom, var(--ndl-color-border-subtle), transparent);
+  background-size: 100% 16px;
+  background-repeat: no-repeat;
+  background-position: top;
+  opacity: 0.6;
+}
+
+scrolledwindow > undershoot.bottom {
+  background-image: linear-gradient(to top, var(--ndl-color-border-subtle), transparent);
+  background-size: 100% 16px;
+  background-repeat: no-repeat;
+  background-position: bottom;
+  opacity: 0.6;
+}

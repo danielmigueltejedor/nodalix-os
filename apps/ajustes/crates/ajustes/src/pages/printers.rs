@@ -66,8 +66,10 @@ async fn run_admin(argv: &[&str]) -> Result<(), String> {
     if !denied {
         return Err(err);
     }
-    let mut elevated = vec!["pkexec"];
-    elevated.extend_from_slice(argv);
+    // The elevated tool is looked up in the system folder, never along the user's PATH.
+    let tool = format!("/usr/bin/{}", argv.first().copied().unwrap_or_default());
+    let mut elevated = vec!["pkexec", tool.as_str()];
+    elevated.extend_from_slice(argv.get(1..).unwrap_or_default());
     let (ok, err) = run_full(&elevated).await;
     if ok {
         Ok(())

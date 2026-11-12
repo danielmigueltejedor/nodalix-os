@@ -204,6 +204,7 @@ fn build_window(app: &gtk::Application) {
             Err(msg) => toasts.add_toast(ndl::Toast::new(&msg)),
         });
     }
+    let end_button = end.clone();
     let process_table_ready = Rc::new(Cell::new(true));
     let process_selected = Rc::new(Cell::new(false));
     let update_process_actions = {
@@ -228,7 +229,9 @@ fn build_window(app: &gtk::Application) {
     {
         let ready = process_table_ready.clone();
         let update = update_process_actions.clone();
-        stack.connect_notify_local(Some("visible-child-name"), move |_, _| {
+        stack.connect_notify_local(Some("visible-child-name"), move |stack, _| {
+            // Ending a process makes sense only next to the table of processes.
+            end_button.set_visible(stack.visible_child_name().as_deref() == Some("processes"));
             ready.set(false);
             update();
         });

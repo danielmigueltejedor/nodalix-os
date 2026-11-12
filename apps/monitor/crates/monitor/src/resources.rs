@@ -16,7 +16,7 @@ pub struct ResourceView {
     cpu_value: gtk::Label,
     cpu_graph: Graph,
     cores_label: gtk::Label,
-    core_grid: gtk::FlowBox,
+    core_grid: gtk::Grid,
     /// One bar per online core, by core number; follows cores coming and going.
     core_bars: RefCell<Vec<(u32, gtk::ProgressBar)>>,
     mem_value: gtk::Label,
@@ -89,11 +89,8 @@ impl ResourceView {
         cpu_card.append(&cpu_graph.area);
         let cores_label = dim();
         cpu_card.append(&cores_label);
-        let grid = gtk::FlowBox::new();
-        grid.set_selection_mode(gtk::SelectionMode::None);
-        grid.set_min_children_per_line(2);
-        grid.set_max_children_per_line(16);
-        grid.set_homogeneous(true);
+        let grid = gtk::Grid::new();
+        grid.set_column_homogeneous(true);
         grid.set_column_spacing(12);
         grid.set_row_spacing(6);
         cpu_card.append(&grid);
@@ -170,12 +167,12 @@ impl ResourceView {
             bars.len() == cores.len() && bars.iter().zip(cores).all(|((a, _), (b, _))| a == b);
         if !same {
             for (_, bar) in bars.drain(..) {
-                // The bar sits in a cell that sits in the grid's own child.
-                if let Some(slot) = bar.parent().and_then(|cell| cell.parent()) {
-                    self.core_grid.remove(&slot);
+                if let Some(cell) = bar.parent() {
+                    self.core_grid.remove(&cell);
                 }
             }
-            for (id, _) in cores {
+            let columns = core_columns(cores.len());
+            for (index, (id, _)) in cores.iter().enumerate() {
                 let cell = gtk::Box::new(gtk::Orientation::Horizontal, 8);
                 let number = gtk::Label::new(Some(&(id + 1).to_string()));
                 number.add_css_class("dim-label");
@@ -189,7 +186,13 @@ impl ResourceView {
                 bar.set_tooltip_text(Some(&format!("{} {}", tr("CPU"), id + 1)));
                 cell.append(&number);
                 cell.append(&bar);
-                self.core_grid.append(&cell);
+                self.core_grid.attach(
+                    &cell,
+                    (index % columns) as i32,
+                    (index / columns) as i32,
+                    1,
+                    1,
+                );
                 bars.push((*id, bar));
             }
             self.cores_label
@@ -248,9 +251,26 @@ impl ResourceView {
     }
 }
 
+/// How many bars go on a row: as many rows as eight columns need, then the columns that spread
+/// the cores evenly over them, so twelve cores are two rows of six and not five and five and two.
+fn core_columns(cores: usize) -> usize {
+    let rows = cores.div_ceil(8).max(1);
+    cores.div_ceil(rows).max(1)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_cores_fill_even_rows() {
+        assert_eq!(core_columns(0), 1);
+        assert_eq!(core_columns(4), 4);
+        assert_eq!(core_columns(8), 8);
+        assert_eq!(core_columns(12), 6);
+        assert_eq!(core_columns(16), 8);
+        assert_eq!(core_columns(20), 7);
+    }
 
     #[test]
     fn the_detail_says_how_much_of_the_total_is_used() {
