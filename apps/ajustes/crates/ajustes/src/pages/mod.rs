@@ -1,6 +1,7 @@
 pub mod about;
 pub mod accessibility;
 pub mod appearance;
+pub mod applications;
 pub mod bluetooth;
 pub mod bus;
 pub mod datetime;
@@ -14,6 +15,7 @@ pub mod notifications;
 pub mod pointing;
 pub mod power;
 pub mod privacy;
+pub mod region;
 pub mod sharing;
 pub mod sound;
 pub mod updates;

@@ -91,12 +91,7 @@ pub const SECTIONS: &[(&str, &[Page])] = &[
                 "preferences-system-notifications-symbolic",
             ),
             native("multitasking", "Multitasking", "view-grid-symbolic"),
-            legacy(
-                "applications",
-                "Apps",
-                "view-app-grid-symbolic",
-                "applications",
-            ),
+            native("applications", "Apps", "view-app-grid-symbolic"),
             native(
                 "privacy",
                 "Privacy and security",
@@ -112,11 +107,10 @@ pub const SECTIONS: &[(&str, &[Page])] = &[
                 "Date and time",
                 "preferences-system-time-symbolic",
             ),
-            legacy(
+            native(
                 "region",
                 "Region and language",
                 "preferences-desktop-locale-symbolic",
-                "system",
             ),
             legacy("users", "Users", "system-users-symbolic", "users"),
             native("about", "About", "help-about-symbolic"),
