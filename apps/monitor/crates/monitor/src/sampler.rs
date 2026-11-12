@@ -41,7 +41,7 @@ pub fn push(history: &mut VecDeque<f64>, value: f64) {
 }
 
 impl Sampler {
-    pub fn sample(&mut self) -> Snapshot {
+    pub fn sample(&mut self, show_processes: bool) -> Snapshot {
         let now = Instant::now();
         let seconds = self
             .last_at
@@ -82,7 +82,11 @@ impl Sampler {
         };
         self.net = net_now;
 
-        let all = procs::read_all();
+        let all = if show_processes {
+            procs::read_all()
+        } else {
+            Vec::new()
+        };
         let mut ticks = HashMap::with_capacity(all.len());
         let processes = all
             .into_iter()
@@ -128,13 +132,16 @@ mod tests {
     #[test]
     fn the_first_sample_has_no_rates_and_the_second_does() {
         let mut s = Sampler::default();
-        let first = s.sample();
+        let first = s.sample(true);
         assert_eq!(first.cpu_total, 0.0);
         assert_eq!(first.net, (0.0, 0.0));
         assert!(first.processes.iter().all(|(_, pct)| *pct == 0.0));
         assert!(first.memory.total > 0);
         std::thread::sleep(std::time::Duration::from_millis(50));
-        let second = s.sample();
+        let hidden = s.sample(false);
+        assert!(hidden.processes.is_empty());
+        let second = s.sample(true);
+        assert!(second.processes.iter().all(|(_, pct)| *pct == 0.0));
         assert!((0.0..=1.0).contains(&second.cpu_total));
         assert!(second
             .cores

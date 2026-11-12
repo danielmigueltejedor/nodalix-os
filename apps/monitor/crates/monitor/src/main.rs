@@ -8,7 +8,7 @@ mod processes;
 mod resources;
 mod sampler;
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -53,7 +53,7 @@ fn build_window(app: &gtk::Application) {
     window.set_icon_name(Some("utilities-system-monitor"));
 
     let sampler = Rc::new(RefCell::new(Sampler::default()));
-    let first = sampler.borrow_mut().sample();
+    let first = sampler.borrow_mut().sample(true);
     let procs = ProcessView::new();
     let resources = ResourceView::new();
     let disks = DiskView::new();
@@ -161,14 +161,33 @@ fn build_window(app: &gtk::Application) {
             Err(msg) => toasts.add_toast(ndl::Toast::new(&msg)),
         });
     }
-    {
-        let end = end.clone();
-        let actions = [a_kill, a_stop, a_cont];
-        procs.connect_selection_changed(move |pid| {
-            end.set_sensitive(pid.is_some());
-            for a in &actions {
-                a.set_enabled(pid.is_some());
+    let process_table_ready = Rc::new(Cell::new(true));
+    let process_selected = Rc::new(Cell::new(false));
+    let update_process_actions = {
+        let ready = process_table_ready.clone();
+        let selected = process_selected.clone();
+        move || {
+            let enabled = ready.get() && selected.get();
+            end.set_sensitive(enabled);
+            for action in [&a_kill, &a_stop, &a_cont] {
+                action.set_enabled(enabled);
             }
+        }
+    };
+    {
+        let selected = process_selected.clone();
+        let update = update_process_actions.clone();
+        procs.connect_selection_changed(move |pid| {
+            selected.set(pid.is_some());
+            update();
+        });
+    }
+    {
+        let ready = process_table_ready.clone();
+        let update = update_process_actions.clone();
+        stack.connect_notify_local(Some("visible-child-name"), move |_, _| {
+            ready.set(false);
+            update();
         });
     }
     {
@@ -193,11 +212,11 @@ fn build_window(app: &gtk::Application) {
     search.set_tooltip_text(Some(tr("Search processes")));
     header.pack_start(&search);
     {
-        let (procs, stack) = (procs.clone(), stack.clone());
+        let (procs, process_tab) = (procs.clone(), c_procs.clone());
         search.connect_toggled(move |b| {
             procs.search.set_visible(b.is_active());
             if b.is_active() {
-                stack.set_visible_child_name("processes");
+                process_tab.set_active(true);
                 procs.search.grab_focus();
             } else {
                 procs.search.set_text("");
@@ -229,11 +248,11 @@ fn build_window(app: &gtk::Application) {
             stack.clone(),
         );
         glib::timeout_add_local(Duration::from_secs(1), move || {
-            let snapshot = sampler.borrow_mut().sample();
-            // The graphs always take the reading, so their history has no gaps; the table is
-            // the costly one and only updates while it is on screen.
+            let page = stack.visible_child_name();
+            let show_processes = page.as_deref() == Some("processes");
+            let snapshot = sampler.borrow_mut().sample(show_processes);
             resources.update(&snapshot);
-            match stack.visible_child_name().as_deref() {
+            match page.as_deref() {
                 Some("disks") => {
                     let mut n = tick.borrow_mut();
                     *n += 1;
@@ -241,7 +260,11 @@ fn build_window(app: &gtk::Application) {
                         disks.update();
                     }
                 }
-                Some("processes") => procs.update(&snapshot),
+                Some("processes") => {
+                    procs.update(&snapshot);
+                    process_table_ready.set(true);
+                    update_process_actions();
+                }
                 _ => {}
             }
             glib::ControlFlow::Continue
