@@ -95,7 +95,7 @@ pub fn present(app: &gtk::Application) {
     stack.add_named(&applications::build(), Some("applications"));
     stack.add_named(&region::build(&toasts), Some("region"));
     stack.add_named(&users::build(&toasts), Some("users"));
-    stack.add_named(&displays::build(), Some("display"));
+    stack.add_named(&displays::build(&toasts), Some("display"));
     stack.add_named(&printers::build(&toasts), Some("printers"));
     stack.add_named(&accounts::build(&toasts), Some("online-accounts"));
     stack.add_named(&color::build(), Some("color"));
