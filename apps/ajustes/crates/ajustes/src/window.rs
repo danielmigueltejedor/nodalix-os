@@ -6,8 +6,10 @@ use nodalia_gtk::{self as ndl, gtk, gtk::prelude::*};
 use crate::i18n::tr;
 use crate::legacy;
 use crate::pages::{
-    about, accessibility, appearance, datetime, keyboard, localsend::LocalSendPage, multitasking,
-    notifications, pointing, power, privacy, sharing, sound, updates::UpdatesPage,
+    about, accessibility, accounts, appearance, applications, bluetooth::BluetoothPage, color,
+    datetime, displays, keyboard, localsend::LocalSendPage, multitasking, network::NetworkPage,
+    notifications, pointing, power, printers, privacy, region, sharing, sound,
+    updates::UpdatesPage, users, wifi::WifiPage,
 };
 
 fn sidebar_row(page: &Page) -> gtk::ListBoxRow {
@@ -48,7 +50,15 @@ pub fn present(app: &gtk::Application) {
     }
     let window = ndl::ApplicationWindow::new(app);
     window.set_title(Some(tr("Settings")));
-    window.set_default_size(1000, 700);
+    // `NODALIX_SETTINGS_SIZE=1000x1400` opens a taller window, to see a whole page in one picture.
+    let (width, height) = std::env::var("NODALIX_SETTINGS_SIZE")
+        .ok()
+        .and_then(|v| {
+            let (w, h) = v.split_once('x')?;
+            Some((w.parse().ok()?, h.parse().ok()?))
+        })
+        .unwrap_or((1000, 700));
+    window.set_default_size(width, height);
     window.set_icon_name(Some("os.nodalix.Settings"));
 
     let toasts = ndl::ToastOverlay::new();
@@ -56,23 +66,39 @@ pub fn present(app: &gtk::Application) {
     updates.set_toasts(&toasts);
     let localsend = LocalSendPage::new();
     localsend.set_toasts(&toasts);
+    let wifi = WifiPage::new();
+    wifi.set_toasts(&toasts);
+    let network = NetworkPage::new();
+    network.set_toasts(&toasts);
+    let bluetooth = BluetoothPage::new();
+    bluetooth.set_toasts(&toasts);
 
     // The content area: one stack child per page.
     let stack = gtk::Stack::new();
     stack.set_transition_type(gtk::StackTransitionType::Crossfade);
-    stack.add_named(&appearance::build(), Some("appearance"));
+    stack.add_named(&appearance::build(&toasts), Some("appearance"));
     stack.add_named(&updates.widget, Some("updates"));
     stack.add_named(&localsend.widget, Some("localsend"));
     stack.add_named(&about::build(), Some("about"));
+    stack.add_named(&wifi.widget, Some("wifi"));
+    stack.add_named(&network.widget, Some("network"));
+    stack.add_named(&bluetooth.widget, Some("bluetooth"));
     stack.add_named(&sharing::build(&toasts), Some("sharing"));
     stack.add_named(&sound::build(), Some("sound"));
     stack.add_named(&power::build(), Some("power"));
-    stack.add_named(&keyboard::build(), Some("keyboard"));
+    stack.add_named(&keyboard::build(&toasts), Some("keyboard"));
     stack.add_named(&pointing::build(), Some("mouse"));
     stack.add_named(&notifications::build(), Some("notifications"));
     stack.add_named(&multitasking::build(), Some("multitasking"));
     stack.add_named(&privacy::build(), Some("privacy"));
     stack.add_named(&accessibility::build(), Some("accessibility"));
+    stack.add_named(&applications::build(), Some("applications"));
+    stack.add_named(&region::build(&toasts), Some("region"));
+    stack.add_named(&users::build(&toasts), Some("users"));
+    stack.add_named(&displays::build(&toasts), Some("display"));
+    stack.add_named(&printers::build(&toasts), Some("printers"));
+    stack.add_named(&accounts::build(&toasts), Some("online-accounts"));
+    stack.add_named(&color::build(&toasts), Some("color"));
     stack.add_named(&datetime::build(&toasts), Some("datetime"));
     for page in pages::all() {
         if let Kind::Legacy(panel) = page.kind {
