@@ -99,22 +99,20 @@ fn system_group(toasts: &ndl::ToastOverlay) -> ndl::PreferencesGroup {
                 let (ui, proxy) = (ui.clone(), proxy.clone());
                 glib::spawn_future_local(async move {
                     let all =
-                        bus::get_all(&proxy.connection(), TIMEDATE, TIMEDATE_PATH, TIMEDATE).await;
+                        bus::properties(&proxy.connection(), TIMEDATE, TIMEDATE_PATH, TIMEDATE)
+                            .await;
                     let Some(all) = all else {
                         ui.automatic
                             .set_subtitle(tr("The time service is not available."));
                         return;
                     };
-                    let flag = |name: &str| {
-                        all.lookup_value(name, None)
-                            .and_then(|v| v.get::<bool>())
-                            .unwrap_or(false)
-                    };
+                    let flag =
+                        |name: &str| all.get(name).and_then(|v| v.get::<bool>()).unwrap_or(false);
                     ui.loading.set(true);
                     ui.automatic.set_active(flag("NTP"));
                     ui.automatic.set_sensitive(flag("CanNTP"));
                     let zone = all
-                        .lookup_value("Timezone", None)
+                        .get("Timezone")
                         .and_then(|v| v.str().map(str::to_owned))
                         .unwrap_or_default();
                     if *ui.saved_zone.borrow() != zone {

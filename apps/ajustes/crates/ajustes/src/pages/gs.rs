@@ -76,7 +76,8 @@ pub fn icon_for(key: &str) -> Option<&'static str> {
         ("remove-old-temp", "edit-clear-all-symbolic"),
         ("remove-old-trash", "user-trash-symbolic"),
         ("night-light", "night-light-symbolic"),
-        // "clock" contains "lock", so it comes first.
+        // "clock" and "numlock" contain "lock", so they come first.
+        ("numlock", "input-keyboard-symbolic"),
         ("clock", "preferences-system-time-symbolic"),
         ("lock", "system-lock-screen-symbolic"),
         ("idle-dim", "display-brightness-symbolic"),
@@ -93,7 +94,6 @@ pub fn icon_for(key: &str) -> Option<&'static str> {
         ("typing", "input-keyboard-symbolic"),
         ("repeat", "input-keyboard-symbolic"),
         ("delay", "input-keyboard-symbolic"),
-        ("numlock", "input-keyboard-symbolic"),
         ("event-sounds", "audio-volume-high-symbolic"),
         ("old-files", "user-trash-symbolic"),
         ("recent", "document-open-recent-symbolic"),

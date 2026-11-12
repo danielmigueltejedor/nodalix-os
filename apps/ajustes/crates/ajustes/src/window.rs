@@ -86,7 +86,7 @@ pub fn present(app: &gtk::Application) {
     stack.add_named(&sharing::build(&toasts), Some("sharing"));
     stack.add_named(&sound::build(), Some("sound"));
     stack.add_named(&power::build(), Some("power"));
-    stack.add_named(&keyboard::build(), Some("keyboard"));
+    stack.add_named(&keyboard::build(&toasts), Some("keyboard"));
     stack.add_named(&pointing::build(), Some("mouse"));
     stack.add_named(&notifications::build(), Some("notifications"));
     stack.add_named(&multitasking::build(), Some("multitasking"));
@@ -98,7 +98,7 @@ pub fn present(app: &gtk::Application) {
     stack.add_named(&displays::build(&toasts), Some("display"));
     stack.add_named(&printers::build(&toasts), Some("printers"));
     stack.add_named(&accounts::build(&toasts), Some("online-accounts"));
-    stack.add_named(&color::build(), Some("color"));
+    stack.add_named(&color::build(&toasts), Some("color"));
     stack.add_named(&datetime::build(&toasts), Some("datetime"));
     for page in pages::all() {
         if let Kind::Legacy(panel) = page.kind {

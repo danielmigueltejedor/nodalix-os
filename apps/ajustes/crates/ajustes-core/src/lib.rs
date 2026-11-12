@@ -4,7 +4,9 @@
 pub mod apps;
 pub mod audio;
 pub mod bluetooth;
+pub mod color;
 pub mod displays;
+pub mod keyboard;
 pub mod locales;
 pub mod localsend;
 pub mod network;
