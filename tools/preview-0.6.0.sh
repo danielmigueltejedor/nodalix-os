@@ -21,6 +21,7 @@ bin="$HOME/.local/bin"
 apps_dir="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 icons_dir="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor/scalable/apps"
 brujula_dir="${BRUJULA_DIR:-$(dirname -- "$root")/brujula}"
+brujula_ref="${BRUJULA_REF:-main}"   # rama de Brújula a probar (por defecto main)
 brujula_url="${BRUJULA_URL:-https://github.com/danielmigueltejedor/brujula.git}"
 backup_dir="$HOME/Respaldos/nodalix-pre-0.6.0-preview-$(date +%F)"
 brujula_desktop=dev.danielmiguelt.Brujula.desktop
@@ -99,10 +100,11 @@ do_install() {
   echo "== Brújula =="
   if [[ ! -d $brujula_dir/.git ]]; then
     git clone "$brujula_url" "$brujula_dir"
+    git -C "$brujula_dir" fetch origin "$brujula_ref"
+    git -C "$brujula_dir" checkout -q -B preview-brujula "origin/$brujula_ref"
   else
-    git -C "$brujula_dir" fetch origin main
-    git -C "$brujula_dir" checkout -q main
-    git -C "$brujula_dir" merge --ff-only origin/main
+    git -C "$brujula_dir" fetch origin "$brujula_ref"
+    git -C "$brujula_dir" checkout -q -B preview-brujula "origin/$brujula_ref"
   fi
   (cd "$brujula_dir" && cargo build --release --locked -p brujula)
   install_file 755 "$brujula_dir/target/release/brujula" "$bin/brujula"
