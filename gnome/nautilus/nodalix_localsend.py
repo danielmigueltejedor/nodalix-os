@@ -27,6 +27,9 @@ OBJECT_PATH = "/com/nodalix/LocalSend"
 INTERFACE = "com.nodalix.LocalSend1"
 REQUEST_TIMEOUT = 0.35
 SEND_HELPER = "/usr/lib/nodalix/localsend-send"
+# Archivador builds this menu in natively; when it is installed this extension steps aside so the
+# menu does not appear twice.
+NATIVE_EXTENSION = Path("/usr/lib/nautilus/extensions-4/libnautilus-nodalix-localsend.so")
 NOTIFICATION_ICON = "send-to-symbolic"
 
 
@@ -121,6 +124,8 @@ class NodalixLocalSendMenu(GObject.GObject, Nautilus.MenuProvider):
             return [device.copy() for device in self._devices]
 
     def get_file_items(self, files: Iterable[Nautilus.FileInfo]):
+        if NATIVE_EXTENSION.exists():
+            return []
         paths: list[str] = []
         for item in files:
             location = item.get_location()

@@ -10,7 +10,8 @@ What it does:
     (one copy for every Nodalix app), plus Archivador's own overrides, as GResources;
   * loads them at startup below Archivador's style.css and follows light/dark/contrast;
   * sets the sidebar and the content as two NDL islands;
-  * names the app Archivador.
+  * names the app Archivador;
+  * builds Nodalix's own extensions into it (today: "Compartir con LocalSend").
 """
 from pathlib import Path
 import shutil
@@ -52,6 +53,14 @@ replace_once('src/nautilus-application.c', '#include "nautilus-application.h"',
              '#include "nautilus-application.h"\n#include "nautilus-nodalix-theme.h"')
 replace_once('src/nautilus-application.c', '    gtk_window_set_default_icon_name (APPLICATION_ID);',
              '    gtk_window_set_default_icon_name (APPLICATION_ID);\n\n    nautilus_nodalix_theme_init ();')
+
+# Own extensions, built with Nautilus (gnome/archivador/extensions/<name>).
+EXTENSIONS = ('nodalix-localsend',)
+for name in EXTENSIONS:
+    shutil.copytree(HERE / 'extensions' / name, root / 'extensions' / name)
+replace_once('extensions/meson.build', "subdir('image-properties')",
+             "json_glib_localsend = dependency('json-glib-1.0')\n" +
+             ''.join(f"subdir('{name}')\n" for name in EXTENSIONS) + "subdir('image-properties')")
 
 # Two islands: sidebar and content.
 window = 'src/resources/ui/nautilus-window.blp'

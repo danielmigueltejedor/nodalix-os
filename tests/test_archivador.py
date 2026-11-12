@@ -22,6 +22,7 @@ FIXTURE = {
         '          sidebar: Adw.ToolbarView {\n            reveal-bottom-bars: bind x;\n'
         '              title-widget: Adw.WindowTitle {\n                title: _("Files");\n              };\n'
         '          content: Adw.ToolbarView {\n            [top]\n            $NautilusToolbar toolbar {\n'),
+    'extensions/meson.build': "subdir('image-properties')\nsubdir('audio-video-properties')\n",
     'data/org.gnome.Nautilus.desktop.in.in': '[Desktop Entry]\nName=Files\nComment=x\n',
     'data/org.gnome.Nautilus.metainfo.xml.in.in': '<component>\n  <name>Files</name>\n</component>\n',
 }
@@ -56,6 +57,28 @@ class ArchivadorTests(unittest.TestCase):
         self.assertEqual(blueprint.count('"ndl-island"'), 2)
         self.assertIn('"ndl-split"', blueprint)
         self.assertIn('Name=Archivador', (tree / 'data/org.gnome.Nautilus.desktop.in.in').read_text())
+
+    def test_layer_builds_the_localsend_extension_into_archivador(self):
+        tree = self.make_tree()
+        self.assertEqual(run_apply(tree).returncode, 0)
+        self.assertTrue((tree / 'extensions/nodalix-localsend/nautilus-nodalix-localsend.c').is_file())
+        build = (tree / 'extensions/meson.build').read_text()
+        self.assertIn("subdir('nodalix-localsend')", build)
+        self.assertIn("json_glib_localsend = dependency('json-glib-1.0')", build)
+        self.assertIn('json_glib_localsend', (tree / 'extensions/nodalix-localsend/meson.build').read_text())
+
+    def test_native_localsend_speaks_to_the_same_service_as_the_python_extension(self):
+        native = (ARCH / 'extensions/nodalix-localsend/nautilus-nodalix-localsend.c').read_text()
+        python = (ROOT / 'gnome/nautilus/nodalix_localsend.py').read_text()
+        for value in ('com.nodalix.LocalSend', '/com/nodalix/LocalSend', 'com.nodalix.LocalSend1',
+                      '/usr/lib/nodalix/localsend-send', 'Compartir con LocalSend'):
+            self.assertIn(value, native, value)
+            self.assertIn(value, python, value)
+
+    def test_python_extension_steps_aside_when_archivador_has_the_native_menu(self):
+        python = (ROOT / 'gnome/nautilus/nodalix_localsend.py').read_text()
+        self.assertIn('libnautilus-nodalix-localsend.so', python)
+        self.assertRegex(python, r'if NATIVE_EXTENSION\.exists\(\):\n\s+return \[\]')
 
     def test_sheets_are_the_pinned_settings_copies(self):
         tree = self.make_tree()
