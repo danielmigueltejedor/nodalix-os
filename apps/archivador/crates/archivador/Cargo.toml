@@ -1,0 +1,16 @@
+[package]
+name = "nodalix-archivador"
+description = "Archivador, the Nodalix file manager, built with the Nodalia Design Language."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "nodalix-archivador"
+path = "src/main.rs"
+
+[dependencies]
+archivador-core.workspace = true
+nodalia-gtk.workspace = true
+nodalix-ui.workspace = true

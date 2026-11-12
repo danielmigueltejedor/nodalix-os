@@ -13,6 +13,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "archivador-core"
+version = "0.1.0"
+dependencies = [
+ "libc",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "autocfg"
 version = "1.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -443,6 +452,15 @@ source = "git+https://github.com/danielmigueltejedor/nodalia-design?rev=58724b02
 dependencies = [
  "gtk4",
  "pango",
+]
+
+[[package]]
+name = "nodalix-archivador"
+version = "0.1.0"
+dependencies = [
+ "archivador-core",
+ "nodalia-gtk",
+ "nodalix-ui",
 ]
 
 [[package]]
