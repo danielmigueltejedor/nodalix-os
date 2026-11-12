@@ -1,0 +1,85 @@
+/* Nodalix OS on top of NDL, and the monitor's own pieces. Loaded after NDL's sheets.
+ *
+ * Typography: Nodalix uses the system font (Adwaita Sans) and ships neither Inter nor Sora, so
+ * NDL's font variables point at it. GTK does not scale px sizes with the system's text size,
+ * only pt and em, so NDL's px sizes become pt at the same look (1 px = 0.75 pt at 96 dpi). */
+:root {
+  --ndl-font-family-ui: "Adwaita Sans", Cantarell, sans-serif;
+  --ndl-font-family-display: "Adwaita Sans", Cantarell, sans-serif;
+  --ndl-font-size-caption: 8.25pt;
+  --ndl-font-size-small: 9pt;
+  --ndl-font-size-body: 9.75pt;
+  --ndl-font-size-large: 11.25pt;
+  --ndl-font-size-title: 13.5pt;
+  --ndl-font-size-headline: 18pt;
+  --ndl-font-size-display: 24pt;
+}
+
+.ndl-micro { font-size: 7.875pt; }
+
+/* Keyboard focus stays visible on the window controls. */
+headerbar windowcontrols > button:not(.suggested-action):not(.destructive-action):focus-visible {
+  outline: var(--ndl-border-width-thick) solid var(--ndl-color-border-focus);
+  outline-offset: 1px;
+}
+
+.monitor-card {
+  background-color: var(--ndl-color-surface-raised);
+  border-radius: var(--ndl-radius-lg);
+  padding: var(--ndl-space-lg);
+}
+
+.monitor-value {
+  font-size: 22.5pt;
+  font-weight: var(--ndl-font-weight-semibold);
+  font-family: var(--ndl-font-family-display);
+}
+
+.monitor-graph-accent { color: var(--ndl-color-accent-default); }
+.monitor-graph-success { color: var(--ndl-color-status-success-fg); }
+.monitor-graph-warning { color: var(--ndl-color-status-warning-fg); }
+.monitor-graph-info { color: var(--ndl-color-status-info-fg); }
+
+.monitor-table {
+  background-color: var(--ndl-color-surface-raised);
+  border-radius: var(--ndl-radius-lg);
+}
+
+.monitor-table columnview { background-color: transparent; }
+.numeric { font-feature-settings: "tnum"; }
+
+/* NDL's headerbar button rule is more specific than its chip rule, so a chip in the header bar
+ * would lose its checked colours: say them again here. */
+headerbar button.ndl-chip:checked {
+  background-color: var(--ndl-color-text-primary);
+  border-color: var(--ndl-color-text-primary);
+  color: var(--ndl-color-surface-window);
+}
+
+/* The sheet does not style tables yet. */
+.monitor-table columnview > header > button {
+  border-radius: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--ndl-color-text-secondary);
+  font-weight: var(--ndl-font-weight-semibold);
+  padding: var(--ndl-space-sm) var(--ndl-space-md);
+}
+
+.monitor-table columnview > header {
+  border-bottom: var(--ndl-border-width-thin) solid var(--ndl-color-border-subtle);
+}
+
+.monitor-table columnview > listview > row > cell {
+  padding: var(--ndl-space-xs) var(--ndl-space-md);
+}
+
+.monitor-table columnview > listview > row:hover {
+  background-color: var(--ndl-color-control-bg-hover);
+}
+
+.monitor-table columnview > listview > row:selected {
+  background-color: var(--ndl-color-selection-bg);
+  color: var(--ndl-color-text-primary);
+}

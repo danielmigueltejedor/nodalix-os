@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=System Monitor
+Name[es]=Monitor del sistema
+Comment=View processes, resources and file systems
+Comment[es]=Consulta procesos, recursos y sistemas de archivos
+Exec=nodalix-monitor
+Icon=utilities-system-monitor
+Terminal=false
+Categories=System;Monitor;GTK;
+Keywords=process;cpu;memory;network;disk;task;proceso;memoria;red;disco;
+StartupNotify=true
+StartupWMClass=os.nodalix.Monitor
