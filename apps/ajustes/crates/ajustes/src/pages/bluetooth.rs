@@ -33,7 +33,7 @@ struct Reading {
 pub struct BluetoothPage {
     pub widget: gtk::ScrolledWindow,
     toasts: RefCell<Option<ndl::ToastOverlay>>,
-    connection: RefCell<Option<gio::DBusConnection>>,
+    bus: Rc<bus::SystemRefresh>,
     radio: ndl::SwitchRow,
     status: ndl::ActionRow,
     group: ndl::PreferencesGroup,
@@ -41,7 +41,6 @@ pub struct BluetoothPage {
     shown: RefCell<Vec<Device>>,
     adapter: RefCell<Option<String>>,
     scanning: Cell<bool>,
-    fetching: Cell<bool>,
     loading: Cell<bool>,
 }
 
@@ -135,7 +134,7 @@ impl BluetoothPage {
         let page = Rc::new(Self {
             widget: scroller(&content),
             toasts: RefCell::new(None),
-            connection: RefCell::new(None),
+            bus: Rc::default(),
             radio,
             status,
             group,
@@ -143,7 +142,6 @@ impl BluetoothPage {
             shown: RefCell::new(Vec::new()),
             adapter: RefCell::new(None),
             scanning: Cell::new(false),
-            fetching: Cell::new(false),
             loading: Cell::new(true),
         });
         {
@@ -196,23 +194,14 @@ impl BluetoothPage {
     }
 
     pub fn refresh(self: &Rc<Self>) {
-        if self.fetching.replace(true) {
-            return;
-        }
         let page = self.clone();
-        glib::spawn_future_local(async move {
-            let cached = page.connection.borrow().clone();
-            let connection = match cached {
-                Some(c) => Some(c),
-                None => bus::system().await,
-            };
+        self.bus.run(move |connection, guard| async move {
             let reading = match &connection {
                 Some(c) => read(c).await,
                 None => None,
             };
-            *page.connection.borrow_mut() = connection;
             page.show(reading);
-            page.fetching.set(false);
+            drop(guard);
             // Look for devices while this page is showing and the adapter is on.
             let wanted = page.widget.is_mapped() && page.radio.is_active();
             page.scan(wanted).await;
@@ -308,10 +297,8 @@ impl BluetoothPage {
     }
 
     async fn set_power(self: &Rc<Self>, on: bool) {
-        let (Some(connection), Some(adapter)) = (
-            self.connection.borrow().clone(),
-            self.adapter.borrow().clone(),
-        ) else {
+        let (Some(connection), Some(adapter)) = (self.bus.cached(), self.adapter.borrow().clone())
+        else {
             return;
         };
         let parameters = (ADAPTER, "Powered", on.to_variant()).to_variant();
@@ -335,10 +322,8 @@ impl BluetoothPage {
         if self.scanning.replace(on) == on {
             return;
         }
-        let (Some(connection), Some(adapter)) = (
-            self.connection.borrow().clone(),
-            self.adapter.borrow().clone(),
-        ) else {
+        let (Some(connection), Some(adapter)) = (self.bus.cached(), self.adapter.borrow().clone())
+        else {
             self.scanning.set(false);
             return;
         };
@@ -353,7 +338,7 @@ impl BluetoothPage {
 
     /// Connects or disconnects a paired device; pairs one that is not, and connects it.
     async fn act(self: &Rc<Self>, device: &Device) {
-        let Some(connection) = self.connection.borrow().clone() else {
+        let Some(connection) = self.bus.cached() else {
             return;
         };
         let steps: &[&str] = if device.connected {
@@ -376,7 +361,7 @@ impl BluetoothPage {
 
     async fn forget(self: &Rc<Self>, path: &str) {
         let (Some(connection), Some(adapter), Some(device)) = (
-            self.connection.borrow().clone(),
+            self.bus.cached(),
             self.adapter.borrow().clone(),
             bus::object_path(path),
         ) else {
