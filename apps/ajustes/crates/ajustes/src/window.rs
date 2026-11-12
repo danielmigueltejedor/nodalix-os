@@ -5,7 +5,10 @@ use nodalia_gtk::{self as ndl, gtk, gtk::prelude::*};
 
 use crate::i18n::tr;
 use crate::legacy;
-use crate::pages::{about, appearance, localsend::LocalSendPage, updates::UpdatesPage};
+use crate::pages::{
+    about, accessibility, appearance, datetime, keyboard, localsend::LocalSendPage, multitasking,
+    notifications, pointing, power, privacy, sharing, sound, updates::UpdatesPage,
+};
 
 fn sidebar_row(page: &Page) -> gtk::ListBoxRow {
     let row = gtk::ListBoxRow::new();
@@ -46,7 +49,7 @@ pub fn present(app: &gtk::Application) {
     let window = ndl::ApplicationWindow::new(app);
     window.set_title(Some(tr("Settings")));
     window.set_default_size(1000, 700);
-    window.set_icon_name(Some("preferences-system"));
+    window.set_icon_name(Some("os.nodalix.Settings"));
 
     let toasts = ndl::ToastOverlay::new();
     let updates = UpdatesPage::new();
@@ -61,6 +64,16 @@ pub fn present(app: &gtk::Application) {
     stack.add_named(&updates.widget, Some("updates"));
     stack.add_named(&localsend.widget, Some("localsend"));
     stack.add_named(&about::build(), Some("about"));
+    stack.add_named(&sharing::build(&toasts), Some("sharing"));
+    stack.add_named(&sound::build(), Some("sound"));
+    stack.add_named(&power::build(), Some("power"));
+    stack.add_named(&keyboard::build(), Some("keyboard"));
+    stack.add_named(&pointing::build(), Some("mouse"));
+    stack.add_named(&notifications::build(), Some("notifications"));
+    stack.add_named(&multitasking::build(), Some("multitasking"));
+    stack.add_named(&privacy::build(), Some("privacy"));
+    stack.add_named(&accessibility::build(), Some("accessibility"));
+    stack.add_named(&datetime::build(&toasts), Some("datetime"));
     for page in pages::all() {
         if let Kind::Legacy(panel) = page.kind {
             stack.add_named(

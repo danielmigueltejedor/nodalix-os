@@ -7,6 +7,7 @@ use std::rc::Rc;
 
 use monitor_core::format_bytes;
 use monitor_core::procs::{self, Signal};
+use nodalia_gtk as ndl;
 use nodalia_gtk::gtk::{self, gio, glib, prelude::*};
 
 use crate::i18n::tr;
@@ -22,7 +23,15 @@ pub struct ProcessView {
     users: HashMap<u32, String>,
     view: gtk::ColumnView,
     selection: gtk::SingleSelection,
+    menu: gtk::PopoverMenu,
     pub search: gtk::SearchEntry,
+}
+
+/// What the menu copies.
+#[derive(Clone, Copy)]
+pub enum Copy {
+    Pid,
+    Command,
 }
 
 type Cmp = fn(&Row, &Row) -> Ordering;
@@ -33,13 +42,18 @@ fn compare_rows(cmp: Cmp, a: &Row, b: &Row) -> Ordering {
     cmp(a, b).then_with(|| a.pid.cmp(&b.pid))
 }
 
+/// Called with the list item and the widget that was clicked, and the click's place in it.
+type SecondaryClick = Rc<dyn Fn(&gtk::ListItem, &gtk::Widget, f64, f64)>;
+
 fn column(
     title: &str,
     expand: bool,
     numeric: bool,
     cmp: Cmp,
     text: fn(&Row) -> String,
+    on_secondary: &SecondaryClick,
 ) -> gtk::ColumnViewColumn {
+    let on_secondary = on_secondary.clone();
     let factory = gtk::SignalListItemFactory::new();
     // The label follows the list item's `item` property and the row's `revision`, so one binding
     // made here serves every row the item is reused for; binding again on each rebind would
@@ -53,6 +67,24 @@ fn column(
             label.add_css_class("numeric");
         }
         item.set_child(Some(&label));
+        // A right click anywhere on the row's cell, padding included, asks for the menu. The
+        // handler reads the item's position when it is clicked, since the item is reused.
+        let click = gtk::GestureClick::builder()
+            .button(gtk::gdk::BUTTON_SECONDARY)
+            .build();
+        {
+            let (item, on_secondary) = (item.downgrade(), on_secondary.clone());
+            click.connect_pressed(move |gesture, _, x, y| {
+                if let (Some(item), Some(widget)) = (item.upgrade(), gesture.widget()) {
+                    on_secondary(&item, &widget, x, y);
+                    gesture.set_state(gtk::EventSequenceState::Claimed);
+                }
+            });
+        }
+        label
+            .parent()
+            .unwrap_or_else(|| label.clone().upcast())
+            .add_controller(click);
 
         let item_expr = item.property_expression("item");
         let revision = gtk::PropertyExpression::new(
@@ -123,6 +155,31 @@ impl ProcessView {
         view.set_show_row_separators(false);
         view.set_vexpand(true);
 
+        // The menu of a right click. The window gives it its entries (it owns the actions).
+        let menu = gtk::PopoverMenu::from_model(None::<&gio::MenuModel>);
+        menu.set_parent(&view);
+        menu.set_has_arrow(false);
+        menu.set_halign(gtk::Align::Start);
+        let on_secondary: SecondaryClick = {
+            let (selection, menu, view) = (selection.clone(), menu.clone(), view.clone());
+            Rc::new(move |item, cell, x, y| {
+                // The row under the pointer is the one the menu is about.
+                selection.set_selected(item.position());
+                let Some(point) =
+                    cell.compute_point(&view, &gtk::graphene::Point::new(x as f32, y as f32))
+                else {
+                    return;
+                };
+                menu.set_pointing_to(Some(&gtk::gdk::Rectangle::new(
+                    point.x() as i32,
+                    point.y() as i32,
+                    1,
+                    1,
+                )));
+                menu.popup();
+            })
+        };
+
         let cols: [gtk::ColumnViewColumn; 7] = [
             column(
                 tr("Name"),
@@ -130,6 +187,7 @@ impl ProcessView {
                 false,
                 |a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()),
                 |r| r.name.clone(),
+                &on_secondary,
             ),
             column(
                 tr("User"),
@@ -137,6 +195,7 @@ impl ProcessView {
                 false,
                 |a, b| a.user.cmp(&b.user),
                 |r| r.user.clone(),
+                &on_secondary,
             ),
             column(
                 tr("% CPU"),
@@ -144,6 +203,7 @@ impl ProcessView {
                 true,
                 |a, b| a.cpu.total_cmp(&b.cpu),
                 |r| format!("{:.1}", r.cpu),
+                &on_secondary,
             ),
             column(
                 tr("Memory"),
@@ -151,6 +211,7 @@ impl ProcessView {
                 true,
                 |a, b| a.rss.cmp(&b.rss),
                 |r| format_bytes(r.rss),
+                &on_secondary,
             ),
             column(
                 tr("ID"),
@@ -158,6 +219,7 @@ impl ProcessView {
                 true,
                 |a, b| a.pid.cmp(&b.pid),
                 |r| r.pid.to_string(),
+                &on_secondary,
             ),
             column(
                 tr("Threads"),
@@ -165,6 +227,7 @@ impl ProcessView {
                 true,
                 |a, b| a.threads.cmp(&b.threads),
                 |r| r.threads.to_string(),
+                &on_secondary,
             ),
             column(
                 tr("State"),
@@ -172,6 +235,7 @@ impl ProcessView {
                 false,
                 |a, b| a.state.cmp(&b.state),
                 |r| tr(procs::state_label(r.state)).to_string(),
+                &on_secondary,
             ),
         ];
         for c in &cols {
@@ -209,6 +273,7 @@ impl ProcessView {
             users: procs::read_users(),
             view,
             selection,
+            menu,
             search,
         })
     }
@@ -306,6 +371,32 @@ impl ProcessView {
                 }
             }
         }
+    }
+
+    /// The entries of the right-click menu.
+    pub fn set_context_menu(&self, model: &gio::MenuModel) {
+        self.menu.set_menu_model(Some(model));
+        // The rows are made from the model, so they are styled after it is set.
+        ndl::menu_rows(&self.menu);
+    }
+
+    /// Puts the selected process's pid, or its command line, on the clipboard.
+    pub fn copy_selected(&self, what: Copy) {
+        let Some(row) = self
+            .selection
+            .selected_item()
+            .and_downcast::<ProcessObject>()
+            .map(|o| o.row())
+        else {
+            return;
+        };
+        let text = match what {
+            Copy::Pid => row.pid.to_string(),
+            // A kernel thread has no command line; its name is what there is to copy.
+            Copy::Command if row.cmdline.is_empty() => row.name,
+            Copy::Command => row.cmdline,
+        };
+        self.view.clipboard().set_text(&text);
     }
 
     pub fn connect_selection_changed(&self, f: impl Fn(Option<u32>) + 'static) {

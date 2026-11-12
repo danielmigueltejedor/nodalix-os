@@ -1,7 +1,7 @@
 pkgname=nodalix-colloid-icons
 pkgver=0.5.1
-pkgrel=4
-_theme_commit=e31bcbd3d21f1aba80a7008497c36a873cda682a
+pkgrel=5
+_theme_commit=51616333f47915ddf3087a720d8dc9ba76d9b67d
 options=("!strip")
 pkgdesc='Nodalix desktop icons: Colloid applications with Adwaita system symbols'
 arch=('any')
@@ -10,7 +10,7 @@ license=('GPL-3.0-only')
 depends=('adwaita-icon-theme' 'hicolor-icon-theme')
 makedepends=('gtk-update-icon-cache')
 source=("nodalix-icon-theme-$_theme_commit.tar.gz::https://codeload.github.com/danielmigueltejedor/nodalix-icon-theme/tar.gz/$_theme_commit")
-sha256sums=('dc74992e85c42541f6078969a5de21017325f863ac5daa6646a8f30887792572')
+sha256sums=('924f5b70359bcfc2fb03ba983b5ea35be908978c60e5232121e8f7f54504f06e')
 
 package() {
     cd "$srcdir/nodalix-icon-theme-$_theme_commit"
