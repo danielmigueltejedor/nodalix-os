@@ -1,0 +1,1193 @@
+/* Nodalia Design Language for GTK4, without libadwaita: the widget sheet.
+ *
+ * Reads every value through var(--ndl-*), so it is the same in every mode and density: the
+ * nodalia-<mode>.css and nodalia-metrics-<density>.css loaded beside it decide the numbers.
+ * Styles GTK's own CSS nodes (as documented in the GTK 4 widget reference), the style classes
+ * GNOME apps already use (.flat, .suggested-action, .boxed-list, .navigation-sidebar…), and the
+ * ndl-* nodes of the nodalia-gtk crate. Requires GTK 4.16 or later. */
+
+/* ---------------------------------------------------------------- base */
+
+window,
+window.background {
+  background-color: var(--ndl-color-surface-window);
+  color: var(--ndl-color-text-primary);
+}
+
+window {
+  font-family: var(--ndl-font-family-ui);
+  font-size: var(--ndl-font-size-body);
+}
+
+window.csd {
+  border-radius: var(--ndl-component-window-radius);
+  box-shadow: var(--ndl-elevation-overlay), 0 0 0 1px var(--ndl-color-border-subtle);
+}
+
+window.maximized,
+window.fullscreen,
+window.tiled,
+window.tiled-top,
+window.tiled-bottom,
+window.tiled-left,
+window.tiled-right {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.view,
+textview > text,
+listview,
+gridview,
+columnview {
+  background-color: var(--ndl-color-surface-panel);
+  color: var(--ndl-color-text-primary);
+}
+
+selection,
+text selection,
+label selection {
+  background-color: var(--ndl-color-selection-bg);
+}
+
+separator {
+  background-color: var(--ndl-color-border-subtle);
+  min-width: 1px;
+  min-height: 1px;
+}
+
+link,
+label link {
+  color: var(--ndl-color-text-link);
+}
+
+/* ---------------------------------------------------------------- type */
+
+.title-1 {
+  font-family: var(--ndl-font-family-display);
+  font-size: var(--ndl-font-size-display);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+/* The one big word a view opens with: Sora, heavy and tight. */
+.ndl-view-title {
+  font-family: var(--ndl-font-family-display);
+  font-size: 44px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+/* Section labels: small capitals that order a column without competing with it. */
+.ndl-micro {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--ndl-color-text-tertiary);
+}
+
+/* A number beside a label (how many songs, how many albums): present, never loud. */
+.ndl-count {
+  font-size: var(--ndl-font-size-small);
+  font-feature-settings: "tnum";
+  color: var(--ndl-color-text-tertiary);
+}
+
+.title-2 {
+  font-family: var(--ndl-font-family-display);
+  font-size: var(--ndl-font-size-headline);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.title-3 {
+  font-size: var(--ndl-font-size-title);
+  font-weight: var(--ndl-font-weight-semibold);
+}
+
+.title-4 {
+  font-size: var(--ndl-font-size-large);
+  font-weight: var(--ndl-font-weight-semibold);
+}
+
+.heading {
+  font-weight: var(--ndl-font-weight-semibold);
+}
+
+.body {
+  font-size: var(--ndl-font-size-body);
+}
+
+.caption,
+.caption-heading {
+  font-size: var(--ndl-font-size-caption);
+}
+
+.caption-heading {
+  font-weight: var(--ndl-font-weight-semibold);
+}
+
+.monospace {
+  font-family: var(--ndl-font-family-mono);
+}
+
+.numeric {
+  font-feature-settings: "tnum";
+}
+
+.dim-label,
+.dimmed {
+  color: var(--ndl-color-text-secondary);
+  opacity: 1;
+}
+
+.accent {
+  color: var(--ndl-color-accent-text);
+}
+
+.success {
+  color: var(--ndl-color-status-success-fg);
+}
+
+.warning {
+  color: var(--ndl-color-status-warning-fg);
+}
+
+.error {
+  color: var(--ndl-color-status-danger-fg);
+}
+
+/* ---------------------------------------------------------------- focus */
+
+button:focus-visible,
+switch:focus-visible,
+checkbutton:focus-visible > check,
+checkbutton:focus-visible > radio,
+row:focus-visible,
+scale:focus-visible > trough > slider {
+  outline: var(--ndl-border-width-thick) solid var(--ndl-color-border-focus);
+  outline-offset: var(--ndl-size-focus-ring-offset);
+}
+
+/* ---------------------------------------------------------------- buttons */
+
+button {
+  min-height: var(--ndl-density-control-height);
+  min-width: var(--ndl-density-control-height);
+  padding: 0 var(--ndl-density-control-padding-x);
+  border-radius: var(--ndl-component-button-radius);
+  border: var(--ndl-component-button-border-width) solid transparent;
+  background-color: var(--ndl-color-control-bg);
+  background-image: none;
+  color: var(--ndl-color-text-primary);
+  font-weight: var(--ndl-font-weight-medium);
+  box-shadow: none;
+  text-shadow: none;
+  transition: background-color var(--ndl-duration-fast) var(--ndl-easing-standard),
+    color var(--ndl-duration-fast) var(--ndl-easing-standard);
+}
+
+button:hover {
+  background-color: var(--ndl-color-control-bg-hover);
+}
+
+button:active,
+button:checked {
+  background-color: var(--ndl-color-control-bg-pressed);
+}
+
+button:disabled {
+  background-color: var(--ndl-color-control-bg-disabled);
+  color: var(--ndl-color-text-disabled);
+}
+
+button.flat,
+headerbar button:not(.suggested-action):not(.destructive-action),
+.toolbar button:not(.suggested-action):not(.destructive-action) {
+  background-color: transparent;
+}
+
+button.flat:hover,
+headerbar button:not(.suggested-action):not(.destructive-action):hover,
+.toolbar button:not(.suggested-action):not(.destructive-action):hover {
+  background-color: var(--ndl-color-control-bg-hover);
+}
+
+button.flat:active,
+button.flat:checked,
+headerbar button:not(.suggested-action):not(.destructive-action):active,
+headerbar button:not(.suggested-action):not(.destructive-action):checked {
+  background-color: var(--ndl-color-control-bg-pressed);
+}
+
+button.flat:disabled {
+  background-color: transparent;
+}
+
+button.image-button {
+  padding: 0;
+  min-width: var(--ndl-density-control-height);
+}
+
+button.circular {
+  padding: 0;
+  border-radius: var(--ndl-radius-full);
+}
+
+button.pill {
+  padding: 0 var(--ndl-space-xl);
+  min-height: calc(var(--ndl-density-control-height) + var(--ndl-space-sm));
+  border-radius: var(--ndl-radius-full);
+}
+
+button.suggested-action {
+  background-color: var(--ndl-color-accent-default);
+  color: var(--ndl-color-text-on-accent);
+}
+
+button.suggested-action:hover {
+  background-color: var(--ndl-color-accent-hover);
+}
+
+button.suggested-action:active,
+button.suggested-action:checked {
+  background-color: var(--ndl-color-accent-pressed);
+}
+
+button.destructive-action {
+  background-color: var(--ndl-color-status-danger-bg);
+  color: var(--ndl-color-status-danger-fg);
+}
+
+button.destructive-action:hover,
+button.destructive-action:active {
+  background-color: var(--ndl-color-status-danger-fg);
+  color: var(--ndl-color-text-on-accent);
+}
+
+button.suggested-action:disabled,
+button.destructive-action:disabled {
+  background-color: var(--ndl-color-control-bg-disabled);
+  color: var(--ndl-color-text-disabled);
+}
+
+button.osd,
+.osd button {
+  background-color: var(--ndl-color-surface-overlay);
+  color: var(--ndl-color-text-primary);
+}
+
+button.osd:hover,
+.osd button:hover {
+  background-color: var(--ndl-color-surface-inverse);
+  color: var(--ndl-color-text-inverse);
+}
+
+menubutton > button > box > arrow,
+dropdown > button > box > arrow {
+  min-width: var(--ndl-size-icon-medium);
+  min-height: var(--ndl-size-icon-medium);
+}
+
+/* GTK's own icons. NDL replaces GTK's built-in theme, so every one it drew is named here. */
+dropdown arrow,
+combobox arrow,
+menubutton arrow.down {
+  -gtk-icon-source: -gtk-icontheme("pan-down-symbolic");
+}
+
+menubutton arrow.none {
+  -gtk-icon-source: -gtk-icontheme("open-menu-symbolic");
+}
+
+menubutton arrow.up {
+  -gtk-icon-source: -gtk-icontheme("pan-up-symbolic");
+}
+
+menubutton arrow.left,
+modelbutton arrow.left {
+  -gtk-icon-source: -gtk-icontheme("pan-start-symbolic");
+}
+
+menubutton arrow.right,
+modelbutton arrow.right,
+expander {
+  -gtk-icon-source: -gtk-icontheme("pan-end-symbolic");
+}
+
+expander:checked {
+  -gtk-icon-source: -gtk-icontheme("pan-down-symbolic");
+}
+
+arrow,
+expander {
+  min-width: var(--ndl-size-icon-medium);
+  min-height: var(--ndl-size-icon-medium);
+}
+
+/* ---------------------------------------------------------------- fields */
+
+entry,
+spinbutton,
+searchbar entry,
+passwordentry {
+  min-height: var(--ndl-density-control-height);
+  padding: 0 var(--ndl-space-sm);
+  padding: 0 var(--ndl-space-md);
+  border-radius: var(--ndl-component-field-radius);
+  border: var(--ndl-component-field-border-width) solid transparent;
+  background-color: var(--ndl-color-control-bg);
+  border-spacing: var(--ndl-space-xs);
+  color: var(--ndl-color-text-primary);
+  box-shadow: none;
+  outline: 0 solid transparent;
+  transition: border-color var(--ndl-duration-fast) var(--ndl-easing-standard);
+}
+
+entry:focus-within,
+spinbutton:focus-within,
+passwordentry:focus-within {
+  border-color: var(--ndl-color-border-focus);
+  outline: 1px solid var(--ndl-color-border-focus);
+  outline-offset: -2px;
+  background-color: var(--ndl-color-control-field-bg);
+}
+
+entry:disabled,
+spinbutton:disabled {
+  color: var(--ndl-color-text-disabled);
+  background-color: var(--ndl-color-control-bg-disabled);
+}
+
+entry.flat,
+passwordentry.flat {
+  border-color: transparent;
+  background-color: transparent;
+  padding: 0;
+}
+
+entry > image,
+passwordentry > image {
+  color: var(--ndl-color-text-secondary);
+}
+
+text > placeholder,
+entry > text > placeholder {
+  color: var(--ndl-color-text-tertiary);
+}
+
+spinbutton > button {
+  border-radius: 0;
+  min-width: var(--ndl-density-control-height);
+  background-color: transparent;
+  border: none;
+}
+
+spinbutton > button:hover {
+  background-color: var(--ndl-color-control-bg-hover);
+}
+
+spinbutton > text {
+  min-width: 3em;
+}
+
+dropdown > button,
+combobox > button {
+  min-height: var(--ndl-density-control-height);
+}
+
+/* ---------------------------------------------------------------- toggles */
+
+switch {
+  min-width: var(--ndl-component-switch-width);
+  min-height: var(--ndl-component-switch-height);
+  padding: 0;
+  border-radius: var(--ndl-radius-full);
+  border: none;
+  background-color: var(--ndl-color-control-track);
+  background-image: none;
+  box-shadow: none;
+  transition: background-color var(--ndl-duration-normal) var(--ndl-easing-standard);
+}
+
+switch:checked {
+  background-color: var(--ndl-color-accent-default);
+}
+
+switch:disabled {
+  opacity: 0.5;
+}
+
+switch > image {
+  color: transparent;
+}
+
+switch > slider {
+  min-width: var(--ndl-component-switch-thumb);
+  min-height: var(--ndl-component-switch-thumb);
+  margin: 3px;
+  border-radius: var(--ndl-radius-full);
+  border: none;
+  background-color: var(--ndl-palette-neutral-0);
+  background-image: none;
+  box-shadow: var(--ndl-elevation-raised);
+}
+
+checkbutton {
+  padding: var(--ndl-space-xxs);
+  border-spacing: var(--ndl-space-sm);
+}
+
+checkbutton > check,
+checkbutton > radio {
+  min-width: var(--ndl-component-toggle-box-size);
+  min-height: var(--ndl-component-toggle-box-size);
+  border: var(--ndl-border-width-thin) solid var(--ndl-color-border-strong);
+  background-color: var(--ndl-color-control-field-bg);
+  background-image: none;
+  box-shadow: none;
+  color: transparent;
+  -gtk-icon-size: var(--ndl-component-toggle-box-size);
+}
+
+checkbutton > check {
+  border-radius: var(--ndl-radius-md);
+}
+
+checkbutton > check:checked {
+  -gtk-icon-source: -gtk-icontheme("ndl-check-symbolic");
+}
+
+checkbutton > check:indeterminate {
+  -gtk-icon-source: -gtk-icontheme("ndl-minus-symbolic");
+}
+
+checkbutton > radio:checked {
+  box-shadow: inset 0 0 0 4px var(--ndl-color-control-field-bg);
+}
+
+checkbutton > radio {
+  border-radius: var(--ndl-radius-full);
+}
+
+checkbutton > check:checked,
+checkbutton > radio:checked,
+checkbutton > check:indeterminate {
+  border-color: var(--ndl-color-accent-default);
+  background-color: var(--ndl-color-accent-default);
+  color: var(--ndl-color-text-on-accent);
+}
+
+/* ---------------------------------------------------------------- ranges */
+
+scale {
+  padding: var(--ndl-space-sm) var(--ndl-space-xs);
+  min-height: var(--ndl-component-slider-thumb);
+}
+
+scale > trough {
+  min-height: var(--ndl-component-slider-track-height);
+  border-radius: var(--ndl-radius-full);
+  border: none;
+  background-color: var(--ndl-color-control-track);
+  background-image: none;
+}
+
+scale.vertical > trough {
+  min-width: var(--ndl-component-slider-track-height);
+  min-height: 0;
+}
+
+scale > trough > highlight,
+scale > trough > fill {
+  /* GTK's built-in theme gives these a -1px margin, which measures as a negative size. */
+  margin: 0;
+}
+
+scale > trough > highlight {
+  border-radius: var(--ndl-radius-full);
+  border: none;
+  background-color: var(--ndl-color-accent-default);
+  background-image: none;
+}
+
+scale > trough > fill {
+  border-radius: var(--ndl-radius-full);
+  background-color: var(--ndl-color-border-default);
+}
+
+scale > trough > slider {
+  min-width: var(--ndl-component-slider-thumb);
+  min-height: var(--ndl-component-slider-thumb);
+  margin: calc((var(--ndl-component-slider-thumb) - var(--ndl-component-slider-track-height)) / -2);
+  border-radius: var(--ndl-radius-full);
+  border: none;
+  background-color: var(--ndl-palette-neutral-0);
+  background-image: none;
+  box-shadow: var(--ndl-elevation-raised), 0 0 0 1px var(--ndl-color-border-subtle);
+}
+
+scale:disabled > trough > highlight {
+  background-color: var(--ndl-color-text-disabled);
+}
+
+progressbar > trough,
+progressbar > trough > progress {
+  min-height: var(--ndl-component-progress-height);
+  border-radius: var(--ndl-radius-full);
+  border: none;
+  background-image: none;
+}
+
+progressbar > trough {
+  background-color: var(--ndl-color-control-track);
+}
+
+progressbar > trough > progress {
+  background-color: var(--ndl-color-accent-default);
+}
+
+progressbar.osd > trough {
+  background-color: transparent;
+}
+
+levelbar > trough > block.filled {
+  background-color: var(--ndl-color-accent-default);
+}
+
+/* ---------------------------------------------------------------- lists */
+
+row {
+  transition: background-color var(--ndl-duration-fast) var(--ndl-easing-standard);
+}
+
+row.activatable:hover {
+  background-color: var(--ndl-color-control-bg-hover);
+}
+
+row.activatable:active {
+  background-color: var(--ndl-color-control-bg-pressed);
+}
+
+row:selected {
+  background-color: var(--ndl-color-selection-bg);
+  color: var(--ndl-color-text-primary);
+}
+
+.boxed-list,
+list.boxed-list {
+  background-color: var(--ndl-color-surface-raised);
+  border-radius: var(--ndl-component-panel-radius);
+  border: var(--ndl-border-width-thin) solid var(--ndl-color-border-subtle);
+  box-shadow: var(--ndl-elevation-raised);
+}
+
+.boxed-list > row {
+  border-bottom: var(--ndl-border-width-thin) solid var(--ndl-color-border-subtle);
+}
+
+.boxed-list > row:first-child {
+  border-top-left-radius: var(--ndl-component-panel-radius);
+  border-top-right-radius: var(--ndl-component-panel-radius);
+}
+
+.boxed-list > row:last-child {
+  border-bottom: none;
+  border-bottom-left-radius: var(--ndl-component-panel-radius);
+  border-bottom-right-radius: var(--ndl-component-panel-radius);
+}
+
+.navigation-sidebar,
+list.navigation-sidebar {
+  background-color: transparent;
+  padding: var(--ndl-space-xs);
+}
+
+.navigation-sidebar > row,
+.navigation-sidebar > listview > row {
+  min-height: var(--ndl-density-row-height);
+  margin: 1px 0;
+  padding: 0 var(--ndl-space-sm);
+  border-radius: var(--ndl-component-control-radius);
+  color: var(--ndl-color-text-secondary);
+}
+
+.navigation-sidebar > row:hover,
+.navigation-sidebar > listview > row:hover {
+  background-color: var(--ndl-color-control-bg-hover);
+}
+
+/* The row you are on is inverted, not tinted: the strongest mark the palette has, kept for the one
+ * thing that is current. */
+.navigation-sidebar > row,
+.navigation-sidebar > listview > row {
+  font-weight: var(--ndl-font-weight-medium);
+}
+
+.navigation-sidebar > row:selected,
+.navigation-sidebar > listview > row:selected {
+  background-color: var(--ndl-color-text-primary);
+  color: var(--ndl-color-surface-window);
+  font-weight: 700;
+}
+
+.navigation-sidebar > row:selected .ndl-count,
+.navigation-sidebar > listview > row:selected .ndl-count {
+  color: var(--ndl-color-surface-window);
+  opacity: 0.6;
+}
+
+.navigation-sidebar .ndl-micro {
+  margin: var(--ndl-space-lg) var(--ndl-space-md) var(--ndl-space-xs);
+}
+
+.card {
+  background-color: var(--ndl-color-surface-raised);
+  border-radius: var(--ndl-component-panel-radius);
+  border: var(--ndl-border-width-thin) solid var(--ndl-color-border-subtle);
+  box-shadow: none;
+}
+
+/* An island: a flat surface set on the window's frame. The identity's one structural idea. */
+.ndl-island {
+  background-color: var(--ndl-color-surface-panel);
+  border-radius: var(--ndl-component-panel-radius);
+}
+
+/* Chips: pill toggles for a view's modes (grid, list, sort). */
+.ndl-chip {
+  min-height: 28px;
+  padding: 0 var(--ndl-space-md);
+  border-radius: var(--ndl-radius-full);
+  background-color: transparent;
+  border: var(--ndl-border-width-thin) solid var(--ndl-color-border-subtle);
+  color: var(--ndl-color-text-secondary);
+  font-weight: var(--ndl-font-weight-medium);
+}
+
+.ndl-chip:hover {
+  background-color: var(--ndl-color-control-bg-hover);
+  color: var(--ndl-color-text-primary);
+}
+
+.ndl-chip:checked {
+  background-color: var(--ndl-color-text-primary);
+  border-color: var(--ndl-color-text-primary);
+  color: var(--ndl-color-surface-window);
+}
+
+.badge,
+.tag,
+.ndl-pill {
+  padding: var(--ndl-space-xxs) var(--ndl-space-sm);
+  border-radius: var(--ndl-component-badge-radius);
+  background-color: var(--ndl-color-accent-subtle);
+  color: var(--ndl-color-accent-text);
+  font-size: var(--ndl-font-size-small);
+}
+
+/* ---------------------------------------------------------------- bars */
+
+/* The header's children stretch to its height. The padding keeps them at the window controls'
+ * height (a control less 4 px), centred with the same gap above, below and at the sides,
+ * instead of filling the bar to its top edge. */
+headerbar {
+  min-height: calc(var(--ndl-density-control-height) - 4px);
+  padding: calc(var(--ndl-space-lg) / 2 + 2px) calc(var(--ndl-space-lg) / 2);
+  background-color: transparent;
+  background-image: none;
+  border: none;
+  box-shadow: none;
+  color: var(--ndl-color-text-primary);
+}
+
+headerbar > windowhandle > box {
+  border-spacing: var(--ndl-space-xs);
+}
+
+/* Buttons and fields in a header share the window controls' 28 px, so the row reads as one.
+ * Their 1 px border sits outside the minimum, hence 6 px less than a control. */
+headerbar button,
+headerbar entry {
+  min-height: calc(var(--ndl-density-control-height) - 6px);
+}
+
+headerbar button.image-button {
+  min-width: calc(var(--ndl-density-control-height) - 6px);
+}
+
+headerbar .title {
+  font-weight: 700;
+}
+
+headerbar .subtitle {
+  font-size: var(--ndl-font-size-small);
+  color: var(--ndl-color-text-secondary);
+}
+
+/* Three round buttons, each standing on its own: a flat raised disc at rest. Under the pointer
+ * minimise takes an amber tint, maximise a cyan one, close turns coral. The glyphs are NDL's
+ * (window-minimize, window-maximize, window-restore, window-close). */
+windowcontrols {
+  border-spacing: var(--ndl-space-xs);
+  /* Centred by the header (ndl::HeaderBar), never stretched: each stays a 28 px circle. */
+  padding: 0;
+  background-color: transparent;
+}
+
+windowcontrols:not(.empty) {
+  margin: 0 var(--ndl-space-xxs);
+}
+
+headerbar windowcontrols > button:not(.suggested-action):not(.destructive-action) {
+  min-width: calc(var(--ndl-density-control-height) - 4px);
+  min-height: calc(var(--ndl-density-control-height) - 4px);
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: var(--ndl-radius-full);
+  background-color: var(--ndl-color-control-bg);
+  color: var(--ndl-color-text-secondary);
+  /* 24 px, the glyphs' own grid: drawn 1:1 their edges stay on whole pixels. */
+  -gtk-icon-size: 24px;
+  box-shadow: none;
+  outline: none;
+  transition: background-color 120ms var(--ndl-easing-standard),
+    color 120ms var(--ndl-easing-standard);
+}
+
+headerbar windowcontrols > button:not(.suggested-action):not(.destructive-action):hover {
+  background-color: var(--ndl-component-window-minimize-tint);
+  color: var(--ndl-component-window-minimize);
+}
+
+headerbar windowcontrols > button:not(.suggested-action):not(.destructive-action).maximize:hover {
+  background-color: var(--ndl-component-window-maximize-tint);
+  color: var(--ndl-component-window-maximize);
+}
+
+headerbar windowcontrols > button:not(.suggested-action):not(.destructive-action):active {
+  filter: brightness(90%);
+}
+
+headerbar windowcontrols > button:not(.suggested-action):not(.destructive-action).close:hover {
+  background-color: var(--ndl-component-window-close);
+  color: var(--ndl-palette-neutral-0);
+}
+
+headerbar windowcontrols > button:not(.suggested-action):not(.destructive-action).close:active {
+  background-color: color-mix(in srgb, var(--ndl-component-window-close) 82%, var(--ndl-palette-neutral-1000));
+  color: var(--ndl-palette-neutral-0);
+}
+
+windowcontrols > button:focus-visible {
+  outline: var(--ndl-border-width-thick) solid var(--ndl-color-border-focus);
+  outline-offset: 1px;
+}
+
+/* GTK paints a disc of its own on the glyph (a padded, round, dark `image`), which sat over the
+ * button's fill and left only a ring of the hover colour showing. The button is the shape; the
+ * glyph is only the glyph. */
+windowcontrols > button > image {
+  background: none;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+}
+
+windowcontrols > button.minimize > image {
+  -gtk-icon-source: -gtk-icontheme("ndl-window-minimize-symbolic");
+}
+
+windowcontrols > button.maximize > image {
+  -gtk-icon-source: -gtk-icontheme("ndl-window-maximize-symbolic");
+}
+
+window.maximized windowcontrols > button.maximize > image,
+window.tiled windowcontrols > button.maximize > image {
+  -gtk-icon-source: -gtk-icontheme("ndl-window-restore-symbolic");
+}
+
+windowcontrols > button.close > image {
+  -gtk-icon-source: -gtk-icontheme("ndl-window-close-symbolic");
+}
+
+searchbar > revealer > box {
+  padding: var(--ndl-space-xs) var(--ndl-space-sm);
+  background-color: transparent;
+  border: none;
+}
+
+actionbar > revealer > box {
+  padding: var(--ndl-space-xs);
+  border-top: var(--ndl-border-width-thin) solid var(--ndl-color-border-subtle);
+}
+
+/* ---------------------------------------------------------------- popovers, menus, tooltips */
+
+/* GTK gives popovers and tooltips the .background class too; their surface must stay clear so
+ * only the rounded contents, and their shadow, are drawn. */
+popover.background {
+  background-color: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+popover > contents {
+  padding: var(--ndl-space-xs);
+  border-radius: var(--ndl-component-panel-radius);
+  background-color: var(--ndl-color-surface-overlay);
+  color: var(--ndl-color-text-primary);
+  border: var(--ndl-border-width-thin) solid var(--ndl-color-border-subtle);
+  box-shadow: var(--ndl-elevation-overlay);
+}
+
+popover > arrow {
+  background-color: var(--ndl-color-surface-overlay);
+  border: var(--ndl-border-width-thin) solid var(--ndl-color-border-subtle);
+}
+
+popover > contents {
+  min-width: 200px;
+}
+
+popover.menu modelbutton,
+popover.menu > contents modelbutton {
+  min-height: var(--ndl-density-row-height);
+  padding: 0 var(--ndl-space-sm);
+  border-radius: var(--ndl-component-control-radius);
+  border-spacing: var(--ndl-space-sm);
+}
+
+popover.menu modelbutton image {
+  color: var(--ndl-color-text-secondary);
+}
+
+popover.menu modelbutton check,
+popover.menu modelbutton radio {
+  min-width: 14px;
+  min-height: 14px;
+  border: none;
+  background-color: transparent;
+  box-shadow: none;
+}
+
+popover.menu modelbutton check:checked {
+  -gtk-icon-source: -gtk-icontheme("ndl-check-symbolic");
+  color: var(--ndl-color-text-primary);
+}
+
+popover.menu modelbutton radio:checked {
+  background-color: var(--ndl-color-text-primary);
+  box-shadow: inset 0 0 0 4px var(--ndl-color-surface-overlay);
+  border-radius: var(--ndl-radius-full);
+}
+
+/* NDL's own menu rows (menu_item): an icon on every entry. */
+popover.menu .ndl-menu-row {
+  min-height: var(--ndl-density-row-height);
+  padding: 0 var(--ndl-space-sm);
+  border-radius: var(--ndl-component-control-radius);
+  font-weight: var(--ndl-font-weight-regular);
+}
+
+popover.menu .ndl-menu-row > box {
+  border-spacing: var(--ndl-space-sm);
+}
+
+popover.menu .ndl-menu-row image {
+  color: var(--ndl-color-text-secondary);
+}
+
+popover.menu .ndl-menu-row .accelerator {
+  color: var(--ndl-color-text-tertiary);
+  margin-left: var(--ndl-space-lg);
+}
+
+popover.menu .ndl-menu-row.danger,
+popover.menu .ndl-menu-row.danger image {
+  color: var(--ndl-color-status-danger-fg);
+}
+
+popover.menu modelbutton:hover,
+popover.menu modelbutton:selected {
+  background-color: var(--ndl-color-control-bg-hover);
+}
+
+popover.menu modelbutton accelerator {
+  color: var(--ndl-color-text-tertiary);
+}
+
+popover.menu separator {
+  margin: var(--ndl-space-xs) 0;
+}
+
+tooltip,
+tooltip.background {
+  border: none;
+  padding: var(--ndl-space-xs) var(--ndl-space-sm);
+  border-radius: var(--ndl-component-control-radius);
+  background-color: var(--ndl-color-surface-inverse);
+  color: var(--ndl-color-text-inverse);
+  box-shadow: none;
+}
+
+tooltip > box {
+  border-spacing: var(--ndl-space-xs);
+}
+
+/* ---------------------------------------------------------------- scrollbars */
+
+scrollbar {
+  background-color: transparent;
+  border: none;
+}
+
+scrollbar > range > trough {
+  background-color: transparent;
+  border: none;
+}
+
+scrollbar > range > trough > slider {
+  min-width: 6px;
+  min-height: 6px;
+  margin: 2px;
+  border-radius: var(--ndl-radius-full);
+  border: none;
+  background-color: var(--ndl-color-border-strong);
+}
+
+scrollbar > range > trough > slider:hover,
+scrollbar > range > trough > slider:active {
+  background-color: var(--ndl-color-text-tertiary);
+}
+
+scrollbar.overlay-indicator:not(.hovering) > range > trough > slider {
+  min-width: 3px;
+  min-height: 3px;
+}
+
+/* ---------------------------------------------------------------- nodalia-gtk widgets */
+
+ndl-toolbar-view > .top-bar,
+ndl-toolbar-view > .bottom-bar {
+  background-color: transparent;
+}
+
+ndl-toolbar-view > .top-bar.raised,
+ndl-toolbar-view.raised > .top-bar {
+  box-shadow: 0 1px var(--ndl-color-border-subtle);
+}
+
+/* Sidebar and content are islands on the window's frame, a gap apart. */
+ndl-overlay-split-view > .ndl-sidebar-pane,
+ndl-overlay-split-view > .ndl-content-pane {
+  background-color: var(--ndl-color-surface-panel);
+  border-radius: var(--ndl-component-panel-radius);
+  margin: var(--ndl-component-window-gap);
+}
+
+ndl-overlay-split-view:not(.collapsed) > .ndl-sidebar-pane {
+  margin-right: 0;
+}
+
+ndl-overlay-split-view.collapsed > .ndl-sidebar-pane {
+  box-shadow: var(--ndl-elevation-overlay);
+}
+
+.ndl-scrim {
+  background-color: var(--ndl-color-scrim-default);
+}
+
+/* The bar under the content is an island of its own. */
+ndl-bottom-sheet > .ndl-bottom-bar {
+  background-color: var(--ndl-color-surface-panel);
+  border-radius: var(--ndl-component-panel-radius);
+  margin: 0 var(--ndl-component-window-gap) var(--ndl-component-window-gap);
+}
+
+ndl-bottom-sheet > .ndl-sheet {
+  background-color: var(--ndl-color-surface-panel);
+  border-top-left-radius: var(--ndl-component-window-radius);
+  border-top-right-radius: var(--ndl-component-window-radius);
+  box-shadow: var(--ndl-elevation-overlay);
+}
+
+.ndl-drag-handle {
+  min-width: 32px;
+  min-height: 4px;
+  margin: var(--ndl-space-sm);
+  border-radius: var(--ndl-radius-full);
+  background-color: var(--ndl-color-border-strong);
+}
+
+ndl-dialog {
+  background-color: var(--ndl-color-surface-panel);
+  color: var(--ndl-color-text-primary);
+  border-radius: var(--ndl-component-panel-radius);
+  border: var(--ndl-border-width-thin) solid var(--ndl-color-border-subtle);
+  box-shadow: var(--ndl-elevation-overlay);
+  margin: var(--ndl-space-xl);
+}
+
+.ndl-dialog-host {
+  background-color: var(--ndl-color-scrim-default);
+}
+
+ndl-dialog .ndl-alert-text .title-3 {
+  font-size: var(--ndl-font-size-title);
+}
+
+.ndl-alert-buttons > button {
+  min-height: calc(var(--ndl-density-control-height) + var(--ndl-space-xs));
+}
+
+.ndl-row {
+  min-height: calc(var(--ndl-density-row-height) + var(--ndl-space-lg));
+  padding: var(--ndl-space-sm) var(--ndl-space-md);
+}
+
+.ndl-row .title {
+  font-weight: var(--ndl-font-weight-regular);
+}
+
+.ndl-row .subtitle {
+  font-size: var(--ndl-font-size-small);
+  color: var(--ndl-color-text-secondary);
+}
+
+.ndl-row.ndl-entry-row .title {
+  color: var(--ndl-color-text-secondary);
+}
+
+.ndl-row.ndl-button-row .title {
+  color: var(--ndl-color-accent-text);
+  font-weight: var(--ndl-font-weight-medium);
+}
+
+ndl-preferences-group .heading {
+  margin: 0 var(--ndl-space-xs);
+}
+
+ndl-preferences-group .caption {
+  margin: 0 var(--ndl-space-xs);
+}
+
+ndl-status-page .icon {
+  color: var(--ndl-color-text-tertiary);
+  margin-bottom: var(--ndl-space-md);
+}
+
+ndl-status-page .description {
+  color: var(--ndl-color-text-secondary);
+}
+
+ndl-avatar {
+  border-radius: var(--ndl-radius-full);
+  background-color: var(--ndl-color-accent-subtle);
+  color: var(--ndl-color-accent-text);
+}
+
+ndl-avatar.image {
+  background-color: transparent;
+}
+
+ndl-avatar .initials {
+  font-weight: var(--ndl-font-weight-semibold);
+}
+
+ndl-spinner {
+  color: var(--ndl-color-accent-default);
+}
+
+.ndl-toast {
+  min-height: var(--ndl-density-control-height);
+  padding: var(--ndl-space-xs) var(--ndl-space-xs) var(--ndl-space-xs) var(--ndl-space-lg);
+  border-radius: var(--ndl-radius-full);
+  background-color: var(--ndl-color-surface-inverse);
+  color: var(--ndl-color-text-inverse);
+  box-shadow: var(--ndl-elevation-overlay);
+}
+
+.ndl-toast button {
+  color: var(--ndl-color-text-inverse);
+  background-color: transparent;
+}
+
+.keycap {
+  min-width: 20px;
+  padding: var(--ndl-space-xxs) var(--ndl-space-xs);
+  border-radius: var(--ndl-radius-sm);
+  border: var(--ndl-border-width-thin) solid var(--ndl-color-border-default);
+  border-bottom-width: var(--ndl-border-width-thick);
+  background-color: var(--ndl-color-control-field-bg);
+  font-size: var(--ndl-font-size-small);
+}
+
+.ndl-about .icon {
+  margin-bottom: var(--ndl-space-sm);
+}
+
+.ndl-about .title-1 {
+  font-size: 32px;
+}
+
+.ndl-release-notes {
+  padding: var(--ndl-space-md);
+  border-radius: var(--ndl-component-panel-radius);
+  background-color: var(--ndl-color-surface-raised);
+  border: var(--ndl-border-width-thin) solid var(--ndl-color-border-subtle);
+}
+
+/* An on-screen readout (volume, brightness) floats like a popover: a raised island with a hairline
+ * and the one shadow floating things get, not a translucent slab. */
+.osd {
+  background-color: var(--ndl-color-surface-overlay);
+  color: var(--ndl-color-text-primary);
+  border: var(--ndl-border-width-thin) solid var(--ndl-color-border-subtle);
+  border-radius: var(--ndl-component-panel-radius);
+  box-shadow: var(--ndl-elevation-overlay);
+}
+
+.osd levelbar > trough {
+  min-height: 6px;
+  border-radius: var(--ndl-radius-full);
+  background-color: var(--ndl-color-control-track);
+}
+
+.osd levelbar > trough > block {
+  border-radius: var(--ndl-radius-full);
+}
+
+.osd levelbar > trough > block.filled {
+  background-color: var(--ndl-color-text-primary);
+}
+
+/* The level popup of a scale button (volume): an island holding one thick slider. */
+scalebutton > popover > contents {
+  min-width: 0;
+  padding: var(--ndl-space-md) var(--ndl-space-sm);
+}
+
+scalebutton > popover scale.vertical {
+  min-height: 160px;
+  padding: var(--ndl-space-xs) var(--ndl-space-sm);
+}
+
+scalebutton > popover scale.vertical > trough {
+  min-width: 6px;
+}
+
+scalebutton > popover scale > trough > highlight {
+  background-color: var(--ndl-color-text-primary);
+}
+
+scalebutton > popover button {
+  min-width: var(--ndl-density-control-height);
+  min-height: var(--ndl-density-control-height);
+  border-radius: var(--ndl-radius-full);
+  background-color: transparent;
+}

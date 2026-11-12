@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Settings
+Name[es]=Ajustes
+Comment=View and change system settings
+Comment[es]=Consulta y cambia los ajustes del sistema
+Exec=nodalix-settings
+Icon=preferences-system
+Terminal=false
+Categories=GNOME;GTK;Settings;DesktopSettings;
+Keywords=preferences;configuration;appearance;updates;about;ajustes;configuración;apariencia;actualizaciones;
+StartupNotify=true
+StartupWMClass=os.nodalix.Settings

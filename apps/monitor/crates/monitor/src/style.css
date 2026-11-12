@@ -1,0 +1,53 @@
+/* The monitor's own pieces. Colours and sizes come from NDL's tokens; nothing is a literal. */
+.monitor-card {
+  background-color: var(--ndl-color-surface-raised);
+  border-radius: var(--ndl-radius-lg);
+  padding: var(--ndl-space-lg);
+}
+
+.monitor-value {
+  font-size: 22.5pt;
+  font-weight: var(--ndl-font-weight-semibold);
+  font-family: var(--ndl-font-family-display);
+}
+
+.monitor-graph-accent { color: var(--ndl-color-accent-default); }
+.monitor-graph-success { color: var(--ndl-color-status-success-fg); }
+.monitor-graph-warning { color: var(--ndl-color-status-warning-fg); }
+.monitor-graph-info { color: var(--ndl-color-status-info-fg); }
+
+.monitor-table {
+  background-color: var(--ndl-color-surface-raised);
+  border-radius: var(--ndl-radius-lg);
+}
+
+.monitor-table columnview { background-color: transparent; }
+.numeric { font-feature-settings: "tnum"; }
+
+/* The sheet does not style tables yet. */
+.monitor-table columnview > header > button {
+  border-radius: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--ndl-color-text-secondary);
+  font-weight: var(--ndl-font-weight-semibold);
+  padding: var(--ndl-space-sm) var(--ndl-space-md);
+}
+
+.monitor-table columnview > header {
+  border-bottom: var(--ndl-border-width-thin) solid var(--ndl-color-border-subtle);
+}
+
+.monitor-table columnview > listview > row > cell {
+  padding: var(--ndl-space-xs) var(--ndl-space-md);
+}
+
+.monitor-table columnview > listview > row:hover {
+  background-color: var(--ndl-color-control-bg-hover);
+}
+
+.monitor-table columnview > listview > row:selected {
+  background-color: var(--ndl-color-selection-bg);
+  color: var(--ndl-color-text-primary);
+}

@@ -1,0 +1,17 @@
+# One workspace for every native Nodalix app, so they share one lock file, one NDL revision and
+# one build of GTK's Rust bindings.
+[workspace]
+resolver = "2"
+members = ["crates/*", "monitor/crates/*", "ajustes/crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "GPL-3.0-or-later"
+
+[workspace.dependencies]
+# Fixed to an exact commit. When NDL changes, bump it here, for every app at once.
+nodalia-gtk = { git = "https://github.com/danielmigueltejedor/nodalia-design", rev = "58724b0258c5f3258bbbe7bdd81b9d3801096be0" }
+monitor-core = { path = "monitor/crates/monitor-core" }
+nodalix-ui = { path = "crates/nodalix-ui" }
