@@ -1,5 +1,6 @@
 //! Network: whether there is internet, and the wired adapters with their address and a switch to
-//! connect or disconnect each. VPN, proxy and addresses stay in the previous panel.
+//! connect or disconnect each, the VPN connections and the proxy. Addresses and DNS stay in the
+//! previous panel.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -11,7 +12,7 @@ use nodalia_gtk::{
 };
 
 use super::nm::{DEVICE, IP4_CONFIG, NM, NM_PATH};
-use super::{bus, column, gs, scroller};
+use super::{bus, column, gs, proxy, scroller, vpn};
 use crate::i18n::tr;
 
 const POLL_SECONDS: u32 = 5;
@@ -36,6 +37,7 @@ pub struct NetworkPage {
     bus: Rc<bus::SystemRefresh>,
     internet: ndl::ActionRow,
     internet_icon: gtk::Image,
+    vpn: Rc<vpn::VpnGroup>,
     wired: ndl::PreferencesGroup,
     rows: RefCell<Vec<ndl::ActionRow>>,
     shown: RefCell<Vec<Adapter>>,
@@ -147,10 +149,15 @@ impl NetworkPage {
         wired.set_visible(false);
         content.append(&wired);
 
+        let vpn = vpn::VpnGroup::new();
+        content.append(&vpn.group);
+        for group in proxy::groups() {
+            content.append(&group);
+        }
         let more = ndl::PreferencesGroup::new();
         more.add(&gs::legacy_link(
-            tr("Advanced settings"),
-            tr("VPN, proxy and addresses"),
+            tr("Addresses and DNS"),
+            tr("Set the IP address and name servers of a connection"),
             "network",
         ));
         content.append(&more);
@@ -161,6 +168,7 @@ impl NetworkPage {
             bus: Rc::default(),
             internet,
             internet_icon,
+            vpn,
             wired,
             rows: RefCell::new(Vec::new()),
             shown: RefCell::new(Vec::new()),
@@ -183,6 +191,7 @@ impl NetworkPage {
 
     pub fn set_toasts(&self, toasts: &ndl::ToastOverlay) {
         *self.toasts.borrow_mut() = Some(toasts.clone());
+        self.vpn.set_toasts(toasts);
     }
 
     fn toast(&self, text: &str) {
@@ -192,6 +201,7 @@ impl NetworkPage {
     }
 
     pub fn refresh(self: &Rc<Self>) {
+        self.vpn.refresh();
         let page = self.clone();
         self.bus.run(move |connection, guard| async move {
             let reading = match &connection {
@@ -312,8 +322,8 @@ mod tests {
             "Could not connect",
             "Cable unplugged",
             "Wired",
-            "Advanced settings",
-            "VPN, proxy and addresses",
+            "Addresses and DNS",
+            "Set the IP address and name servers of a connection",
             "Looking for the network…",
         ] {
             assert!(crate::i18n::has_translation(text), "{text}");

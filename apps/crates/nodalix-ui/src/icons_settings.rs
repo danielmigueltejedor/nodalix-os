@@ -80,6 +80,7 @@ pub(crate) fn drawings() -> Vec<(&'static str, String)> {
         ("network-wireless-acquiring-symbolic", svg(&[Line(ARC_WIDE), Line(ARC_MID), Line(ARC_NEAR)])),
         ("network-wired-symbolic", svg(&[Rect(16.0, 16.0, 6.0, 6.0, 1.5), Rect(2.0, 16.0, 6.0, 6.0, 1.5), Rect(9.0, 2.0, 6.0, 6.0, 1.5), Line("M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3M12 12V8")])),
         ("network-wired-disconnected-symbolic", svg(&[Rect(16.0, 16.0, 6.0, 6.0, 1.5), Rect(2.0, 16.0, 6.0, 6.0, 1.5), Rect(9.0, 2.0, 6.0, 6.0, 1.5), Line("M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3M12 12V8"), Line(SLASH)])),
+        ("network-vpn-symbolic", svg(&[Line("M2 18v3a1 1 0 0 0 1 1h4v-3h3v-3h2l1.4-1.4a6.5 6.5 0 1 0-4-4z"), Line("M16.5 7.5h.01")])),
         ("network-error-symbolic", svg(&[Circle(12.0, 12.0, 9.0), Line("M12 7.5v5M12 16.5h.01")])),
         ("folder-remote-symbolic", svg(&[Line(FOLDER), Line("M9 15h6M12.5 12.5 15 15l-2.5 2.5")])),
         ("weather-overcast-symbolic", svg(&[Line("M17.5 19H9a7 7 0 1 1 6.7-9h1.8a4.5 4.5 0 1 1 0 9z")])),

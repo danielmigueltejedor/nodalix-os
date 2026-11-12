@@ -22,11 +22,13 @@ pub mod pointing;
 pub mod power;
 pub mod printers;
 pub mod privacy;
+pub mod proxy;
 pub mod region;
 pub mod sharing;
 pub mod sound;
 pub mod updates;
 pub mod users;
+pub mod vpn;
 pub mod wifi;
 
 use nodalia_gtk::{self as ndl, gtk, gtk::prelude::*};
