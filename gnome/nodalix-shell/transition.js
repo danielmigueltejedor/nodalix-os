@@ -342,7 +342,10 @@ function watchDisplay() {
                 logError(error, 'Nodalix login transition: cannot watch the session');
             }
             resolve();
-        })();
+        })().catch(error => {
+            logError(error, 'Nodalix login transition: watching the session failed');
+            resolve();
+        });
     });
 }
 
