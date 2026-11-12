@@ -3,6 +3,7 @@
 mod browser;
 mod columns;
 mod dialogs;
+mod folders;
 mod i18n;
 mod icons;
 mod items;
@@ -46,6 +47,7 @@ const ACCELS: &[(&str, &[&str])] = &[
     ("win.view::grid", &["<Ctrl>2"]),
     ("win.view::columns", &["<Ctrl>3"]),
     ("win.close", &["<Ctrl>w"]),
+    ("win.preferences", &["<Ctrl>comma"]),
 ];
 
 fn main() -> glib::ExitCode {

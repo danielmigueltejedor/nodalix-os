@@ -9,6 +9,8 @@ use archivador_core::entry::Entry;
 use ndl::gtk::{self, gio, glib, prelude::*};
 use nodalia_gtk as ndl;
 
+use crate::folders::{self, Kind};
+
 const SCHEMA: &str = "org.gnome.desktop.interface";
 const KEY: &str = "icon-theme";
 
@@ -41,26 +43,35 @@ fn system_theme() -> gtk::IconTheme {
     theme
 }
 
-/// The folders the user has, which GNOME and Colloid draw with a picture of what they hold.
-fn folder_icon_name(path: &std::path::Path) -> &'static str {
+/// Which kind of folder this is: one of the user's own, which carry a picture of what they
+/// hold, the Applications folder, or any other.
+fn folder_kind(path: &std::path::Path) -> Kind {
     use glib::UserDirectory as Dir;
-    const SPECIAL: [(Dir, &str); 8] = [
-        (Dir::Documents, "folder-documents"),
-        (Dir::Downloads, "folder-download"),
-        (Dir::Music, "folder-music"),
-        (Dir::Pictures, "folder-pictures"),
-        (Dir::Videos, "folder-videos"),
-        (Dir::Templates, "folder-templates"),
-        (Dir::PublicShare, "folder-publicshare"),
-        (Dir::Desktop, "user-desktop"),
+    const SPECIAL: [(Dir, Kind); 8] = [
+        (Dir::Documents, Kind::Documents),
+        (Dir::Downloads, Kind::Downloads),
+        (Dir::Music, Kind::Music),
+        (Dir::Pictures, Kind::Pictures),
+        (Dir::Videos, Kind::Videos),
+        (Dir::Templates, Kind::Templates),
+        (Dir::PublicShare, Kind::Public),
+        (Dir::Desktop, Kind::Desktop),
     ];
-    if glib::home_dir() == path {
-        return "user-home";
+    let home = glib::home_dir();
+    if path.parent() == Some(home.as_path())
+        && path
+            .file_name()
+            .is_some_and(|n| n == "Aplicaciones" || n == "Applications")
+    {
+        return Kind::Applications;
+    }
+    if home == path {
+        return Kind::Plain;
     }
     SPECIAL
         .iter()
         .find(|(dir, _)| glib::user_special_dir(*dir).is_some_and(|p| p == path))
-        .map_or("folder", |(_, name)| name)
+        .map_or(Kind::Plain, |(_, kind)| *kind)
 }
 
 /// The picture the file carries as its own: the icon GNOME's file managers keep in the file's
@@ -84,11 +95,17 @@ fn custom_icon(entry: &Entry) -> Option<gio::Icon> {
 
 /// The names to try for this file, most specific first.
 pub fn icon_for(entry: &Entry) -> gio::Icon {
+    if entry.is_dir {
+        let kind = folder_kind(&entry.path);
+        // The Applications folder carries a picture made from the theme's blue folder; a folder
+        // the user gave a picture of their own keeps it. The rest are Nodalia's.
+        let own = (kind != Kind::Applications)
+            .then(|| custom_icon(entry))
+            .flatten();
+        return own.unwrap_or_else(|| folders::icon(kind));
+    }
     if let Some(icon) = custom_icon(entry) {
         return icon;
-    }
-    if entry.is_dir {
-        return gio::ThemedIcon::from_names(&[folder_icon_name(&entry.path), "folder"]).upcast();
     }
     let (content_type, _) = gio::content_type_guess(Some(&entry.name), None::<&[u8]>);
     gio::content_type_get_icon(&content_type)

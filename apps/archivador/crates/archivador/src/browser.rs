@@ -9,7 +9,7 @@ use archivador_core::clipboard::{Clipboard, Mode};
 use archivador_core::cloud;
 use archivador_core::entry::{self, Entry, SortKey};
 use archivador_core::history::History;
-use archivador_core::settings::{Settings, View};
+use archivador_core::settings::{Appearance, Settings, View};
 use archivador_core::trash::Trash;
 use archivador_core::{names, ops, places};
 use ndl::gtk::{self, gdk, gio, glib, prelude::*};
@@ -45,6 +45,13 @@ struct State {
     error: Option<String>,
 }
 
+/// One segment of the path bar: the arrow before it, the button, and where it leads.
+struct PathItem {
+    arrow: Option<gtk::Image>,
+    button: gtk::Button,
+    path: PathBuf,
+}
+
 pub struct Browser {
     window: ndl::ApplicationWindow,
     toasts: ndl::ToastOverlay,
@@ -72,7 +79,12 @@ pub struct Browser {
     trash_icon: RefCell<Option<gtk::Image>>,
     search_bar: gtk::SearchBar,
     search_entry: gtk::SearchEntry,
-    view_buttons: gtk::Box,
+    view_button: gtk::MenuButton,
+    /// The segments of the path bar, and the button that stands for those that do not fit.
+    path_items: RefCell<Vec<PathItem>>,
+    path_more: gtk::Button,
+    path_more_target: RefCell<PathBuf>,
+    path_width: Cell<i32>,
     state: RefCell<State>,
     monitor: RefCell<Option<gio::FileMonitor>>,
     reload_queued: Cell<bool>,
@@ -135,6 +147,15 @@ fn systemctl(action: &str, unit: &str) -> Result<(), String> {
     }
 }
 
+/// Makes the window light, dark, or what the system is.
+fn apply_appearance(appearance: Appearance) {
+    ndl::StyleManager::default().set_color_scheme(match appearance {
+        Appearance::System => ndl::ColorScheme::Default,
+        Appearance::Light => ndl::ColorScheme::ForceLight,
+        Appearance::Dark => ndl::ColorScheme::ForceDark,
+    });
+}
+
 fn view_name(view: View) -> &'static str {
     match view {
         View::List => "list",
@@ -164,9 +185,11 @@ fn sort_from_name(name: &str) -> SortKey {
 impl Browser {
     pub fn new(app: &gtk::Application, start: PathBuf) -> Rc<Self> {
         let settings = load_settings();
+        apply_appearance(settings.appearance);
         let window = ndl::ApplicationWindow::new(app);
         window.set_title(Some(tr("Files")));
         window.set_default_size(1100, 720);
+        window.set_size_request(560, 360);
         window.set_icon_name(Some("os.nodalix.Archivador"));
 
         let store = gio::ListStore::new::<FileObject>();
@@ -224,8 +247,8 @@ impl Browser {
         search_bar.connect_entry(&search_entry);
         search_bar.set_key_capture_widget(Some(window.upcast_ref::<gtk::Widget>()));
 
-        let view_buttons = gtk::Box::new(gtk::Orientation::Horizontal, 0);
-        view_buttons.add_css_class("linked");
+        let view_button = gtk::MenuButton::new();
+        let path_more = gtk::Button::with_label("…");
 
         let location = gtk::Entry::new();
         location.set_hexpand(true);
@@ -265,7 +288,11 @@ impl Browser {
             trash_icon: RefCell::new(None),
             search_bar,
             search_entry,
-            view_buttons,
+            view_button,
+            path_items: RefCell::new(Vec::new()),
+            path_more,
+            path_more_target: RefCell::new(PathBuf::new()),
+            path_width: Cell::new(0),
             state: RefCell::new(State {
                 history: History::new(start),
                 entries: Vec::new(),
@@ -377,33 +404,34 @@ impl Browser {
         header.set_title_widget(Some(&self.path_stack));
         self.build_location();
         self.connect_columns();
+        {
+            let this = self.weak();
+            self.path_more.connect_clicked(move |_| {
+                if let Some(this) = this.upgrade() {
+                    let target = this.path_more_target.borrow().clone();
+                    this.navigate(target);
+                }
+            });
+            // The bar fits itself again whenever the window is resized.
+            let this = self.weak();
+            self.path_scroll.add_tick_callback(move |scroll, _| {
+                if let Some(this) = this.upgrade() {
+                    if scroll.width() != this.path_width.get() {
+                        this.fit_path_bar();
+                    }
+                }
+                glib::ControlFlow::Continue
+            });
+        }
 
         let menu_button = gtk::MenuButton::new();
         menu_button.set_icon_name("open-menu-symbolic");
         menu_button.set_popover(Some(&self.main_menu()));
         header.pack_end(&menu_button);
         header.pack_end(&self.spinner);
-        for (view, tip) in [
-            ("list", "Show as a list"),
-            ("grid", "Show as a grid"),
-            ("columns", "Show in columns"),
-        ] {
-            let button = gtk::ToggleButton::new();
-            button.set_icon_name(match view {
-                "list" => "view-list-symbolic",
-                "grid" => "view-grid-symbolic",
-                _ => "view-columns-symbolic",
-            });
-            button.set_action_name(Some("win.view"));
-            button.set_action_target_value(Some(&view.to_variant()));
-            button.set_tooltip_text(Some(tr(tip)));
-            self.view_buttons.append(&button);
-        }
-        header.pack_end(&self.view_buttons);
-        let new_folder = gtk::Button::from_icon_name("folder-new-symbolic");
-        new_folder.set_action_name(Some("win.new-folder"));
-        new_folder.set_tooltip_text(Some(tr("New folder")));
-        header.pack_end(&new_folder);
+        self.view_button.set_popover(Some(&Self::view_menu()));
+        self.view_button.set_tooltip_text(Some(tr("View")));
+        header.pack_end(&self.view_button);
         let search = gtk::ToggleButton::new();
         search.set_icon_name("edit-find-symbolic");
         search.set_tooltip_text(Some(tr("Search")));
@@ -663,10 +691,24 @@ impl Browser {
                 this.drop_files(paths, folder.entry().path, copy)
             })
         };
+        let open_folder: Rc<dyn Fn(u32)> = {
+            let this = self.weak();
+            Rc::new(move |position| {
+                let Some(this) = this.upgrade() else { return };
+                let Some(folder) = this.store.item(position).and_downcast::<FileObject>() else {
+                    return;
+                };
+                let entry = folder.entry();
+                if entry.is_dir {
+                    this.navigate(entry.path);
+                }
+            })
+        };
         let hooks = Hooks {
             menu,
             drag_paths,
             drop_into,
+            open_folder,
         };
         self.list_view
             .set_factory(Some(&look::list_factory(hooks.clone())));
@@ -780,6 +822,25 @@ impl Browser {
         });
     }
 
+    /// The choice between the list, the grid and the columns.
+    fn view_menu() -> gtk::PopoverMenu {
+        let menu = gio::Menu::new();
+        for (label, view, icon) in [
+            ("List", "list", "view-list-symbolic"),
+            ("Grid", "grid", "view-grid-symbolic"),
+            ("Columns", "columns", "view-columns-symbolic"),
+        ] {
+            menu.append_item(&ndl::menu_item(
+                tr(label),
+                &format!("win.view::{view}"),
+                icon,
+            ));
+        }
+        let popover = gtk::PopoverMenu::from_model(Some(&menu));
+        ndl::menu_rows(&popover);
+        popover
+    }
+
     fn main_menu(&self) -> gtk::PopoverMenu {
         let menu = gio::Menu::new();
         let order = gio::Menu::new();
@@ -798,6 +859,11 @@ impl Browser {
         menu.append_section(None, &toggles);
         let more = gio::Menu::new();
         more.append_item(&ndl::menu_item(
+            tr("New folder"),
+            "win.new-folder",
+            "folder-new-symbolic",
+        ));
+        more.append_item(&ndl::menu_item(
             tr("Select all"),
             "win.select-all",
             "edit-select-all-symbolic",
@@ -809,6 +875,11 @@ impl Browser {
         ));
         menu.append_section(None, &more);
         let about = gio::Menu::new();
+        about.append_item(&ndl::menu_item(
+            tr("Preferences"),
+            "win.preferences",
+            "emblem-system-symbolic",
+        ));
         about.append_item(&ndl::menu_item(
             tr("About"),
             "win.about",
@@ -1002,6 +1073,7 @@ impl Browser {
             this.repopulate();
         });
         self.window.add_action(&view);
+        self.action("preferences", |t| t.preferences());
         self.action("about", |t| {
             ndl::AboutDialog::builder()
                 .application_icon("os.nodalix.Archivador")
@@ -1112,6 +1184,145 @@ impl Browser {
         self.set_enabled("restore", some && in_trash);
         self.set_enabled("delete", some);
         self.set_enabled("empty-trash", in_trash && self.store.n_items() > 0);
+    }
+
+    // ----- preferences ---------------------------------------------------------------------
+
+    /// The preferences: how Archivador looks, what the sidebar lists, and the cloud accounts.
+    fn preferences(self: &Rc<Self>) {
+        let settings = self.state.borrow().settings;
+        let combo = |title: &'static str, labels: &[&'static str], selected: usize| {
+            let labels: Vec<&'static str> = labels.iter().map(|l| tr(l)).collect();
+            let row = ndl::ComboRow::builder()
+                .title(tr(title))
+                .model(&gtk::StringList::new(&labels))
+                .build();
+            row.set_selected(selected as u32);
+            row
+        };
+
+        let style = ndl::PreferencesGroup::builder().title(tr("Style")).build();
+        let appearance = combo(
+            "Appearance",
+            &["Follow the system", "Light", "Dark"],
+            match settings.appearance {
+                Appearance::System => 0,
+                Appearance::Light => 1,
+                Appearance::Dark => 2,
+            },
+        );
+        let this = self.weak();
+        appearance.connect_selected_notify(move |row| {
+            let Some(this) = this.upgrade() else { return };
+            let value = match row.selected() {
+                1 => Appearance::Light,
+                2 => Appearance::Dark,
+                _ => Appearance::System,
+            };
+            this.state.borrow_mut().settings.appearance = value;
+            this.save();
+            apply_appearance(value);
+        });
+        style.add(&appearance);
+        let view = combo(
+            "Show files as",
+            &["List", "Grid", "Columns"],
+            match settings.view {
+                View::List => 0,
+                View::Grid => 1,
+                View::Columns => 2,
+            },
+        );
+        let this = self.weak();
+        view.connect_selected_notify(move |row| {
+            let Some(this) = this.upgrade() else { return };
+            let name = ["list", "grid", "columns"][(row.selected() as usize).min(2)];
+            if let Some(action) = this.window.lookup_action("view") {
+                action.activate(Some(&name.to_variant()));
+            }
+        });
+        style.add(&view);
+
+        let sidebar = ndl::PreferencesGroup::builder()
+            .title(tr("Sidebar"))
+            .build();
+        let root = ndl::SwitchRow::builder()
+            .title(tr("Show the file system"))
+            .subtitle("/")
+            .active(settings.show_root)
+            .build();
+        let this = self.weak();
+        root.connect_active_notify(move |row| {
+            let Some(this) = this.upgrade() else { return };
+            this.state.borrow_mut().settings.show_root = row.is_active();
+            this.save();
+            this.rebuild_sidebar();
+            this.sync_sidebar();
+        });
+        sidebar.add(&root);
+
+        let cloud = ndl::PreferencesGroup::builder()
+            .title(tr("Cloud"))
+            .description(tr(
+                "The accounts you connect show up in the sidebar with their own icon.",
+            ))
+            .build();
+        let accounts = self.clouds.borrow().clone();
+        for account in &accounts {
+            let connected = is_mounted(&account.mount_point(&crate::home()));
+            let row = ndl::ActionRow::builder()
+                .title(&account.name)
+                .subtitle(format!(
+                    "{} · {}",
+                    account.provider.title(),
+                    if connected {
+                        tr("Connected")
+                    } else {
+                        tr("Not connected")
+                    }
+                ))
+                .build();
+            row.add_prefix(&gtk::Image::from_icon_name(account.provider.icon()));
+            cloud.add(&row);
+        }
+        let manage = ndl::ButtonRow::builder()
+            .title(tr(if accounts.is_empty() {
+                "Set up a cloud account…"
+            } else {
+                "Add or manage accounts…"
+            }))
+            .build();
+        let this = self.weak();
+        manage.connect_activated(move |_| {
+            if let Some(this) = this.upgrade() {
+                this.open_cloud_settings();
+            }
+        });
+        cloud.add(&manage);
+
+        let page = ndl::PreferencesPage::new();
+        page.set_title(tr("Preferences"));
+        page.add(&style);
+        page.add(&sidebar);
+        page.add(&cloud);
+        let dialog = ndl::PreferencesDialog::new();
+        dialog.set_title(tr("Preferences"));
+        dialog.add(&page);
+        dialog.present(Some(&self.window));
+    }
+
+    /// Opens Settings on its cloud page, where accounts are added and removed.
+    fn open_cloud_settings(&self) {
+        let started = std::process::Command::new("nodalix-settings")
+            .env("NODALIX_SETTINGS_PAGE", "cloud")
+            .spawn();
+        if started.is_err() {
+            self.toast(tr("Can't open Settings"));
+        }
+    }
+
+    fn save(&self) {
+        save_settings(&self.state.borrow().settings);
     }
 
     // ----- what is selected ----------------------------------------------------------------
@@ -1381,6 +1592,11 @@ impl Browser {
             View::Grid => "grid",
             View::Columns => "columns",
         };
+        self.view_button.set_icon_name(match view {
+            View::List => "view-list-symbolic",
+            View::Grid => "view-grid-symbolic",
+            View::Columns => "view-columns-symbolic",
+        });
         if let Some(action) = self
             .window
             .lookup_action("view")
@@ -1422,32 +1638,74 @@ impl Browser {
         } else {
             places::breadcrumbs(dir, &crate::home())
         };
+        // What stands for the segments that do not fit.
+        self.path_more.add_css_class("archivador-more");
+        self.path_more
+            .set_tooltip_text(Some(tr("Show the folders above")));
+        self.path_more.set_visible(false);
+        self.path_bar.append(&self.path_more);
+        let mut items = Vec::new();
         let last = crumbs.len().saturating_sub(1);
         for (i, crumb) in crumbs.into_iter().enumerate() {
-            if i > 0 {
+            let arrow = (i > 0).then(|| {
                 let arrow = gtk::Image::from_icon_name("go-next-symbolic");
                 self.path_bar.append(&arrow);
-            }
+                arrow
+            });
             let label = crumb.label.unwrap_or_else(|| tr("Home").to_owned());
             let button = gtk::Button::with_label(&label);
             if i == last {
                 button.add_css_class("current");
             }
             let this = self.weak();
-            let target = crumb.path;
+            let target = crumb.path.clone();
             button.connect_clicked(move |_| {
                 if let Some(this) = this.upgrade() {
                     this.navigate(target.clone());
                 }
             });
             self.path_bar.append(&button);
+            items.push(PathItem {
+                arrow,
+                button,
+                path: crumb.path,
+            });
         }
-        // Keep the end of a long path in view.
-        let scroll = self.path_scroll.clone();
-        glib::idle_add_local_once(move || {
-            let adjustment = scroll.hadjustment();
-            adjustment.set_value(adjustment.upper());
-        });
+        self.path_items.replace(items);
+        self.path_width.set(0);
+        self.fit_path_bar();
+    }
+
+    /// Hides the segments from the start that do not fit, and shows `…` in their place, so the
+    /// bar never cuts a name in half: the folder you are in is always whole.
+    fn fit_path_bar(&self) {
+        let available = self.path_scroll.width();
+        if available <= 0 {
+            return;
+        }
+        self.path_width.set(available);
+        let items = self.path_items.borrow();
+        for item in items.iter() {
+            item.button.set_visible(true);
+            if let Some(arrow) = &item.arrow {
+                arrow.set_visible(true);
+            }
+        }
+        self.path_more.set_visible(false);
+        let natural = || self.path_bar.measure(gtk::Orientation::Horizontal, -1).1;
+        let mut hidden = 0;
+        while natural() > available && hidden + 1 < items.len() {
+            items[hidden].button.set_visible(false);
+            if let Some(arrow) = &items[hidden].arrow {
+                arrow.set_visible(false);
+            }
+            hidden += 1;
+            self.path_more.set_visible(true);
+        }
+        if hidden > 0 {
+            self.path_more_target
+                .replace(items[hidden - 1].path.clone());
+        }
     }
 
     fn sidebar_row(&self, title: &str, icon: &str, path: &str) -> (gtk::ListBoxRow, gtk::Image) {
@@ -1509,8 +1767,10 @@ impl Browser {
 
         // The drives that are mounted, and the file system itself.
         self.sidebar.append(&Self::heading(tr("Devices")));
-        let (row, _) = self.sidebar_row("/", "drive-harddisk-symbolic", "/");
-        self.sidebar.append(&row);
+        if self.state.borrow().settings.show_root {
+            let (row, _) = self.sidebar_row("/", "drive-harddisk-symbolic", "/");
+            self.sidebar.append(&row);
+        }
         for mount in gio::VolumeMonitor::get().mounts() {
             let Some(path) = mount.root().path() else {
                 continue;
@@ -1541,7 +1801,7 @@ impl Browser {
             let point = account.mount_point(&crate::home());
             let (row, _) = self.sidebar_row(
                 &account.name,
-                "ndl-cloud-symbolic",
+                account.provider.icon(),
                 &point.to_string_lossy(),
             );
             if is_mounted(&point) {

@@ -40,20 +40,48 @@ pub struct Hooks {
     pub drag_paths: Rc<dyn Fn(u32) -> Vec<std::path::PathBuf>>,
     /// Files dropped on the folder at this position; whether they are copied. True if taken.
     pub drop_into: Rc<dyn Fn(u32, Vec<std::path::PathBuf>, bool) -> bool>,
+    /// Go into the folder at this position, because a drag rested on it.
+    pub open_folder: Rc<dyn Fn(u32)>,
 }
 
-/// Lets the file be dragged out, and a folder take what is dropped on it.
+/// How long a drag has to rest on a folder before the window goes into it.
+const SPRING: std::time::Duration = std::time::Duration::from_millis(700);
+
+/// What a drag shows under the pointer: the icon of the file, and, for several, how many.
+fn drag_icon(drag: &gdk::Drag, entry: &Entry, count: usize) {
+    let overlay = gtk::Overlay::new();
+    overlay.add_css_class("archivador-drag");
+    let image = gtk::Image::new();
+    image.set_pixel_size(56);
+    icons::show(&image, entry);
+    overlay.set_child(Some(&image));
+    if count > 1 {
+        let badge = gtk::Label::new(Some(&count.to_string()));
+        badge.add_css_class("archivador-drag-badge");
+        badge.set_halign(gtk::Align::End);
+        badge.set_valign(gtk::Align::Start);
+        overlay.add_overlay(&badge);
+    }
+    gtk::DragIcon::for_drag(drag).set_child(Some(&overlay));
+    drag.set_hotspot(28, 28);
+}
+
+/// Lets the file be dragged out, and a folder take what is dropped on it, or open when a drag
+/// rests on it.
 fn attach_drag_and_drop(item: &gtk::ListItem, widget: &gtk::Widget, hooks: &Hooks) {
     let source = gtk::DragSource::new();
     source.set_actions(gdk::DragAction::COPY | gdk::DragAction::MOVE);
-    let (position, drag_paths) = (item.clone(), hooks.drag_paths.clone());
+    let count = Rc::new(std::cell::Cell::new(1));
+    let (position, drag_paths, counted) = (item.clone(), hooks.drag_paths.clone(), count.clone());
     source.connect_prepare(move |_, _, _| {
         let paths = drag_paths(position.position());
+        counted.set(paths.len());
         (!paths.is_empty()).then(|| transfer::drag_content(&paths))
     });
-    source.connect_drag_begin(|source, _| {
-        if let Some(widget) = source.widget() {
-            source.set_icon(Some(&gtk::WidgetPaintable::new(Some(&widget))), 0, 0);
+    let dragged = item.clone();
+    source.connect_drag_begin(move |_, drag| {
+        if let Some(file) = object(&dragged) {
+            drag_icon(drag, &file.entry(), count.get());
         }
     });
     widget.add_controller(source);
@@ -64,8 +92,33 @@ fn attach_drag_and_drop(item: &gtk::ListItem, widget: &gtk::Widget, hooks: &Hook
     );
     let folder = item.clone();
     target.connect_accept(move |_, _| object(&folder).is_some_and(|f| f.entry().is_dir));
+    // Resting on a folder opens it, so a file can be carried down a tree in one drag.
+    let waiting: Rc<std::cell::RefCell<Option<glib::SourceId>>> = Rc::default();
+    let cancel = {
+        let waiting = waiting.clone();
+        move || {
+            if let Some(id) = waiting.borrow_mut().take() {
+                id.remove();
+            }
+        }
+    };
+    let (position, open, pending) = (item.clone(), hooks.open_folder.clone(), waiting.clone());
+    let restart = cancel.clone();
+    target.connect_enter(move |_, _, _| {
+        restart();
+        let (position, open, done) = (position.clone(), open.clone(), pending.clone());
+        let id = glib::timeout_add_local_once(SPRING, move || {
+            done.borrow_mut().take();
+            open(position.position());
+        });
+        pending.borrow_mut().replace(id);
+        gdk::DragAction::MOVE
+    });
+    let left = cancel.clone();
+    target.connect_leave(move |_| left());
     let (position, drop_into) = (item.clone(), hooks.drop_into.clone());
     target.connect_drop(move |target, value, _, _| {
+        cancel();
         drop_into(
             position.position(),
             transfer::paths_of(value),
