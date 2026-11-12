@@ -3,6 +3,7 @@
 mod browser;
 mod dialogs;
 mod i18n;
+mod icons;
 mod items;
 mod object;
 mod properties;

@@ -9,6 +9,7 @@ use ndl::gtk::{self, gio, glib, prelude::*};
 use nodalia_gtk as ndl;
 
 use crate::i18n::{fmt, items, tr};
+use crate::icons;
 
 fn date(secs: i64) -> String {
     glib::DateTime::from_unix_local(secs)
@@ -58,12 +59,7 @@ pub fn present(parent: &impl IsA<gtk::Widget>, entries: Vec<Entry>) {
     let icon = gtk::Image::new();
     icon.set_pixel_size(64);
     if single {
-        if first.is_dir {
-            icon.set_icon_name(Some("folder"));
-        } else {
-            let (content_type, _) = gio::content_type_guess(Some(&first.name), None::<&[u8]>);
-            icon.set_from_gicon(&gio::content_type_get_icon(&content_type));
-        }
+        icons::show(&icon, &first);
     } else {
         icon.set_icon_name(Some("edit-copy-symbolic"));
     }

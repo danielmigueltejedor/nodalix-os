@@ -5,9 +5,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use archivador_core::entry::Entry;
 use archivador_core::format;
-use ndl::gtk::{self, gdk, gio, glib, prelude::*};
+use ndl::gtk::{self, gdk, glib, prelude::*};
 use nodalia_gtk as ndl;
 
+use crate::icons;
 use crate::object::FileObject;
 use crate::thumbs;
 use crate::transfer;
@@ -74,14 +75,6 @@ fn attach_drag_and_drop(item: &gtk::ListItem, widget: &gtk::Widget, hooks: &Hook
     widget.add_controller(target);
 }
 
-fn icon_for(entry: &Entry) -> gio::Icon {
-    if entry.is_dir {
-        return gio::ThemedIcon::new("folder").upcast();
-    }
-    let (content_type, _) = gio::content_type_guess(Some(&entry.name), None::<&[u8]>);
-    gio::content_type_get_icon(&content_type)
-}
-
 /// `14:05` today, `3 Nov` this year, `3 Nov 2025` before.
 fn modified_text(time: Option<SystemTime>) -> String {
     let Some(secs) = time
@@ -121,7 +114,7 @@ fn show_icon(image: &gtk::Image, entry: &Entry, thumb_size: i32) {
         image.add_css_class("archivador-thumb");
         return;
     }
-    image.set_from_gicon(&icon_for(entry));
+    icons::show(image, entry);
     if thumbs::wanted(entry) {
         let image = image.downgrade();
         thumbs::load(entry, thumb_size, move |texture| {
@@ -159,7 +152,7 @@ pub fn list_factory(hooks: Hooks) -> gtk::SignalListItemFactory {
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
         row.add_css_class("archivador-row");
         let icon = gtk::Image::new();
-        icon.set_pixel_size(24);
+        icon.set_pixel_size(32);
         let name = gtk::Label::new(None);
         name.set_hexpand(true);
         name.set_xalign(0.0);
