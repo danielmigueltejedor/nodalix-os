@@ -44,6 +44,56 @@ fn schema_installed() -> bool {
     gio::SettingsSchemaSource::default().is_some_and(|s| s.lookup(SCHEMA, true).is_some())
 }
 
+/// The accent palette GNOME uses (so a swatch matches what the desktop shows) and the colours of
+/// the style previews, which must look light or dark whatever the app's own theme is. These are
+/// data, not part of NDL's theme, so they are added here and not in `style.css`.
+const ACCENT_COLORS: [(&str, &str); 9] = [
+    ("blue", "#3584e4"),
+    ("teal", "#2190a4"),
+    ("green", "#3a944a"),
+    ("yellow", "#c88800"),
+    ("orange", "#ed5b00"),
+    ("red", "#e62d42"),
+    ("pink", "#d56199"),
+    ("purple", "#9141ac"),
+    ("slate", "#6f8396"),
+];
+
+fn palette_css() -> String {
+    let mut css = String::new();
+    for (name, color) in ACCENT_COLORS {
+        css.push_str(&format!(
+            ".settings-accent-{name} {{ background-color: {color}; }}\n"
+        ));
+    }
+    css.push_str(
+        ".settings-preview-prefer-light { background-image: linear-gradient(to bottom, #ffffff 0 18%, #f2f2f2 18% 100%); }\n\
+         .settings-preview-prefer-dark { background-image: linear-gradient(to bottom, #3a3a3e 0 18%, #242428 18% 100%); }\n\
+         .settings-preview-default { background-image: linear-gradient(105deg, #ffffff 0 18%, #f2f2f2 18% 50%, #242428 50% 100%); }\n",
+    );
+    css
+}
+
+/// Loads the palette once for the display.
+fn load_palette() {
+    thread_local! {
+        static LOADED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    }
+    if LOADED.with(|l| l.replace(true)) {
+        return;
+    }
+    let Some(display) = gtk::gdk::Display::default() else {
+        return;
+    };
+    let provider = gtk::CssProvider::new();
+    provider.load_from_string(&palette_css());
+    gtk::style_context_add_provider_for_display(
+        &display,
+        &provider,
+        gtk::STYLE_PROVIDER_PRIORITY_APPLICATION,
+    );
+}
+
 /// The three style choices as preview cards, like GNOME's: what each would look like.
 fn style_cards(settings: &gio::Settings) -> gtk::Box {
     let cards = gtk::Box::new(gtk::Orientation::Horizontal, 16);
@@ -265,6 +315,7 @@ pub fn build(toasts: &ndl::ToastOverlay) -> gtk::ScrolledWindow {
         return scroller(&content);
     }
     let settings = gio::Settings::new(SCHEMA);
+    load_palette();
 
     // Style: how the system looks.
     let heading = ndl::PreferencesGroup::builder().title(tr("Style")).build();
@@ -367,6 +418,14 @@ mod tests {
         assert_eq!(index_of(&SCHEMES, "default"), 0);
         assert_eq!(index_of(&SCHEMES, "nonsense"), 0);
         assert_eq!(index_of(&ACCENTS, "purple"), 7);
+    }
+
+    #[test]
+    fn every_accent_has_a_colour_and_the_palette_names_them_all() {
+        for (_, value) in ACCENTS {
+            assert!(ACCENT_COLORS.iter().any(|(n, _)| *n == value), "{value}");
+        }
+        assert!(palette_css().contains(".settings-accent-purple"));
     }
 
     #[test]

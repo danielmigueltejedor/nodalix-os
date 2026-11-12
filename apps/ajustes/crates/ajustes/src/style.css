@@ -57,25 +57,14 @@
   border: 1px solid var(--ndl-color-border-subtle);
 }
 
-.settings-preview-prefer-light {
-  background-image: linear-gradient(to bottom, #ffffff 0 18%, #f2f2f2 18% 100%);
-}
-
-.settings-preview-prefer-dark {
-  background-image: linear-gradient(to bottom, #3a3a3e 0 18%, #242428 18% 100%);
-}
-
-.settings-preview-default {
-  background-image: linear-gradient(105deg, #ffffff 0 18%, #f2f2f2 18% 50%, #242428 50% 100%);
-}
-
-/* Accent colours: the same values GNOME uses, so a swatch matches what the desktop shows. */
+/* Accent swatches. Their colours are the desktop's accent palette, which is data, not NDL's
+   theme: appearance.rs adds them when the page is built. */
 .settings-swatch {
   min-width: 30px;
   min-height: 30px;
   padding: 0;
   border-radius: 999px;
-  color: #ffffff;
+  color: white;
 }
 
 .settings-swatch .settings-swatch-check {
@@ -85,13 +74,3 @@
 .settings-swatch:checked .settings-swatch-check {
   opacity: 1;
 }
-
-.settings-accent-blue { background-color: #3584e4; }
-.settings-accent-teal { background-color: #2190a4; }
-.settings-accent-green { background-color: #3a944a; }
-.settings-accent-yellow { background-color: #c88800; }
-.settings-accent-orange { background-color: #ed5b00; }
-.settings-accent-red { background-color: #e62d42; }
-.settings-accent-pink { background-color: #d56199; }
-.settings-accent-purple { background-color: #9141ac; }
-.settings-accent-slate { background-color: #6f8396; }

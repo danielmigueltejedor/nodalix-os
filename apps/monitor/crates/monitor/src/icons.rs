@@ -55,25 +55,36 @@ thread_local! {
     static FOUND: RefCell<HashMap<String, gio::Icon>> = RefCell::new(HashMap::new());
 }
 
-/// Keys an application can be found by: its command, its desktop id (whole and last part of a
-/// reverse-domain one) and its name.
+/// Keys an application can be found by: its name, its desktop id (the last part of a
+/// reverse-domain one, then the whole) and its command's file name.
+fn keys_for(name: &str, id: Option<&str>, exe: Option<&std::path::Path>) -> Vec<String> {
+    let mut keys = vec![name.to_lowercase()];
+    if let Some(id) = id {
+        let id = id.trim_end_matches(".desktop").to_lowercase();
+        if let Some(last) = id.rsplit('.').next() {
+            keys.push(last.to_owned());
+        }
+        keys.push(id);
+    }
+    if let Some(file) = exe.and_then(|e| e.file_name()).and_then(|n| n.to_str()) {
+        keys.push(file.to_lowercase());
+    }
+    keys
+}
+
+/// Every installed application by those keys.
 fn index() -> HashMap<String, gio::Icon> {
     let mut map = HashMap::new();
     for app in gio::AppInfo::all() {
         let Some(icon) = app.icon() else { continue };
-        let mut keys = vec![app.name().to_lowercase()];
-        if let Some(id) = app.id() {
-            let id = id.trim_end_matches(".desktop").to_lowercase();
-            if let Some(last) = id.rsplit('.').next() {
-                keys.push(last.to_owned());
-            }
-            keys.push(id);
+        // An entry without an `Exec` line has no executable: asking for it returns NULL, which
+        // the bindings turn into a crash. Such an entry cannot own a process anyway.
+        if app.commandline().is_none() {
+            continue;
         }
+        let id = app.id();
         let exe = app.executable();
-        if let Some(file) = exe.file_name().and_then(|n| n.to_str()) {
-            keys.push(file.to_lowercase());
-        }
-        for key in keys {
+        for key in keys_for(&app.name(), id.as_deref(), Some(&exe)) {
             map.entry(key).or_insert_with(|| icon.clone());
         }
     }
@@ -129,5 +140,28 @@ mod tests {
     #[test]
     fn a_kernel_thread_has_only_its_name() {
         assert_eq!(candidates("kworker/0:1", ""), ["kworker/0:1"]);
+    }
+
+    #[test]
+    fn an_application_is_found_by_its_name_id_and_command() {
+        let keys = keys_for(
+            "Brújula",
+            Some("os.nodalix.Brujula.desktop"),
+            Some(std::path::Path::new("/usr/bin/nodalix-brujula")),
+        );
+        assert_eq!(
+            keys,
+            [
+                "brújula",
+                "brujula",
+                "os.nodalix.brujula",
+                "nodalix-brujula"
+            ]
+        );
+    }
+
+    #[test]
+    fn an_application_without_an_id_or_command_has_only_its_name() {
+        assert_eq!(keys_for("Tool", None, None), ["tool"]);
     }
 }
