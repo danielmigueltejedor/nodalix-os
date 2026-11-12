@@ -37,9 +37,9 @@ jobs:
       - name: The apps start and show their window
         working-directory: apps
         run: |
-          cargo build --locked -p nodalix-monitor -p nodalix-settings
+          cargo build --locked -p nodalix-monitor -p nodalix-settings -p nodalix-archivador
           export GSK_RENDERER=cairo GTK_A11Y=none
-          for app in nodalix-monitor nodalix-settings; do
+          for app in nodalix-monitor nodalix-settings nodalix-archivador; do
             xvfb-run -a dbus-run-session -- bash -c "
               ./target/debug/$app & pid=\$!
               sleep 6
