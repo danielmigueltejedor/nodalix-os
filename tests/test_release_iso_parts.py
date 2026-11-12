@@ -1,9 +1,10 @@
 import functools, hashlib, http.server, importlib.util, json, sys, tempfile, threading, unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'tools'))
-from release_iso import iso_metadata, publication_assets
+from release_iso import iso_metadata, publication_assets, release_directory
 spec=importlib.util.spec_from_file_location('iso_downloader',ROOT/'tools/nodalix-download-iso.py')
 downloader=importlib.util.module_from_spec(spec);spec.loader.exec_module(downloader)
 
@@ -32,6 +33,28 @@ class ReleaseIsoPartsTests(unittest.TestCase):
         names={p.name for p in publication_assets(self.root)}
         self.assertNotIn(self.image.name,names)
         self.assertTrue({p['asset'] for p in meta['parts']}.issubset(names))
+    def test_release_directory_stays_inside_the_workspace(self):
+        workspace = self.root / 'workspace'
+        workspace.mkdir()
+        with patch.object(Path, 'cwd', return_value=workspace):
+            self.assertEqual(release_directory(), workspace.resolve() / 'dist/release')
+            (workspace / 'dist').symlink_to(self.root, target_is_directory=True)
+            with self.assertRaisesRegex(ValueError, 'release directory'):
+                release_directory()
+
+    def test_publication_skips_symbolic_links(self):
+        (self.root / 'nodalix-manifest.json').write_text('{"iso": {}}')
+        link = self.root / 'copy.iso'
+        link.symlink_to(self.image)
+        self.assertNotIn(link, publication_assets(self.root))
+
+    def test_part_names_must_be_plain_asset_names(self):
+        valid = {'asset': 'nodalix-0.3.0-x86_64.iso.part01', 'size': 10, 'sha256': '0' * 64}
+        downloader.valid_file(valid)
+        for name in ('.', '..', 'invalid name', 'part%20name'):
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                downloader.valid_file({**valid, 'asset': name})
+
     def test_small_images_retain_single_asset_compatibility(self):
         meta=iso_metadata(self.image,len(self.payload))
         self.assertEqual(meta['asset'],self.image.name)
