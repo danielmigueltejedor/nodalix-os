@@ -9,6 +9,14 @@ pub struct Device {
     pub connected: bool,
     /// The freedesktop icon name BlueZ suggests (`audio-headphones`, `input-keyboard`…).
     pub icon: String,
+    /// The charge in percent, when the device reports it (`org.bluez.Battery1`).
+    pub battery: Option<u8>,
+}
+
+/// The icon for a charge: `battery-level-80-symbolic`, in steps of ten, never above a hundred.
+pub fn battery_icon(percent: u8) -> String {
+    let step = (u16::from(percent.min(100)) + 5) / 10 * 10;
+    format!("battery-level-{step}-symbolic")
 }
 
 /// The symbolic icon for a device, from BlueZ's suggestion; a generic one when it has none.
@@ -62,6 +70,7 @@ mod tests {
             paired,
             connected,
             icon: String::new(),
+            battery: None,
         }
     }
 
@@ -90,5 +99,14 @@ mod tests {
         assert!(has_real_name("AirPods", "AA:BB:CC:DD:EE:FF"));
         assert!(!has_real_name("AA-BB-CC-DD-EE-FF", "AA:BB:CC:DD:EE:FF"));
         assert!(!has_real_name("  ", "AA:BB:CC:DD:EE:FF"));
+    }
+
+    #[test]
+    fn the_battery_icon_rounds_to_ten_and_stops_at_a_hundred() {
+        assert_eq!(battery_icon(0), "battery-level-0-symbolic");
+        assert_eq!(battery_icon(84), "battery-level-80-symbolic");
+        assert_eq!(battery_icon(85), "battery-level-90-symbolic");
+        assert_eq!(battery_icon(100), "battery-level-100-symbolic");
+        assert_eq!(battery_icon(250), "battery-level-100-symbolic");
     }
 }

@@ -27,6 +27,11 @@ pub struct Wallpaper {
 }
 
 impl Wallpaper {
+    /// A video the service has listed but not yet made a picture for; asking again later finds it.
+    pub fn awaits_preview(&self) -> bool {
+        self.preview.is_empty() && !self.unreadable
+    }
+
     /// `Title · 1920 × 1080 · 30 FPS`, or the title alone when the size is not known.
     pub fn details(&self) -> String {
         if self.unreadable {
@@ -82,6 +87,22 @@ impl PlayerState {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_video_without_a_picture_waits_unless_it_cannot_be_read() {
+        let waiting = Wallpaper::default();
+        assert!(waiting.awaits_preview());
+        let broken = Wallpaper {
+            unreadable: true,
+            ..Wallpaper::default()
+        };
+        assert!(!broken.awaits_preview());
+        let ready = Wallpaper {
+            preview: "/x.jpg".into(),
+            ..Wallpaper::default()
+        };
+        assert!(!ready.awaits_preview());
+    }
 
     #[test]
     fn a_catalog_item_is_read_with_its_size() {

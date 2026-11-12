@@ -12,6 +12,9 @@ pub struct Mode {
     pub refresh: f64,
     pub scales: Vec<f64>,
     pub preferred: bool,
+    /// A variable refresh rate (adaptive sync) version of a mode: mutter lists these beside the
+    /// fixed ones with `refresh-rate-mode` set to `variable`.
+    pub variable: bool,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -118,11 +121,19 @@ impl Config {
         else {
             return Vec::new();
         };
-        let mut out: Vec<&Mode> = monitor
-            .modes
-            .iter()
-            .filter(|m| (m.width, m.height) == size)
-            .collect();
+        // The rates of the kind in use: with adaptive sync on, its modes; otherwise the fixed ones.
+        let variable = self.mode_of(index).is_some_and(|m| m.variable);
+        let at_size = |variable: bool| -> Vec<&Mode> {
+            monitor
+                .modes
+                .iter()
+                .filter(|m| (m.width, m.height) == size && m.variable == variable)
+                .collect()
+        };
+        let mut out = at_size(variable);
+        if out.is_empty() {
+            out = at_size(!variable);
+        }
         out.sort_by(|a, b| b.refresh.total_cmp(&a.refresh));
         out
     }
@@ -155,7 +166,10 @@ impl Config {
                 .and_then(|m| {
                     m.modes
                         .iter()
-                        .filter(|x| (x.width, x.height) == (wanted.width, wanted.height))
+                        .filter(|x| {
+                            (x.width, x.height) == (wanted.width, wanted.height)
+                                && x.variable == wanted.variable
+                        })
                         .min_by(|a, b| {
                             (a.refresh - wanted.refresh)
                                 .abs()
@@ -192,6 +206,58 @@ impl Config {
             return false;
         };
         self.set_mode(index, &best)
+    }
+
+    /// Whether the screen's monitor has adaptive sync modes at the current size.
+    pub fn vrr_available(&self, index: usize) -> bool {
+        let Some(current) = self.mode_of(index) else {
+            return false;
+        };
+        self.logicals
+            .get(index)
+            .and_then(|l| l.monitors.first())
+            .and_then(|(c, _)| self.monitor(c))
+            .is_some_and(|m| {
+                m.modes
+                    .iter()
+                    .any(|x| x.variable && (x.width, x.height) == (current.width, current.height))
+            })
+    }
+
+    pub fn vrr_on(&self, index: usize) -> bool {
+        self.mode_of(index).is_some_and(|m| m.variable)
+    }
+
+    /// Switches adaptive sync on or off, keeping the size and the nearest refresh rate.
+    pub fn set_vrr(&mut self, index: usize, on: bool) -> bool {
+        let Some(current) = self.mode_of(index).cloned() else {
+            return false;
+        };
+        if current.variable == on {
+            return true;
+        }
+        let Some(target) = self
+            .logicals
+            .get(index)
+            .and_then(|l| l.monitors.first())
+            .and_then(|(c, _)| self.monitor(c))
+            .and_then(|m| {
+                m.modes
+                    .iter()
+                    .filter(|x| {
+                        x.variable == on && (x.width, x.height) == (current.width, current.height)
+                    })
+                    .min_by(|a, b| {
+                        (a.refresh - current.refresh)
+                            .abs()
+                            .total_cmp(&(b.refresh - current.refresh).abs())
+                    })
+            })
+            .map(|m| m.id.clone())
+        else {
+            return false;
+        };
+        self.set_mode(index, &target)
     }
 
     /// The scales the screen's current mode supports.
@@ -394,6 +460,7 @@ mod tests {
             refresh: r,
             scales: scales.to_vec(),
             preferred: false,
+            variable: false,
         }
     }
 
@@ -408,6 +475,14 @@ mod tests {
                 },
                 mode("a60", 2880, 1800, 60.0, &[1.0, 1.5, 2.0]),
                 mode("b60", 1920, 1200, 60.0, &[1.0, 2.0]),
+                Mode {
+                    variable: true,
+                    ..mode("a120v", 2880, 1800, 120.0, &[1.0, 1.5, 2.0])
+                },
+                Mode {
+                    variable: true,
+                    ..mode("a60v", 2880, 1800, 60.0, &[1.0, 1.5, 2.0])
+                },
             ],
         }
     }
@@ -567,5 +642,42 @@ mod tests {
     #[test]
     fn with_no_other_screen_a_drop_stays_where_it_is() {
         assert_eq!(snap((10, 20), (100, 100), &[]), (10, 20));
+    }
+
+    #[test]
+    fn adaptive_sync_is_offered_only_where_there_are_variable_modes() {
+        let c = two();
+        assert!(c.vrr_available(0));
+        assert!(!c.vrr_available(1));
+        assert!(!c.vrr_on(0));
+    }
+
+    #[test]
+    fn switching_adaptive_sync_keeps_size_and_nearest_rate_and_back() {
+        let mut c = two();
+        assert!(c.set_vrr(0, true));
+        assert_eq!(c.logicals[0].monitors[0].1, "a120v");
+        assert!(c.vrr_on(0));
+        // The rates listed are those of the kind in use.
+        let ids: Vec<&str> = c
+            .refresh_rates(0, (2880, 1800))
+            .iter()
+            .map(|m| m.id.as_str())
+            .collect();
+        assert_eq!(ids, ["a120v", "a60v"]);
+        assert!(c.set_vrr(0, false));
+        assert_eq!(c.logicals[0].monitors[0].1, "a120");
+        assert!(!c.set_vrr(1, true));
+    }
+
+    #[test]
+    fn variable_modes_are_not_mixed_into_the_fixed_rates() {
+        let c = two();
+        let ids: Vec<&str> = c
+            .refresh_rates(0, (2880, 1800))
+            .iter()
+            .map(|m| m.id.as_str())
+            .collect();
+        assert_eq!(ids, ["a120", "a60"]);
     }
 }

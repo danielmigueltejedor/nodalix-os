@@ -18,6 +18,7 @@ use crate::i18n::tr;
 const BLUEZ: &str = "org.bluez";
 const ADAPTER: &str = "org.bluez.Adapter1";
 const DEVICE: &str = "org.bluez.Device1";
+const BATTERY: &str = "org.bluez.Battery1";
 const POLL_SECONDS: u32 = 4;
 
 type Interfaces = HashMap<String, HashMap<String, glib::Variant>>;
@@ -105,6 +106,10 @@ async fn read(connection: &gio::DBusConnection) -> Option<Reading> {
                 paired,
                 connected: flag("Connected"),
                 icon: text("Icon"),
+                battery: interfaces
+                    .get(BATTERY)
+                    .and_then(|b| b.get("Percentage"))
+                    .and_then(|v| v.get::<u8>()),
             });
         }
     }
@@ -117,10 +122,12 @@ impl BluetoothPage {
         let content = column();
         let top = ndl::PreferencesGroup::new();
         let radio = ndl::SwitchRow::builder().title(tr("Bluetooth")).build();
+        radio.add_prefix(&gtk::Image::from_icon_name("bluetooth-symbolic"));
         radio.set_sensitive(false);
         let status = ndl::ActionRow::builder()
             .title(tr("Looking for Bluetooth…"))
             .build();
+        status.add_prefix(&gtk::Image::from_icon_name("computer-symbolic"));
         top.add(&radio);
         top.add(&status);
         content.append(&top);
@@ -251,13 +258,22 @@ impl BluetoothPage {
             row.add_prefix(&gtk::Image::from_icon_name(&bluetooth::icon_name(
                 &device.icon,
             )));
-            row.set_subtitle(if device.connected {
+            let state = if device.connected {
                 tr("Connected")
             } else if device.paired {
                 tr("Paired")
             } else {
                 ""
-            });
+            };
+            match device.battery {
+                Some(percent) if device.connected => {
+                    row.set_subtitle(&format!("{state} · {percent} %"));
+                    row.add_suffix(&gtk::Image::from_icon_name(&bluetooth::battery_icon(
+                        percent,
+                    )));
+                }
+                _ => row.set_subtitle(state),
+            }
             let button = |label: &str| {
                 let b = gtk::Button::with_label(label);
                 b.set_valign(gtk::Align::Center);

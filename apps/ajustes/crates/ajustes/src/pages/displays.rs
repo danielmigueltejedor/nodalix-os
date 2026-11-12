@@ -76,6 +76,11 @@ pub fn parse_state(state: &glib::Variant) -> Option<Config> {
                 refresh: m.try_child_value(3)?.get::<f64>()?,
                 scales: m.try_child_value(5)?.get::<Vec<f64>>().unwrap_or_default(),
                 preferred: flag("is-preferred"),
+                variable: props
+                    .as_ref()
+                    .and_then(|p| lookup(p, "refresh-rate-mode"))
+                    .and_then(|v| v.str().map(|s| s == "variable"))
+                    .unwrap_or(false),
             };
             // The mode in use is remembered by the screen that shows it, below.
             if flag("is-current") {
@@ -154,6 +159,40 @@ fn apply_arguments(config: &Config, serial: u32, method: u32) -> glib::Variant {
 }
 
 /// `60 Hz`, `59.94 Hz`: the rate without a decimal part when it has none.
+const MUTTER_SETTINGS: &str = "org.gnome.mutter";
+const VRR_FEATURE: &str = "variable-refresh-rate";
+
+/// Whether the desktop offers adaptive sync (`None` when it has no such option).
+fn experimental_vrr() -> Option<bool> {
+    let g = super::gs::open(MUTTER_SETTINGS).filter(|g| g.has("experimental-features"))?;
+    Some(
+        g.settings()
+            .strv("experimental-features")
+            .iter()
+            .any(|f| f == VRR_FEATURE),
+    )
+}
+
+/// Adds or removes adaptive sync among the desktop's experimental features, leaving the rest.
+fn set_experimental_vrr(on: bool) {
+    let Some(g) = super::gs::open(MUTTER_SETTINGS).filter(|g| g.has("experimental-features"))
+    else {
+        return;
+    };
+    let mut features: Vec<String> = g
+        .settings()
+        .strv("experimental-features")
+        .iter()
+        .map(|f| f.to_string())
+        .filter(|f| f != VRR_FEATURE)
+        .collect();
+    if on {
+        features.push(VRR_FEATURE.to_owned());
+    }
+    let features: Vec<&str> = features.iter().map(String::as_str).collect();
+    let _ = g.settings().set_strv("experimental-features", features);
+}
+
 fn rate_text(refresh: f64) -> String {
     let rounded = (refresh * 100.0).round() / 100.0;
     if (rounded - rounded.round()).abs() < 0.005 {
@@ -178,6 +217,8 @@ struct Page {
     screen: ndl::ComboRow,
     resolution: ndl::ComboRow,
     refresh: ndl::ComboRow,
+    vrr: ndl::SwitchRow,
+    vrr_feature: ndl::SwitchRow,
     scale: ndl::ComboRow,
     orientation: ndl::ComboRow,
     primary: ndl::SwitchRow,
@@ -296,6 +337,19 @@ impl Page {
             // With one rate there is nothing to choose.
             self.refresh.set_sensitive(rates.len() > 1);
         }
+        let feature = experimental_vrr();
+        self.vrr_feature.set_visible(feature.is_some());
+        self.vrr_feature.set_active(feature == Some(true));
+        let available = config.vrr_available(index);
+        self.vrr.set_active(config.vrr_on(index));
+        self.vrr.set_sensitive(available);
+        self.vrr.set_subtitle(tr(if available {
+            "The screen follows the frame rate of games and videos (FreeSync, G-Sync Compatible)"
+        } else if feature == Some(false) {
+            "Turn on \"Offer adaptive refresh rate\" below first"
+        } else {
+            "This screen does not offer it"
+        }));
         let scales = config.scales(index);
         let scale_labels: Vec<String> = scales
             .iter()
@@ -699,7 +753,24 @@ pub fn build(toasts: &ndl::ToastOverlay) -> gtk::ScrolledWindow {
     let resolution = ndl::ComboRow::builder().title(tr("Resolution")).build();
     resolution.add_prefix(&gtk::Image::from_icon_name("view-fullscreen-symbolic"));
     let refresh = ndl::ComboRow::builder().title(tr("Refresh rate")).build();
-    refresh.add_prefix(&gtk::Image::from_icon_name("emblem-synchronizing-symbolic"));
+    refresh.add_prefix(&gtk::Image::from_icon_name("view-refresh-symbolic"));
+    let vrr = ndl::SwitchRow::builder()
+        .title(tr("Adaptive refresh rate"))
+        .subtitle(tr(
+            "The screen follows the frame rate of games and videos (FreeSync, G-Sync Compatible)",
+        ))
+        .build();
+    vrr.add_prefix(&gtk::Image::from_icon_name(
+        "media-playlist-shuffle-symbolic",
+    ));
+    let vrr_feature = ndl::SwitchRow::builder()
+        .title(tr("Offer adaptive refresh rate"))
+        .subtitle(tr(
+            "Experimental in the desktop; the screens that support it then show the option above",
+        ))
+        .build();
+    vrr_feature.add_prefix(&gtk::Image::from_icon_name("applications-science-symbolic"));
+    vrr_feature.set_visible(false);
     let scale = ndl::ComboRow::builder().title(tr("Scale")).build();
     scale.add_prefix(&gtk::Image::from_icon_name("zoom-in-symbolic"));
     let labels: Vec<&str> = ORIENTATIONS.iter().map(|l| tr(l)).collect();
@@ -724,10 +795,12 @@ pub fn build(toasts: &ndl::ToastOverlay) -> gtk::ScrolledWindow {
     screen_group.add(&screen);
     screen_group.add(&resolution);
     screen_group.add(&refresh);
+    screen_group.add(&vrr);
     screen_group.add(&scale);
     screen_group.add(&orientation);
     screen_group.add(&primary);
     screen_group.add(&off_row);
+    screen_group.add(&vrr_feature);
 
     let disabled_group = ndl::PreferencesGroup::builder()
         .title(tr("Screens that are off"))
@@ -758,6 +831,8 @@ pub fn build(toasts: &ndl::ToastOverlay) -> gtk::ScrolledWindow {
         screen: screen.clone(),
         resolution: resolution.clone(),
         refresh: refresh.clone(),
+        vrr: vrr.clone(),
+        vrr_feature: vrr_feature.clone(),
         scale: scale.clone(),
         orientation: orientation.clone(),
         primary: primary.clone(),
@@ -879,6 +954,32 @@ pub fn build(toasts: &ndl::ToastOverlay) -> gtk::ScrolledWindow {
     }
     {
         let page = page.clone();
+        vrr.connect_active_notify(move |row| {
+            let on = row.is_active();
+            // The page setting the switch to what the configuration says must not edit again.
+            let index = page.selected.get();
+            if page.config().is_some_and(|c| c.vrr_on(index) == on) {
+                return;
+            }
+            page.edit(move |c, i| {
+                c.set_vrr(i, on);
+            });
+        });
+    }
+    {
+        let page = page.clone();
+        vrr_feature.connect_active_notify(move |row| {
+            if page.loading.get() {
+                return;
+            }
+            set_experimental_vrr(row.is_active());
+            // The desktop reloads its screens a moment after the option changes.
+            let page = page.clone();
+            glib::timeout_add_seconds_local_once(2, move || page.load());
+        });
+    }
+    {
+        let page = page.clone();
         scale.connect_selected_notify(move |row| {
             let pos = row.selected() as usize;
             page.edit(move |c, i| {
@@ -900,7 +1001,8 @@ pub fn build(toasts: &ndl::ToastOverlay) -> gtk::ScrolledWindow {
     {
         let page = page.clone();
         primary.connect_active_notify(move |row| {
-            if row.is_active() {
+            let index = page.selected.get();
+            if row.is_active() && page.config().is_some_and(|c| !c.logicals[index].primary) {
                 page.edit(|c, i| c.set_primary(i));
             }
         });

@@ -177,8 +177,17 @@ impl Gallery {
         check.set_margin_bottom(6);
         check.add_css_class("settings-tile-check");
         check.set_visible(false);
+        // A picture that is not there yet (a video whose first frame is still being made) shows
+        // a video icon instead of an empty box.
+        let placeholder = gtk::Image::from_icon_name("video-x-generic-symbolic");
+        placeholder.set_pixel_size(32);
+        placeholder.set_halign(gtk::Align::Center);
+        placeholder.set_valign(gtk::Align::Center);
+        placeholder.set_can_target(false);
+        placeholder.set_opacity(0.6);
         let overlay = gtk::Overlay::new();
         overlay.set_child(Some(&image));
+        overlay.add_overlay(&placeholder);
         overlay.add_overlay(&check);
         let button = gtk::Button::new();
         button.set_child(Some(&overlay));
@@ -191,6 +200,7 @@ impl Gallery {
         glib::spawn_future_local(async move {
             if let Ok(Some(pixels)) = gio::spawn_blocking(move || decode(&picture)).await {
                 image.set_paintable(Some(&texture(pixels)));
+                placeholder.set_visible(false);
             }
         });
     }
@@ -499,15 +509,15 @@ pub fn section(toasts: &ndl::ToastOverlay) -> gtk::Box {
             }
             animated_group.set_visible(true);
             animated_box.set_visible(true);
-            let catalog = match ask(&service, "GetWallpapers", None).await {
-                Some(text) => wallpapers::parse_catalog(&text).unwrap_or_default(),
-                None => Vec::new(),
-            };
-            animated.clear();
-            for item in catalog {
-                add_animated(&animated, &service, &toasts, &refresh, item);
+            // The service makes the first frame of a video you imported a little after it
+            // lists it, so look again until every video has one (or the wait is over).
+            for attempt in 0..POLLS {
+                let pending = fill(&service, &animated, &toasts, &refresh).await;
+                if !pending || attempt + 1 == POLLS {
+                    break;
+                }
+                glib::timeout_future_seconds(POLL_SECONDS).await;
             }
-            refresh();
         });
     }
     {
@@ -562,6 +572,30 @@ pub fn section(toasts: &ndl::ToastOverlay) -> gtk::Box {
         });
     }
     content
+}
+
+/// How many times, and how far apart, the gallery asks again while pictures are being made.
+const POLLS: u32 = 15;
+const POLL_SECONDS: u32 = 4;
+
+/// Fills the animated gallery from the service; says whether some video has no picture yet.
+async fn fill(
+    service: &gio::DBusProxy,
+    animated: &Rc<Gallery>,
+    toasts: &ndl::ToastOverlay,
+    refresh: &Rc<impl Fn() + 'static>,
+) -> bool {
+    let catalog = match ask(service, "GetWallpapers", None).await {
+        Some(text) => wallpapers::parse_catalog(&text).unwrap_or_default(),
+        None => Vec::new(),
+    };
+    let pending = catalog.iter().any(Wallpaper::awaits_preview);
+    animated.clear();
+    for item in catalog {
+        add_animated(animated, service, toasts, refresh, item);
+    }
+    refresh();
+    pending
 }
 
 fn add_animated(

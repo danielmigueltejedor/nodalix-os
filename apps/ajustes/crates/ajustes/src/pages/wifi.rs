@@ -35,11 +35,29 @@ struct Reading {
     known: Option<HashMap<String, String>>,
 }
 
+/// Icons for the connection row, each list tried in order: a theme may lack some names.
+const ONLINE: [&str; 3] = [
+    "network-wireless-signal-excellent-symbolic",
+    "network-wireless-connected-symbolic",
+    "network-wireless-symbolic",
+];
+const OFFLINE: [&str; 3] = [
+    "network-wireless-offline-symbolic",
+    "network-wireless-disabled-symbolic",
+    "network-wireless-symbolic",
+];
+
+/// An image of the first of these icon names the theme has.
+fn themed(names: &[&str]) -> gtk::Image {
+    gtk::Image::from_gicon(&gio::ThemedIcon::from_names(names))
+}
+
 pub struct WifiPage {
     pub widget: gtk::ScrolledWindow,
     toasts: RefCell<Option<ndl::ToastOverlay>>,
     bus: Rc<bus::SystemRefresh>,
     status: ndl::ActionRow,
+    status_icon: gtk::Image,
     radio: ndl::SwitchRow,
     networks: ndl::PreferencesGroup,
     rows: RefCell<Vec<ndl::ActionRow>>,
@@ -228,7 +246,13 @@ impl WifiPage {
             .title(tr("Looking for Wi-Fi…"))
             .build();
         let radio = ndl::SwitchRow::builder().title(tr("Wi-Fi")).build();
+        radio.add_prefix(&themed(&[
+            "network-wireless-symbolic",
+            "network-wireless-signal-excellent-symbolic",
+        ]));
         radio.set_sensitive(false);
+        let status_icon = themed(&OFFLINE);
+        status.add_prefix(&status_icon);
         let top = ndl::PreferencesGroup::new();
         top.add(&radio);
         top.add(&status);
@@ -263,6 +287,7 @@ impl WifiPage {
             toasts: RefCell::new(None),
             bus: Rc::default(),
             status,
+            status_icon,
             radio,
             networks,
             rows: RefCell::new(Vec::new()),
@@ -390,6 +415,13 @@ impl WifiPage {
             });
         self.status
             .set_subtitle(reading.active.as_deref().unwrap_or(""));
+        let names: &[&str] = if reading.active.is_some() {
+            &ONLINE
+        } else {
+            &OFFLINE
+        };
+        self.status_icon
+            .set_from_gicon(&gio::ThemedIcon::from_names(names));
         let visible = has_device && reading.enabled;
         self.networks.set_visible(visible);
         if visible {
@@ -425,16 +457,23 @@ impl WifiPage {
         }
         for (point, is_active, is_known) in &wanted {
             let row = ndl::ActionRow::builder().title(point.ssid.as_str()).build();
-            row.add_prefix(&gtk::Image::from_icon_name(network::signal_icon(
-                point.strength,
-            )));
+            row.add_prefix(&themed(&[
+                network::signal_icon(point.strength),
+                "network-wireless-symbolic",
+            ]));
             if *is_active {
                 row.set_subtitle(tr("Connected"));
             } else if *is_known {
                 row.set_subtitle(tr("Saved"));
             }
             if point.secured {
-                row.add_suffix(&gtk::Image::from_icon_name("changes-prevent-symbolic"));
+                let lock = themed(&[
+                    "changes-prevent-symbolic",
+                    "system-lock-screen-symbolic",
+                    "channel-secure-symbolic",
+                ]);
+                lock.set_tooltip_text(Some(tr("Secured")));
+                row.add_suffix(&lock);
             }
             if *is_active {
                 let disconnect = gtk::Button::with_label(tr("Disconnect"));
