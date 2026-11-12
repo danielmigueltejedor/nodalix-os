@@ -132,159 +132,58 @@ const WM: &str = "org.gnome.desktop.wm.keybindings";
 const SHELL: &str = "org.gnome.shell.keybindings";
 const MEDIA: &str = "org.gnome.settings-daemon.plugins.media-keys";
 
-/// The shortcuts offered, grouped; a key missing on the system is left out by the page.
-pub const SHORTCUTS: &[Shortcut] = &[
-    Shortcut {
-        schema: SHELL,
-        key: "toggle-overview",
-        title: "Show the overview",
-        group: "Navigation",
-    },
-    Shortcut {
-        schema: WM,
-        key: "switch-applications",
-        title: "Switch applications",
-        group: "Navigation",
-    },
-    Shortcut {
-        schema: WM,
-        key: "switch-windows",
-        title: "Switch windows",
-        group: "Navigation",
-    },
-    Shortcut {
-        schema: WM,
-        key: "switch-to-workspace-left",
-        title: "Workspace to the left",
-        group: "Navigation",
-    },
-    Shortcut {
-        schema: WM,
-        key: "switch-to-workspace-right",
-        title: "Workspace to the right",
-        group: "Navigation",
-    },
-    Shortcut {
-        schema: WM,
-        key: "show-desktop",
-        title: "Show the desktop",
-        group: "Navigation",
-    },
-    Shortcut {
-        schema: WM,
-        key: "close",
-        title: "Close the window",
-        group: "Windows",
-    },
-    Shortcut {
-        schema: WM,
-        key: "minimize",
-        title: "Hide the window",
-        group: "Windows",
-    },
-    Shortcut {
-        schema: WM,
-        key: "toggle-maximized",
-        title: "Maximise the window",
-        group: "Windows",
-    },
-    Shortcut {
-        schema: WM,
-        key: "toggle-fullscreen",
-        title: "Full screen",
-        group: "Windows",
-    },
-    Shortcut {
-        schema: WM,
-        key: "move-to-workspace-left",
-        title: "Move the window to the left",
-        group: "Windows",
-    },
-    Shortcut {
-        schema: WM,
-        key: "move-to-workspace-right",
-        title: "Move the window to the right",
-        group: "Windows",
-    },
-    Shortcut {
-        schema: SHELL,
-        key: "show-screenshot-ui",
-        title: "Take a screenshot",
-        group: "System",
-    },
-    Shortcut {
-        schema: SHELL,
-        key: "toggle-message-tray",
-        title: "Show notifications",
-        group: "System",
-    },
-    Shortcut {
-        schema: MEDIA,
-        key: "screensaver",
-        title: "Lock the screen",
-        group: "System",
-    },
-    Shortcut {
-        schema: MEDIA,
-        key: "terminal",
-        title: "Open a terminal",
-        group: "Launchers",
-    },
-    Shortcut {
-        schema: MEDIA,
-        key: "www",
-        title: "Open the web browser",
-        group: "Launchers",
-    },
-    Shortcut {
-        schema: MEDIA,
-        key: "home",
-        title: "Open the home folder",
-        group: "Launchers",
-    },
-    Shortcut {
-        schema: MEDIA,
-        key: "email",
-        title: "Open the email",
-        group: "Launchers",
-    },
-    Shortcut {
-        schema: MEDIA,
-        key: "volume-up",
-        title: "Volume up",
-        group: "Sound and media",
-    },
-    Shortcut {
-        schema: MEDIA,
-        key: "volume-down",
-        title: "Volume down",
-        group: "Sound and media",
-    },
-    Shortcut {
-        schema: MEDIA,
-        key: "volume-mute",
-        title: "Mute",
-        group: "Sound and media",
-    },
-    Shortcut {
-        schema: MEDIA,
-        key: "play",
-        title: "Play or pause",
-        group: "Sound and media",
-    },
-    Shortcut {
-        schema: MEDIA,
-        key: "next",
-        title: "Next track",
-        group: "Sound and media",
-    },
-    Shortcut {
-        schema: MEDIA,
-        key: "previous",
-        title: "Previous track",
-        group: "Sound and media",
-    },
-];
+/// The shortcuts offered, one per line as `group | schema | key | title`; the schema is `wm`,
+/// `shell` or `media`. A key missing on the system is left out by the page.
+const TABLE: &str = "\
+Navigation | shell | toggle-overview | Show the overview
+Navigation | wm | switch-applications | Switch applications
+Navigation | wm | switch-windows | Switch windows
+Navigation | wm | switch-to-workspace-left | Workspace to the left
+Navigation | wm | switch-to-workspace-right | Workspace to the right
+Navigation | wm | show-desktop | Show the desktop
+Windows | wm | close | Close the window
+Windows | wm | minimize | Hide the window
+Windows | wm | toggle-maximized | Maximise the window
+Windows | wm | toggle-fullscreen | Full screen
+Windows | wm | move-to-workspace-left | Move the window to the left
+Windows | wm | move-to-workspace-right | Move the window to the right
+System | shell | show-screenshot-ui | Take a screenshot
+System | shell | toggle-message-tray | Show notifications
+System | media | screensaver | Lock the screen
+Launchers | media | terminal | Open a terminal
+Launchers | media | www | Open the web browser
+Launchers | media | home | Open the home folder
+Launchers | media | email | Open the email
+Sound and media | media | volume-up | Volume up
+Sound and media | media | volume-down | Volume down
+Sound and media | media | volume-mute | Mute
+Sound and media | media | play | Play or pause
+Sound and media | media | next | Next track
+Sound and media | media | previous | Previous track
+";
+
+pub fn shortcuts() -> Vec<Shortcut> {
+    TABLE
+        .lines()
+        .filter_map(|line| {
+            let mut parts = line.split(" | ");
+            let (group, schema, key, title) =
+                (parts.next()?, parts.next()?, parts.next()?, parts.next()?);
+            let schema = match schema {
+                "wm" => WM,
+                "shell" => SHELL,
+                "media" => MEDIA,
+                _ => return None,
+            };
+            Some(Shortcut {
+                schema,
+                key,
+                title,
+                group,
+            })
+        })
+        .collect()
+}
 
 /// The shortcut that already uses `accelerator` among `taken` (title, accelerators) pairs,
 /// other than the one at `except`.
@@ -377,8 +276,10 @@ mod tests {
 
     #[test]
     fn every_shortcut_is_listed_once() {
-        for (i, a) in SHORTCUTS.iter().enumerate() {
-            assert!(SHORTCUTS[i + 1..]
+        let all = shortcuts();
+        assert_eq!(all.len(), TABLE.lines().count());
+        for (i, a) in all.iter().enumerate() {
+            assert!(all[i + 1..]
                 .iter()
                 .all(|b| (a.schema, a.key) != (b.schema, b.key)));
         }

@@ -365,7 +365,8 @@ impl ShortcutRows {
 fn shortcut_groups(toasts: &ndl::ToastOverlay) -> Vec<ndl::PreferencesGroup> {
     let mut opened: HashMap<&str, Option<gs::Gs>> = HashMap::new();
     let mut found: Vec<(&kb::Shortcut, gio::Settings)> = Vec::new();
-    for s in kb::SHORTCUTS {
+    let table = kb::shortcuts();
+    for s in &table {
         let g = opened.entry(s.schema).or_insert_with(|| gs::open(s.schema));
         if let Some(g) = g.as_ref().filter(|g| g.has(s.key)) {
             found.push((s, g.settings().clone()));

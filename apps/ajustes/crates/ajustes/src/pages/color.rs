@@ -256,15 +256,20 @@ fn import(page: &Rc<Page>, parent: Option<gtk::Window>) {
                 .add_toast(ndl::Toast::new(tr("That is not a color profile")));
             return;
         }
-        let folder = glib::user_data_dir().join("icc");
-        let result = std::fs::create_dir_all(&folder).and_then(|()| {
+        let source = file.path();
+        // Copying a file blocks, so it runs on a worker thread.
+        let result = gio::spawn_blocking(move || {
+            let folder = glib::user_data_dir().join("icc");
+            std::fs::create_dir_all(&folder)?;
             // A bare file name, never a path from the picker's text.
             let target = folder.join(std::path::Path::new(&name).file_name().unwrap_or_default());
-            match file.path() {
+            match source {
                 Some(source) => std::fs::copy(source, target).map(|_| ()),
                 None => Err(std::io::Error::other("not a local file")),
             }
-        });
+        })
+        .await
+        .unwrap_or_else(|_| Err(std::io::Error::other("the copy did not finish")));
         match result {
             Ok(()) => {
                 page.toasts

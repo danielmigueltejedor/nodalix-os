@@ -501,6 +501,14 @@ mod tests {
     use super::*;
 
     #[test]
+    fn every_shortcut_and_its_group_is_translated() {
+        for shortcut in ajustes_core::keyboard::shortcuts() {
+            assert!(has_translation(shortcut.title), "{}", shortcut.title);
+            assert!(has_translation(shortcut.group), "{}", shortcut.group);
+        }
+    }
+
+    #[test]
     fn every_page_and_section_title_is_translated() {
         for (section, pages) in ajustes_core::pages::SECTIONS {
             if !section.is_empty() {
