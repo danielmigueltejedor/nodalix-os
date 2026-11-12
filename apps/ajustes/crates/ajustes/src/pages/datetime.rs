@@ -61,7 +61,13 @@ fn system_group(toasts: &ndl::ToastOverlay) -> ndl::PreferencesGroup {
             .title(tr("Automatic date and time"))
             .subtitle(tr("Set the clock from the internet"))
             .build(),
-        zone: ndl::EntryRow::builder().title(tr("Time zone")).build(),
+        zone: {
+            let row = ndl::EntryRow::builder().title(tr("Time zone")).build();
+            row.add_prefix(&gtk::Image::from_icon_name(
+                "preferences-system-time-symbolic",
+            ));
+            row
+        },
         apply: gtk::Button::with_label(tr("Apply")),
         saved_zone: Default::default(),
         loading: Cell::new(true),
@@ -69,6 +75,8 @@ fn system_group(toasts: &ndl::ToastOverlay) -> ndl::PreferencesGroup {
             .map(|t| parse_zones(&t))
             .unwrap_or_default(),
     });
+    ui.automatic
+        .add_prefix(&gtk::Image::from_icon_name("network-wireless-symbolic"));
     ui.automatic.set_sensitive(false);
     ui.zone.set_sensitive(false);
     ui.apply.set_valign(gtk::Align::Center);

@@ -39,11 +39,7 @@ fn state_text(state: State) -> &'static str {
     }
 }
 
-fn printer_row(
-    printer: &Printer,
-    toasts: &ndl::ToastOverlay,
-    reload: &Reload,
-) -> ndl::ActionRow {
+fn printer_row(printer: &Printer, toasts: &ndl::ToastOverlay, reload: &Reload) -> ndl::ActionRow {
     let row = ndl::ActionRow::builder().title(printer.title()).build();
     let mut subtitle = tr(state_text(printer.state)).to_owned();
     if printer.is_default {

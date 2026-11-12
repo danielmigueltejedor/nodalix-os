@@ -56,6 +56,9 @@ impl UpdatesPage {
 
         let group = ndl::PreferencesGroup::builder().title(tr("Status")).build();
         let status = ndl::ActionRow::builder().title("…").build();
+        status.add_prefix(&gtk::Image::from_icon_name(
+            "software-update-available-symbolic",
+        ));
         let spinner = ndl::Spinner::new();
         spinner.set_visible(false);
         status.add_suffix(&spinner);
@@ -282,6 +285,12 @@ impl UpdatesPage {
                     tr("Not installed")
                 })
                 .build();
+            row.add_prefix(&gtk::Image::from_icon_name(match source.kind.as_str() {
+                "firmware" => "drive-harddisk-symbolic",
+                "flatpak" => "system-software-install-symbolic",
+                "apps" => "view-app-grid-symbolic",
+                _ => "emblem-system-symbolic",
+            }));
             if source.available {
                 let button = gtk::Button::with_label(tr("Update"));
                 button.set_valign(gtk::Align::Center);

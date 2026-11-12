@@ -107,6 +107,16 @@ impl Side {
             pending: Cell::new(0),
             loading: Cell::new(true),
         });
+        side.device
+            .add_prefix(&gtk::Image::from_icon_name(match kind {
+                Kind::Output => "audio-speakers-symbolic",
+                Kind::Input => "audio-input-microphone-symbolic",
+            }));
+        side.mute
+            .add_prefix(&gtk::Image::from_icon_name(match kind {
+                Kind::Output => "audio-volume-muted-symbolic",
+                Kind::Input => "microphone-disabled-symbolic",
+            }));
         side.volume.set_width_request(220);
         side.volume.set_valign(gtk::Align::Center);
         side.volume.set_draw_value(true);
@@ -184,6 +194,7 @@ impl Side {
         let group = ndl::PreferencesGroup::builder().title(title).build();
         group.add(&self.device);
         let volume = ndl::ActionRow::builder().title(tr("Volume")).build();
+        volume.add_prefix(&gtk::Image::from_icon_name("audio-volume-high-symbolic"));
         volume.add_suffix(&self.volume);
         group.add(&volume);
         group.add(&self.mute);

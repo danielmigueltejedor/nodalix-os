@@ -35,13 +35,16 @@ pub fn build(toasts: &ndl::ToastOverlay) -> gtk::ScrolledWindow {
     content.append(&picture);
 
     let name = ndl::EntryRow::builder().title(tr("Full name")).build();
+    name.add_prefix(&gtk::Image::from_icon_name("avatar-default-symbolic"));
     let apply = gtk::Button::with_label(tr("Apply"));
     apply.set_valign(gtk::Align::Center);
     apply.set_sensitive(false);
     name.add_suffix(&apply);
     name.set_sensitive(false);
     let username = ndl::ActionRow::builder().title(tr("User name")).build();
+    username.add_prefix(&gtk::Image::from_icon_name("system-users-symbolic"));
     let kind = ndl::ActionRow::builder().title(tr("Account type")).build();
+    kind.add_prefix(&gtk::Image::from_icon_name("security-high-symbolic"));
     group.add(&name);
     group.add(&username);
     group.add(&kind);

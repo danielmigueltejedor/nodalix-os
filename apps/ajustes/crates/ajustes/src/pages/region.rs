@@ -59,9 +59,13 @@ pub fn build(toasts: &ndl::ToastOverlay) -> gtk::ScrolledWindow {
     let content = column();
 
     let language = ndl::ComboRow::builder().title(tr("Language")).build();
+    language.add_prefix(&gtk::Image::from_icon_name(
+        "preferences-desktop-locale-symbolic",
+    ));
     language.set_subtitle(tr("Applies the next time you sign in"));
     language.set_sensitive(false);
     let formats = ndl::ComboRow::builder().title(tr("Formats")).build();
+    formats.add_prefix(&gtk::Image::from_icon_name("x-office-calendar-symbolic"));
     formats.set_subtitle(tr("Dates, numbers and currency"));
     formats.set_sensitive(false);
 

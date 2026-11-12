@@ -10,5 +10,6 @@ pub mod network;
 pub mod pages;
 pub mod printers;
 pub mod sysinfo;
+pub mod themes;
 pub mod updates;
 pub mod wallpapers;

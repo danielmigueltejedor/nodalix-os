@@ -51,6 +51,74 @@ impl Val {
     }
 }
 
+/// The icon that stands for a key in its row, like the icons in GNOME's settings: found by what
+/// the key's name talks about, so a new key of a known kind gets one without a table entry.
+pub fn icon_for(key: &str) -> Option<&'static str> {
+    const ICONS: &[(&str, &str)] = &[
+        // More specific names first: the first that the key contains wins.
+        ("locate-pointer", "input-mouse-symbolic"),
+        ("double-click", "input-mouse-symbolic"),
+        ("left-handed", "input-mouse-symbolic"),
+        ("mousekeys", "input-mouse-symbolic"),
+        ("bouncekeys", "input-keyboard-symbolic"),
+        ("slowkeys", "input-keyboard-symbolic"),
+        ("stickykeys", "input-keyboard-symbolic"),
+        ("togglekeys", "input-keyboard-symbolic"),
+        ("screen-keyboard", "input-keyboard-symbolic"),
+        ("allow-volume", "audio-volume-high-symbolic"),
+        ("show-status-shapes", "view-reveal-symbolic"),
+        ("visual-bell", "display-brightness-symbolic"),
+        ("automatic-timezone", "find-location-symbolic"),
+        ("show-banners", "preferences-system-notifications-symbolic"),
+        ("battery", "battery-symbolic"),
+        ("power-saver", "battery-symbolic"),
+        ("remember-app-usage", "view-app-grid-symbolic"),
+        ("remove-old-temp", "edit-clear-all-symbolic"),
+        ("remove-old-trash", "user-trash-symbolic"),
+        ("night-light", "night-light-symbolic"),
+        ("lock", "system-lock-screen-symbolic"),
+        ("idle-dim", "display-brightness-symbolic"),
+        ("idle", "preferences-system-time-symbolic"),
+        ("power-button", "system-shutdown-symbolic"),
+        ("sleep", "system-suspend-symbolic"),
+        ("clock", "preferences-system-time-symbolic"),
+        ("tap", "input-touchpad-symbolic"),
+        ("click", "input-touchpad-symbolic"),
+        ("scroll", "input-touchpad-symbolic"),
+        ("send-events", "input-touchpad-symbolic"),
+        ("accel", "input-mouse-symbolic"),
+        ("speed", "input-mouse-symbolic"),
+        ("cursor", "input-mouse-symbolic"),
+        ("typing", "input-keyboard-symbolic"),
+        ("repeat", "input-keyboard-symbolic"),
+        ("delay", "input-keyboard-symbolic"),
+        ("numlock", "input-keyboard-symbolic"),
+        ("event-sounds", "audio-volume-high-symbolic"),
+        ("old-files", "user-trash-symbolic"),
+        ("recent", "document-open-recent-symbolic"),
+        ("report", "dialog-warning-symbolic"),
+        ("usb", "media-removable-symbolic"),
+        ("magnifier", "zoom-in-symbolic"),
+        (
+            "screen-reader",
+            "preferences-desktop-accessibility-symbolic",
+        ),
+        ("picture", "preferences-desktop-wallpaper-symbolic"),
+        ("workspace", "view-grid-symbolic"),
+        ("hot-corner", "view-fullscreen-symbolic"),
+        ("edge-tiling", "view-dual-symbolic"),
+        ("animation", "media-playback-start-symbolic"),
+        ("cursor-blink", "input-keyboard-symbolic"),
+        ("high-contrast", "display-brightness-symbolic"),
+        ("large-text", "format-text-larger-symbolic"),
+        ("overlay-scrolling", "input-mouse-symbolic"),
+    ];
+    ICONS
+        .iter()
+        .find(|(needle, _)| key.contains(needle))
+        .map(|(_, icon)| *icon)
+}
+
 pub const fn s(label: &'static str, value: &'static str) -> (&'static str, Val) {
     (label, Val::S(value))
 }
@@ -95,6 +163,9 @@ impl Gs {
             return None;
         }
         let row = ndl::SwitchRow::builder().title(title).build();
+        if let Some(icon) = icon_for(key) {
+            row.add_prefix(&gtk::Image::from_icon_name(icon));
+        }
         if !subtitle.is_empty() {
             row.set_subtitle(subtitle);
         }
@@ -116,6 +187,9 @@ impl Gs {
         }
         let row = ndl::SpinRow::with_range(min, max, step);
         row.set_title(title);
+        if let Some(icon) = icon_for(key) {
+            row.add_prefix(&gtk::Image::from_icon_name(icon));
+        }
         self.0.bind(key, &row, "value").build();
         row.set_sensitive(self.0.is_writable(key));
         Some(row)
@@ -143,6 +217,9 @@ impl Gs {
             .title(title)
             .model(&gtk::StringList::new(&labels))
             .build();
+        if let Some(icon) = icon_for(key) {
+            row.add_prefix(&gtk::Image::from_icon_name(icon));
+        }
         row.set_selected(selected_for(table, &current));
         row.set_sensitive(self.0.is_writable(key));
         {
@@ -191,6 +268,9 @@ impl Gs {
             return None;
         }
         let row = ndl::ActionRow::builder().title(title).build();
+        if let Some(icon) = icon_for(key) {
+            row.add_prefix(&gtk::Image::from_icon_name(icon));
+        }
         if !subtitle.is_empty() {
             row.set_subtitle(subtitle);
         }
@@ -278,6 +358,16 @@ pub fn legacy_link(title: &str, subtitle: &str, panel: &'static str) -> ndl::Act
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_key_gets_the_icon_of_what_it_talks_about() {
+        assert_eq!(icon_for("tap-to-click"), Some("input-touchpad-symbolic"));
+        assert_eq!(
+            icon_for("night-light-enabled"),
+            Some("night-light-symbolic")
+        );
+        assert_eq!(icon_for("something-unknown"), None);
+    }
 
     #[test]
     fn values_match_variants_of_their_own_type() {

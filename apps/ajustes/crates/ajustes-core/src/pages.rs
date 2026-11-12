@@ -50,11 +50,6 @@ pub const SECTIONS: &[(&str, &[Page])] = &[
         "",
         &[
             native("appearance", "Appearance", "applications-graphics-symbolic"),
-            native(
-                "backgrounds",
-                "Backgrounds",
-                "preferences-desktop-wallpaper-symbolic",
-            ),
             native("updates", "Updates", "software-update-available-symbolic"),
         ],
     ),

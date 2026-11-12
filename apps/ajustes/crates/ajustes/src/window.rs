@@ -6,10 +6,10 @@ use nodalia_gtk::{self as ndl, gtk, gtk::prelude::*};
 use crate::i18n::tr;
 use crate::legacy;
 use crate::pages::{
-    about, accessibility, accounts, appearance, applications, backgrounds,
-    bluetooth::BluetoothPage, color, datetime, displays, keyboard, localsend::LocalSendPage,
-    multitasking, network::NetworkPage, notifications, pointing, power, printers, privacy, region,
-    sharing, sound, updates::UpdatesPage, users, wifi::WifiPage,
+    about, accessibility, accounts, appearance, applications, bluetooth::BluetoothPage, color,
+    datetime, displays, keyboard, localsend::LocalSendPage, multitasking, network::NetworkPage,
+    notifications, pointing, power, printers, privacy, region, sharing, sound,
+    updates::UpdatesPage, users, wifi::WifiPage,
 };
 
 fn sidebar_row(page: &Page) -> gtk::ListBoxRow {
@@ -50,7 +50,15 @@ pub fn present(app: &gtk::Application) {
     }
     let window = ndl::ApplicationWindow::new(app);
     window.set_title(Some(tr("Settings")));
-    window.set_default_size(1000, 700);
+    // `NODALIX_SETTINGS_SIZE=1000x1400` opens a taller window, to see a whole page in one picture.
+    let (width, height) = std::env::var("NODALIX_SETTINGS_SIZE")
+        .ok()
+        .and_then(|v| {
+            let (w, h) = v.split_once('x')?;
+            Some((w.parse().ok()?, h.parse().ok()?))
+        })
+        .unwrap_or((1000, 700));
+    window.set_default_size(width, height);
     window.set_icon_name(Some("os.nodalix.Settings"));
 
     let toasts = ndl::ToastOverlay::new();
@@ -68,8 +76,7 @@ pub fn present(app: &gtk::Application) {
     // The content area: one stack child per page.
     let stack = gtk::Stack::new();
     stack.set_transition_type(gtk::StackTransitionType::Crossfade);
-    stack.add_named(&appearance::build(), Some("appearance"));
-    stack.add_named(&backgrounds::build(&toasts), Some("backgrounds"));
+    stack.add_named(&appearance::build(&toasts), Some("appearance"));
     stack.add_named(&updates.widget, Some("updates"));
     stack.add_named(&localsend.widget, Some("localsend"));
     stack.add_named(&about::build(), Some("about"));

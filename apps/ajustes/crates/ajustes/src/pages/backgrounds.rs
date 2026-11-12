@@ -14,8 +14,8 @@ use nodalia_gtk::{
 
 use ajustes_core::wallpapers::{self, PlayerState, Wallpaper, PAUSE_CHOICES};
 
+use super::column;
 use super::gs::{self, s};
-use super::{column, scroller};
 use crate::i18n::tr;
 
 const BUS: &str = "com.nodalix.Settings";
@@ -215,15 +215,16 @@ async fn ask(proxy: &gio::DBusProxy, method: &str, args: Option<&glib::Variant>)
     reply.child_value(0).str().map(str::to_owned)
 }
 
-pub fn build(toasts: &ndl::ToastOverlay) -> gtk::ScrolledWindow {
-    let content = column();
+/// The background sections of the Appearance page: pictures, the lock screen and animated ones.
+pub fn section(toasts: &ndl::ToastOverlay) -> gtk::Box {
+    let content = gtk::Box::new(gtk::Orientation::Vertical, 18);
     let settings = gio::Settings::new(BACKGROUND);
     let proxy: Rc<RefCell<Option<gio::DBusProxy>>> = Rc::default();
 
     // Still pictures.
     let stills = Gallery::new();
     let still_group = ndl::PreferencesGroup::builder()
-        .title(tr("Pictures"))
+        .title(tr("Desktop background"))
         .build();
     let current_uri = {
         let settings = settings.clone();
@@ -318,6 +319,78 @@ pub fn build(toasts: &ndl::ToastOverlay) -> gtk::ScrolledWindow {
         });
     }
 
+    // The lock screen picture.
+    if let Some(lock) = gs::open("org.gnome.desktop.screensaver") {
+        if lock.has("picture-uri") {
+            let screensaver = lock.settings().clone();
+            let group = ndl::PreferencesGroup::builder()
+                .title(tr("Lock screen"))
+                .build();
+            let row = ndl::ActionRow::builder()
+                .title(tr("Lock screen picture"))
+                .build();
+            row.add_prefix(&gtk::Image::from_icon_name("system-lock-screen-symbolic"));
+            let name_of = |uri: &str| {
+                if uri.is_empty() {
+                    tr("Same as desktop").to_owned()
+                } else {
+                    gio::File::for_uri(uri)
+                        .basename()
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .unwrap_or_default()
+                }
+            };
+            row.set_subtitle(&name_of(&screensaver.string("picture-uri")));
+            let choose_lock = gtk::Button::with_label(tr("Choose…"));
+            choose_lock.set_valign(gtk::Align::Center);
+            let same = gtk::Button::with_label(tr("Same as desktop"));
+            same.set_valign(gtk::Align::Center);
+            row.add_suffix(&same);
+            row.add_suffix(&choose_lock);
+            group.add(&row);
+            content.append(&group);
+            {
+                let (row, screensaver) = (row.clone(), screensaver.clone());
+                screensaver
+                    .clone()
+                    .connect_changed(Some("picture-uri"), move |_, _| {
+                        row.set_subtitle(&name_of(&screensaver.string("picture-uri")));
+                    });
+            }
+            {
+                let screensaver = screensaver.clone();
+                same.connect_clicked(move |_| {
+                    let _ = screensaver.set_string("picture-uri", "");
+                });
+            }
+            let toasts = toasts.clone();
+            choose_lock.connect_clicked(move |button| {
+                let dialog = gtk::FileDialog::builder()
+                    .title(tr("Lock screen picture"))
+                    .build();
+                let filter = gtk::FileFilter::new();
+                filter.add_mime_type("image/*");
+                let filters = gio::ListStore::new::<gtk::FileFilter>();
+                filters.append(&filter);
+                dialog.set_filters(Some(&filters));
+                let window = button.root().and_downcast::<gtk::Window>();
+                let (screensaver, toasts) = (screensaver.clone(), toasts.clone());
+                glib::spawn_future_local(async move {
+                    match dialog.open_future(window.as_ref()).await {
+                        Ok(file) => {
+                            let _ = screensaver.set_string("picture-uri", file.uri().as_str());
+                        }
+                        Err(error) => {
+                            if !error.matches(gtk::DialogError::Dismissed) {
+                                toasts.add_toast(ndl::Toast::new(error.message()));
+                            }
+                        }
+                    }
+                });
+            });
+        }
+    }
+
     // Animated backgrounds: only when the service says the player is installed.
     let animated_group = ndl::PreferencesGroup::builder()
         .title(tr("Animated backgrounds"))
@@ -334,6 +407,7 @@ pub fn build(toasts: &ndl::ToastOverlay) -> gtk::ScrolledWindow {
         .model(&gtk::StringList::new(&pause_labels))
         .build();
     pause.set_sensitive(false);
+    status.add_prefix(&gtk::Image::from_icon_name("video-x-generic-symbolic"));
     animated_group.add(&status);
     animated_group.add(&pause);
     content.append(&animated_group);
@@ -487,7 +561,7 @@ pub fn build(toasts: &ndl::ToastOverlay) -> gtk::ScrolledWindow {
             glib::ControlFlow::Continue
         });
     }
-    scroller(&content)
+    content
 }
 
 fn add_animated(
