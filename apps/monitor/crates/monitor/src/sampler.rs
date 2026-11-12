@@ -6,7 +6,7 @@ use std::time::Instant;
 
 use monitor_core::cpu::{self, CpuSample};
 use monitor_core::mem::{self, Memory};
-use monitor_core::net::{self, NetTotals};
+use monitor_core::net::{self, Interfaces};
 use monitor_core::procs::{self, Process};
 
 /// Samples kept for each graph; one per second.
@@ -27,7 +27,7 @@ pub struct Snapshot {
 pub struct Sampler {
     last_at: Option<Instant>,
     cpu: Option<CpuSample>,
-    net: Option<NetTotals>,
+    net: Option<Interfaces>,
     /// CPU ticks of the previous reading, by pid and start time: a reused pid is a new process.
     ticks: HashMap<(u32, u64), u64>,
 }
@@ -76,7 +76,7 @@ impl Sampler {
         // A failed reading is no baseline: storing zeros would make the next good one look like
         // everything since boot arrived in one interval.
         let net_now = net::read();
-        let rate = match (self.net, net_now) {
+        let rate = match (&self.net, &net_now) {
             (Some(before), Some(now)) => net::rate(before, now, seconds),
             _ => (0.0, 0.0),
         };
