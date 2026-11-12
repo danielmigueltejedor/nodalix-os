@@ -61,11 +61,15 @@ install_file() { # modo origen destino
 # Instala un .desktop con el Exec absoluto y «(vista previa)» en el nombre, para distinguirlo
 # del de GNOME mientras conviven.
 install_desktop() { # origen destino-nombre
-  local dest="$apps_dir/$2"
+  local dest="$apps_dir/$2" drop='^#nada#'
   mkdir -p "$apps_dir"
+  # Los tipos MIME solo se conservan en Brújula (hacen falta para ser navegador); en el resto se
+  # quitan para que la vista previa no se convierta en el gestor de carpetas por su cuenta.
+  [[ $2 == "$brujula_desktop" ]] || drop='^MimeType='
   sed -E \
     -e "s|^Exec=([a-z-]+)|Exec=$bin/\1|" \
     -e 's|^(Name(\[[a-z_]+\])?)=(.*)$|\1=\3 (NDL)|' \
+    -e "/$drop/d" \
     "$1" > "$dest"
   record "$dest"
 }
@@ -76,12 +80,21 @@ do_install() {
   mkdir -p "$state" "$bin"
   : > "$manifest"
 
-  echo "== Monitor del sistema y Ajustes =="
-  (cd "$root/apps" && cargo build --release --locked -p nodalix-monitor -p nodalix-settings)
+  echo "== Monitor del sistema, Ajustes y Archivador =="
+  local pkgs=(-p nodalix-monitor -p nodalix-settings) extra=()
+  if [[ -d $root/apps/archivador ]]; then
+    pkgs+=(-p nodalix-archivador)
+    extra+=(archivador)
+  fi
+  (cd "$root/apps" && cargo build --release --locked "${pkgs[@]}")
   install_file 755 "$root/apps/target/release/nodalix-monitor" "$bin/nodalix-monitor"
   install_file 755 "$root/apps/target/release/nodalix-settings" "$bin/nodalix-settings"
   install_desktop "$root/apps/monitor/data/os.nodalix.Monitor.desktop" os.nodalix.Monitor.desktop
   install_desktop "$root/apps/ajustes/data/os.nodalix.Settings.desktop" os.nodalix.Settings.desktop
+  if [[ ${extra[*]:-} == archivador ]]; then
+    install_file 755 "$root/apps/target/release/nodalix-archivador" "$bin/nodalix-archivador"
+    install_desktop "$root/apps/archivador/data/os.nodalix.Archivador.desktop" os.nodalix.Archivador.desktop
+  fi
 
   echo "== Brújula =="
   if [[ ! -d $brujula_dir/.git ]]; then
@@ -101,7 +114,8 @@ do_install() {
   gtk-update-icon-cache -qf "${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor" 2>/dev/null || true
   cat <<EOF
 
-Listo. En el lanzador aparecen «Monitor del sistema (NDL)», «Ajustes (NDL)» y «Brújula (NDL)».
+Listo. En el lanzador aparecen «Monitor del sistema (NDL)», «Ajustes (NDL)», «Brújula (NDL)» y,
+si la rama lo trae, «Archivos (NDL)».
 Los de GNOME siguen donde estaban. Para quitarlo todo: $0 uninstall
 Brújula como predeterminado (opcional): $0 default-browser on
 EOF
