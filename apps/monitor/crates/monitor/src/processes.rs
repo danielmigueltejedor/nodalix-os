@@ -262,7 +262,9 @@ impl ProcessView {
         } else {
             // Rebuilding the store is one items-changed for any number of exits. It already
             // holds the new rows, since they are in `by_pid` by now.
-            let all: Vec<ProcessObject> = by_pid.values().cloned().collect();
+            // In pid order, not hash order, so rows that tie on the sort column stay where they are.
+            let mut all: Vec<ProcessObject> = by_pid.values().cloned().collect();
+            all.sort_by_key(|o| o.row().pid);
             self.store.splice(0, self.store.n_items(), &all);
         }
         drop(by_pid);

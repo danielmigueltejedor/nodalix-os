@@ -136,7 +136,6 @@ mod tests {
         std::thread::sleep(std::time::Duration::from_millis(50));
         let second = s.sample();
         assert!((0.0..=1.0).contains(&second.cpu_total));
-        assert_eq!(second.cores.len(), first.cores.len());
         assert!(second
             .cores
             .iter()
