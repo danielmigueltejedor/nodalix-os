@@ -125,7 +125,7 @@ impl Browser {
         let window = ndl::ApplicationWindow::new(app);
         window.set_title(Some(tr("Files")));
         window.set_default_size(1100, 720);
-        window.set_icon_name(Some("system-file-manager"));
+        window.set_icon_name(Some("os.nodalix.Archivador"));
 
         let store = gio::ListStore::new::<FileObject>();
         let selection = gtk::MultiSelection::new(Some(store.clone()));
@@ -887,7 +887,7 @@ impl Browser {
         });
         self.action("about", |t| {
             ndl::AboutDialog::builder()
-                .application_icon("system-file-manager")
+                .application_icon("os.nodalix.Archivador")
                 .application_name(tr("Files"))
                 .developer_name("Nodalix")
                 .version(env!("CARGO_PKG_VERSION"))
