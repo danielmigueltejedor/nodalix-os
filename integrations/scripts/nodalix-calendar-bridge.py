@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse, hashlib, json, re, sys
+import tempfile
 from pathlib import Path
 import gi
 gi.require_version('ECal','2.0'); gi.require_version('EDataServer','1.2')
@@ -232,30 +233,55 @@ def load_state():
     if data.get('version')!=VERSION or not isinstance(data.get('uids'),dict): raise SystemExit('Invalid calendar bridge state')
     return data
 
+def write_atomic(path, text):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', newline='',
+                                     dir=path.parent, delete=False) as stream:
+        staged = Path(stream.name)
+        try:
+            stream.write(text)
+            stream.close()
+            staged.replace(path)
+        finally:
+            staged.unlink(missing_ok=True)
+
+
 def save_state(data):
-    STATE.parent.mkdir(parents=True,exist_ok=True); tmp=STATE.with_suffix('.tmp'); tmp.write_text(json.dumps(data,indent=2,sort_keys=True)+'\n'); tmp.replace(STATE)
+    write_atomic(STATE, json.dumps(data, indent=2, sort_keys=True) + '\n')
 
 def default_rel(uid,family): return relpath(family/(hashlib.sha256(uid.encode()).hexdigest()+'.ics'))
-def pick_rel(uid,l,e,prev,family):
-    for candidate in ((prev or {}).get('source_file',''), (l or {}).get('source_file',''), (e or {}).get('source_file','')):
-        if candidate:
-            try:
-                if writable(abspath(candidate),family): return candidate
-            except Exception: pass
-    return default_rel(uid,family)
+def pick_rel(uid, local, previous, family):
+    # The EDS marker is event data and cannot select a file to write.
+    for record in (local, previous):
+        candidate = (record or {}).get('source_file')
+        if not candidate:
+            continue
+        try:
+            path = abspath(candidate)
+            if path.suffix == '.ics':
+                return candidate
+        except (OSError, ValueError, RuntimeError):
+            continue
+    return default_rel(uid, family)
 
-def write_group(rel,events):
-    path=abspath(rel)
+
+def write_group(uid, rel, events, family):
+    path = abspath(rel)
+    if path.suffix != '.ics' or not writable(path, family):
+        raise ValueError('Calendar destination is outside the writable collection')
+    raw = path.read_text(encoding='utf-8', errors='replace') if path.exists() else ''
+    if raw and any(not (identity := ident(event)) or identity[0] != uid for event in vevents(raw)):
+        raise ValueError('Calendar destination contains events from another UID')
     if not events:
         path.unlink(missing_ok=True); return
     body=''.join(clean_local(v['text']).strip()+'\r\n' for _,v in sorted(events.items(),key=lambda x:(x[0]!='',x[0])))
     if path.exists():
-        raw=path.read_text(encoding='utf-8',errors='replace'); base=re.sub(r'BEGIN:VEVENT.*?END:VEVENT\s*','',raw,flags=re.S); at=base.rfind('END:VCALENDAR')
+        base=re.sub(r'BEGIN:VEVENT.*?END:VEVENT\s*','',raw,flags=re.S); at=base.rfind('END:VCALENDAR')
         if at<0: raise RuntimeError('Invalid VCALENDAR '+str(path))
         out=base[:at].rstrip('\r\n')+'\r\n'+body+base[at:]
     else:
         out='BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Nodalix//Calendar Bridge//EN\r\nCALSCALE:GREGORIAN\r\n'+body+'END:VCALENDAR\r\n'
-    path.parent.mkdir(parents=True,exist_ok=True); tmp=path.with_name(path.name+'.nodalix.tmp'); tmp.write_text(out); tmp.replace(path)
+    write_atomic(path, out)
 
 def mod_all():
     value=getattr(ECal.ObjModType,'ALL',None)
@@ -287,13 +313,13 @@ def export_phase(client,family,dry,verbose):
     if dupes: print('Duplicate UID across local files:',*dupes,file=sys.stderr); return 2
     next_st=dict(st); changes=deferred=conflicts=0
     for uid in sorted(set(st)|set(local)|set(eds)):
-        prev=st.get(uid); l=local.get(uid); e=eds.get(uid); rel=pick_rel(uid,l,e,prev,family)
-        is_write=bool((prev or {}).get('writable')) or writable(abspath(rel),family)
+        prev=st.get(uid); l=local.get(uid); e=eds.get(uid); rel=pick_rel(uid,l,prev,family)
+        is_write=writable(abspath(rel),family)
         if not is_write: continue
         if prev is None:
             if e and not l:
                 if verbose: print('EDS -> local CREATE',uid,rel)
-                if not dry: write_group(rel,e['events']); l={'hash':e['hash']}
+                if not dry: write_group(uid,rel,e['events'],family); l={'hash':e['hash']}
                 next_st[uid]=entry(l,e,rel,True); changes+=1
             elif l and e:
                 if l['hash']==e['hash']: next_st[uid]=entry(l,e,rel,True)
@@ -304,7 +330,7 @@ def export_phase(client,family,dry,verbose):
         lc=lh!=prev.get('local_hash'); ec=eh!=prev.get('eds_hash')
         if ec and not lc:
             if verbose: print('EDS -> local', 'UPDATE' if e else 'DELETE',uid,rel)
-            if not dry: write_group(rel,e['events'] if e else {})
+            if not dry: write_group(uid,rel,e['events'] if e else {},family)
             if e: next_st[uid]={'source_file':rel,'writable':True,'local_hash':eh,'eds_hash':eh}
             else: next_st.pop(uid,None)
             changes+=1
@@ -322,8 +348,7 @@ def import_phase(client,family,dry,verbose):
     next_st=dict(st); to_eds=to_local=deferred=conflicts=0
     for uid in sorted(set(st)|set(local)|set(eds)):
         prev=st.get(uid); l=local.get(uid); e=eds.get(uid)
-        rel=((prev or {}).get('source_file') or (l or {}).get('source_file') or (e or {}).get('source_file') or '')
-        if not rel and e: rel=default_rel(uid,family)
+        rel=pick_rel(uid,l,prev,family)
         is_write=writable(abspath(rel),family) if rel else False
         if not is_write:
             if l:
@@ -341,7 +366,7 @@ def import_phase(client,family,dry,verbose):
                 sync_eds_group(client,uid,l['events'],{},rel,dry); next_st[uid]={'source_file':rel,'writable':True,'local_hash':l['hash'],'eds_hash':l['hash']}; to_eds+=1
             elif e and not l:
                 if verbose: print('EDS -> local CREATE',uid,rel)
-                if not dry: write_group(rel,e['events'])
+                if not dry: write_group(uid,rel,e['events'],family)
                 next_st[uid]={'source_file':rel,'writable':True,'local_hash':e['hash'],'eds_hash':e['hash']}; to_local+=1
             elif l and e:
                 if l['hash']==e['hash']: next_st[uid]=entry(l,e,rel,True)

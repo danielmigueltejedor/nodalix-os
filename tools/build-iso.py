@@ -6,6 +6,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
+import stat
 import re
 import shutil
 import subprocess
@@ -52,6 +54,34 @@ def release_identity(version: str) -> str:
         f'NAME="Nodalix"\nVERSION="{version}"\n'
         f'VERSION_ID="{version}"\nCHANNEL="{channel}"\n'
     )
+
+
+def brand_boot_configs(profile: Path, version: str) -> None:
+    profile_root = profile.resolve()
+    for directory in (
+        "syslinux",
+        "efiboot",
+        "grub",
+    ):
+        target = profile / directory
+
+        if target.is_symlink() or not target.is_dir():
+            continue
+
+        for path in target.rglob("*"):
+            if path.suffix not in {".cfg", ".conf"} or path.is_symlink() or not path.is_file():
+                continue
+            if not path.resolve().is_relative_to(profile_root):
+                continue
+            fd = os.open(path, os.O_RDWR | os.O_NOFOLLOW | os.O_NONBLOCK)
+            with os.fdopen(fd, "r+", encoding="utf-8") as stream:
+                if not stat.S_ISREG(os.fstat(stream.fileno()).st_mode):
+                    continue
+                text = stream.read().replace("Arch Linux", f"Nodalix OS {version}")
+                stream.seek(0)
+                stream.write(text)
+                stream.truncate()
+
 
 
 def prepare(assets: Path, work: Path) -> tuple[Path, str]:
@@ -386,32 +416,7 @@ printf 'LANG=en_US.UTF-8\\n' > /etc/locale.conf
         encoding="utf-8",
     )
 
-    for directory in (
-        "syslinux",
-        "efiboot",
-        "grub",
-    ):
-        target = profile / directory
-
-        if not target.exists():
-            continue
-
-        for path in target.rglob("*"):
-            if (
-                path.is_file()
-                and path.suffix in {".cfg", ".conf"}
-            ):
-                text = path.read_text(
-                    encoding="utf-8"
-                )
-
-                path.write_text(
-                    text.replace(
-                        "Arch Linux",
-                        f"Nodalix OS {version}",
-                    ),
-                    encoding="utf-8",
-                )
+    brand_boot_configs(profile, version)
 
     return profile, version
 
