@@ -18,7 +18,7 @@ repo=$(mktemp -d)
 chmod 755 "$repo"
 bash tools/build-pacman-repo.sh dist/packages "$repo/nodalix" "$key"
 for name in nodalix.db nodalix.db.sig nodalix.files; do
-  test -f "$repo/nodalix/$name" && ! test -L "$repo/nodalix/$name"
+  [[ -f "$repo/nodalix/$name" && ! -L "$repo/nodalix/$name" ]] || exit 1
 done
 
 chmod -R a+rX "$repo"
@@ -39,7 +39,7 @@ pacman -Sy
 pacman -Si nodalix/nodalix-store >/dev/null
 # The package signature is checked on download (dependencies are not needed for that).
 pacman -Sddw --noconfirm --cachedir "$repo/cache" nodalix/nodalix-store
-test -f "$repo"/cache/nodalix-store-*.pkg.tar.zst
+compgen -G "$repo/cache/nodalix-store-*.pkg.tar.zst" >/dev/null
 
 # A tampered database must be rejected.
 printf 'tampered' >> "$repo/nodalix/nodalix.db"
