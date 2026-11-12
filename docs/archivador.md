@@ -16,6 +16,19 @@ del propio sistema.
   `nautilus` siguen funcionando.
 - `NODALIX_NDL=0` desactiva la capa para depurar.
 
+## Extensiones propias
+
+Se construyen dentro de Nautilus (`gnome/archivador/extensions/<nombre>/`; `apply.py` las copia a
+`extensions/` y las registra en su `meson.build`), no con nautilus-python.
+
+- **Compartir con LocalSend** (`nodalix-localsend`, en C): submenú del menú contextual con los
+  dispositivos cercanos, «Buscar dispositivos» y «Ajustes de LocalSend». Mismo comportamiento que
+  la extensión Python de `nodalix-gnome` (`gnome/nautilus/nodalix_localsend.py`): lista por
+  D-Bus (`com.nodalix.LocalSend1`) con caché y refresco asíncrono, de modo que abrir el menú no
+  espera a D-Bus, y envío con una unidad transitoria de systemd.
+  Si Archivador está instalado, la extensión Python se aparta sola para que el menú no salga dos
+  veces.
+
 ## Paquete
 
 `nodalix-archivador` (`packaging/nodalix-archivador/`): `provides` y `conflicts` de `nautilus` y
@@ -39,7 +52,8 @@ Cambia `NAUTILUS_TAG`, `NAUTILUS_REV` y, si el `.wrap` de Nautilus lo pide, `LIB
 
 ## Pendiente
 
-- LocalSend integrado en Archivador (hoy es la extensión nautilus-python de `nodalix-gnome`).
+- Retirar la extensión Python de LocalSend de `nodalix-gnome` cuando Archivador sea el predeterminado.
+- Más extensiones propias.
 - Revisar a mano en un Nautilus real: diálogos, vista de cuadrícula, selector de archivos,
   hoja `style.css` propia de Nautilus frente a NDL.
 - Decidir cuándo pasa a ser el gestor predeterminado.
@@ -48,5 +62,8 @@ Cambia `NAUTILUS_TAG`, `NAUTILUS_REV` y, si el `.wrap` de Nautilus lo pide, `LIB
 
 `tests/test_archivador.py` aplica la capa a un árbol mínimo y comprueba hojas, cargador, islas,
 nombre y que un ancla ausente falle. El árbol real de Nautilus 51.1 se probó con `apply.py`
-(las seis ediciones encuentran su ancla). **No se ha compilado Archivador**: el entorno de
-desarrollo no tiene GTK 4.24 ni libadwaita 1.8; lo compila el CI de paquetes.
+(las seis ediciones encuentran su ancla). **No se ha compilado Archivador entero**: el entorno de
+desarrollo no tiene GTK 4.24 ni libadwaita 1.8; lo compila el CI de paquetes. La extensión de
+LocalSend sí se probó aparte, enlazada con `libnautilus-extension` real de Nautilus 51.1 y un
+servicio D-Bus simulado: construye el submenú con los dispositivos, reacciona a la señal
+`Changed`, envía con `systemd-run` y los argumentos correctos y refresca al buscar.

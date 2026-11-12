@@ -14,9 +14,10 @@ conflicts=("nautilus" "libnautilus-extension")
 # by installing the stock package first (see tools/build-packages.sh).
 depends=("gnome-autoar" "gnome-desktop-4" "gtk4" "libadwaita" "glycin" "glycin-gtk4"
          "libportal" "libportal-gtk4" "tinysparql" "icu" "gexiv2" "gst-plugins-base-libs"
-         "gdk-pixbuf2" "libcloudproviders" "gvfs" "dconf" "gsettings-desktop-schemas")
+         "gdk-pixbuf2" "libcloudproviders" "gvfs" "dconf" "gsettings-desktop-schemas" "json-glib"
+         "systemd" "libnotify")
 makedepends=("meson" "ninja" "gobject-introspection" "blueprint-compiler" "python" "glib2-devel"
-             "gettext" "desktop-file-utils" "appstream" "libxml2")
+             "gettext" "desktop-file-utils" "appstream" "libxml2" "json-glib")
 # Prepared by tools/build-archivador-package.py from a pinned Nautilus 51.1 tree.
 source=("nautilus-51.1.tar.zst" "nodalix-archivador-$pkgver.tar.zst")
 sha256sums=("SKIP" "SKIP")

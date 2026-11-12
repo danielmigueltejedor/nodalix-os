@@ -201,7 +201,7 @@ if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
     # stock package first pulls in every runtime library it links, as the Arch package declares them.
     if [[ ${NODALIX_CI_CONTAINER:-} == 1 ]]; then
       sudo pacman -S --needed --noconfirm nautilus gobject-introspection blueprint-compiler \
-        gettext desktop-file-utils appstream libxml2 python glib2-devel
+        gettext desktop-file-utils appstream libxml2 python glib2-devel json-glib
     fi
     python3 "$root/tools/build-archivador-package.py" --output "$root/dist/native-archivador"
     # Built and kept apart on purpose: it conflicts with nautilus, and the clean-install, upgrade and
