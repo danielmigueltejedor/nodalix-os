@@ -41,12 +41,14 @@ pub fn build(toasts: &ndl::ToastOverlay) -> gtk::ScrolledWindow {
         .title(tr("This device"))
         .build();
     let name = ndl::EntryRow::builder().title(tr("Device name")).build();
+    name.add_prefix(&gtk::Image::from_icon_name("computer-symbolic"));
     let apply = gtk::Button::with_label(tr("Apply"));
     apply.set_valign(gtk::Align::Center);
     apply.set_sensitive(false);
     name.add_suffix(&apply);
     name.set_sensitive(false);
     let network = ndl::ActionRow::builder().title(tr("Network name")).build();
+    network.add_prefix(&gtk::Image::from_icon_name("network-workgroup-symbolic"));
     let hint = ndl::ActionRow::builder()
         .title(tr("The name other devices see on the network"))
         .build();

@@ -27,6 +27,9 @@ const fn native(id: &'static str, title: &'static str, icon: &'static str) -> Pa
     }
 }
 
+/// A page that opens the previous panel. Every page is native now; this stays for a page that
+/// is added before it is ported.
+#[allow(dead_code)]
 const fn legacy(
     id: &'static str,
     title: &'static str,
@@ -53,38 +56,28 @@ pub const SECTIONS: &[(&str, &[Page])] = &[
     (
         "Connections",
         &[
-            legacy(
-                "network",
-                "Network",
-                "network-workgroup-symbolic",
-                "network",
-            ),
-            legacy("wifi", "Wi-Fi", "network-wireless-symbolic", "wifi"),
-            legacy("bluetooth", "Bluetooth", "bluetooth-symbolic", "bluetooth"),
+            native("network", "Network", "network-workgroup-symbolic"),
+            native("wifi", "Wi-Fi", "network-wireless-symbolic"),
+            native("bluetooth", "Bluetooth", "bluetooth-symbolic"),
             native("sharing", "Sharing", "preferences-system-sharing-symbolic"),
             native(
                 "localsend",
                 "LocalSend",
                 "network-transmit-receive-symbolic",
             ),
-            legacy(
-                "online-accounts",
-                "Online accounts",
-                "goa-panel-symbolic",
-                "online-accounts",
-            ),
+            native("online-accounts", "Online accounts", "goa-panel-symbolic"),
         ],
     ),
     (
         "Devices",
         &[
-            legacy("display", "Displays", "video-display-symbolic", "display"),
+            native("display", "Displays", "video-display-symbolic"),
             native("sound", "Sound", "audio-volume-high-symbolic"),
             native("power", "Power", "battery-symbolic"),
             native("keyboard", "Keyboard", "input-keyboard-symbolic"),
             native("mouse", "Mouse and touchpad", "input-mouse-symbolic"),
-            legacy("printers", "Printers", "printer-symbolic", "printers"),
-            legacy("color", "Color", "preferences-color-symbolic", "color"),
+            native("printers", "Printers", "printer-symbolic"),
+            native("color", "Color", "preferences-color-symbolic"),
         ],
     ),
     (
@@ -96,12 +89,7 @@ pub const SECTIONS: &[(&str, &[Page])] = &[
                 "preferences-system-notifications-symbolic",
             ),
             native("multitasking", "Multitasking", "view-grid-symbolic"),
-            legacy(
-                "applications",
-                "Apps",
-                "view-app-grid-symbolic",
-                "applications",
-            ),
+            native("applications", "Apps", "view-app-grid-symbolic"),
             native(
                 "privacy",
                 "Privacy and security",
@@ -117,13 +105,12 @@ pub const SECTIONS: &[(&str, &[Page])] = &[
                 "Date and time",
                 "preferences-system-time-symbolic",
             ),
-            legacy(
+            native(
                 "region",
                 "Region and language",
                 "preferences-desktop-locale-symbolic",
-                "system",
             ),
-            legacy("users", "Users", "system-users-symbolic", "users"),
+            native("users", "Users", "system-users-symbolic"),
             native("about", "About", "help-about-symbolic"),
         ],
     ),
@@ -152,7 +139,7 @@ mod tests {
     #[test]
     fn finds_by_id() {
         assert_eq!(find("about").map(|p| p.kind), Some(Kind::Native));
-        assert_eq!(find("wifi").map(|p| p.kind), Some(Kind::Legacy("wifi")));
+        assert_eq!(find("printers").map(|p| p.kind), Some(Kind::Native));
         assert!(find("nope").is_none());
     }
 
