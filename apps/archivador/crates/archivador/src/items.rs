@@ -152,7 +152,7 @@ pub fn list_factory(hooks: Hooks) -> gtk::SignalListItemFactory {
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 12);
         row.add_css_class("archivador-row");
         let icon = gtk::Image::new();
-        icon.set_pixel_size(32);
+        icon.set_pixel_size(40);
         let name = gtk::Label::new(None);
         name.set_hexpand(true);
         name.set_xalign(0.0);
@@ -219,7 +219,7 @@ pub fn grid_factory(hooks: Hooks) -> gtk::SignalListItemFactory {
         tile.add_css_class("archivador-tile");
         tile.set_halign(gtk::Align::Center);
         let icon = gtk::Image::new();
-        icon.set_pixel_size(80);
+        icon.set_pixel_size(96);
         let name = gtk::Label::new(None);
         name.set_wrap(true);
         name.set_wrap_mode(gtk::pango::WrapMode::WordChar);
@@ -264,7 +264,7 @@ pub fn column_factory(hooks: Option<Hooks>) -> gtk::SignalListItemFactory {
         let row = gtk::Box::new(gtk::Orientation::Horizontal, 10);
         row.add_css_class("archivador-row");
         let icon = gtk::Image::new();
-        icon.set_pixel_size(24);
+        icon.set_pixel_size(28);
         let name = gtk::Label::new(None);
         name.set_hexpand(true);
         name.set_xalign(0.0);
