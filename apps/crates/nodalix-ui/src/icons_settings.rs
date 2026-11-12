@@ -2,7 +2,7 @@
 //! the devices that connect to a computer and a few of the places. Drawn like the rest (see
 //! `icons`): a 24 px grid, a 2.25 px round stroke, the foreground colour.
 
-use crate::icons::Part::{Circle, Line, Rect, Solid};
+use crate::icons::Part::{Circle, Faint, Line, Rect, Solid};
 use crate::icons::{svg, FOLDER};
 
 /// The three arcs of the Wi-Fi mark, the widest first, and its dot.
@@ -71,12 +71,12 @@ pub(crate) fn drawings() -> Vec<(&'static str, String)> {
         // Networks.
         ("network-wireless-signal-excellent-symbolic", svg(&[Line(ARC_WIDE), Line(ARC_MID), Line(ARC_NEAR), Line(DOT)])),
         ("network-wireless-connected-symbolic", svg(&[Line(ARC_WIDE), Line(ARC_MID), Line(ARC_NEAR), Line(DOT)])),
-        ("network-wireless-signal-good-symbolic", svg(&[Line(ARC_MID), Line(ARC_NEAR), Line(DOT)])),
-        ("network-wireless-signal-ok-symbolic", svg(&[Line(ARC_NEAR), Line(DOT)])),
-        ("network-wireless-signal-weak-symbolic", svg(&[Line(DOT)])),
-        ("network-wireless-signal-none-symbolic", svg(&[Line(DOT), Line(SLASH)])),
-        ("network-wireless-disabled-symbolic", svg(&[Line(ARC_WIDE), Line(ARC_MID), Line(ARC_NEAR), Line(SLASH)])),
-        ("network-wireless-offline-symbolic", svg(&[Line(DOT), Line(SLASH)])),
+        ("network-wireless-signal-good-symbolic", svg(&[Faint(ARC_WIDE), Line(ARC_MID), Line(ARC_NEAR), Line(DOT)])),
+        ("network-wireless-signal-ok-symbolic", svg(&[Faint(ARC_WIDE), Faint(ARC_MID), Line(ARC_NEAR), Line(DOT)])),
+        ("network-wireless-signal-weak-symbolic", svg(&[Faint(ARC_WIDE), Faint(ARC_MID), Faint(ARC_NEAR), Line(DOT)])),
+        ("network-wireless-signal-none-symbolic", svg(&[Faint(ARC_WIDE), Faint(ARC_MID), Faint(ARC_NEAR), Faint(DOT)])),
+        ("network-wireless-disabled-symbolic", svg(&[Faint(ARC_WIDE), Faint(ARC_MID), Faint(ARC_NEAR), Faint(DOT), Line(SLASH)])),
+        ("network-wireless-offline-symbolic", svg(&[Faint(ARC_WIDE), Faint(ARC_MID), Faint(ARC_NEAR), Faint(DOT), Line(SLASH)])),
         ("network-wireless-acquiring-symbolic", svg(&[Line(ARC_WIDE), Line(ARC_MID), Line(ARC_NEAR)])),
         ("network-wired-symbolic", svg(&[Rect(16.0, 16.0, 6.0, 6.0, 1.5), Rect(2.0, 16.0, 6.0, 6.0, 1.5), Rect(9.0, 2.0, 6.0, 6.0, 1.5), Line("M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3M12 12V8")])),
         ("network-wired-disconnected-symbolic", svg(&[Rect(16.0, 16.0, 6.0, 6.0, 1.5), Rect(2.0, 16.0, 6.0, 6.0, 1.5), Rect(9.0, 2.0, 6.0, 6.0, 1.5), Line("M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3M12 12V8"), Line(SLASH)])),

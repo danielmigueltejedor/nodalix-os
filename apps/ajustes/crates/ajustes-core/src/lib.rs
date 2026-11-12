@@ -13,6 +13,7 @@ pub mod localsend;
 pub mod network;
 pub mod pages;
 pub mod printers;
+pub mod storage;
 pub mod sysinfo;
 pub mod themes;
 pub mod updates;

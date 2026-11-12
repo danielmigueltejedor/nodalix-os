@@ -81,6 +81,71 @@ struct Pixels {
     data: Vec<u8>,
 }
 
+/// Where the picture of a video this app made itself is kept.
+fn thumbnail_file(video: &Path) -> Option<PathBuf> {
+    use std::hash::{Hash, Hasher};
+    let meta = std::fs::metadata(video).ok()?;
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    video.hash(&mut hasher);
+    meta.len().hash(&mut hasher);
+    meta.modified().ok()?.hash(&mut hasher);
+    Some(
+        glib::user_cache_dir()
+            .join("nodalix")
+            .join("settings-thumbnails")
+            .join(format!("{:016x}.jpg", hasher.finish())),
+    )
+}
+
+/// The first frame of a video as a small picture, made with `ffmpeg` when the session service
+/// has not (it may be an older one, or the video may have failed there). `None` if there is no
+/// `ffmpeg` or it cannot read the video.
+async fn make_thumbnail(video: PathBuf) -> Option<PathBuf> {
+    let target = thumbnail_file(&video)?;
+    if target.is_file() {
+        return Some(target);
+    }
+    std::fs::create_dir_all(target.parent()?).ok()?;
+    let temporary = target.with_extension("part.jpg");
+    let (input, output) = (
+        video.to_string_lossy().into_owned(),
+        temporary.to_string_lossy().into_owned(),
+    );
+    for position in ["1", "0"] {
+        let result = super::cmd::capture(
+            &[
+                "ffmpeg",
+                "-nostdin",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-ss",
+                position,
+                "-i",
+                &input,
+                "-map",
+                "0:V:0",
+                "-frames:v",
+                "1",
+                "-vf",
+                "scale=288:216:force_original_aspect_ratio=increase,crop=288:216",
+                "-q:v",
+                "3",
+                "-y",
+                &output,
+            ],
+            None,
+        )
+        .await;
+        if result.ok && std::fs::metadata(&temporary).is_ok_and(|m| m.len() > 0) {
+            std::fs::rename(&temporary, &target).ok()?;
+            return Some(target);
+        }
+    }
+    let _ = std::fs::remove_file(&temporary);
+    None
+}
+
 fn decode(path: &Path) -> Option<Pixels> {
     use gtk::gdk_pixbuf::Pixbuf;
     // Scaled to cover the tile, then cropped from the middle: a tile's size must be the
@@ -161,7 +226,14 @@ impl Gallery {
     }
 
     /// Adds a tile identified by `key`; its picture is decoded in the background.
-    fn add(&self, key: &str, picture: PathBuf, tooltip: &str, on_pick: impl Fn() + 'static) {
+    fn add(
+        &self,
+        key: &str,
+        picture: PathBuf,
+        video: Option<PathBuf>,
+        tooltip: &str,
+        on_pick: impl Fn() + 'static,
+    ) {
         let image = gtk::Picture::new();
         image.set_content_fit(gtk::ContentFit::Cover);
         image.set_can_shrink(true);
@@ -198,7 +270,23 @@ impl Gallery {
         self.flow.append(&button);
         self.tiles.borrow_mut().push((key.to_owned(), check));
         glib::spawn_future_local(async move {
-            if let Ok(Some(pixels)) = gio::spawn_blocking(move || decode(&picture)).await {
+            let mut pixels = gio::spawn_blocking(move || decode(&picture))
+                .await
+                .ok()
+                .flatten();
+            if pixels.is_none() {
+                // No picture from the service: make one from the video itself.
+                if let Some(thumbnail) = match video {
+                    Some(video) => make_thumbnail(video).await,
+                    None => None,
+                } {
+                    pixels = gio::spawn_blocking(move || decode(&thumbnail))
+                        .await
+                        .ok()
+                        .flatten();
+                }
+            }
+            if let Some(pixels) = pixels {
                 image.set_paintable(Some(&texture(pixels)));
                 placeholder.set_visible(false);
             }
@@ -285,7 +373,7 @@ pub fn section(toasts: &ndl::ToastOverlay) -> gtk::Box {
         let picked = path.clone();
         let stills2 = stills.clone();
         let key2 = key.clone();
-        stills.add(&key, path, &name, move || {
+        stills.add(&key, path, None, &name, move || {
             set(&picked);
             stills2.mark(&key2);
         });
@@ -609,7 +697,8 @@ fn add_animated(
     let path = item.path.clone();
     let tooltip = item.details();
     let preview = PathBuf::from(&item.preview);
-    gallery.add(&item.path, preview, &tooltip, move || {
+    let video = Some(PathBuf::from(&item.path));
+    gallery.add(&item.path, preview, video, &tooltip, move || {
         let (service, toasts, refresh, path) = (
             service.clone(),
             toasts.clone(),

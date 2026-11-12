@@ -22,13 +22,15 @@ pub(crate) enum Part {
     Line(&'static str),
     /// A shape filled with the foreground colour.
     Solid(&'static str),
+    /// A line drawn faintly: the part of a gauge that is not reached.
+    Faint(&'static str),
     /// A circle: centre x, centre y, radius.
     Circle(f32, f32, f32),
     /// A rounded rectangle: x, y, width, height, corner radius.
     Rect(f32, f32, f32, f32, f32),
 }
 
-use Part::{Circle, Line, Rect, Solid};
+use Part::{Circle, Faint, Line, Rect, Solid};
 
 const STROKE: &str =
     r#"stroke="rgb(0,0,0)" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round""#;
@@ -41,6 +43,9 @@ pub(crate) fn svg(parts: &[Part]) -> String {
         match part {
             Line(d) => out.push_str(&format!(
                 r#"<path class="transparent-fill foreground-stroke" fill="none" {STROKE} d="{d}"/>"#
+            )),
+            Faint(d) => out.push_str(&format!(
+                r#"<path class="transparent-fill foreground-stroke" fill="none" {STROKE} stroke-opacity="0.3" d="{d}"/>"#
             )),
             Solid(d) => out.push_str(&format!(
                 r#"<path class="foreground-fill foreground-stroke" fill="rgb(0,0,0)" {STROKE} d="{d}"/>"#
@@ -64,6 +69,7 @@ fn drawings() -> Vec<(&'static str, String)> {
         parts.extend(extra.iter().map(|p| match p {
             Line(d) => Line(d),
             Solid(d) => Solid(d),
+            Faint(d) => Faint(d),
             Circle(a, b, c) => Circle(*a, *b, *c),
             Rect(a, b, c, d, e) => Rect(*a, *b, *c, *d, *e),
         }));

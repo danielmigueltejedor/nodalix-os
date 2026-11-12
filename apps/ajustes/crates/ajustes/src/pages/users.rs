@@ -28,10 +28,22 @@ pub fn build(toasts: &ndl::ToastOverlay) -> gtk::ScrolledWindow {
         .title(tr("Your account"))
         .build();
 
-    let picture = gtk::Image::from_icon_name("avatar-default-symbolic");
-    picture.set_pixel_size(64);
+    // The picture sits in a circle: the box clips whatever it holds to its rounded shape.
+    let picture = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    picture.add_css_class("settings-avatar");
+    picture.set_overflow(gtk::Overflow::Hidden);
     picture.set_halign(gtk::Align::Center);
+    picture.set_valign(gtk::Align::Start);
+    picture.set_vexpand(false);
     picture.set_margin_bottom(6);
+    picture.set_size_request(96, 96);
+    let glyph = gtk::Image::from_icon_name("avatar-default-symbolic");
+    glyph.set_pixel_size(48);
+    glyph.set_halign(gtk::Align::Center);
+    glyph.set_valign(gtk::Align::Center);
+    glyph.set_hexpand(true);
+    glyph.set_vexpand(true);
+    picture.append(&glyph);
     content.append(&picture);
 
     let name = ndl::EntryRow::builder().title(tr("Full name")).build();
@@ -101,7 +113,11 @@ pub fn build(toasts: &ndl::ToastOverlay) -> gtk::ScrolledWindow {
         kind.set_subtitle(tr(account_type(account)));
         let icon = text("IconFile");
         if !icon.is_empty() && std::path::Path::new(&icon).is_file() {
-            picture.set_from_file(Some(&icon));
+            let photo = gtk::Picture::for_filename(&icon);
+            photo.set_content_fit(gtk::ContentFit::Cover);
+            photo.set_size_request(96, 96);
+            picture.remove(&glyph);
+            picture.append(&photo);
         }
 
         {

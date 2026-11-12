@@ -90,6 +90,7 @@ pub const SECTIONS: &[(&str, &[Page])] = &[
                 "preferences-system-notifications-symbolic",
             ),
             native("multitasking", "Multitasking", "view-grid-symbolic"),
+            native("storage", "Storage", "drive-harddisk-symbolic"),
             native("applications", "Apps", "view-app-grid-symbolic"),
             native(
                 "privacy",

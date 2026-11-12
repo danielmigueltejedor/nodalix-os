@@ -78,3 +78,9 @@
 .numeric {
   font-feature-settings: "tnum";
 }
+
+/* The user's picture, round. */
+.settings-avatar {
+  border-radius: 999px;
+  background-color: var(--ndl-color-surface-sunken);
+}

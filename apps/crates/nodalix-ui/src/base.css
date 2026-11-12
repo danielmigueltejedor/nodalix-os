@@ -6,16 +6,16 @@
 :root {
   --ndl-font-family-ui: "Adwaita Sans", Cantarell, sans-serif;
   --ndl-font-family-display: "Adwaita Sans", Cantarell, sans-serif;
-  --ndl-font-size-caption: 8.25pt;
-  --ndl-font-size-small: 9pt;
-  --ndl-font-size-body: 9.75pt;
-  --ndl-font-size-large: 11.25pt;
-  --ndl-font-size-title: 13.5pt;
+  --ndl-font-size-caption: 9pt;
+  --ndl-font-size-small: 10pt;
+  --ndl-font-size-body: 10.5pt;
+  --ndl-font-size-large: 12pt;
+  --ndl-font-size-title: 14.25pt;
   --ndl-font-size-headline: 18pt;
   --ndl-font-size-display: 24pt;
 }
 
-.ndl-micro { font-size: 7.875pt; }
+.ndl-micro { font-size: 8.25pt; }
 .ndl-view-title { font-size: 33pt; }
 .ndl-about .title-1 { font-size: 24pt; }
 
@@ -43,20 +43,18 @@ row button:not(.flat):not(.suggested-action):not(.destructive-action):not(:check
   background-color: var(--ndl-color-control-bg-pressed);
 }
 
-/* Scrollbars are overlays that hide at rest, so a long page gave no sign of continuing below the
- * window's edge. GTK draws these nodes on the side that still has content. */
-scrolledwindow > undershoot.top {
-  background-image: linear-gradient(to bottom, var(--ndl-color-border-subtle), transparent);
-  background-size: 100% 16px;
-  background-repeat: no-repeat;
-  background-position: top;
-  opacity: 0.6;
+/* GTK draws a shaded strip where a scrolled window has more content (undershoot) and where it
+ * bounces at an end (overshoot). Over NDL's flat surfaces both read as a stray line, so none is
+ * drawn. */
+scrolledwindow > undershoot.top,
+scrolledwindow > undershoot.bottom,
+scrolledwindow > overshoot.top,
+scrolledwindow > overshoot.bottom {
+  background-image: none;
+  background-color: transparent;
 }
 
-scrolledwindow > undershoot.bottom {
-  background-image: linear-gradient(to top, var(--ndl-color-border-subtle), transparent);
-  background-size: 100% 16px;
-  background-repeat: no-repeat;
-  background-position: bottom;
-  opacity: 0.6;
+/* Icons in rows and sidebars a step larger than GTK's default, to match the larger text. */
+row image {
+  -gtk-icon-size: 20px;
 }

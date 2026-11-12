@@ -26,6 +26,7 @@ pub mod proxy;
 pub mod region;
 pub mod sharing;
 pub mod sound;
+pub mod storage;
 pub mod updates;
 pub mod users;
 pub mod vpn;
