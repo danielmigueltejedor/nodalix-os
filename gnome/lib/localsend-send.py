@@ -52,8 +52,10 @@ def connection(peer, identity):
     protocol = peer.get('protocol')
     if protocol == 'https':
         context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
+        # LocalSend peers use self-signed certificates by protocol; the certificate is
+        # pinned below against the fingerprint the peer announced instead.
+        context.check_hostname = False  # NOSONAR
+        context.verify_mode = ssl.CERT_NONE  # NOSONAR
         context.load_cert_chain(identity['certificate'], identity['key'])
         client = http.client.HTTPSConnection(address, port, context=context, timeout=120)
         client.connect()
