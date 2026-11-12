@@ -122,20 +122,6 @@ impl SystemRefresh {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_refresh_can_restart_only_after_its_guard_is_released() {
-        let bus = Rc::new(SystemRefresh::default());
-        let guard = bus.begin().expect("the first refresh should start");
-        assert!(bus.begin().is_none());
-        drop(guard);
-        assert!(bus.begin().is_some());
-    }
-}
-
 /// The session bus, or `None` when there is none.
 pub async fn session() -> Option<gio::DBusConnection> {
     gio::bus_get_future(gio::BusType::Session).await.ok()
@@ -216,4 +202,18 @@ pub async fn properties(
 /// An object path from a string, or `None` if it is not one.
 pub fn object_path(path: &str) -> Option<glib::variant::ObjectPath> {
     glib::variant::ObjectPath::try_from(path).ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_refresh_can_restart_only_after_its_guard_is_released() {
+        let bus = Rc::new(SystemRefresh::default());
+        let guard = bus.begin().expect("the first refresh should start");
+        assert!(bus.begin().is_none());
+        drop(guard);
+        assert!(bus.begin().is_some());
+    }
 }
