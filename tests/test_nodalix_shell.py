@@ -82,10 +82,11 @@ class NativeShellOverlayTests(unittest.TestCase):
         self.assertIn("Nodalix.registerSession(() => LoginManager.registerSessionWithGDM());", main)
         self.assertNotIn("\n    LoginManager.registerSessionWithGDM();", main)
         self.assertIn("import * as NodalixTransition from '../nodalix/transition.js';", layout)
-        # Cover first, then show the stage; wait, reveal, then the stock animation; clean up last.
+        # Cover first, then show the stage; the reveal is scheduled before the stock
+        # animation (which is not held back); clean up last.
         order = [layout.index(text) for text in (
             "NodalixTransition.begin();", "global.stage.show();",
-            "await NodalixTransition.beforeReveal();", "NodalixTransition.reveal();",
+            "NodalixTransition.reveal();",
             "await Main.overview.runStartupAnimation();",
             "NodalixTransition.finish();", "this._systemBackground.destroy();")]
         self.assertEqual(order, sorted(order))
@@ -220,12 +221,114 @@ import(copy).then(({HandoffGate, revealFrame}) => {
         self.assertRegex(transition, r"COVER_HOLD = \d+")
         self.assertRegex(transition, r"PAINT_WAIT = \d+")
         self.assertIn("mark('cover painted')", transition)
-        self.assertLess(transition.index("export async function beforeReveal"),
-                        transition.index("waitUpTo(painted, PAINT_WAIT)"))
+        self.assertNotIn("beforeReveal", transition)
+        # ... and until GDM has handed the screen over: the greeter outlives the
+        # registration, so painting (or animating) earlier is never seen.
+        self.assertIn("getCurrentSessionProxy()", transition)
+        self.assertIn("'g-properties-changed'", transition)
+        self.assertRegex(transition, r"DISPLAY_WAIT = \d+")
+        self.assertRegex(transition, r"STARTUP_WAIT = \d+")
+        self.assertIn("waitUpTo(active, DISPLAY_WAIT)", transition)
+        self.assertIn("mark('session active')", transition)
         # A stalled start-up must release GDM and remove the cover on its own.
         self.assertRegex(transition, r"HANDOFF_TIMEOUT = \d+")
         self.assertRegex(transition, r"GUARD_TIMEOUT = \d+")
         self.assertIn("isGreeter", transition)
+
+    def test_reveal_waits_for_the_screen_to_be_handed_over(self):
+        script = r"""
+const assert = require('assert');
+const fs = require('fs');
+const source = fs.readFileSync(process.argv[1], 'utf8')
+    .replace(/^import .*$/gm, '').replaceAll('export ', '')
+    .replace(/COVER_HOLD = \d+/, 'COVER_HOLD = 30').replace(/DISPLAY_WAIT = \d+/, 'DISPLAY_WAIT = 600');
+class Widget {
+    constructor(props = {}) { Object.assign(this, props); this.children = []; this.effect = props.effect; }
+    add_child(child) { this.children.push(child); }
+    destroy_all_children() { this.children = []; }
+    get_children() { return this.children; }
+    set_size() {}
+    get_effect() { return this.effect; }
+    destroy() {}
+}
+class Effect { set(values) { Object.assign(this, values); } }
+const factory = new Function('Clutter', 'Gio', 'GLib', 'Shell', 'St', 'LoginManager', 'Main',
+    'HandoffGate', 'revealFrame', 'log', 'logError', 'global',
+    source + '; return {registerSession, begin, reveal, finish, settled, whenSettled, setModulesIdle};');
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+async function scenario({sessionActive, becomesActive}) {
+    const messages = [];
+    const handlers = {};
+    const session = {
+        Active: sessionActive,
+        connect: (name, callback) => { handlers[name] = callback; return 7; },
+        disconnect: () => { delete handlers['g-properties-changed']; },
+    };
+    let registered = 0;
+    class Gate { constructor(o) { this.o = o; } hold() {} release() { if (this.done) return false; this.done = true; registered++; this.o.register(); return true; } }
+    const stage = {
+        add_child() {}, set_child_above_sibling() {}, disconnect() {},
+        connect: (name, callback) => { handlers[name] = callback; return 3; },
+    };
+    const module = factory(
+        {FixedLayout: class {}, AnimationMode: {}},
+        {File: {new_for_path: () => ({get_uri: () => 'file:///login.jpg'})}},
+        {get_monotonic_time: () => Math.round(performance.now() * 1000), getenv: () => null,
+            file_test: () => true, FileTest: {IS_REGULAR: 1}},
+        {BlurEffect: Effect},
+        {Widget, ThemeContext: {get_for_stage: () => ({scale_factor: 1, connect: () => 1, disconnect() {}})},
+            Settings: {get: () => ({enable_animations: false})}, Adjustment: class {}},
+        {getLoginManager: () => ({getCurrentSessionProxy: async () => session})},
+        {sessionMode: {isGreeter: false, currentMode: 'user'},
+            layoutManager: {monitors: [{x: 0, y: 0, width: 4, height: 4}], connect: () => 1, disconnect() {}}},
+        Gate, (p, o) => ({radius: 0, brightness: 1, opacity: 0}),
+        message => messages.push(message), error => { throw error; },
+        {stage, screen_width: 4, screen_height: 4});
+    return {module, messages, handlers, session, registered: () => registered};
+}
+const marks = messages => messages.map(m => m.replace(/^Nodalix login transition: /, '').replace(/ \(\+\d+ ms\)$/, ''));
+(async () => {
+    // GDM keeps the greeter on screen for a while: nothing is revealed until the session is active.
+    let {module, messages, handlers, session} = await scenario({sessionActive: false});
+    module.setModulesIdle(() => Promise.resolve());
+    module.registerSession(() => {});
+    module.begin();
+    handlers['after-paint']();            // painted, but the screen still shows the greeter
+    module.reveal();
+    module.finish();                      // the shell's own start-up is over
+    await sleep(250);
+    assert.ok(!marks(messages).includes('revealing the desktop'), messages.join('\n'));
+    assert.ok(module.settled());          // the modules may load under the cover meanwhile
+    session.Active = true;
+    handlers['g-properties-changed']();   // GDM switches the screen to the session
+    await sleep(200);
+    const order = marks(messages);
+    assert.ok(order.indexOf('session active') < order.indexOf('revealing the desktop'), order.join('\n'));
+    assert.ok(order.includes('desktop revealed'), order.join('\n'));
+
+    // A screen that is already ours is revealed as soon as the cover has been shown for a moment.
+    ({module, messages, handlers} = await scenario({sessionActive: true}));
+    module.setModulesIdle(() => Promise.resolve());
+    module.registerSession(() => {});
+    module.begin();
+    handlers['after-paint']();
+    module.reveal();
+    module.finish();
+    await sleep(250);
+    assert.ok(marks(messages).includes('desktop revealed'), messages.join('\n'));
+
+    // If GDM never hands the screen over, the desktop is revealed anyway after a bound.
+    ({module, messages, handlers} = await scenario({sessionActive: false}));
+    module.registerSession(() => {});
+    module.begin();
+    handlers['after-paint']();
+    module.reveal();
+    module.finish();
+    await sleep(900);
+    assert.ok(marks(messages).includes('desktop revealed'), messages.join('\n'));
+})().catch(error => { console.error(error); process.exit(1); });
+"""
+        subprocess.run(["node", "-e", script, str(self.overlay / "transition.js")], check=True)
 
     def test_video_wallpaper_waits_for_the_transition_and_does_not_block_other_modules(self):
         script = r"""

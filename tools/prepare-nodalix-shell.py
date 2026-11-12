@@ -107,7 +107,6 @@ def prepare(source: Path, overlay: Path) -> None:
     replace_once(
         layout, LAYOUT_SESSION_ANIMATION,
         "    async _startupAnimationSession() {\n"
-        "        await NodalixTransition.beforeReveal();\n"
         "        NodalixTransition.reveal();\n"
         "        if (Main.sessionMode.hasOverview) {\n")
     replace_once(

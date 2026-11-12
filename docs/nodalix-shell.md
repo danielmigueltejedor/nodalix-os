@@ -40,29 +40,32 @@ de terceros se adapten a una actualización imprevista de GNOME.
 
 ### Transición del acceso a la sesión (0.6.0)
 
-GNOME Shell avisa a GDM de que la sesión está lista (`RegisterSession`) antes
-de dibujar su primer fotograma. GDM retira entonces el acceso y, hasta que la
-Shell pinta algo, solo se ve un fondo negro (después, el gris oscuro de
-arranque de GNOME y una animación que compite con la carga de los módulos).
-Nodalix Shell lo corrige en `gnome/nodalix-shell/transition.js`:
+GNOME Shell avisa a GDM dos veces: `RegisterSession` antes de dibujar su primer
+fotograma y `RegisterDisplay` al terminar el arranque. El acceso (greeter) sigue
+vivo después de ambos avisos y la pantalla no cambia a la sesión hasta que el
+greeter termina (logind marca entonces la sesión como activa). Hasta ese
+momento todo lo que la sesión dibuja queda oculto; después se ve un negro hasta
+el primer fotograma y una animación de arranque que ya terminó. Nodalix Shell lo
+corrige en `gnome/nodalix-shell/transition.js`:
 
 1. **Retiene el registro en GDM** hasta que la cubierta se ha pintado (hasta
-   100 ms de espera si la sesión aún no puede pintar), de modo que la pantalla
-   de acceso sigue visible hasta entonces. Si algo se atasca, el registro se
-   envía igualmente a los 3 s y la cubierta se retira a los 15 s: un inicio de
-   sesión nunca se queda esperando.
+   100 ms de espera si la sesión aún no puede pintar). Si algo se atasca, el
+   registro se envía igualmente a los 3 s y la cubierta se retira a los 15 s:
+   un inicio de sesión nunca se queda esperando.
 2. **El primer fotograma es el fondo del acceso**, con el mismo desenfoque y
    brillo que el greeter (`/var/lib/nodalix/login/background.jpg`, o el fondo
    de respaldo), en lugar del gris oscuro del sistema.
-3. **Desblur**: cuando el escritorio está completo (módulos habilitados, con un
-   máximo de 1,5 s) y la cubierta lleva 400 ms en pantalla, el desenfoque y el
-   oscurecimiento se animan hasta cero durante 650 ms y la cubierta se
-   desvanece sobre el escritorio real. La animación de arranque de GNOME se
-   ejecuta debajo. Bajo GDM la sesión no puede pintar hasta que GDM cambia a
-   ella, es decir, después del registro; por eso la animación espera al primer
-   pintado real (`cover painted` en el diario) y no al registro.
-4. Hanabi (fondo de vídeo) espera a que termine la transición para no lanzar su
-   proceso de reproducción mientras se anima.
+3. **La cubierta tapa el arranque y se mantiene hasta que la pantalla es de la
+   sesión.** La animación de arranque de GNOME y la carga de los módulos corren
+   debajo, sin esperas. El desblur no empieza hasta que se cumplen a la vez
+   tres condiciones, cada una con un tope: el escritorio está completo (módulos
+   habilitados, 1,5 s), la cubierta se ha pintado y logind marca la sesión como
+   activa (5 s; se mide con `session active` en el diario). Entonces la
+   cubierta se muestra 400 ms y el desenfoque y el oscurecimiento se animan hasta
+   cero durante 650 ms.
+4. Hanabi (fondo de vídeo) espera a que termine el arranque de la Shell (ya no a
+   que acabe el desblur): se carga mientras la cubierta lo oculta, y no compite
+   con la animación de arranque.
 
 `NODALIX_LOGIN_TRANSITION=0` en el entorno de la sesión (por ejemplo en
 `~/.config/environment.d/`) lo desactiva y restaura el comportamiento de
