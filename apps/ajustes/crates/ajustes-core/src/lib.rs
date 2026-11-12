@@ -8,6 +8,7 @@ pub mod locales;
 pub mod localsend;
 pub mod network;
 pub mod pages;
+pub mod printers;
 pub mod sysinfo;
 pub mod updates;
 pub mod wallpapers;

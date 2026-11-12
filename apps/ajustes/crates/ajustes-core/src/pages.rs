@@ -27,6 +27,9 @@ const fn native(id: &'static str, title: &'static str, icon: &'static str) -> Pa
     }
 }
 
+/// A page that opens the previous panel. Every page is native now; this stays for a page that
+/// is added before it is ported.
+#[allow(dead_code)]
 const fn legacy(
     id: &'static str,
     title: &'static str,
@@ -67,12 +70,7 @@ pub const SECTIONS: &[(&str, &[Page])] = &[
                 "LocalSend",
                 "network-transmit-receive-symbolic",
             ),
-            legacy(
-                "online-accounts",
-                "Online accounts",
-                "goa-panel-symbolic",
-                "online-accounts",
-            ),
+            native("online-accounts", "Online accounts", "goa-panel-symbolic"),
         ],
     ),
     (
@@ -83,8 +81,8 @@ pub const SECTIONS: &[(&str, &[Page])] = &[
             native("power", "Power", "battery-symbolic"),
             native("keyboard", "Keyboard", "input-keyboard-symbolic"),
             native("mouse", "Mouse and touchpad", "input-mouse-symbolic"),
-            legacy("printers", "Printers", "printer-symbolic", "printers"),
-            legacy("color", "Color", "preferences-color-symbolic", "color"),
+            native("printers", "Printers", "printer-symbolic"),
+            native("color", "Color", "preferences-color-symbolic"),
         ],
     ),
     (
@@ -146,10 +144,7 @@ mod tests {
     #[test]
     fn finds_by_id() {
         assert_eq!(find("about").map(|p| p.kind), Some(Kind::Native));
-        assert_eq!(
-            find("printers").map(|p| p.kind),
-            Some(Kind::Legacy("printers"))
-        );
+        assert_eq!(find("printers").map(|p| p.kind), Some(Kind::Native));
         assert!(find("nope").is_none());
     }
 
