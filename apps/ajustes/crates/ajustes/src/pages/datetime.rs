@@ -96,25 +96,47 @@ fn system_group(toasts: &ndl::ToastOverlay) -> ndl::PreferencesGroup {
         let sync = {
             let (ui, proxy) = (ui.clone(), proxy.clone());
             move || {
-                ui.loading.set(true);
-                ui.automatic
-                    .set_active(bus::bool_property(&proxy, "NTP").unwrap_or(false));
-                ui.automatic
-                    .set_sensitive(bus::bool_property(&proxy, "CanNTP").unwrap_or(false));
-                let zone = bus::string_property(&proxy, "Timezone").unwrap_or_default();
-                if *ui.saved_zone.borrow() != zone {
-                    ui.zone.set_text(&zone);
-                    *ui.saved_zone.borrow_mut() = zone;
-                }
-                ui.zone.set_sensitive(true);
-                ui.apply.set_sensitive(false);
-                ui.loading.set(false);
+                let (ui, proxy) = (ui.clone(), proxy.clone());
+                glib::spawn_future_local(async move {
+                    let all =
+                        bus::get_all(&proxy.connection(), TIMEDATE, TIMEDATE_PATH, TIMEDATE).await;
+                    let Some(all) = all else {
+                        ui.automatic
+                            .set_subtitle(tr("The time service is not available."));
+                        return;
+                    };
+                    let flag = |name: &str| {
+                        all.lookup_value(name, None)
+                            .and_then(|v| v.get::<bool>())
+                            .unwrap_or(false)
+                    };
+                    ui.loading.set(true);
+                    ui.automatic.set_active(flag("NTP"));
+                    ui.automatic.set_sensitive(flag("CanNTP"));
+                    let zone = all
+                        .lookup_value("Timezone", None)
+                        .and_then(|v| v.str().map(str::to_owned))
+                        .unwrap_or_default();
+                    if *ui.saved_zone.borrow() != zone {
+                        ui.zone.set_text(&zone);
+                        *ui.saved_zone.borrow_mut() = zone;
+                    }
+                    ui.zone.set_sensitive(true);
+                    ui.apply.set_sensitive(false);
+                    ui.loading.set(false);
+                });
             }
         };
         sync();
+        // The proxy forgets its properties when the service exits and says so; asking again
+        // would start the service for nothing, so only a live service is read.
         bus::on_change(&proxy, {
-            let sync = sync.clone();
-            move || sync()
+            let (sync, proxy) = (sync.clone(), proxy.clone());
+            move || {
+                if proxy.name_owner().is_some() {
+                    sync();
+                }
+            }
         });
         let report = {
             let toasts = toasts.clone();

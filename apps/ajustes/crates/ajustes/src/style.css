@@ -74,3 +74,7 @@
 .settings-swatch:checked .settings-swatch-check {
   opacity: 1;
 }
+
+.numeric {
+  font-feature-settings: "tnum";
+}

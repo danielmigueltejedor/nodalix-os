@@ -60,6 +60,29 @@ pub async fn set_property(
         .map(|_| ())
 }
 
+/// Every property of an interface, read from the service now. A proxy's cache is emptied when
+/// the service leaves the bus, and services that exit when idle (the time service) do, so a
+/// page that must show the present state asks again instead.
+pub async fn get_all(
+    connection: &gio::DBusConnection,
+    name: &str,
+    path: &str,
+    interface: &str,
+) -> Option<glib::VariantDict> {
+    let reply = call(
+        connection,
+        name,
+        path,
+        "org.freedesktop.DBus.Properties",
+        "GetAll",
+        Some(&glib::Variant::tuple_from_iter([interface.to_variant()])),
+    )
+    .await
+    .ok()?;
+    let all = reply.child_value(0);
+    Some(glib::VariantDict::new(Some(&all)))
+}
+
 /// Runs `f` whenever the service changes a property. The proxy's own signal wants a closure that
 /// may run on any thread; this one runs on the main loop, where the widgets are.
 pub fn on_change(proxy: &gio::DBusProxy, f: impl Fn() + 'static) {

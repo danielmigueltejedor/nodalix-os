@@ -76,12 +76,13 @@ pub fn icon_for(key: &str) -> Option<&'static str> {
         ("remove-old-temp", "edit-clear-all-symbolic"),
         ("remove-old-trash", "user-trash-symbolic"),
         ("night-light", "night-light-symbolic"),
+        // "clock" contains "lock", so it comes first.
+        ("clock", "preferences-system-time-symbolic"),
         ("lock", "system-lock-screen-symbolic"),
         ("idle-dim", "display-brightness-symbolic"),
         ("idle", "preferences-system-time-symbolic"),
         ("power-button", "system-shutdown-symbolic"),
         ("sleep", "system-suspend-symbolic"),
-        ("clock", "preferences-system-time-symbolic"),
         ("tap", "input-touchpad-symbolic"),
         ("click", "input-touchpad-symbolic"),
         ("scroll", "input-touchpad-symbolic"),
@@ -365,6 +366,14 @@ mod tests {
         assert_eq!(
             icon_for("night-light-enabled"),
             Some("night-light-symbolic")
+        );
+        assert_eq!(
+            icon_for("clock-show-seconds"),
+            Some("preferences-system-time-symbolic")
+        );
+        assert_eq!(
+            icon_for("lock-enabled"),
+            Some("system-lock-screen-symbolic")
         );
         assert_eq!(icon_for("something-unknown"), None);
     }
