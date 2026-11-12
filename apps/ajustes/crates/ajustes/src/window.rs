@@ -7,7 +7,8 @@ use crate::i18n::tr;
 use crate::legacy;
 use crate::pages::{
     about, accessibility, appearance, datetime, keyboard, localsend::LocalSendPage, multitasking,
-    notifications, pointing, power, privacy, sharing, sound, updates::UpdatesPage, wifi::WifiPage,
+    network::NetworkPage, notifications, pointing, power, privacy, sharing, sound,
+    updates::UpdatesPage, wifi::WifiPage,
 };
 
 fn sidebar_row(page: &Page) -> gtk::ListBoxRow {
@@ -58,6 +59,8 @@ pub fn present(app: &gtk::Application) {
     localsend.set_toasts(&toasts);
     let wifi = WifiPage::new();
     wifi.set_toasts(&toasts);
+    let network = NetworkPage::new();
+    network.set_toasts(&toasts);
 
     // The content area: one stack child per page.
     let stack = gtk::Stack::new();
@@ -67,6 +70,7 @@ pub fn present(app: &gtk::Application) {
     stack.add_named(&localsend.widget, Some("localsend"));
     stack.add_named(&about::build(), Some("about"));
     stack.add_named(&wifi.widget, Some("wifi"));
+    stack.add_named(&network.widget, Some("network"));
     stack.add_named(&sharing::build(&toasts), Some("sharing"));
     stack.add_named(&sound::build(), Some("sound"));
     stack.add_named(&power::build(), Some("power"));

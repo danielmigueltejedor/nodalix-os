@@ -60,6 +60,33 @@ pub fn visible(mut points: Vec<AccessPoint>) -> Vec<AccessPoint> {
     points
 }
 
+/// What a device is doing, from NetworkManager's `NMDeviceState`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DeviceState {
+    /// No cable, no adapter, or disabled.
+    Unavailable,
+    Disconnected,
+    Connecting,
+    Connected,
+    Failed,
+}
+
+pub fn device_state(state: u32) -> DeviceState {
+    match state {
+        100 => DeviceState::Connected,
+        // Preparing, configuring, needing authentication, getting an address, checking.
+        40..=90 => DeviceState::Connecting,
+        // Disconnected, or on its way to it (deactivating).
+        30 | 110 => DeviceState::Disconnected,
+        120 => DeviceState::Failed,
+        // Unknown, unmanaged, unavailable.
+        _ => DeviceState::Unavailable,
+    }
+}
+
+/// `NMDeviceType` of a wired adapter.
+pub const DEVICE_TYPE_ETHERNET: u32 = 1;
+
 /// A WPA passphrase is 8 to 63 characters; a 64-digit hex string is a raw key.
 pub fn password_is_valid(password: &str) -> bool {
     let n = password.chars().count();
@@ -124,6 +151,18 @@ mod tests {
     fn a_name_that_is_not_utf8_still_shows() {
         assert_eq!(ssid_text(b"Caf\xe9"), "Caf\u{fffd}");
         assert_eq!(ssid_text("Wi-Fi ñ".as_bytes()), "Wi-Fi ñ");
+    }
+
+    #[test]
+    fn maps_the_device_states() {
+        assert_eq!(device_state(100), DeviceState::Connected);
+        assert_eq!(device_state(70), DeviceState::Connecting);
+        assert_eq!(device_state(30), DeviceState::Disconnected);
+        assert_eq!(device_state(20), DeviceState::Unavailable);
+        assert_eq!(device_state(10), DeviceState::Unavailable);
+        assert_eq!(device_state(0), DeviceState::Unavailable);
+        assert_eq!(device_state(120), DeviceState::Failed);
+        assert_eq!(device_state(110), DeviceState::Disconnected);
     }
 
     #[test]

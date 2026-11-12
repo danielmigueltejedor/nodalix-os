@@ -53,12 +53,7 @@ pub const SECTIONS: &[(&str, &[Page])] = &[
     (
         "Connections",
         &[
-            legacy(
-                "network",
-                "Network",
-                "network-workgroup-symbolic",
-                "network",
-            ),
+            native("network", "Network", "network-workgroup-symbolic"),
             native("wifi", "Wi-Fi", "network-wireless-symbolic"),
             legacy("bluetooth", "Bluetooth", "bluetooth-symbolic", "bluetooth"),
             native("sharing", "Sharing", "preferences-system-sharing-symbolic"),
@@ -152,7 +147,10 @@ mod tests {
     #[test]
     fn finds_by_id() {
         assert_eq!(find("about").map(|p| p.kind), Some(Kind::Native));
-        assert_eq!(find("bluetooth").map(|p| p.kind), Some(Kind::Legacy("bluetooth")));
+        assert_eq!(
+            find("bluetooth").map(|p| p.kind),
+            Some(Kind::Legacy("bluetooth"))
+        );
         assert!(find("nope").is_none());
     }
 

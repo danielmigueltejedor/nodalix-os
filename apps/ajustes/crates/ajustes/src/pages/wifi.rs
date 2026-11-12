@@ -15,15 +15,10 @@ use nodalia_gtk::{
 use super::{bus, column, scroller};
 use crate::i18n::tr;
 
-const NM: &str = "org.freedesktop.NetworkManager";
-const NM_PATH: &str = "/org/freedesktop/NetworkManager";
-const SETTINGS: &str = "org.freedesktop.NetworkManager.Settings";
-const SETTINGS_PATH: &str = "/org/freedesktop/NetworkManager/Settings";
-const CONNECTION: &str = "org.freedesktop.NetworkManager.Settings.Connection";
-const DEVICE: &str = "org.freedesktop.NetworkManager.Device";
-const WIRELESS: &str = "org.freedesktop.NetworkManager.Device.Wireless";
-const ACCESS_POINT: &str = "org.freedesktop.NetworkManager.AccessPoint";
-const DEVICE_TYPE_WIFI: u32 = 2;
+use super::nm::{
+    ACCESS_POINT, CONNECTION, DEVICE, DEVICE_TYPE_WIFI, NM, NM_PATH, SETTINGS, SETTINGS_PATH,
+    WIRELESS,
+};
 const POLL_SECONDS: u32 = 5;
 /// The saved networks change rarely, so they are read again only every this many polls.
 const KNOWN_EVERY: u32 = 6;

@@ -7,6 +7,8 @@ pub mod gs;
 pub mod keyboard;
 pub mod localsend;
 pub mod multitasking;
+pub mod network;
+pub mod nm;
 pub mod notifications;
 pub mod pointing;
 pub mod power;
