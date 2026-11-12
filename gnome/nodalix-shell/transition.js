@@ -5,8 +5,10 @@
 //    greeter stays on screen instead of giving way to a black screen.
 // 2. That first frame is the login picture with the greeter's own blur and
 //    brightness, not GNOME's dark-grey system background.
-// 3. When the desktop is ready the blur and the dimming are animated away and
-//    the cover fades out ("desblur"), revealing the real desktop.
+// 3. The cover stays up, hiding the session's own start-up, until GDM has handed
+//    the screen over (the greeter lives on after the session registers, so
+//    nothing painted earlier is ever seen). Then the blur and the dimming are
+//    animated away and the cover fades out ("desblur"), revealing the desktop.
 //
 // Every step falls back to the stock behavior: a failure here must never delay
 // or break a login. Set NODALIX_LOGIN_TRANSITION=0 in the session environment
@@ -17,6 +19,7 @@ import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
 import St from 'gi://St';
 
+import * as LoginManager from '../misc/loginManager.js';
 import * as Main from '../ui/main.js';
 import {HandoffGate, revealFrame} from './handoff.js';
 
@@ -29,13 +32,18 @@ const FALLBACK_BACKGROUND = '/usr/share/backgrounds/nodalix/login/nodalix-login-
 
 const REVEAL_TIME = 650;       // ms of desblur
 const MODULES_WAIT = 1500;     // ms to wait for the desktop modules before revealing
+const STARTUP_WAIT = 4000;     // ms to wait for the shell's own start-up animation to end
+const DISPLAY_WAIT = 5000;     // ms to wait for GDM to switch to this session before revealing anyway
 const HANDOFF_TIMEOUT = 3000;  // ms before the session registers with GDM regardless
 const GUARD_TIMEOUT = 15000;   // ms after which the cover is removed no matter what
 const FIRST_PAINT_WAIT = 100;  // ms to wait for the first paint before letting the greeter go
 const PAINT_WAIT = 3000;       // ms to wait for the cover to be on screen before revealing
-const COVER_HOLD = 400;        // ms the cover stays fully visible once it is on screen
+const COVER_HOLD = 400;        // ms the cover stays fully visible once the screen shows it
 
-const State = {IDLE: 'idle', ARMED: 'armed', COVERED: 'covered', REVEALING: 'revealing', DONE: 'done'};
+const State = {
+    IDLE: 'idle', ARMED: 'armed', COVERED: 'covered', WAITING: 'waiting',
+    REVEALING: 'revealing', DONE: 'done',
+};
 
 let state = State.IDLE;
 let gate = null;
@@ -46,6 +54,11 @@ let modulesIdle = null;
 let paintId = 0;
 let paintedAt = 0;
 let painted = Promise.resolve();
+let session = null;
+let sessionWatch = 0;
+let activeAt = 0;
+let active = Promise.resolve();
+let startupDone = false;
 const settleWaiters = [];
 
 function mark(message) {
@@ -90,18 +103,29 @@ function settle() {
         global.stage.disconnect(paintId);
         paintId = 0;
     }
+    if (sessionWatch && session) {
+        session.disconnect(sessionWatch);
+        sessionWatch = 0;
+    }
     if (guard) {
         clearTimeout(guard);
         guard = 0;
     }
     state = State.DONE;
+    releaseModules();
+}
+
+// Heavy start-up work may run once the shell's own start-up is over: the cover
+// still hides the screen, so loading then costs the user nothing.
+function releaseModules() {
+    startupDone = true;
     for (const resolve of settleWaiters.splice(0))
         resolve();
 }
 
 // True when nothing is pending: heavy start-up work may run now.
 export function settled() {
-    return state === State.IDLE || state === State.DONE;
+    return startupDone || state === State.IDLE || state === State.DONE;
 }
 
 export function whenSettled() {
@@ -245,12 +269,13 @@ export function begin() {
         return;
     }
     watchFirstPaint();
+    watchDisplay();
     releaseAfterFirstPaint();
 }
 
-// The first paint of the cover is the moment the session becomes visible. Under
-// GDM the session cannot paint until GDM has switched to it, which only happens
-// after the registration, so nothing before that point is ever on screen.
+// The first paint of the cover. It can come before the screen shows it (the
+// greeter keeps the screen until it exits), so it is not the cue to reveal;
+// it only tells the greeter-side hand-off that the session can draw.
 function watchFirstPaint() {
     painted = new Promise(resolve => {
         try {
@@ -268,9 +293,9 @@ function watchFirstPaint() {
     });
 }
 
-// The greeter should go as soon as the cover could be painted. A session that
-// is already allowed to paint reports it within a frame; one that is not gets a
-// short wait, since no paint can arrive until GDM has switched to it.
+// The registration is released as soon as the cover could be painted. A session
+// that is allowed to paint reports it within a frame; one that is not gets a
+// short wait, since the paint may not come until GDM has switched to it.
 function releaseAfterFirstPaint() {
     const timeout = sleep(FIRST_PAINT_WAIT);
     let released = false;
@@ -287,30 +312,92 @@ function releaseAfterFirstPaint() {
         .catch(error => logError(error, 'Nodalix login transition: hand-off timer failed'));
 }
 
-// Called before the session's own start-up animation. Waits, within limits, for
-// the desktop to be complete (so the reveal does not compete with module
-// start-up) and for the cover to have been on screen for a moment.
-export async function beforeReveal() {
-    if (state !== State.COVERED)
+// logind marks the session active when the screen is switched to it. Under GDM
+// that happens only after the greeter has gone, which is later than the
+// registration, so this is the moment the cover can actually be seen.
+function watchDisplay() {
+    active = new Promise(resolve => {
+        (async () => {
+            try {
+                session = await LoginManager.getLoginManager().getCurrentSessionProxy();
+                if (state === State.DONE) {
+                    // Too late: the transition is over and settle() has already cleaned up.
+                    session = null;
+                } else if (!session) {
+                    mark('no login session to watch');
+                } else if (session.Active) {
+                    activeAt = GLib.get_monotonic_time();
+                    mark('session already active');
+                } else {
+                    mark('session not active yet');
+                    sessionWatch = session.connect('g-properties-changed', () => {
+                        if (!session.Active)
+                            return;
+                        session.disconnect(sessionWatch);
+                        sessionWatch = 0;
+                        activeAt = GLib.get_monotonic_time();
+                        mark('session active');
+                        resolve();
+                    });
+                    return;
+                }
+            } catch (error) {
+                logError(error, 'Nodalix login transition: cannot watch the session');
+            }
+            resolve();
+        })().catch(error => {
+            logError(error, 'Nodalix login transition: watching the session failed');
+            resolve();
+        });
+    });
+}
+
+// Called when the session's own start-up animation begins. The animation is
+// not held back: it runs under the cover. The reveal waits until the cover is
+// on the screen, the desktop is built and its modules are in.
+export function reveal() {
+    if (state !== State.COVERED || !cover)
         return;
-    try {
-        await Promise.all([
-            modulesIdle ? waitUpTo(modulesIdle(), MODULES_WAIT) : Promise.resolve(),
-            waitUpTo(painted, PAINT_WAIT),
-        ]);
-        if (paintedAt) {
-            const remaining = COVER_HOLD - (GLib.get_monotonic_time() - paintedAt) / 1000;
-            if (remaining > 0)
-                await sleep(remaining).promise;
-        }
-    } catch (error) {
+    state = State.WAITING;
+    mark('start-up runs under the cover');
+    revealWhenShown().catch(error => {
         logError(error, 'Nodalix login transition: waiting to reveal the desktop failed');
+        startReveal();
+    });
+}
+
+async function revealWhenShown() {
+    await Promise.all([
+        waitUpTo(painted, PAINT_WAIT),
+        waitUpTo(active, DISPLAY_WAIT),
+        desktopReady(),
+    ]);
+    const visibleAt = Math.max(paintedAt, activeAt);
+    if (visibleAt) {
+        const remaining = COVER_HOLD - (GLib.get_monotonic_time() - visibleAt) / 1000;
+        if (remaining > 0)
+            await sleep(remaining).promise;
+    }
+    startReveal();
+}
+
+// The desktop is complete once the shell's start-up is over and the modules
+// that were waiting for it have been enabled (bounded: never hold a login).
+async function desktopReady() {
+    try {
+        await waitUpTo(whenSettled(), STARTUP_WAIT);
+        // Let the module pass that the end of the start-up schedules begin.
+        await sleep(0).promise;
+        if (modulesIdle)
+            await waitUpTo(modulesIdle(), MODULES_WAIT);
+    } catch (error) {
+        logError(error, 'Nodalix login transition: waiting for the desktop modules failed');
     }
 }
 
-// Starts the desblur; the overview's own start-up animation runs underneath.
-export function reveal() {
-    if (state !== State.COVERED || !cover)
+// Starts the desblur over the finished desktop.
+function startReveal() {
+    if (state !== State.WAITING || !cover)
         return;
     state = State.REVEALING;
     mark('revealing the desktop');
@@ -324,8 +411,11 @@ export function reveal() {
 
 // Called when GNOME Shell's start-up animation ends, whatever happened before.
 export function finish() {
+    if (state === State.ARMED) {
+        abort('the stage was never shown');
+        return;
+    }
     if (state === State.COVERED)
         reveal();
-    else if (state === State.ARMED)
-        abort('the stage was never shown');
+    releaseModules();
 }
