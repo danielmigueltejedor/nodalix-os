@@ -256,7 +256,7 @@ const factory = new Function('Clutter', 'Gio', 'GLib', 'Shell', 'St', 'LoginMana
     'HandoffGate', 'revealFrame', 'log', 'logError', 'global',
     source + '; return {registerSession, begin, reveal, finish, settled, whenSettled, setModulesIdle};');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-async function scenario({sessionActive, becomesActive}) {
+async function scenario({sessionActive, proxyDelay = 0}) {
     const messages = [];
     const handlers = {};
     const session = {
@@ -278,7 +278,11 @@ async function scenario({sessionActive, becomesActive}) {
         {BlurEffect: Effect},
         {Widget, ThemeContext: {get_for_stage: () => ({scale_factor: 1, connect: () => 1, disconnect() {}})},
             Settings: {get: () => ({enable_animations: false})}, Adjustment: class {}},
-        {getLoginManager: () => ({getCurrentSessionProxy: async () => session})},
+        {getLoginManager: () => ({getCurrentSessionProxy: async () => {
+            if (proxyDelay)
+                await sleep(proxyDelay);
+            return session;
+        }})},
         {sessionMode: {isGreeter: false, currentMode: 'user'},
             layoutManager: {monitors: [{x: 0, y: 0, width: 4, height: 4}], connect: () => 1, disconnect() {}}},
         Gate, (p, o) => ({radius: 0, brightness: 1, opacity: 0}),
@@ -326,6 +330,18 @@ const marks = messages => messages.map(m => m.replace(/^Nodalix login transition
     module.finish();
     await sleep(900);
     assert.ok(marks(messages).includes('desktop revealed'), messages.join('\n'));
+
+    // A session lookup that finishes after the transition is over connects nothing.
+    ({module, messages, handlers} = await scenario({sessionActive: false, proxyDelay: 1000}));
+    module.registerSession(() => {});
+    module.begin();
+    handlers['after-paint']();
+    module.reveal();
+    module.finish();
+    await sleep(1300);
+    assert.ok(marks(messages).includes('desktop revealed'), messages.join('\n'));
+    assert.strictEqual(handlers['g-properties-changed'], undefined, 'a watcher leaked after settle()');
+    assert.ok(!marks(messages).includes('session not active yet'), messages.join('\n'));
 })().catch(error => { console.error(error); process.exit(1); });
 """
         subprocess.run(["node", "-e", script, str(self.overlay / "transition.js")], check=True)

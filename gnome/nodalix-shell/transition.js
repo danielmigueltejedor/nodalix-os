@@ -320,7 +320,10 @@ function watchDisplay() {
         (async () => {
             try {
                 session = await LoginManager.getLoginManager().getCurrentSessionProxy();
-                if (!session) {
+                if (state === State.DONE) {
+                    // Too late: the transition is over and settle() has already cleaned up.
+                    session = null;
+                } else if (!session) {
                     mark('no login session to watch');
                 } else if (session.Active) {
                     activeAt = GLib.get_monotonic_time();

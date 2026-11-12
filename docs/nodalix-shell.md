@@ -62,7 +62,8 @@ corrige en `gnome/nodalix-shell/transition.js`:
    habilitados, 1,5 s), la cubierta se ha pintado y logind marca la sesión como
    activa (5 s; se mide con `session active` en el diario). Entonces la
    cubierta se muestra 400 ms y el desenfoque y el oscurecimiento se animan hasta
-   cero durante 650 ms.
+   cero durante 650 ms. Si una condición no se cumple antes de su tope, el
+   desblur empieza igualmente al vencer ese tope.
 4. Hanabi (fondo de vídeo) espera a que termine el arranque de la Shell (ya no a
    que acabe el desblur): se carga mientras la cubierta lo oculta, y no compite
    con la animación de arranque.
