@@ -1,9 +1,10 @@
-import functools, hashlib, http.server, importlib.util, json, sys, tempfile, threading, unittest
+import argparse, functools, hashlib, http.server, importlib.util, json, sys, tempfile, threading, unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'tools'))
-from release_iso import iso_metadata, publication_assets
+from release_iso import iso_metadata, publication_assets, release_directory
 spec=importlib.util.spec_from_file_location('iso_downloader',ROOT/'tools/nodalix-download-iso.py')
 downloader=importlib.util.module_from_spec(spec);spec.loader.exec_module(downloader)
 
@@ -32,6 +33,12 @@ class ReleaseIsoPartsTests(unittest.TestCase):
         names={p.name for p in publication_assets(self.root)}
         self.assertNotIn(self.image.name,names)
         self.assertTrue({p['asset'] for p in meta['parts']}.issubset(names))
+    def test_release_cli_accepts_only_paths_inside_the_workspace(self):
+        with patch.object(Path, 'cwd', return_value=self.root):
+            self.assertEqual(release_directory('dist/release'), self.root.resolve() / 'dist/release')
+            with self.assertRaisesRegex(argparse.ArgumentTypeError, 'assets directory'):
+                release_directory(self.root.resolve().parent)
+
     def test_publication_skips_symbolic_links(self):
         (self.root / 'nodalix-manifest.json').write_text('{"iso": {}}')
         link = self.root / 'copy.iso'
