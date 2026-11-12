@@ -10,6 +10,8 @@ pub enum View {
     #[default]
     List,
     Grid,
+    /// A column per folder on the way, the way Finder shows them.
+    Columns,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -46,6 +48,17 @@ mod tests {
             show_hidden: true,
         };
         assert_eq!(Settings::parse(&settings.to_text()), settings);
+    }
+
+    #[test]
+    fn the_columns_view_is_remembered() {
+        let text = Settings {
+            view: View::Columns,
+            ..Settings::default()
+        }
+        .to_text();
+        assert!(text.contains("\"columns\""));
+        assert_eq!(Settings::parse(&text).view, View::Columns);
     }
 
     #[test]

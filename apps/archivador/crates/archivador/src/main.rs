@@ -1,6 +1,7 @@
 //! Archivador, the Nodalix file manager.
 
 mod browser;
+mod columns;
 mod dialogs;
 mod i18n;
 mod icons;
@@ -41,6 +42,9 @@ const ACCELS: &[(&str, &[&str])] = &[
     ("win.search", &["<Ctrl>f"]),
     ("win.location", &["<Ctrl>l"]),
     ("win.show-hidden", &["<Ctrl>h"]),
+    ("win.view::list", &["<Ctrl>1"]),
+    ("win.view::grid", &["<Ctrl>2"]),
+    ("win.view::columns", &["<Ctrl>3"]),
     ("win.close", &["<Ctrl>w"]),
 ];
 

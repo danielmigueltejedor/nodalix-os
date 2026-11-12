@@ -14,6 +14,7 @@ use archivador_core::{names, ops, places};
 use ndl::gtk::{self, gdk, gio, glib, prelude::*};
 use nodalia_gtk as ndl;
 
+use crate::columns::{Columns, Options};
 use crate::dialogs;
 use crate::i18n::{fmt, items, tr};
 use crate::items::{self as look, ContextMenu, Hooks};
@@ -50,6 +51,9 @@ pub struct Browser {
     selection: gtk::MultiSelection,
     list_view: gtk::ListView,
     grid_view: gtk::GridView,
+    /// The folder's column in the columns view.
+    columns_view: gtk::ListView,
+    miller: Rc<Columns>,
     pages: gtk::Stack,
     empty: ndl::StatusPage,
     path_bar: gtk::Box,
@@ -67,7 +71,7 @@ pub struct Browser {
     trash_icon: RefCell<Option<gtk::Image>>,
     search_bar: gtk::SearchBar,
     search_entry: gtk::SearchEntry,
-    view_button: gtk::Button,
+    view_buttons: gtk::Box,
     state: RefCell<State>,
     monitor: RefCell<Option<gio::FileMonitor>>,
     reload_queued: Cell<bool>,
@@ -99,6 +103,14 @@ fn save_settings(settings: &Settings) {
         let _ = std::fs::create_dir_all(dir);
     }
     let _ = std::fs::write(file, settings.to_text());
+}
+
+fn view_name(view: View) -> &'static str {
+    match view {
+        View::List => "list",
+        View::Grid => "grid",
+        View::Columns => "columns",
+    }
 }
 
 fn sort_name(key: SortKey) -> &'static str {
@@ -138,6 +150,12 @@ impl Browser {
         grid_view.set_enable_rubberband(true);
         grid_view.set_max_columns(12);
 
+        let columns_view =
+            gtk::ListView::new(Some(selection.clone()), None::<gtk::ListItemFactory>);
+        columns_view.add_css_class("archivador-files");
+        columns_view.set_enable_rubberband(true);
+        let miller = Columns::new(&columns_view);
+
         let scrolled = |child: &gtk::Widget| {
             gtk::ScrolledWindow::builder()
                 .child(child)
@@ -152,6 +170,7 @@ impl Browser {
         let pages = gtk::Stack::new();
         pages.add_named(&scrolled(list_view.upcast_ref()), Some("list"));
         pages.add_named(&scrolled(grid_view.upcast_ref()), Some("grid"));
+        pages.add_named(&miller.widget, Some("columns"));
         pages.add_named(&empty, Some("empty"));
 
         let path_bar = gtk::Box::new(gtk::Orientation::Horizontal, 0);
@@ -175,7 +194,8 @@ impl Browser {
         search_bar.connect_entry(&search_entry);
         search_bar.set_key_capture_widget(Some(window.upcast_ref::<gtk::Widget>()));
 
-        let view_button = gtk::Button::new();
+        let view_buttons = gtk::Box::new(gtk::Orientation::Horizontal, 0);
+        view_buttons.add_css_class("linked");
 
         let location = gtk::Entry::new();
         location.set_hexpand(true);
@@ -198,6 +218,8 @@ impl Browser {
             selection,
             list_view,
             grid_view,
+            columns_view,
+            miller,
             pages,
             empty,
             path_bar,
@@ -213,7 +235,7 @@ impl Browser {
             trash_icon: RefCell::new(None),
             search_bar,
             search_entry,
-            view_button,
+            view_buttons,
             state: RefCell::new(State {
                 history: History::new(start),
                 entries: Vec::new(),
@@ -320,8 +342,23 @@ impl Browser {
         menu_button.set_popover(Some(&self.main_menu()));
         header.pack_end(&menu_button);
         header.pack_end(&self.spinner);
-        self.view_button.set_action_name(Some("win.toggle-view"));
-        header.pack_end(&self.view_button);
+        for (view, tip) in [
+            ("list", "Show as a list"),
+            ("grid", "Show as a grid"),
+            ("columns", "Show in columns"),
+        ] {
+            let button = gtk::ToggleButton::new();
+            match view {
+                "list" => button.set_icon_name("view-list-symbolic"),
+                "grid" => button.set_icon_name("view-grid-symbolic"),
+                _ => button.set_child(Some(&crate::icons::columns_glyph())),
+            }
+            button.set_action_name(Some("win.view"));
+            button.set_action_target_value(Some(&view.to_variant()));
+            button.set_tooltip_text(Some(tr(tip)));
+            self.view_buttons.append(&button);
+        }
+        header.pack_end(&self.view_buttons);
         let new_folder = gtk::Button::from_icon_name("folder-new-symbolic");
         new_folder.set_action_name(Some("win.new-folder"));
         new_folder.set_tooltip_text(Some(tr("New folder")));
@@ -489,6 +526,7 @@ impl Browser {
         match self.state.borrow().settings.view {
             View::List => self.list_view.grab_focus(),
             View::Grid => self.grid_view.grab_focus(),
+            View::Columns => self.columns_view.grab_focus(),
         };
     }
 
@@ -591,7 +629,28 @@ impl Browser {
         };
         self.list_view
             .set_factory(Some(&look::list_factory(hooks.clone())));
-        self.grid_view.set_factory(Some(&look::grid_factory(hooks)));
+        self.grid_view
+            .set_factory(Some(&look::grid_factory(hooks.clone())));
+        self.columns_view
+            .set_factory(Some(&look::column_factory(Some(hooks))));
+        {
+            let (go, open) = (self.weak(), self.weak());
+            self.miller.connect(
+                Rc::new(move |folder, select| {
+                    if let Some(this) = go.upgrade() {
+                        this.navigate(folder);
+                        if !select.is_empty() {
+                            this.select_after_load(select);
+                        }
+                    }
+                }),
+                Rc::new(move |entry| {
+                    if let Some(this) = open.upgrade() {
+                        this.open(&entry);
+                    }
+                }),
+            );
+        }
 
         // Dropping on the empty part of the folder puts the files in it.
         let target = gtk::DropTarget::new(
@@ -654,6 +713,8 @@ impl Browser {
             }
         };
         let again = activate.clone();
+        let columns = activate.clone();
+        self.columns_view.connect_activate(move |_, p| columns(p));
         self.list_view.connect_activate(move |_, p| again(p));
         self.grid_view.connect_activate(move |_, p| activate(p));
 
@@ -673,6 +734,7 @@ impl Browser {
             if let Some(this) = this.upgrade() {
                 this.update_actions();
                 this.update_status();
+                this.update_miller();
             }
         });
     }
@@ -874,17 +936,31 @@ impl Browser {
         self.action("search", |t| t.search_bar.set_search_mode(true));
         self.action("location", |t| t.show_location());
         self.action("close", |t| t.window.close());
-        self.action("toggle-view", |t| {
+        let view = gio::SimpleAction::new_stateful(
+            "view",
+            Some(glib::VariantTy::STRING),
+            &view_name(self.state.borrow().settings.view).to_variant(),
+        );
+        let this = self.weak();
+        view.connect_activate(move |_, parameter| {
+            let (Some(this), Some(name)) =
+                (this.upgrade(), parameter.and_then(|p| p.get::<String>()))
+            else {
+                return;
+            };
             {
-                let mut state = t.state.borrow_mut();
-                state.settings.view = match state.settings.view {
-                    View::List => View::Grid,
-                    View::Grid => View::List,
+                let mut state = this.state.borrow_mut();
+                state.settings.view = match name.as_str() {
+                    "grid" => View::Grid,
+                    "columns" => View::Columns,
+                    _ => View::List,
                 };
                 save_settings(&state.settings);
             }
-            t.apply_view();
+            // The folder may be empty, which the views show differently.
+            this.repopulate();
         });
+        self.window.add_action(&view);
         self.action("about", |t| {
             ndl::AboutDialog::builder()
                 .application_icon("os.nodalix.Archivador")
@@ -1192,10 +1268,16 @@ impl Browser {
                 View::Grid => self
                     .grid_view
                     .scroll_to(position, gtk::ListScrollFlags::FOCUS, None),
+                View::Columns => {
+                    self.columns_view
+                        .scroll_to(position, gtk::ListScrollFlags::FOCUS, None)
+                }
             }
         }
 
-        if shown.is_empty() {
+        // The columns view shows an empty folder as an empty column; the rest wants words.
+        let plain_empty = view == View::Columns && error.is_none() && !searching && !in_trash;
+        if shown.is_empty() && !plain_empty {
             let (icon, title, description) = if let Some(error) = error {
                 ("dialog-error-symbolic", tr("Can't open this folder"), error)
             } else if searching {
@@ -1227,19 +1309,48 @@ impl Browser {
         self.update_columns();
         self.update_status();
         self.update_actions();
+        self.update_miller();
+    }
+
+    /// The options the columns view lists other folders with.
+    fn options(&self) -> Options {
+        let s = self.state.borrow().settings;
+        Options {
+            sort: s.sort,
+            descending: s.descending,
+            show_hidden: s.show_hidden,
+        }
+    }
+
+    /// Brings the columns to the left and right of the folder up to date.
+    fn update_miller(&self) {
+        if self.state.borrow().settings.view != View::Columns {
+            return;
+        }
+        let dir = self.current_dir();
+        let options = self.options();
+        self.miller.show_path(&dir, options, is_trash(&dir));
+        self.miller.show_selection(&self.selected(), options);
     }
 
     fn apply_view(&self) {
         let view = self.state.borrow().settings.view;
-        let (name, icon, tip) = match view {
-            View::List => ("list", "view-grid-symbolic", "Show as a grid"),
-            View::Grid => ("grid", "view-list-symbolic", "Show as a list"),
+        let name = match view {
+            View::List => "list",
+            View::Grid => "grid",
+            View::Columns => "columns",
         };
-        self.view_button.set_icon_name(icon);
-        self.view_button.set_tooltip_text(Some(tr(tip)));
-        if self.store.n_items() > 0 {
+        if let Some(action) = self
+            .window
+            .lookup_action("view")
+            .and_downcast::<gio::SimpleAction>()
+        {
+            action.set_state(&name.to_variant());
+        }
+        if self.store.n_items() > 0 || view == View::Columns {
             self.pages.set_visible_child_name(name);
         }
+        self.update_miller();
         self.update_columns();
         self.update_status();
     }

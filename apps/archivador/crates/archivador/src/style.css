@@ -104,6 +104,25 @@
   color: var(--ndl-color-text-primary);
 }
 
+/* The columns view: a hairline between columns, and a quiet choice in the ones on the way. */
+.archivador-column {
+  border-right: var(--ndl-border-width-thin) solid var(--ndl-color-border-subtle);
+}
+
+.archivador-trail > row:selected,
+.archivador-trail > child:selected {
+  background-color: var(--ndl-color-selection-bg-inactive);
+}
+
+.archivador-arrow {
+  color: var(--ndl-color-text-tertiary);
+  -gtk-icon-size: 12px;
+}
+
+.archivador-card {
+  padding: var(--ndl-space-xl) var(--ndl-space-lg);
+}
+
 .archivador-row {
   padding: var(--ndl-space-xs) var(--ndl-space-md);
 }

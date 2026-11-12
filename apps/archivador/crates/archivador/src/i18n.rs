@@ -18,6 +18,7 @@ const ES: &[(&str, &str)] = &[
     ("Search in this folder", "Buscar en esta carpeta"),
     ("Show as a grid", "Ver como cuadrícula"),
     ("Show as a list", "Ver como lista"),
+    ("Show in columns", "Ver en columnas"),
     ("New folder", "Carpeta nueva"),
     ("Untitled folder", "Carpeta sin título"),
     ("Open", "Abrir"),

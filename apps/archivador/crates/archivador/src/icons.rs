@@ -90,3 +90,27 @@ pub fn show(image: &gtk::Image, entry: &Entry) {
     });
     image.set_paintable(Some(&icon));
 }
+
+/// The columns view's glyph, which no icon theme has: three columns, drawn like the NDL icons.
+const COLUMNS_GLYPH: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect class="transparent-fill foreground-stroke" fill="none" stroke="rgb(0,0,0)" stroke-width="2.25" stroke-linejoin="round" x="3.5" y="4.5" width="17" height="15" rx="2"/><path class="transparent-fill foreground-stroke" fill="none" stroke="rgb(0,0,0)" stroke-width="2.25" stroke-linecap="round" d="M9.2 4.5v15M14.8 4.5v15"/></svg>"#;
+
+/// An image of that glyph, in the colour of the text around it.
+pub fn columns_glyph() -> gtk::Image {
+    let path = glib::user_cache_dir()
+        .join("nodalix")
+        .join("archivador")
+        .join("view-columns-symbolic.svg");
+    let written = path.exists()
+        || path
+            .parent()
+            .is_some_and(|dir| std::fs::create_dir_all(dir).is_ok())
+            && std::fs::write(&path, COLUMNS_GLYPH).is_ok();
+    if written {
+        let icon = gtk::IconPaintable::for_file(&gio::File::for_path(&path), 16, 1);
+        let image = gtk::Image::from_paintable(Some(&icon));
+        image.set_pixel_size(16);
+        image
+    } else {
+        gtk::Image::from_icon_name("view-dual-symbolic")
+    }
+}

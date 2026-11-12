@@ -76,7 +76,7 @@ fn attach_drag_and_drop(item: &gtk::ListItem, widget: &gtk::Widget, hooks: &Hook
 }
 
 /// `14:05` today, `3 Nov` this year, `3 Nov 2025` before.
-fn modified_text(time: Option<SystemTime>) -> String {
+pub fn modified_text(time: Option<SystemTime>) -> String {
     let Some(secs) = time
         .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
         .map(|d| d.as_secs() as i64)
@@ -103,7 +103,7 @@ fn modified_text(time: Option<SystemTime>) -> String {
 
 /// Shows the file's icon, and its thumbnail in place of it once that is ready. The image's name
 /// is the file it was last asked to show, so a row that was recycled meanwhile is left alone.
-fn show_icon(image: &gtk::Image, entry: &Entry, thumb_size: i32) {
+pub fn show_icon(image: &gtk::Image, entry: &Entry, thumb_size: i32) {
     let path = entry.path.to_string_lossy().into_owned();
     image.set_widget_name(&path);
     // Rounded corners only clip what is drawn inside when the widget says so.
@@ -248,6 +248,56 @@ pub fn grid_factory(hooks: Hooks) -> gtk::SignalListItemFactory {
         if let Some(name) = tile.last_child().and_downcast::<gtk::Label>() {
             name.set_label(&entry.name);
             name.set_tooltip_text(Some(&entry.name));
+        }
+    });
+    factory
+}
+
+/// A narrow row for the columns view: a small icon, the name, and an arrow on folders. Rows in
+/// the columns that only show a folder on the way take no hooks.
+pub fn column_factory(hooks: Option<Hooks>) -> gtk::SignalListItemFactory {
+    let factory = gtk::SignalListItemFactory::new();
+    factory.connect_setup(move |_, item| {
+        let Some(item) = item.downcast_ref::<gtk::ListItem>() else {
+            return;
+        };
+        let row = gtk::Box::new(gtk::Orientation::Horizontal, 10);
+        row.add_css_class("archivador-row");
+        let icon = gtk::Image::new();
+        icon.set_pixel_size(24);
+        let name = gtk::Label::new(None);
+        name.set_hexpand(true);
+        name.set_xalign(0.0);
+        name.set_ellipsize(gtk::pango::EllipsizeMode::Middle);
+        let arrow = gtk::Image::from_icon_name("go-next-symbolic");
+        arrow.add_css_class("archivador-arrow");
+        row.append(&icon);
+        row.append(&name);
+        row.append(&arrow);
+        if let Some(hooks) = &hooks {
+            on_right_click(item, row.upcast_ref(), &hooks.menu);
+            attach_drag_and_drop(item, row.upcast_ref(), hooks);
+        }
+        item.set_child(Some(&row));
+    });
+    factory.connect_bind(|_, item| {
+        let Some(item) = item.downcast_ref::<gtk::ListItem>() else {
+            return;
+        };
+        let (Some(file), Some(row)) = (object(item), item.child()) else {
+            return;
+        };
+        let entry = file.entry();
+        if let Some(icon) = row.first_child().and_downcast::<gtk::Image>() {
+            show_icon(&icon, &entry, 96);
+        }
+        if let Some(name) = row.first_child().and_then(|w| w.next_sibling()) {
+            if let Some(name) = name.downcast_ref::<gtk::Label>() {
+                name.set_label(&entry.name);
+            }
+        }
+        if let Some(arrow) = row.last_child() {
+            arrow.set_visible(entry.is_dir);
         }
     });
     factory
