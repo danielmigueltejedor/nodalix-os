@@ -346,6 +346,7 @@ const marks = messages => messages.map(m => m.replace(/^Nodalix login transition
     await sleep(200);
     assert.strictEqual(loadable, true, messages.join('\n'));
     assert.ok(marks(messages).includes('desktop modules may load: cover painted'), messages.join('\n'));
+    assert.ok(marks(messages).some(m => m.startsWith('cover state: ')), messages.join('\n'));   // never throws, even on odd stubs
     module.trace('module test ready in 5 ms');
     assert.ok(marks(messages).includes('module test ready in 5 ms'), messages.join('\n'));
 

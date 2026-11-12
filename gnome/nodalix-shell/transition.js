@@ -223,6 +223,22 @@ class Cover {
         this._group.opacity = frame.opacity;
     }
 
+    // One line for the journal: is the cover really there, on top and showing
+    // the picture? Only meant to diagnose a cover that is painted but not seen.
+    describe() {
+        try {
+            const widget = this._group.get_first_child();
+            const stage = global.stage.get_children();
+            const [width, height] = widget.get_size();
+            return `on stage ${stage.indexOf(this._group) + 1}/${stage.length}, ` +
+                `monitors ${this._group.get_n_children()}, ${Math.round(width)}x${Math.round(height)}, ` +
+                `opacity ${this._group.get_paint_opacity()}, mapped ${this._group.mapped}, ` +
+                `picture ${widget.get_theme_node().get_background_image()?.get_path() ?? 'none'}`;
+        } catch (error) {
+            return `unavailable (${error.message})`;
+        }
+    }
+
     async reveal() {
         if (!St.Settings.get().enable_animations) {
             this.destroy();
@@ -322,6 +338,8 @@ function watchFirstPaint() {
                 paintId = 0;
                 paintedAt = GLib.get_monotonic_time();
                 mark('cover painted');
+                if (cover)
+                    mark(`cover state: ${cover.describe()}`);
                 // Let the frame reach the screen before the modules take the main loop.
                 setTimeout(() => releaseFirstFrame('cover painted'), PRESENT_DELAY);
                 resolve();
