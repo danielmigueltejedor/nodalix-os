@@ -3,6 +3,7 @@
 
 pub mod audio;
 pub mod localsend;
+pub mod network;
 pub mod pages;
 pub mod sysinfo;
 pub mod updates;

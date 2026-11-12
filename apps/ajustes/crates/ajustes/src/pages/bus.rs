@@ -64,3 +64,58 @@ pub fn on_change(proxy: &gio::DBusProxy, f: impl Fn() + 'static) {
         None
     });
 }
+
+/// The system bus, or `None` when there is none.
+pub async fn system() -> Option<gio::DBusConnection> {
+    gio::bus_get_future(gio::BusType::System).await.ok()
+}
+
+/// Calls a method and returns its reply.
+pub async fn call(
+    connection: &gio::DBusConnection,
+    name: &str,
+    path: &str,
+    interface: &str,
+    method: &str,
+    parameters: Option<&glib::Variant>,
+) -> Result<glib::Variant, glib::Error> {
+    connection
+        .call_future(
+            Some(name),
+            path,
+            interface,
+            method,
+            parameters,
+            None,
+            gio::DBusCallFlags::NONE,
+            5_000,
+        )
+        .await
+}
+
+/// All the properties of an interface of an object.
+pub async fn properties(
+    connection: &gio::DBusConnection,
+    name: &str,
+    path: &str,
+    interface: &str,
+) -> Option<std::collections::HashMap<String, glib::Variant>> {
+    let reply = call(
+        connection,
+        name,
+        path,
+        "org.freedesktop.DBus.Properties",
+        "GetAll",
+        Some(&(interface,).to_variant()),
+    )
+    .await
+    .ok()?;
+    reply
+        .get::<(std::collections::HashMap<String, glib::Variant>,)>()
+        .map(|(all,)| all)
+}
+
+/// An object path from a string, or `None` if it is not one.
+pub fn object_path(path: &str) -> Option<glib::variant::ObjectPath> {
+    glib::variant::ObjectPath::try_from(path).ok()
+}
