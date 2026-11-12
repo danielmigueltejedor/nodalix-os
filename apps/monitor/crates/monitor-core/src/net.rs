@@ -43,8 +43,12 @@ pub fn rate(previous: &Interfaces, now: &Interfaces, seconds: f64) -> (f64, f64)
     let mut delta = NetTotals::default();
     for (name, counters) in now {
         if let Some(before) = previous.get(name) {
-            delta.rx = delta.rx.saturating_add(counters.rx.saturating_sub(before.rx));
-            delta.tx = delta.tx.saturating_add(counters.tx.saturating_sub(before.tx));
+            delta.rx = delta
+                .rx
+                .saturating_add(counters.rx.saturating_sub(before.rx));
+            delta.tx = delta
+                .tx
+                .saturating_add(counters.tx.saturating_sub(before.tx));
         }
     }
     (delta.rx as f64 / seconds, delta.tx as f64 / seconds)
