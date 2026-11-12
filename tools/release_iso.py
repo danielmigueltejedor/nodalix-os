@@ -52,17 +52,18 @@ def publication_assets(directory):
         and path.name != assembled and not path.name.endswith('.tmp')
     ]
 
-def release_directory(value):
-    # This CLI uploads build artifacts. Only accept directories in its workspace.
+def release_directory():
     workspace = Path.cwd().resolve()
-    directory = (workspace / value).resolve()
-    if not directory.is_relative_to(workspace):
-        raise argparse.ArgumentTypeError('The assets directory must be inside the release workspace')
+    directory = workspace / 'dist' / 'release'
+    if not directory.resolve().is_relative_to(workspace):
+        raise ValueError('The release directory must be inside the workspace')
     return directory
 
 
-if __name__=='__main__':
-    parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--assets-dir',type=release_directory,required=True)
-    args=parser.parse_args()
-    for path in publication_assets(args.assets_dir):print(path)
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    # Keep the release workflow's flag while publishing only its staging directory.
+    parser.add_argument('--assets-dir', type=Path, choices=[Path('dist/release')], required=True)
+    parser.parse_args()
+    for path in publication_assets(release_directory()):
+        print(path)

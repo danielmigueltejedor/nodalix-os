@@ -1,4 +1,4 @@
-import argparse, functools, hashlib, http.server, importlib.util, json, sys, tempfile, threading, unittest
+import functools, hashlib, http.server, importlib.util, json, sys, tempfile, threading, unittest
 from pathlib import Path
 from unittest.mock import patch
 
@@ -33,11 +33,14 @@ class ReleaseIsoPartsTests(unittest.TestCase):
         names={p.name for p in publication_assets(self.root)}
         self.assertNotIn(self.image.name,names)
         self.assertTrue({p['asset'] for p in meta['parts']}.issubset(names))
-    def test_release_cli_accepts_only_paths_inside_the_workspace(self):
-        with patch.object(Path, 'cwd', return_value=self.root):
-            self.assertEqual(release_directory('dist/release'), self.root.resolve() / 'dist/release')
-            with self.assertRaisesRegex(argparse.ArgumentTypeError, 'assets directory'):
-                release_directory(self.root.resolve().parent)
+    def test_release_directory_stays_inside_the_workspace(self):
+        workspace = self.root / 'workspace'
+        workspace.mkdir()
+        with patch.object(Path, 'cwd', return_value=workspace):
+            self.assertEqual(release_directory(), workspace.resolve() / 'dist/release')
+            (workspace / 'dist').symlink_to(self.root, target_is_directory=True)
+            with self.assertRaisesRegex(ValueError, 'release directory'):
+                release_directory()
 
     def test_publication_skips_symbolic_links(self):
         (self.root / 'nodalix-manifest.json').write_text('{"iso": {}}')
