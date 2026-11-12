@@ -82,6 +82,33 @@ class Organization(unittest.TestCase):
         sync()
         self.assertEqual([path.stat().st_mtime_ns for path in manifests],timestamps)
         source.unlink(); sync(); self.assertFalse(target.exists())
+    def test_nodalix_own_icons_are_not_replaced_by_a_generic_colloid_one(self):
+        apps=self.home/'.local/share/applications'; apps.mkdir(parents=True)
+        theme=self.home/'themes/Colloid-Teal/apps/scalable'; theme.mkdir(parents=True)
+        (theme/'monitor.svg').write_text('<svg>generic</svg>')
+        original='[Desktop Entry]\nType=Application\nName=System Monitor\nExec=nodalix-monitor\nIcon=os.nodalix.Monitor\n'
+        target=apps/'os.nodalix.Monitor.desktop'; target.write_text(original)
+        sync=lambda: icons.synchronize(self.home,[],[self.home/'themes'])
+        self.assertNotIn('os.nodalix.Monitor.desktop',sync())
+        self.assertEqual(target.read_text(),original)
+        # Another app with the same command name still gets the Colloid icon.
+        other=apps/'monitor.desktop'
+        other.write_text('[Desktop Entry]\nType=Application\nName=Monitor\nExec=monitor\nIcon=monitor-app\n')
+        self.assertIn('monitor.desktop',sync())
+    def test_a_reinstalled_desktop_file_keeps_the_apps_own_icon(self):
+        apps=self.home/'.local/share/applications'; apps.mkdir(parents=True)
+        theme=self.home/'themes/Colloid-Teal/apps/scalable'; theme.mkdir(parents=True)
+        (theme/'monitor.svg').write_text('<svg>generic</svg>')
+        original='[Desktop Entry]\nType=Application\nName=System Monitor\nExec=nodalix-monitor\nIcon=utilities-system-monitor\n'
+        target=apps/'os.nodalix.Monitor.desktop'; target.write_text(original)
+        sync=lambda: icons.synchronize(self.home,[],[self.home/'themes'])
+        sync()  # the old icon name matches the generic one: it is overridden, as before
+        self.assertIn('monitor.svg',target.read_text())
+        # A reinstall writes the file with the app's own icon; the next run leaves it alone.
+        shipped=original.replace('utilities-system-monitor','os.nodalix.Monitor')
+        target.write_text(shipped)
+        sync()
+        self.assertEqual(target.read_text(),shipped)
     def test_user_icon_restored_when_theme_removed(self):
         apps=self.home/'.local/share/applications'; apps.mkdir(parents=True)
         theme=self.home/'themes/Colloid-Teal/apps/scalable'; theme.mkdir(parents=True)
