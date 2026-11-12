@@ -10,3 +10,4 @@ pub mod network;
 pub mod pages;
 pub mod sysinfo;
 pub mod updates;
+pub mod wallpapers;

@@ -2,6 +2,7 @@ pub mod about;
 pub mod accessibility;
 pub mod appearance;
 pub mod applications;
+pub mod backgrounds;
 pub mod bluetooth;
 pub mod bus;
 pub mod datetime;

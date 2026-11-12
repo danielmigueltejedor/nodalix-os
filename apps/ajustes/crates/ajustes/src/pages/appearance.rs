@@ -129,17 +129,6 @@ pub fn build() -> gtk::ScrolledWindow {
     motion.add(&animations);
     content.append(&motion);
 
-    let backgrounds = ndl::PreferencesGroup::new();
-    let open = ndl::ActionRow::builder()
-        .title(tr("Backgrounds"))
-        .subtitle(tr("Pictures and animated backgrounds"))
-        .build();
-    open.set_activatable(true);
-    open.add_suffix(&gtk::Image::from_icon_name("go-next-symbolic"));
-    open.connect_activated(|row| crate::legacy::open_panel(row, "appearance"));
-    backgrounds.add(&open);
-    content.append(&backgrounds);
-
     scroller(&content)
 }
 
