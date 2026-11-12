@@ -49,6 +49,7 @@ fn column(
     title: &str,
     expand: bool,
     numeric: bool,
+    with_icon: bool,
     cmp: Cmp,
     text: fn(&Row) -> String,
     on_secondary: &SecondaryClick,
@@ -66,7 +67,17 @@ fn column(
         if numeric {
             label.add_css_class("numeric");
         }
-        item.set_child(Some(&label));
+        let image = gtk::Image::new();
+        if with_icon {
+            image.set_pixel_size(20);
+            let cell = gtk::Box::new(gtk::Orientation::Horizontal, 8);
+            cell.append(&image);
+            label.set_hexpand(true);
+            cell.append(&label);
+            item.set_child(Some(&cell));
+        } else {
+            item.set_child(Some(&label));
+        }
         // A right click anywhere on the row's cell, padding included, asks for the menu. The
         // handler reads the item's position when it is clicked, since the item is reused.
         let click = gtk::GestureClick::builder()
@@ -81,8 +92,11 @@ fn column(
                 }
             });
         }
-        label
-            .parent()
+        // The whole cell takes the click: the widget that holds the item's own child.
+        let cell = item.child();
+        cell.as_ref()
+            .and_then(|c| c.parent())
+            .or(cell)
             .unwrap_or_else(|| label.clone().upcast())
             .add_controller(click);
 
@@ -104,6 +118,19 @@ fn column(
             }),
         );
         expr.bind(&label, "label", Some(item));
+        if with_icon {
+            let params: [gtk::Expression; 1] = [item_expr.upcast()];
+            let icon = gtk::ClosureExpression::new::<Option<gio::Icon>>(
+                params,
+                glib::closure!(
+                    move |_this: Option<glib::Object>, obj: Option<glib::Object>| {
+                        obj.and_downcast::<ProcessObject>()
+                            .map(|o| crate::icons::for_row(&o.row()))
+                    }
+                ),
+            );
+            icon.bind(&image, "gicon", Some(item));
+        }
     });
     let column = gtk::ColumnViewColumn::new(Some(title), Some(factory));
     column.set_expand(expand);
@@ -185,12 +212,14 @@ impl ProcessView {
                 tr("Name"),
                 true,
                 false,
+                true,
                 |a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()),
                 |r| r.name.clone(),
                 &on_secondary,
             ),
             column(
                 tr("User"),
+                false,
                 false,
                 false,
                 |a, b| a.user.cmp(&b.user),
@@ -201,6 +230,7 @@ impl ProcessView {
                 tr("% CPU"),
                 false,
                 true,
+                false,
                 |a, b| a.cpu.total_cmp(&b.cpu),
                 |r| format!("{:.1}", r.cpu),
                 &on_secondary,
@@ -209,6 +239,7 @@ impl ProcessView {
                 tr("Memory"),
                 false,
                 true,
+                false,
                 |a, b| a.rss.cmp(&b.rss),
                 |r| format_bytes(r.rss),
                 &on_secondary,
@@ -217,6 +248,7 @@ impl ProcessView {
                 tr("ID"),
                 false,
                 true,
+                false,
                 |a, b| a.pid.cmp(&b.pid),
                 |r| r.pid.to_string(),
                 &on_secondary,
@@ -225,12 +257,14 @@ impl ProcessView {
                 tr("Threads"),
                 false,
                 true,
+                false,
                 |a, b| a.threads.cmp(&b.threads),
                 |r| r.threads.to_string(),
                 &on_secondary,
             ),
             column(
                 tr("State"),
+                false,
                 false,
                 false,
                 |a, b| a.state.cmp(&b.state),

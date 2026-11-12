@@ -212,7 +212,7 @@ impl ResourceView {
         self.mem_graph.push(m.fraction());
         if m.swap_total == 0 {
             self.swap_value.set_text("—");
-            self.swap_detail.set_text("");
+            self.swap_detail.set_text(tr("This system has no swap"));
         } else {
             self.swap_value.set_text(&format_bytes(m.swap_used()));
             self.swap_detail

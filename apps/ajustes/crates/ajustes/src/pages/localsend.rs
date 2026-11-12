@@ -65,6 +65,7 @@ impl LocalSendPage {
         let status = ndl::ActionRow::builder()
             .title(tr("Connecting to LocalSend…"))
             .build();
+        status.add_prefix(&gtk::Image::from_icon_name("emblem-shared-symbolic"));
         share.add(&status);
         let enabled = switch(tr("LocalSend is on"), "");
         enabled.set_sensitive(false);
@@ -111,6 +112,14 @@ impl LocalSendPage {
         for row in [&start_on_login, &auto_disable, &auto_accept] {
             config.add(row);
         }
+        start_on_login.add_prefix(&gtk::Image::from_icon_name("system-run-symbolic"));
+        auto_disable.add_prefix(&gtk::Image::from_icon_name("alarm-symbolic"));
+        auto_accept.add_prefix(&gtk::Image::from_icon_name("emblem-ok-symbolic"));
+        minutes.add_prefix(&gtk::Image::from_icon_name(
+            "preferences-system-time-symbolic",
+        ));
+        alias.add_prefix(&gtk::Image::from_icon_name("computer-symbolic"));
+        folder.add_prefix(&gtk::Image::from_icon_name("folder-download-symbolic"));
         config.add(&minutes);
         // The whole group is one box so it can be switched off while GLocalSend is missing.
         let options = gtk::Box::new(gtk::Orientation::Vertical, 0);
@@ -366,6 +375,16 @@ impl LocalSendPage {
         }
         for device in devices {
             let row = ndl::ActionRow::builder().title(&device.alias).build();
+            let phone = device.model.as_deref().is_some_and(|m| {
+                ["iphone", "android", "phone", "mobile"]
+                    .iter()
+                    .any(|p| m.to_lowercase().contains(p))
+            });
+            row.add_prefix(&gtk::Image::from_icon_name(if phone {
+                "phone-symbolic"
+            } else {
+                "computer-symbolic"
+            }));
             if let Some(model) = &device.model {
                 row.set_subtitle(model);
             }

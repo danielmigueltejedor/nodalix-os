@@ -171,7 +171,7 @@ def commit_lines(
 ) -> list[str]:
     revision = f"{tag_ref(base)}..{tag_ref(tag)}" if base else tag_ref(tag)
 
-    log = subprocess.check_output(
+    log = subprocess.check_output(  # NOSONAR: argument list, no shell; revision is passed after --end-of-options
         ["git", "log", "--reverse", "--format=%H%x09%s", "--end-of-options", revision, "--"],
         text=True,
     )
@@ -235,7 +235,7 @@ def build(tag: str, output: Path) -> None:
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as stream:
             stream.write("\n\n".join(sections) + "\n")
-        temporary.replace(output)
+        temporary.replace(output)  # NOSONAR: --output is where the maintainer asked for the notes
     finally:
         temporary.unlink(missing_ok=True)
 

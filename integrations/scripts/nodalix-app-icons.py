@@ -22,6 +22,9 @@ THEME_VARIANTS = (
 )
 
 
+FIRST_PARTY_ICON_PREFIX = 'os.nodalix.'
+
+
 def digest(text):
     return hashlib.sha256(text.encode()).hexdigest()
 
@@ -31,6 +34,10 @@ def candidates(identifier, entry):
     # icons cannot be displayed by GNOME's panel list (it needs GThemedIcon).
     if ('X-GNOME-Settings-Panel' in entry.get('Categories', '').split(';')
             or entry.get('Icon', '').endswith('-symbolic')):
+        return []
+    # Nodalix's own apps name their own icon (os.nodalix.Monitor...). A Colloid icon that
+    # matches by the command or the name ("monitor") would replace it with a generic one.
+    if entry.get('Icon', '').startswith(FIRST_PARTY_ICON_PREFIX):
         return []
     names = [entry.get('Icon', ''), identifier.removesuffix('.desktop')]
     try:

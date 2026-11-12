@@ -50,6 +50,9 @@ fn profile_row() -> ndl::ComboRow {
         .title(tr("Power mode"))
         .model(&gtk::StringList::new(&labels))
         .build();
+    row.add_prefix(&gtk::Image::from_icon_name(
+        "power-profile-balanced-symbolic",
+    ));
     row.set_visible(false);
     let loading = Rc::new(Cell::new(true));
     {
@@ -113,6 +116,7 @@ fn profile_row() -> ndl::ComboRow {
 /// The battery charge, from UPower. Hidden on a machine without a battery.
 fn battery_row() -> ndl::ActionRow {
     let row = ndl::ActionRow::builder().title(tr("Battery")).build();
+    row.add_prefix(&gtk::Image::from_icon_name("battery-symbolic"));
     row.set_visible(false);
     let label = gtk::Label::new(None);
     row.add_suffix(&label);

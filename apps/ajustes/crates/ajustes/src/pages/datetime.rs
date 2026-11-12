@@ -61,7 +61,13 @@ fn system_group(toasts: &ndl::ToastOverlay) -> ndl::PreferencesGroup {
             .title(tr("Automatic date and time"))
             .subtitle(tr("Set the clock from the internet"))
             .build(),
-        zone: ndl::EntryRow::builder().title(tr("Time zone")).build(),
+        zone: {
+            let row = ndl::EntryRow::builder().title(tr("Time zone")).build();
+            row.add_prefix(&gtk::Image::from_icon_name(
+                "preferences-system-time-symbolic",
+            ));
+            row
+        },
         apply: gtk::Button::with_label(tr("Apply")),
         saved_zone: Default::default(),
         loading: Cell::new(true),
@@ -69,6 +75,8 @@ fn system_group(toasts: &ndl::ToastOverlay) -> ndl::PreferencesGroup {
             .map(|t| parse_zones(&t))
             .unwrap_or_default(),
     });
+    ui.automatic
+        .add_prefix(&gtk::Image::from_icon_name("network-wireless-symbolic"));
     ui.automatic.set_sensitive(false);
     ui.zone.set_sensitive(false);
     ui.apply.set_valign(gtk::Align::Center);
@@ -88,25 +96,45 @@ fn system_group(toasts: &ndl::ToastOverlay) -> ndl::PreferencesGroup {
         let sync = {
             let (ui, proxy) = (ui.clone(), proxy.clone());
             move || {
-                ui.loading.set(true);
-                ui.automatic
-                    .set_active(bus::bool_property(&proxy, "NTP").unwrap_or(false));
-                ui.automatic
-                    .set_sensitive(bus::bool_property(&proxy, "CanNTP").unwrap_or(false));
-                let zone = bus::string_property(&proxy, "Timezone").unwrap_or_default();
-                if *ui.saved_zone.borrow() != zone {
-                    ui.zone.set_text(&zone);
-                    *ui.saved_zone.borrow_mut() = zone;
-                }
-                ui.zone.set_sensitive(true);
-                ui.apply.set_sensitive(false);
-                ui.loading.set(false);
+                let (ui, proxy) = (ui.clone(), proxy.clone());
+                glib::spawn_future_local(async move {
+                    let all =
+                        bus::properties(&proxy.connection(), TIMEDATE, TIMEDATE_PATH, TIMEDATE)
+                            .await;
+                    let Some(all) = all else {
+                        ui.automatic
+                            .set_subtitle(tr("The time service is not available."));
+                        return;
+                    };
+                    let flag =
+                        |name: &str| all.get(name).and_then(|v| v.get::<bool>()).unwrap_or(false);
+                    ui.loading.set(true);
+                    ui.automatic.set_active(flag("NTP"));
+                    ui.automatic.set_sensitive(flag("CanNTP"));
+                    let zone = all
+                        .get("Timezone")
+                        .and_then(|v| v.str().map(str::to_owned))
+                        .unwrap_or_default();
+                    if *ui.saved_zone.borrow() != zone {
+                        ui.zone.set_text(&zone);
+                        *ui.saved_zone.borrow_mut() = zone;
+                    }
+                    ui.zone.set_sensitive(true);
+                    ui.apply.set_sensitive(false);
+                    ui.loading.set(false);
+                });
             }
         };
         sync();
+        // The proxy forgets its properties when the service exits and says so; asking again
+        // would start the service for nothing, so only a live service is read.
         bus::on_change(&proxy, {
-            let sync = sync.clone();
-            move || sync()
+            let (sync, proxy) = (sync.clone(), proxy.clone());
+            move || {
+                if proxy.name_owner().is_some() {
+                    sync();
+                }
+            }
         });
         let report = {
             let toasts = toasts.clone();
