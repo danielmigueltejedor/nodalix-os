@@ -21,6 +21,7 @@ spike/05b_hfp_ofono.py and spike/RESULTS.md (HFP addendum).
 from __future__ import annotations
 
 import logging
+import tempfile
 import time
 from collections.abc import Callable
 from pathlib import Path
@@ -71,12 +72,29 @@ def write_wireplumber_config() -> tuple[Path, Path | None]:
     path = WIREPLUMBER_HFP_CONF
     backup: Path | None = None
     path.parent.mkdir(parents=True, exist_ok=True)
+    if path.is_symlink():
+        raise OSError(f"WirePlumber config is a symlink: {path}")
     if path.is_file():
-        if path.read_text() == _WP_CONF_BODY:
+        original = path.read_text(encoding="utf-8")
+        if original == _WP_CONF_BODY:
             return path, None
-        backup = path.with_suffix(f".conf.bak.{int(time.time())}")
-        backup.write_text(path.read_text())
-    path.write_text(_WP_CONF_BODY)
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=path.parent,
+            prefix=f"{path.name}.bak.{int(time.time())}.", delete=False,
+        ) as stream:
+            backup = Path(stream.name)
+            stream.write(original)
+
+    with tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", dir=path.parent, delete=False,
+    ) as stream:
+        staged = Path(stream.name)
+        try:
+            stream.write(_WP_CONF_BODY)
+            stream.close()
+            staged.replace(path)
+        finally:
+            staged.unlink(missing_ok=True)
     return path, backup
 
 

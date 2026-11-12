@@ -74,7 +74,8 @@ def clean_ghostty(path):
     managed = {'window-decoration':'client', 'gtk-titlebar':'true', 'gtk-titlebar-style':'tabs',
                'gtk-tabs-location':'top', 'gtk-wide-tabs':'true'}
     # Retire duplicate compositor-specific values while retaining unrelated settings.
-    lines = path.read_text().splitlines()
+    original = path.read_text()
+    lines = original.splitlines()
     native={}
     for line in lines:
         match=re.match(r'^\s*keybind\s*=\s*(performable:)?(ctrl\+insert|shift\+insert)=(.*)',line)
@@ -88,11 +89,27 @@ def clean_ghostty(path):
     for key,action in [('ctrl+insert','copy_to_clipboard'),('shift+insert','paste_from_clipboard')]:
         output.append(native.get(key,f'keybind = {key}={action}'))
     text = '\n'.join(output)+'\n'
-    if text != path.read_text():
-        backup = path.with_name(path.name+'.pre-gnome-030')
-        if not backup.exists():
-            shutil.copy2(path, backup)
-        path.write_text(text)
+    if text == original:
+        return
+
+    backup = path.with_name(path.name + '.pre-gnome-030')
+    try:
+        fd = os.open(backup, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, 'w') as stream:
+            stream.write(original)
+    except FileExistsError:
+        pass
+
+    with tempfile.NamedTemporaryFile(mode='w', dir=path.parent, delete=False) as stream:
+        staged = Path(stream.name)
+        try:
+            stream.write(text)
+            stream.flush()
+            shutil.copymode(path, staged)
+            if not path.is_symlink() and path.read_text() == original:
+                staged.replace(path)
+        finally:
+            staged.unlink(missing_ok=True)
 
 
 def retire_chatgpt(path, backup):
