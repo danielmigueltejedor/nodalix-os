@@ -3,7 +3,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use archivador_core::names;
+use archivador_core::{names, servers};
 use ndl::gtk::{self, prelude::*};
 use nodalia_gtk::{self as ndl, ResponseAppearance};
 
@@ -113,4 +113,59 @@ pub fn confirm(
         }
     });
     dialog.present(Some(parent));
+}
+
+/// Asks for the address of a server. `accept` runs with the address, as GVfs wants it, once it
+/// is one that can be mounted and the user says so.
+pub fn ask_server(parent: &impl IsA<gtk::Widget>, accept: impl Fn(String) + 'static) {
+    let dialog = ndl::AlertDialog::new(
+        Some(tr("Connect to a server")),
+        Some(tr(
+            "Type the address, like smb://server/share, sftp://host or ftp://host.",
+        )),
+    );
+    dialog.add_response("cancel", tr("Cancel"));
+    dialog.add_response("accept", tr("Connect"));
+    dialog.set_response_appearance("accept", ResponseAppearance::Suggested);
+    dialog.set_default_response(Some("accept"));
+    dialog.set_close_response("cancel");
+
+    let entry = gtk::Entry::new();
+    entry.set_placeholder_text(Some("smb://server/share"));
+    entry.set_activates_default(false);
+    dialog.set_extra_child(Some(&entry));
+    dialog.set_response_enabled("accept", false);
+
+    // As in `ask_name`: the entry reaches the dialog through a slot the response empties.
+    let slot: Rc<RefCell<Option<ndl::AlertDialog>>> = Rc::new(RefCell::new(Some(dialog.clone())));
+    {
+        let slot = slot.clone();
+        entry.connect_changed(move |entry| {
+            if let Some(dialog) = slot.borrow().as_ref() {
+                dialog.set_response_enabled("accept", servers::normalize(&entry.text()).is_some());
+            }
+        });
+    }
+    {
+        let slot = slot.clone();
+        entry.connect_activate(move |_| {
+            let dialog = slot.borrow().clone();
+            if let Some(dialog) = dialog {
+                dialog.activate_default();
+            }
+        });
+    }
+    {
+        let entry = entry.clone();
+        dialog.connect_response(None, move |_, id| {
+            slot.borrow_mut().take();
+            if id == "accept" {
+                if let Some(uri) = servers::normalize(&entry.text()) {
+                    accept(uri);
+                }
+            }
+        });
+    }
+    dialog.present(Some(parent));
+    entry.grab_focus();
 }

@@ -5,13 +5,14 @@ use std::path::{Path, PathBuf};
 use std::rc::{Rc, Weak};
 use std::time::Duration;
 
+use archivador_core::bookmarks::{self, Bookmark};
 use archivador_core::clipboard::{Clipboard, Mode};
 use archivador_core::cloud;
 use archivador_core::entry::{self, Entry, SortKey};
 use archivador_core::history::History;
 use archivador_core::settings::{Appearance, Settings, View};
 use archivador_core::trash::Trash;
-use archivador_core::{names, ops, places};
+use archivador_core::{names, ops, places, recent, servers};
 use ndl::gtk::{self, gdk, gio, glib, prelude::*};
 use nodalia_gtk as ndl;
 
@@ -25,7 +26,15 @@ use crate::share;
 use crate::transfer;
 
 /// The place that stands for the trash in the history and in the sidebar.
+/// The sidebar row a drag is over, and the timer that opens it.
+type Hover = Option<(gtk::ListBoxRow, Option<glib::SourceId>)>;
+
 const TRASH: &str = "trash:///";
+const RECENT: &str = "recent:///";
+/// What a sidebar row's name holds when it is not a folder: the question to ask for a server.
+const CONNECT: &str = "action:connect-server";
+/// What a row's name starts with when it is a server that is not mounted: its address follows.
+const SERVER: &str = "server:";
 
 thread_local! {
     /// The open windows. Their widgets only hold weak references to the browser, so this is what
@@ -128,6 +137,64 @@ fn hide_rubberband_on_files(view: &impl IsA<gtk::Widget>) {
 
 fn is_trash(path: &Path) -> bool {
     path == Path::new(TRASH)
+}
+
+fn is_recent(path: &Path) -> bool {
+    path == Path::new(RECENT)
+}
+
+/// A place that is not a folder on disk, so nothing is made, pasted or dropped in it.
+fn is_virtual(path: &Path) -> bool {
+    is_trash(path) || is_recent(path)
+}
+
+fn bookmarks_file() -> PathBuf {
+    glib::user_config_dir().join("gtk-3.0").join("bookmarks")
+}
+
+fn load_bookmarks() -> Vec<Bookmark> {
+    bookmarks::parse(&std::fs::read_to_string(bookmarks_file()).unwrap_or_default())
+}
+
+fn save_bookmarks(list: &[Bookmark]) {
+    let file = bookmarks_file();
+    if let Some(dir) = file.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let _ = std::fs::write(file, bookmarks::serialize(list));
+}
+
+fn servers_file() -> PathBuf {
+    glib::user_config_dir()
+        .join("nodalix")
+        .join("archivador-servers")
+}
+
+fn load_servers() -> Vec<String> {
+    servers::parse(&std::fs::read_to_string(servers_file()).unwrap_or_default())
+}
+
+fn save_servers(list: &[String]) {
+    let file = servers_file();
+    if let Some(dir) = file.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let _ = std::fs::write(file, servers::serialize(list));
+}
+
+/// The files the desktop says were opened lately, newest visit first by their time.
+fn recent_entries() -> Vec<Entry> {
+    let items = gtk::RecentManager::default()
+        .items()
+        .into_iter()
+        .filter_map(|info| {
+            let path = gio::File::for_uri(&info.uri()).path()?;
+            let visited = u64::try_from(info.visited().to_unix())
+                .ok()
+                .map(|secs| std::time::UNIX_EPOCH + Duration::from_secs(secs));
+            Some(recent::Item { path, visited })
+        });
+    recent::entries(items)
 }
 
 fn settings_file() -> PathBuf {
@@ -387,6 +454,16 @@ impl Browser {
                 let (Some(this), name) = (this.upgrade(), row.widget_name()) else {
                     return;
                 };
+                if name == CONNECT {
+                    this.sync_sidebar();
+                    this.ask_server();
+                    return;
+                }
+                if let Some(uri) = name.strip_prefix(SERVER) {
+                    this.sync_sidebar();
+                    this.connect_server(uri.to_owned());
+                    return;
+                }
                 let path = PathBuf::from(name.as_str());
                 let account = this
                     .clouds
@@ -777,7 +854,7 @@ impl Browser {
                 return false;
             };
             let dir = this.current_dir();
-            !is_trash(&dir)
+            !is_virtual(&dir)
                 && this.drop_files(
                     transfer::paths_of(value),
                     dir,
@@ -792,7 +869,7 @@ impl Browser {
             gdk::FileList::static_type(),
             gdk::DragAction::COPY | gdk::DragAction::MOVE,
         );
-        let over: Rc<RefCell<Option<(gtk::ListBoxRow, Option<glib::SourceId>)>>> = Rc::default();
+        let over: Rc<RefCell<Hover>> = Rc::default();
         let clear = {
             let over = over.clone();
             move || {
@@ -826,7 +903,9 @@ impl Browser {
                 let path = PathBuf::from(row.widget_name().as_str());
                 // The trash is not a place to look into, and a cloud that is not connected has
                 // nothing to show yet.
-                let opens = !is_trash(&path)
+                let opens = !is_virtual(&path)
+                    && !path.to_string_lossy().starts_with("action:")
+                    && !path.to_string_lossy().starts_with(SERVER)
                     && !this
                         .clouds
                         .borrow()
@@ -965,6 +1044,11 @@ impl Browser {
             "win.refresh",
             "view-refresh-symbolic",
         ));
+        more.append_item(&ndl::menu_item(
+            tr("Connect to a server…"),
+            "win.connect-server",
+            "network-workgroup-symbolic",
+        ));
         menu.append_section(None, &more);
         let about = gio::Menu::new();
         about.append_item(&ndl::menu_item(
@@ -1022,6 +1106,22 @@ impl Browser {
             edit.append_item(&item(tr("Copy"), "win.copy", "edit-copy-symbolic"));
             edit.append_item(&item(tr("Cut"), "win.cut", "edit-cut-symbolic"));
             edit.append_item(&item(tr("Rename…"), "win.rename", "document-edit-symbolic"));
+            if let Some(folder) = self.selected_folder() {
+                let pinned = load_bookmarks().iter().any(|b| b.path == folder);
+                edit.append_item(&item(
+                    tr(if pinned {
+                        "Remove from Favorites"
+                    } else {
+                        "Add to Favorites"
+                    }),
+                    "win.favorite",
+                    if pinned {
+                        "starred-symbolic"
+                    } else {
+                        "non-starred-symbolic"
+                    },
+                ));
+            }
             menu.append_section(None, &edit);
             let share = gio::Menu::new();
             share.append_item(&item(
@@ -1059,7 +1159,36 @@ impl Browser {
         menu
     }
 
+    /// The folder that is the only thing selected, if that is what is.
+    fn selected_folder(&self) -> Option<PathBuf> {
+        let mut selected = self.selected();
+        (selected.len() == 1 && selected[0].is_dir && !is_virtual(&self.current_dir()))
+            .then(|| selected.remove(0).path)
+    }
+
+    /// Pins the selected folder to the sidebar, or takes it off again.
+    fn toggle_favorite(self: &Rc<Self>) {
+        let Some(folder) = self.selected_folder() else {
+            return;
+        };
+        let list = load_bookmarks();
+        let list = if list.iter().any(|b| b.path == folder) {
+            self.toast(tr("Removed from Favorites"));
+            bookmarks::remove(list, &folder)
+        } else {
+            self.toast(tr("Added to Favorites"));
+            bookmarks::add(list, &folder)
+        };
+        save_bookmarks(&list);
+        self.rebuild_sidebar();
+        self.sync_sidebar();
+    }
+
     fn popup(&self, parent: &gtk::Widget, x: f64, y: f64, on_files: bool) {
+        // The recent files have no empty part to ask a menu of.
+        if !on_files && is_recent(&self.current_dir()) {
+            return;
+        }
         let popover = gtk::PopoverMenu::from_model(Some(&self.context_model(on_files)));
         ndl::menu_rows(&popover);
         popover.set_parent(parent);
@@ -1123,6 +1252,8 @@ impl Browser {
             }
         });
         self.action("new-folder", Self::new_folder);
+        self.action("favorite", Self::toggle_favorite);
+        self.action("connect-server", Self::ask_server);
         self.action("rename", Self::rename);
         self.action("copy", |t| t.to_clipboard(Mode::Copy));
         self.action("cut", |t| t.to_clipboard(Mode::Cut));
@@ -1246,13 +1377,14 @@ impl Browser {
 
     /// Which actions make sense for what is selected and where we are.
     fn update_actions(&self) {
-        let (in_trash, can_back, can_forward, can_up) = {
+        let (in_trash, in_virtual, can_back, can_forward, can_up) = {
             let state = self.state.borrow();
             (
                 is_trash(state.history.current()),
+                is_virtual(state.history.current()),
                 state.history.can_go_back(),
                 state.history.can_go_forward(),
-                state.history.parent().is_some(),
+                state.history.parent().is_some() && !is_virtual(state.history.current()),
             )
         };
         let selected = (0..self.store.n_items())
@@ -1271,8 +1403,8 @@ impl Browser {
         self.set_enabled("rename", selected == 1 && !in_trash);
         self.set_enabled("trash", some && !in_trash);
         self.set_enabled("send", some && !in_trash);
-        self.set_enabled("new-folder", !in_trash);
-        self.set_enabled("paste", pasteable && !in_trash);
+        self.set_enabled("new-folder", !in_virtual);
+        self.set_enabled("paste", pasteable && !in_virtual);
         self.set_enabled("restore", some && in_trash);
         self.set_enabled("delete", some);
         self.set_enabled("empty-trash", in_trash && self.store.n_items() > 0);
@@ -1445,7 +1577,7 @@ impl Browser {
     }
 
     pub fn navigate(self: &Rc<Self>, path: PathBuf) {
-        if !is_trash(&path) && !path.is_dir() {
+        if !is_virtual(&path) && !path.is_dir() {
             self.toast(&fmt("Can't open {}", &path.display().to_string()));
             return;
         }
@@ -1518,6 +1650,8 @@ impl Browser {
     fn read(&self, dir: &Path) {
         let result = if is_trash(dir) {
             Ok(trash().entries())
+        } else if is_recent(dir) {
+            Ok(recent_entries())
         } else {
             entry::read_dir(dir)
         };
@@ -1539,6 +1673,9 @@ impl Browser {
 
     fn watch(self: &Rc<Self>, dir: &Path) {
         self.monitor.replace(None);
+        if is_recent(dir) {
+            return;
+        }
         let target = if is_trash(dir) {
             trash().files_dir().to_path_buf()
         } else {
@@ -1584,7 +1721,12 @@ impl Browser {
                 .filter(|e| entry::matches(e, s.show_hidden || in_trash, &state.search))
                 .cloned()
                 .collect();
-            shown.sort_by(|a, b| entry::compare(a, b, s.sort, s.descending));
+            if is_recent(&dir) {
+                // The newest visit first, whatever order the folders are kept in.
+                shown.sort_by(|a, b| entry::compare(a, b, SortKey::Modified, true));
+            } else {
+                shown.sort_by(|a, b| entry::compare(a, b, s.sort, s.descending));
+            }
             (
                 shown,
                 std::mem::take(&mut state.select),
@@ -1620,7 +1762,8 @@ impl Browser {
         }
 
         // The columns view shows an empty folder as an empty column; the rest wants words.
-        let plain_empty = view == View::Columns && error.is_none() && !searching && !in_trash;
+        let plain_empty =
+            view == View::Columns && error.is_none() && !searching && !is_virtual(&dir);
         if shown.is_empty() && !plain_empty {
             let (icon, title, description) = if let Some(error) = error {
                 ("dialog-error-symbolic", tr("Can't open this folder"), error)
@@ -1634,6 +1777,12 @@ impl Browser {
                 (
                     "user-trash-symbolic",
                     tr("The trash is empty"),
+                    String::new(),
+                )
+            } else if is_recent(&dir) {
+                (
+                    "document-open-recent-symbolic",
+                    tr("No recent files"),
                     String::new(),
                 )
             } else {
@@ -1673,7 +1822,7 @@ impl Browser {
         }
         let dir = self.current_dir();
         let options = self.options();
-        self.miller.show_path(&dir, options, is_trash(&dir));
+        self.miller.show_path(&dir, options, is_virtual(&dir));
         self.miller.show_selection(&self.selected(), options);
     }
 
@@ -1709,6 +1858,8 @@ impl Browser {
     fn show_title(&self, dir: &Path) {
         let title = if is_trash(dir) {
             tr("Trash").to_owned()
+        } else if is_recent(dir) {
+            tr("Recent").to_owned()
         } else if dir == crate::home() {
             tr("Home").to_owned()
         } else {
@@ -1722,9 +1873,9 @@ impl Browser {
         while let Some(child) = self.path_bar.first_child() {
             self.path_bar.remove(&child);
         }
-        let crumbs = if is_trash(dir) {
+        let crumbs = if is_virtual(dir) {
             vec![places::Crumb {
-                label: Some(tr("Trash").to_owned()),
+                label: Some(tr(if is_trash(dir) { "Trash" } else { "Recent" }).to_owned()),
                 path: dir.to_path_buf(),
             }]
         } else {
@@ -1820,6 +1971,7 @@ impl Browser {
         let row = gtk::ListBoxRow::new();
         row.set_selectable(false);
         row.set_activatable(false);
+        row.add_css_class("archivador-heading");
         let label = gtk::Label::new(Some(&text.to_uppercase()));
         label.add_css_class("ndl-micro");
         label.set_xalign(0.0);
@@ -1840,6 +1992,8 @@ impl Browser {
         let layout = std::fs::read_to_string(state_dir().join("nodalix/layout/paths.json"))
             .unwrap_or_default();
         let applications = places::applications(&home, &layout, Path::is_dir);
+        let (row, _) = self.sidebar_row(tr("Recent"), "document-open-recent-symbolic", RECENT);
+        self.sidebar.append(&row);
         for place in places::standard(&home, &dirs, Path::is_dir)
             .into_iter()
             .chain(applications)
@@ -1857,17 +2011,42 @@ impl Browser {
         self.trash_icon.replace(Some(icon));
         self.sidebar.append(&row);
 
+        // The folders the user pinned.
+        let pinned: Vec<Bookmark> = load_bookmarks()
+            .into_iter()
+            .filter(|b| b.path.is_dir())
+            .collect();
+        if !pinned.is_empty() {
+            self.sidebar.append(&Self::heading(tr("Favorites")));
+        }
+        for bookmark in &pinned {
+            let (row, _) = self.sidebar_row(
+                &bookmark.label,
+                "starred-symbolic",
+                &bookmark.path.to_string_lossy(),
+            );
+            self.add_unpin(&row, &bookmark.path);
+            self.sidebar.append(&row);
+        }
+
         // The drives that are mounted, and the file system itself.
-        self.sidebar.append(&Self::heading(tr("Devices")));
+        let devices = Self::heading(tr("Devices"));
+        self.sidebar.append(&devices);
+        let before = self.sidebar.observe_children().n_items();
         if self.state.borrow().settings.show_root {
             let (row, _) = self.sidebar_row("/", "drive-harddisk-symbolic", "/");
             self.sidebar.append(&row);
         }
+        let mut network = Vec::new();
         for mount in gio::VolumeMonitor::get().mounts() {
             let Some(path) = mount.root().path() else {
                 continue;
             };
             if mount.is_shadowed() || path == Path::new("/") {
+                continue;
+            }
+            if mount.root().uri_scheme().is_some_and(|s| s != "file") {
+                network.push((mount, path));
                 continue;
             }
             let (row, icon) = self.sidebar_row(
@@ -1881,6 +2060,48 @@ impl Browser {
             }
             self.sidebar.append(&row);
         }
+
+        // A heading with nothing under it is left out.
+        if self.sidebar.observe_children().n_items() == before {
+            self.sidebar.remove(&devices);
+        }
+
+        // The servers: the ones that are mounted, the ones used before, and a way to add one.
+        self.sidebar.append(&Self::heading(tr("Network")));
+        let mut shown = Vec::new();
+        for (mount, path) in &network {
+            let uri = mount.root().uri().to_string();
+            shown.push(uri.trim_end_matches('/').to_owned());
+            let (row, icon) = self.sidebar_row(
+                &mount.name(),
+                "network-server-symbolic",
+                &path.to_string_lossy(),
+            );
+            icon.set_from_gicon(&mount.symbolic_icon());
+            if mount.can_unmount() || mount.can_eject() {
+                self.add_eject(&row, mount);
+            }
+            self.sidebar.append(&row);
+        }
+        for uri in load_servers() {
+            if shown.contains(&uri.trim_end_matches('/').to_owned()) {
+                continue;
+            }
+            let (row, _) = self.sidebar_row(
+                &servers::label(&uri),
+                "network-server-symbolic",
+                &format!("{SERVER}{uri}"),
+            );
+            row.set_tooltip_text(Some(tr("Not connected. Click to connect")));
+            row.add_css_class("archivador-offline");
+            self.sidebar.append(&row);
+        }
+        let (row, _) = self.sidebar_row(
+            tr("Connect to a server…"),
+            "network-workgroup-symbolic",
+            CONNECT,
+        );
+        self.sidebar.append(&row);
 
         // The cloud accounts Settings has set up.
         let accounts = std::fs::read_to_string(glib::user_config_dir().join("nodalix/cloud.json"))
@@ -1905,6 +2126,74 @@ impl Browser {
             self.sidebar.append(&row);
         }
         self.clouds.replace(accounts);
+    }
+
+    fn ask_server(self: &Rc<Self>) {
+        let this = self.weak();
+        dialogs::ask_server(&self.window, move |uri| {
+            if let Some(this) = this.upgrade() {
+                this.connect_server(uri);
+            }
+        });
+    }
+
+    /// Mounts the server, which may ask for a password, remembers it, and goes into it.
+    fn connect_server(self: &Rc<Self>, uri: String) {
+        self.working(true);
+        let (this, window) = (self.weak(), self.window.clone());
+        glib::spawn_future_local(async move {
+            let file = gio::File::for_uri(&uri);
+            let operation = gtk::MountOperation::new(Some(&window));
+            let result = file
+                .mount_enclosing_volume_future(gio::MountMountFlags::NONE, Some(&operation))
+                .await;
+            let Some(this) = this.upgrade() else { return };
+            this.working(false);
+            let name = servers::label(&uri);
+            let mounted = match &result {
+                Ok(()) => true,
+                Err(error) => error.matches(gio::IOErrorEnum::AlreadyMounted),
+            };
+            match (mounted, file.path(), result) {
+                (true, Some(path), _) => {
+                    save_servers(&servers::remember(&load_servers(), &uri));
+                    this.rebuild_sidebar();
+                    this.navigate(path);
+                }
+                (true, None, _) => this.toast(&fmt("Can't browse {}", &name)),
+                // The user closed the password box: nothing went wrong.
+                (false, _, Err(error)) if error.matches(gio::IOErrorEnum::FailedHandled) => {
+                    this.sync_sidebar();
+                }
+                (false, _, Err(error)) => this.toast(&format!(
+                    "{}: {}",
+                    fmt("Can't connect {}", &name),
+                    error.message()
+                )),
+                (false, _, Ok(())) => {}
+            }
+        });
+    }
+
+    /// The button at the end of a favourite's row that takes it off the sidebar.
+    fn add_unpin(self: &Rc<Self>, row: &gtk::ListBoxRow, path: &Path) {
+        let Some(content) = row.child().and_downcast::<gtk::Box>() else {
+            return;
+        };
+        let button = gtk::Button::from_icon_name("window-close-symbolic");
+        button.add_css_class("flat");
+        button.add_css_class("archivador-eject");
+        button.set_tooltip_text(Some(tr("Remove from Favorites")));
+        button.set_valign(gtk::Align::Center);
+        let (this, path) = (self.weak(), path.to_path_buf());
+        button.connect_clicked(move |_| {
+            save_bookmarks(&bookmarks::remove(load_bookmarks(), &path));
+            if let Some(this) = this.upgrade() {
+                this.rebuild_sidebar();
+                this.sync_sidebar();
+            }
+        });
+        content.append(&button);
     }
 
     /// Starts the service that mounts the account, then shows it.
@@ -2165,6 +2454,9 @@ impl Browser {
         if is_trash(&target) {
             self.trash_paths(paths);
             return true;
+        }
+        if is_recent(&target) {
+            return false;
         }
         let paths: Vec<PathBuf> = paths
             .into_iter()

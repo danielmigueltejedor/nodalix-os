@@ -78,6 +78,7 @@ fn drawings() -> Vec<(&'static str, String)> {
         ("folder-pictures-symbolic", folder(&[Line("M8 17.2l3-3.7 2.4 2.7 1.6-1.7 2 2.7z")])),
         ("folder-videos-symbolic", folder(&[Line("M10.5 11.5v5.2l4.4-2.6z")])),
         ("drive-removable-media-symbolic", svg(&[Rect(7.0, 8.0, 10.0, 13.0, 2.0), Line("M9.5 8V3h5v5M10.5 13h.01M13.5 13h.01")])),
+        ("network-server-symbolic", svg(&[Rect(3.5, 4.0, 17.0, 6.5, 2.0), Rect(3.5, 13.5, 17.0, 6.5, 2.0), Line("M7.5 7.25h.01M7.5 16.75h.01")])),
         ("media-eject-symbolic", svg(&[Line("M12 5 5.5 13h13z"), Line("M5.5 18h13")])),
         ("user-trash-full-symbolic", svg(&[Line("M4 7h16M9 7V4h6v3"), Solid("M6 7l1 13h10l1-13z")])),
         // Actions.
