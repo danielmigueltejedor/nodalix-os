@@ -406,7 +406,7 @@ pub fn build(toasts: &ndl::ToastOverlay) -> gtk::ScrolledWindow {
         })
     };
     *reload.borrow_mut() = Some(load.clone());
-    content.append(&add_group(&toasts, &names, &load));
+    content.append(&add_group(toasts, &names, &load));
     load();
     // The state of a printer changes while the page is open (a job finishes): look again.
     let weak = content.downgrade();
