@@ -70,7 +70,7 @@ pub async fn system() -> Option<gio::DBusConnection> {
     gio::bus_get_future(gio::BusType::System).await.ok()
 }
 
-/// Calls a method and returns its reply.
+/// Calls a method and returns its reply, giving up after five seconds.
 pub async fn call(
     connection: &gio::DBusConnection,
     name: &str,
@@ -78,6 +78,33 @@ pub async fn call(
     interface: &str,
     method: &str,
     parameters: Option<&glib::Variant>,
+) -> Result<glib::Variant, glib::Error> {
+    call_for(connection, name, path, interface, method, parameters, 5_000).await
+}
+
+/// Like `call`, for a method that may take a while (pairing, connecting): thirty seconds.
+pub async fn call_slow(
+    connection: &gio::DBusConnection,
+    name: &str,
+    path: &str,
+    interface: &str,
+    method: &str,
+    parameters: Option<&glib::Variant>,
+) -> Result<glib::Variant, glib::Error> {
+    call_for(
+        connection, name, path, interface, method, parameters, 30_000,
+    )
+    .await
+}
+
+async fn call_for(
+    connection: &gio::DBusConnection,
+    name: &str,
+    path: &str,
+    interface: &str,
+    method: &str,
+    parameters: Option<&glib::Variant>,
+    timeout_ms: i32,
 ) -> Result<glib::Variant, glib::Error> {
     connection
         .call_future(
@@ -88,7 +115,7 @@ pub async fn call(
             parameters,
             None,
             gio::DBusCallFlags::NONE,
-            5_000,
+            timeout_ms,
         )
         .await
 }

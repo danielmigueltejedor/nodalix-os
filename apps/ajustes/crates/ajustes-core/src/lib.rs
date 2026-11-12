@@ -2,6 +2,7 @@
 //! running system.
 
 pub mod audio;
+pub mod bluetooth;
 pub mod localsend;
 pub mod network;
 pub mod pages;
