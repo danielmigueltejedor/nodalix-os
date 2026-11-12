@@ -27,6 +27,12 @@ pub struct ProcessView {
 
 type Cmp = fn(&Row, &Row) -> Ordering;
 
+/// The column's order, with the pid as the last word: rows that tie (most of them on CPU) keep
+/// the same order whatever order they were added or rebuilt in.
+fn compare_rows(cmp: Cmp, a: &Row, b: &Row) -> Ordering {
+    cmp(a, b).then_with(|| a.pid.cmp(&b.pid))
+}
+
 fn column(
     title: &str,
     expand: bool,
@@ -77,7 +83,7 @@ fn column(
         ) else {
             return gtk::Ordering::Equal;
         };
-        cmp(&a.row(), &b.row()).into()
+        compare_rows(cmp, &a.row(), &b.row()).into()
     })));
     column
 }
@@ -324,5 +330,34 @@ impl ProcessView {
                 .unwrap_or_default();
             format!("{name} ({pid}): {e}")
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rows_that_tie_are_ordered_by_pid() {
+        let row = |pid| Row {
+            pid,
+            cpu: 0.0,
+            ..Row::default()
+        };
+        let by_cpu: Cmp = |a, b| a.cpu.total_cmp(&b.cpu);
+        // The same two rows, added in either order, compare the same way.
+        assert_eq!(compare_rows(by_cpu, &row(100), &row(200)), Ordering::Less);
+        assert_eq!(
+            compare_rows(by_cpu, &row(200), &row(100)),
+            Ordering::Greater
+        );
+        assert_eq!(compare_rows(by_cpu, &row(7), &row(7)), Ordering::Equal);
+        // A real difference in the column still wins over the pid.
+        let busy = Row {
+            pid: 1,
+            cpu: 5.0,
+            ..Row::default()
+        };
+        assert_eq!(compare_rows(by_cpu, &busy, &row(2)), Ordering::Greater);
     }
 }
