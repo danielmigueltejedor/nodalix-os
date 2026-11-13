@@ -1,4 +1,4 @@
-//! The folder icons: Nodalia's own, a teal folder with an NDL glyph on its front, drawn here
+//! The folder icons: Nodalia's own, a teal folder with an NDL glyph tinted into its front, drawn here
 //! because NDL itself only has symbolic glyphs and the system's coloured folders (Adwaita's
 //! blue ones) would not belong to it.
 //!
@@ -13,7 +13,7 @@ use ndl::gtk::{gio, glib, prelude::*};
 use nodalia_gtk as ndl;
 
 /// Bump when a drawing changes, so a copy cached by an older version is not reused.
-const VERSION: u32 = 1;
+const VERSION: u32 = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Kind {
@@ -45,7 +45,8 @@ impl Kind {
         }
     }
 
-    /// What is drawn on the front, on NDL's 24 px grid, white. `None` for a plain folder.
+    /// What is drawn on the front, on NDL's 24 px grid; `#fff` marks what is filled, and the
+    /// stroke takes the glyph's tint. `None` for a plain folder.
     fn glyph(self) -> Option<&'static str> {
         Some(match self {
             Kind::Plain => return None,
@@ -80,23 +81,35 @@ impl Kind {
     }
 }
 
-/// The drawing, on a 128 px grid: the back of the folder with its tab, the front in a lighter
-/// teal, and the glyph in the middle of the front.
+/// The glyph's colour: a deep shade of the folder's own teal, so it reads as pressed into the
+/// front rather than laid on it in white.
+const TINT: &str = "#0b6a76";
+
+/// The drawing, on a 128 px grid: a soft shadow, the back of the folder with its tab, the front
+/// in a lighter teal with a bright edge along its top, and the glyph in the middle of the front,
+/// tinted darker than the front with a faint light edge under it.
 fn drawing(kind: Kind) -> String {
     let glyph = kind.glyph().map_or(String::new(), |g| {
+        let tinted = g.replace("#fff", TINT);
+        let lit = g.replace("#fff", "#ffffff");
         format!(
-            r##"<g transform="translate(43 54) scale(1.75)" fill="none" stroke="#ffffff" stroke-opacity="0.96" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">{g}</g>"##
+            r##"<g transform="translate(43 56.5) scale(1.75)" fill="none" stroke="#ffffff" stroke-opacity="0.45" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.9">{lit}</g>
+<g transform="translate(43 54.5) scale(1.75)" fill="none" stroke="{TINT}" stroke-opacity="0.92" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">{tinted}</g>"##
         )
     });
     format!(
         r##"<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
 <defs>
-<linearGradient id="back" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0d8fa0"/><stop offset="1" stop-color="#086770"/></linearGradient>
-<linearGradient id="front" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3dd0dd"/><stop offset="1" stop-color="#0a8f9e"/></linearGradient>
+<linearGradient id="back" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b8794"/><stop offset="1" stop-color="#065a64"/></linearGradient>
+<linearGradient id="front" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5fe0ea"/><stop offset="0.55" stop-color="#25bccb"/><stop offset="1" stop-color="#10a0b0"/></linearGradient>
+<filter id="soft" x="-20%" y="-40%" width="140%" height="180%"><feGaussianBlur stdDeviation="3.2"/></filter>
 </defs>
-<path fill="url(#back)" d="M10 30a8 8 0 0 1 8-8h28.5a8 8 0 0 1 5.7 2.4L60 32h50a8 8 0 0 1 8 8v61a8 8 0 0 1-8 8H18a8 8 0 0 1-8-8z"/>
-<path fill="url(#front)" d="M10 52a8 8 0 0 1 8-8h92a8 8 0 0 1 8 8v49a8 8 0 0 1-8 8H18a8 8 0 0 1-8-8z"/>
-<path fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="1.5" d="M18.5 44.75h91"/>
+<rect x="14" y="104" width="100" height="12" rx="6" fill="#03353b" opacity="0.32" filter="url(#soft)"/>
+<path fill="url(#back)" d="M10 28a8 8 0 0 1 8-8h27a8 8 0 0 1 5.8 2.5L58 32h52a8 8 0 0 1 8 8v62a8 8 0 0 1-8 8H18a8 8 0 0 1-8-8z"/>
+<path fill="#ffffff" fill-opacity="0.16" d="M12 38h104v6H12z"/>
+<path fill="url(#front)" d="M10 50a8 8 0 0 1 8-8h92a8 8 0 0 1 8 8v52a8 8 0 0 1-8 8H18a8 8 0 0 1-8-8z"/>
+<path fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1.6" stroke-linecap="round" d="M17 43.2h94"/>
+<path fill="none" stroke="#04505a" stroke-opacity="0.25" stroke-width="1.2" d="M10.6 101.5a7.4 7.4 0 0 0 7.4 7.4h92a7.4 7.4 0 0 0 7.4-7.4"/>
 {glyph}
 </svg>
 "##
