@@ -97,7 +97,9 @@ package_nodalix-archivador() {
   # Replaces the Nautilus-based Archivador of 0.5.x and Nautilus itself. Programs that ask for
   # the file manager by name (nautilus, libnautilus-extension) keep finding one.
   provides=("nautilus=51.1")
-  conflicts=("nautilus" "libnautilus-extension")
+  # libnautilus-extension (the library package split from nautilus) is left alone: GNOME packages
+  # such as the console and sushi depend on it, and it does not clash with Archivador.
+  conflicts=("nautilus")
   replaces=("nautilus")
   install -Dm755 "$srcdir/target/release/nodalix-archivador" "$pkgdir/usr/bin/nodalix-archivador"
   install -Dm644 "$srcdir/apps/archivador/data/os.nodalix.Archivador.desktop" \
@@ -110,9 +112,11 @@ package_nodalix-archivador() {
       -e 's|^\[Desktop Entry\]|[Desktop Entry]\nName=Files\nNoDisplay=true|' \
       "$srcdir/apps/archivador/data/os.nodalix.Archivador.desktop" \
     > "$pkgdir/usr/share/applications/org.gnome.Nautilus.desktop"
-  # Default file manager. The session is XDG_CURRENT_DESKTOP=GNOME, so gnome-mimeapps.list is
-  # read before the generic mimeapps.list that other packages (the Store) ship.
-  install -Dm644 /dev/stdin "$pkgdir/usr/share/applications/gnome-mimeapps.list" <<'MIME'
+  # Default file manager. gnome-session owns /usr/share/applications/gnome-mimeapps.list (it names
+  # org.gnome.Nautilus.desktop, which is the alias above), so this goes in the system-wide
+  # mimeapps.list in /etc/xdg, which is read before any file under /usr/share/applications. Brújula
+  # sets the web types in /etc/xdg/gnome-mimeapps.list, a different file.
+  install -Dm644 /dev/stdin "$pkgdir/etc/xdg/mimeapps.list" <<'MIME'
 [Default Applications]
 inode/directory=os.nodalix.Archivador.desktop
 x-directory/normal=os.nodalix.Archivador.desktop
