@@ -183,7 +183,6 @@ const ES: &[(&str, &str)] = &[
     ("Could not open the sign-in window", "No se pudo abrir la ventana de inicio de sesión"),
     ("Style", "Estilo"),
     ("Color scheme", "Esquema de color"),
-    ("Follow the system", "Según el sistema"),
     ("Light", "Claro"),
     ("Dark", "Oscuro"),
     ("Accent color", "Color de acento"),
