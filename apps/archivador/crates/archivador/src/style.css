@@ -197,6 +197,12 @@ gridview.archivador-files > child {
   font-feature-settings: "tnum";
 }
 
+/* The names of the rows in Preferences took the colour of the system's dark theme, not of the
+ * light style chosen here, and were white on white. They say what colour they are. */
+ndl-dialog .ndl-row .title {
+  color: var(--ndl-color-text-primary);
+}
+
 /* The sheet gives an alert no padding of its own. */
 ndl-dialog .ndl-alert-text {
   padding: var(--ndl-space-xl) var(--ndl-space-xl) var(--ndl-space-lg);

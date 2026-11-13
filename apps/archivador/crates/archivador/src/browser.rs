@@ -190,6 +190,11 @@ fn recent_entries() -> Vec<Entry> {
         .into_iter()
         .filter_map(|info| {
             let path = gio::File::for_uri(&info.uri()).path()?;
+            // A share or a phone reached through GVfs: looking at it can take as long as the
+            // network does, with the window waiting, so it is not listed.
+            if path.components().any(|c| c.as_os_str() == "gvfs") {
+                return None;
+            }
             let visited = u64::try_from(info.visited().to_unix())
                 .ok()
                 .map(|secs| std::time::UNIX_EPOCH + Duration::from_secs(secs));
@@ -2390,7 +2395,7 @@ impl Browser {
 
     fn new_folder(self: &Rc<Self>) {
         let dir = self.current_dir();
-        if is_trash(&dir) {
+        if is_virtual(&dir) {
             return;
         }
         let proposal = names::unique_path(&dir, tr("Untitled folder"));
@@ -2463,7 +2468,7 @@ impl Browser {
 
     fn paste(self: &Rc<Self>) {
         let dir = self.current_dir();
-        if is_trash(&dir) {
+        if is_virtual(&dir) {
             return;
         }
         let this = self.weak();
