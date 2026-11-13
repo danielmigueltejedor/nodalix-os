@@ -67,3 +67,20 @@ shares them with the file manager through one file and one service per account:
 - Settings adds (browser sign-in through `rclone authorize`; iCloud with the Apple ID, password and
   the six-digit code), removes, connects and disconnects. The file manager only reads the list
   and starts or stops the unit.
+
+## Search in the Shell's overview
+
+`nodalix-settings --search-provider` is the search provider the Shell asks (`org.gnome.Shell.SearchProvider2`)
+on the name and path the GNOME Settings one had: `org.gnome.Settings.SearchProvider`,
+`/org/gnome/Settings/SearchProvider`. It finds pages by name and by what is in them, in English
+and Spanish (`ajustes-core/src/search.rs`; a term matches the start of a word, every term has to
+match). It has no window and does not start GTK, so it needs no display; D-Bus starts it when the
+Shell first asks, and it quits after 45 seconds without a call. Opening a result runs
+`nodalix-settings --page <page>`.
+
+- Result ids are `nodalix-<page id>`: `nodalix-storage` for "documentos grandes",
+  `nodalix-updates`, `nodalix-appearance` (backgrounds), `nodalix-about` (version),
+  `nodalix-localsend`, ...
+- Files to install: `data/org.gnome.Settings.search-provider.ini` in
+  `/usr/share/gnome-shell/search-providers/` and `data/org.gnome.Settings.SearchProvider.service`
+  in `/usr/share/dbus-1/services/` (its `Exec` is `/usr/bin/nodalix-settings --search-provider`).
