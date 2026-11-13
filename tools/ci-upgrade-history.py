@@ -4,7 +4,7 @@ import hashlib, json, os, shutil, subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-REPOSITORY = 'danielmigueltejedor/nodalix-os'
+REPOSITORY = 'getnodalia/nodalix-os'
 from versioning import compare_versions
 
 def fetch(url):

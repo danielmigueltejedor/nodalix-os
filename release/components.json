@@ -8,7 +8,7 @@
       "id": "nodalix-release",
       "name": "Nodalix system identity",
       "package": "nodalix-release",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "required": true,
       "restart": "none"
     },
@@ -16,7 +16,7 @@
       "id": "updater",
       "name": "Nodalix Updater",
       "package": "nodalix-updater",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "required": true,
       "restart": "none"
     },
@@ -24,7 +24,7 @@
       "id": "nxpm",
       "name": "Nodalix Package Manager",
       "package": "nodalix-nxpm",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "required": true,
       "restart": "none"
     },
@@ -40,7 +40,7 @@
       "id": "store",
       "name": "Nodalix Store",
       "package": "nodalix-store",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "required": true,
       "restart": "none"
     },
@@ -48,7 +48,7 @@
       "id": "apps",
       "name": "Nodalix Apps",
       "package": "nodalix-apps",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "required": true,
       "restart": "none"
     },
@@ -96,7 +96,7 @@
       "id": "integrations",
       "name": "Nodalix Integrations",
       "package": "nodalix-integrations",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "required": true,
       "restart": "none"
     },
@@ -104,7 +104,7 @@
       "id": "gnome",
       "name": "Nodalix GNOME Shell",
       "package": "nodalix-gnome",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "required": true,
       "restart": "system"
     },
@@ -112,7 +112,7 @@
       "id": "gnome-shell",
       "name": "Nodalix Shell",
       "package": "nodalix-gnome-shell",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "required": true,
       "restart": "system"
     },
@@ -120,7 +120,7 @@
       "id": "settings",
       "name": "Nodalix Settings service",
       "package": "nodalix-settings",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "required": true,
       "restart": "none"
     },
@@ -128,7 +128,7 @@
       "id": "ajustes",
       "name": "Nodalix Settings",
       "package": "nodalix-ajustes",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "required": true,
       "restart": "none"
     },
@@ -136,7 +136,7 @@
       "id": "monitor",
       "name": "Nodalix System Monitor",
       "package": "nodalix-monitor",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "required": true,
       "restart": "none"
     },
@@ -144,7 +144,7 @@
       "id": "archivador",
       "name": "Nodalix Files (Archivador)",
       "package": "nodalix-archivador",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "required": true,
       "restart": "none"
     },
@@ -152,7 +152,7 @@
       "id": "brujula",
       "name": "Brújula web browser",
       "package": "nodalix-brujula",
-      "version": "0.3.0",
+      "version": "0.6.0",
       "required": true,
       "restart": "none"
     },
@@ -160,7 +160,7 @@
       "id": "video-wallpapers",
       "name": "Nodalix animated wallpaper collection",
       "package": "nodalix-video-wallpapers",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "required": true,
       "restart": "system"
     },

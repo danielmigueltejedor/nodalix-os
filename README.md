@@ -1,6 +1,6 @@
 <div align="center">
   <a href="https://getnodalia.com">
-    <img src="https://raw.githubusercontent.com/danielmigueltejedor/nodalia-web/main/assets/brand/nodalia-wordmark-badge.svg" width="150" alt="Nodalia">
+    <img src="https://raw.githubusercontent.com/getnodalia/nodalia-web/main/assets/brand/nodalia-wordmark-badge.svg" width="150" alt="Nodalia">
   </a>
   <br><br>
   <img src="./docs/images/nodalix-readme-logo.svg" width="192" height="192" alt="Nodalix OS">
@@ -8,7 +8,7 @@
   <p><strong>An integrated Arch Linux desktop built around GNOME Shell and Mutter.</strong></p>
 
   <p>
-    <a href="https://github.com/danielmigueltejedor/nodalix-os/releases/latest"><img src="https://img.shields.io/github/v/release/danielmigueltejedor/nodalix-os?label=stable&sort=semver" alt="Latest stable release"></a>
+    <a href="https://github.com/getnodalia/nodalix-os/releases/latest"><img src="https://img.shields.io/github/v/release/getnodalia/nodalix-os?label=stable&sort=semver" alt="Latest stable release"></a>
     <img src="https://img.shields.io/badge/platform-Linux%20x86__64-FCC624?logo=linux&logoColor=black" alt="Linux x86_64">
     <img src="https://img.shields.io/badge/base-Arch%20Linux-1793D1?logo=archlinux&logoColor=white" alt="Based on Arch Linux">
     <img src="https://img.shields.io/badge/compositor-Mutter-58E1FF" alt="Mutter">
@@ -38,7 +38,7 @@ The shell, settings, application management, system updater, iPhone integration,
 
 > [!IMPORTANT]
 > **`main` tracks active development for the next Nodalix release.**
-> For normal installations, use a published release from [GitHub Releases](https://github.com/danielmigueltejedor/nodalix-os/releases).
+> For normal installations, use a published release from [GitHub Releases](https://github.com/getnodalia/nodalix-os/releases).
 
 The [0.4.0 preparation audit](docs/preparation-0.4.0.md) records the status of all
 26 open issues, local validation and the work still needed before publication.
@@ -110,7 +110,7 @@ BlueZ preparation, ANCS recovery and the required address-resolution behaviour a
 
 ### Nodalix ISO — recommended for a fresh system
 
-Download the latest Nodalix ISO from [GitHub Releases](https://github.com/danielmigueltejedor/nodalix-os/releases) and follow the [installation guide](./docs/iso.md).
+Download the latest Nodalix ISO from [GitHub Releases](https://github.com/getnodalia/nodalix-os/releases) and follow the [installation guide](./docs/iso.md).
 
 The installer provides a Nodalix live environment and an Archinstall-based installation flow where the user selects and confirms the disk, language, encryption and account configuration before anything is written.
 
@@ -124,7 +124,7 @@ Nodalix can also be installed on a supported, up-to-date Arch Linux system.
 Download and inspect the installer first:
 
 ```bash
-curl -fL https://raw.githubusercontent.com/danielmigueltejedor/nodalix-os/main/install.sh \
+curl -fL https://raw.githubusercontent.com/getnodalia/nodalix-os/main/install.sh \
   -o /tmp/nodalix-install.sh
 
 less /tmp/nodalix-install.sh
@@ -253,14 +253,14 @@ User settings, LocalSend favorites, certificates and phone pairing data remain i
 | **Release candidate** | `X.Y.Z-rc.N` | Final release validation |
 | **Development** | `main` | Work intended for the next release |
 
-Stable releases and their artifacts are available from [GitHub Releases](https://github.com/danielmigueltejedor/nodalix-os/releases).
+Stable releases and their artifacts are available from [GitHub Releases](https://github.com/getnodalia/nodalix-os/releases).
 
 ## Development
 
 Clone the repository:
 
 ```bash
-git clone https://github.com/danielmigueltejedor/nodalix-os.git
+git clone https://github.com/getnodalia/nodalix-os.git
 cd nodalix-os
 ```
 
@@ -270,7 +270,7 @@ Before submitting changes, keep modifications scoped to the relevant component a
 
 ## Support and contributions
 
-- Use [GitHub Issues](https://github.com/danielmigueltejedor/nodalix-os/issues) for reproducible bugs and focused feature requests.
+- Use [GitHub Issues](https://github.com/getnodalia/nodalix-os/issues) for reproducible bugs and focused feature requests.
 - Include your Nodalix version, relevant hardware and logs when reporting system-specific problems.
 - For Bluetooth or Phone Link issues, include the affected transport or feature but **never publish pairing secrets or private phone data**.
 - Keep pull requests focused on one component or problem where possible.

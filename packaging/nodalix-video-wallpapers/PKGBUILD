@@ -1,9 +1,9 @@
 pkgname=nodalix-video-wallpapers
-pkgver=0.6.0
+pkgver=0.6.1
 pkgrel=1
 pkgdesc="GNOME 51 animated wallpaper player and Nodalix video collection"
 arch=("any")
-url="https://github.com/danielmigueltejedor/nodalix-os"
+url="https://github.com/getnodalia/nodalix-os"
 license=("GPL-3.0-or-later")
 depends=("gnome-shell>=1:51" "gnome-shell<1:52" "gjs" "gtk4" "gst-plugin-gtk4" "gst-plugins-good" "gst-libav" "gst-plugin-va")
 makedepends=("nodejs" "pnpm" "meson" "ninja" "gettext")

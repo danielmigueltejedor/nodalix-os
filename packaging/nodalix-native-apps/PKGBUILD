@@ -9,11 +9,11 @@
 # removed, and ships the small compatibility files other software still calls them by.
 pkgbase=nodalix-native-apps
 pkgname=(nodalix-ajustes nodalix-monitor nodalix-archivador)
-pkgver=0.6.0
+pkgver=0.6.1
 pkgrel=1
 pkgdesc="Native Nodalix apps on the Nodalia Design Language"
 arch=("x86_64")
-url="https://github.com/danielmigueltejedor/nodalix-os"
+url="https://github.com/getnodalia/nodalix-os"
 license=("GPL-3.0-or-later" "MIT")
 makedepends=("rust" "pkgconf" "gtk4" "pango" "cairo" "glib2")
 source=("nodalix-native-apps-$pkgver.tar.zst")

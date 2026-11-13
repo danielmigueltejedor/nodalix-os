@@ -5,7 +5,7 @@ root = "~/.local/opt/nodalix/apps/vinilo"
 updater = "/usr/share/nodalix-apps/bin/nodalix-vinilo-update"
 executable = "usr/bin/vinilo"
 
-upstream = "https://github.com/danielmigueltejedor/vinilo"
+upstream = "https://github.com/getnodalia/vinilo"
 update_strategy = "github-release"
 
 channel = "stable"

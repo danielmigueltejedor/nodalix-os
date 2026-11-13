@@ -2,7 +2,7 @@
 """One-time bridge from earlier Nodalix releases to a stable GNOME release."""
 from pathlib import Path
 import argparse,hashlib,importlib.machinery,importlib.util,json,os,re,subprocess,tempfile,urllib.request
-REPO='danielmigueltejedor/nodalix-os'
+REPO='getnodalia/nodalix-os'
 
 def select_bridge(manifest):
     version=manifest.get('version','')

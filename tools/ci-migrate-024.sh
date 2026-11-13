@@ -9,7 +9,7 @@ python - <<'PY'
 import hashlib,json,subprocess
 from pathlib import Path
 root=Path('/src/dist/baseline-024')
-base='https://github.com/danielmigueltejedor/nodalix-os/releases/download/0.2.4/'
+base='https://github.com/getnodalia/nodalix-os/releases/download/0.2.4/'
 curl=['curl','--fail','--location','--retry','4','--retry-delay','1',
       '--retry-connrefused','--connect-timeout','20','--max-time','180',
       '--silent','--show-error','--user-agent','Nodalix-upgrade-tests']

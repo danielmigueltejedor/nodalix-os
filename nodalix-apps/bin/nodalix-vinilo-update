@@ -8,7 +8,7 @@ CURRENT="$ROOT/current"
 BIN="$HOME/.local/bin"
 DATA="${XDG_DATA_HOME:-$HOME/.local/share}"
 
-REPO="https://github.com/danielmigueltejedor/vinilo"
+REPO="https://github.com/getnodalia/vinilo"
 APPID="dev.danielmiguelt.Vinilo"
 AGUJA="dev.danielmiguelt.Aguja"
 

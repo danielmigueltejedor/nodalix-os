@@ -19,7 +19,7 @@ sudo python3 updater/nodalix-migrate-gnome --assets /ruta/al/candidato
 Para actualizar desde cualquier versión anterior publicada, incluidas las betas, con la release 0.3.0:
 
 ```sh
-curl -fL https://github.com/danielmigueltejedor/nodalix-os/releases/download/0.3.0/nodalix-migrate-gnome -o nodalix-migrate-gnome
+curl -fL https://github.com/getnodalia/nodalix-os/releases/download/0.3.0/nodalix-migrate-gnome -o nodalix-migrate-gnome
 sudo python3 nodalix-migrate-gnome
 ```
 
