@@ -118,6 +118,10 @@
 .archivador-files > child:selected {
   background-color: var(--ndl-color-selection-bg);
   color: var(--ndl-color-text-primary);
+  /* An outline in the accent, so what is selected stands out while a box is drawn around it or
+   * a drag is on, and not only once the button is let go. */
+  outline: var(--ndl-border-width-thin) solid var(--ndl-color-accent-default);
+  outline-offset: -1px;
 }
 
 /* The box drawn around what a drag over the empty part picks up: rounded, an outline in the

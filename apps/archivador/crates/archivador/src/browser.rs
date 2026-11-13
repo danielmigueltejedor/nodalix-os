@@ -101,6 +101,9 @@ pub struct Browser {
     syncing: Cell<bool>,
     /// The cloud accounts in the sidebar, as Settings listed them.
     clouds: RefCell<Vec<cloud::Account>>,
+    /// What was selected when the button went down on a file, before the list could narrow it to
+    /// that file. A drag that starts on one of these carries all of them.
+    pressed: RefCell<Vec<PathBuf>>,
 }
 
 fn trash() -> Trash {
@@ -407,6 +410,7 @@ impl Browser {
             reload_queued: Cell::new(false),
             syncing: Cell::new(false),
             clouds: RefCell::new(Vec::new()),
+            pressed: RefCell::new(Vec::new()),
         });
         this.build();
         this.load();
@@ -800,6 +804,31 @@ impl Browser {
                 let Some(this) = this.upgrade() else {
                     return Vec::new();
                 };
+                // The list narrows the selection to the file pressed when the button goes down. A
+                // drag that starts on a file that was one of several selected carries them all,
+                // and puts the selection back as it was.
+                let before = this.pressed.borrow().clone();
+                let grabbed = this
+                    .store
+                    .item(position)
+                    .and_downcast::<FileObject>()
+                    .map(|f| f.entry().path);
+                if before.len() > 1 && grabbed.is_some_and(|p| before.contains(&p)) {
+                    if this.selected().len() != before.len() {
+                        this.selection.unselect_all();
+                        for i in 0..this.store.n_items() {
+                            let there = this
+                                .store
+                                .item(i)
+                                .and_downcast::<FileObject>()
+                                .is_some_and(|f| before.contains(&f.entry().path));
+                            if there {
+                                this.selection.select_item(i, false);
+                            }
+                        }
+                    }
+                    return before;
+                }
                 if !this.selection.is_selected(position) {
                     this.selection.select_item(position, true);
                 }
@@ -831,13 +860,20 @@ impl Browser {
                 }
             })
         };
-        let press: Rc<dyn Fn(u32)> = {
+        let press: Rc<dyn Fn(u32, bool)> = {
             let this = self.weak();
-            Rc::new(move |position| {
+            Rc::new(move |position, extend| {
                 let Some(this) = this.upgrade() else { return };
+                if extend {
+                    // Ctrl and Shift change the selection themselves; nothing to keep.
+                    this.pressed.borrow_mut().clear();
+                    return;
+                }
                 if !this.selection.is_selected(position) {
                     this.selection.select_item(position, true);
                 }
+                let kept = this.selected().into_iter().map(|e| e.path).collect();
+                this.pressed.replace(kept);
             })
         };
         let hooks = Hooks {

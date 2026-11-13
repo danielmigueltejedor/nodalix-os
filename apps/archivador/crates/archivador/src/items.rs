@@ -42,8 +42,10 @@ pub struct Hooks {
     pub drop_into: Rc<dyn Fn(u32, Vec<std::path::PathBuf>, bool) -> bool>,
     /// Go into the folder at this position, because a drag rested on it.
     pub open_folder: Rc<dyn Fn(u32)>,
-    /// A plain press on the file at this position: select it if it is not selected already.
-    pub press: Rc<dyn Fn(u32)>,
+    /// A press on the file at this position, and whether Ctrl or Shift is held: select it if it is
+    /// not selected already, and remember what is selected, which the list is about to collapse
+    /// to this file, so that a drag that follows can still carry all of it.
+    pub press: Rc<dyn Fn(u32, bool)>,
 }
 
 /// How long a drag has to rest on a folder before the window goes into it.
@@ -79,9 +81,10 @@ fn attach_drag_and_drop(item: &gtk::ListItem, widget: &gtk::Widget, hooks: &Hook
     let (position, select) = (item.clone(), hooks.press.clone());
     press.connect_pressed(move |gesture, _, _, _| {
         let extend = gdk::ModifierType::CONTROL_MASK | gdk::ModifierType::SHIFT_MASK;
-        if !gesture.current_event_state().intersects(extend) {
-            select(position.position());
-        }
+        select(
+            position.position(),
+            gesture.current_event_state().intersects(extend),
+        );
     });
     widget.add_controller(press);
 
