@@ -98,6 +98,21 @@ package_nodalix-archivador() {
   install -Dm644 "$srcdir/apps/archivador/data/os.nodalix.Archivador.desktop" \
     "$pkgdir/usr/share/applications/os.nodalix.Archivador.desktop"
   _launcher nautilus nodalix-archivador
+  # Software that asks for Nautilus by desktop id (dock favourites, saved defaults) still gets
+  # Archivador. Hidden, and without MimeType, so it never competes as a handler.
+  sed -e '/^Name\|^Comment\|^Keywords\|^GenericName\|^StartupWMClass\|^MimeType/d' \
+      -e 's|^Exec=.*|Exec=nodalix-archivador %U|' \
+      -e 's|^\[Desktop Entry\]|[Desktop Entry]\nName=Files\nNoDisplay=true|' \
+      "$srcdir/apps/archivador/data/os.nodalix.Archivador.desktop" \
+    > "$pkgdir/usr/share/applications/org.gnome.Nautilus.desktop"
+  # Default file manager. The session is XDG_CURRENT_DESKTOP=GNOME, so gnome-mimeapps.list is
+  # read before the generic mimeapps.list that other packages (the Store) ship.
+  install -Dm644 /dev/stdin "$pkgdir/usr/share/applications/gnome-mimeapps.list" <<'MIME'
+[Default Applications]
+inode/directory=os.nodalix.Archivador.desktop
+x-directory/normal=os.nodalix.Archivador.desktop
+application/x-gnome-saved-search=os.nodalix.Archivador.desktop
+MIME
   # "Show in folder" in browsers, chat and game clients is a call on this bus name.
   install -Dm644 /dev/stdin "$pkgdir/usr/share/dbus-1/services/org.freedesktop.FileManager1.service" <<'SERVICE'
 [D-BUS Service]

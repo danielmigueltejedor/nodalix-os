@@ -47,6 +47,14 @@ class NativeAppsPackagingTests(unittest.TestCase):
         self.assertIn("org.freedesktop.FileManager1.service", body)
         self.assertIn("--gapplication-service", body)
 
+    def test_archivador_is_the_default_file_manager(self):
+        body = package_function("nodalix-archivador")
+        self.assertIn("gnome-mimeapps.list", body)
+        self.assertIn("inode/directory=os.nodalix.Archivador.desktop", body)
+        self.assertIn("org.gnome.Nautilus.desktop", body)
+        # The hidden Nautilus alias must not claim any MIME type.
+        self.assertIn("MimeType", body.split("org.gnome.Nautilus.desktop")[0].split("sed -e")[-1])
+
     def test_every_package_ships_the_ndl_license(self):
         for app in ("ajustes", "monitor", "archivador"):
             self.assertIn("_licenses", package_function(f"nodalix-{app}"))

@@ -32,7 +32,7 @@ usando para llamarlo: `/usr/bin/gnome-control-center`, `org.gnome.Settings.deskt
 3. `nodalix-gnome` deja de depender de `nautilus`, `nautilus-python` y `nodalix-control-center`; depende de
    `nodalix-ajustes` y `nodalix-archivador`. Se retira la extensión de LocalSend para Nautilus (la trae Archivador).
 4. `iso/installer/packages.txt` y `packaging/nodalix-release` cambian igual; también las listas de `tools/build-iso.py`.
-5. Los tipos MIME predeterminados (carpetas → Archivador, web → Brújula) van en `gnome-mimeapps.list`, porque la sesión
+5. Carpetas → Archivador ya va en `gnome-mimeapps.list` del paquete `nodalix-archivador` (Daniel: cualquier app que pida el gestor de archivos abre Archivador; `org.freedesktop.FileManager1` cubre «Mostrar en carpeta»). Web → Brújula irá en el mismo fichero cuando exista el paquete, con un único dueño para no chocar. Los tipos MIME predeterminados van en `gnome-mimeapps.list`, porque la sesión
    es `XDG_CURRENT_DESKTOP=GNOME` y `mimeapps.list` ya lo usa la Tienda.
 6. Pruebas: se retiran solo las que verifican el código de GNOME Settings y Nautilus que deja de existir (páginas
    parcheadas de Actualizaciones, galería animada, almacenamiento); la cobertura equivalente ya está en las pruebas de
