@@ -116,6 +116,28 @@ fn own(entry: &Entry) -> Own {
     Own { icon, color }
 }
 
+/// Whether a folder has anything in it that would be shown, so its icon can have papers in it.
+/// Places on the network and in the cloud are not looked into: listing one could take a while
+/// and the icon is drawn on the main thread.
+fn holds_something(path: &std::path::Path) -> bool {
+    let home = glib::home_dir();
+    let remote = [
+        glib::user_runtime_dir().join("gvfs"),
+        home.join("Nube"),
+        home.join("Cloud"),
+    ];
+    if remote.iter().any(|dir| path.starts_with(dir)) {
+        return false;
+    }
+    let Ok(children) = std::fs::read_dir(path) else {
+        return false;
+    };
+    children
+        .flatten()
+        .take(64)
+        .any(|child| !child.file_name().to_string_lossy().starts_with('.'))
+}
+
 /// The icon to draw for this file or folder.
 pub fn icon_for(entry: &Entry) -> gio::Icon {
     let own = own(entry);
@@ -129,8 +151,13 @@ pub fn icon_for(entry: &Entry) -> gio::Icon {
         } else {
             own.icon
         };
-        return picture
-            .unwrap_or_else(|| folders::icon(kind, own.color.unwrap_or(folders::Color::Teal)));
+        return picture.unwrap_or_else(|| {
+            folders::icon(
+                kind,
+                own.color.unwrap_or(folders::Color::Teal),
+                holds_something(&entry.path),
+            )
+        });
     }
     if let Some(icon) = own.icon {
         return icon;

@@ -12,6 +12,7 @@ mod items;
 mod object;
 mod properties;
 mod share;
+mod thumbnailers;
 mod thumbs;
 mod transfer;
 

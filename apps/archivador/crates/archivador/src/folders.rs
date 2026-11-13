@@ -13,7 +13,7 @@ use ndl::gtk::{gio, glib, prelude::*};
 use nodalia_gtk as ndl;
 
 /// Bump when a drawing changes, so a copy cached by an older version is not reused.
-const VERSION: u32 = 5;
+const VERSION: u32 = 8;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Kind {
@@ -178,8 +178,9 @@ impl Color {
 
 /// The drawing, on a 128 px grid, flat and in two tones of one colour: the back of the folder
 /// with its tab, the front a lighter tone with a hairline of light along its top, and the glyph in
-/// the middle of the front in a deep tone. No shadows and no gloss: the shape does the work.
-fn drawing(kind: Kind, color: Color) -> String {
+/// the middle of the front in a deep tone. No shadows and no gloss: the shape does the work. A
+/// folder that holds something shows two sheets of paper standing in it, above the front.
+fn drawing(kind: Kind, color: Color, full: bool) -> String {
     let ink = color.shade(0.36);
     let glyph = kind.glyph().map_or(String::new(), |g| {
         let filled = g.replace("#fff", &ink);
@@ -190,12 +191,24 @@ fn drawing(kind: Kind, color: Color) -> String {
     let back = color.shade(0.47);
     let (front_top, front_bottom) = (color.shade(0.69), color.shade(0.63));
     let light = color.shade(0.78);
+    let papers = if full {
+        let edge = color.shade(0.40);
+        format!(
+            r##"<g stroke="{edge}" stroke-opacity="0.45" stroke-width="1.300">
+<rect x="24" y="21" width="72" height="48" rx="4" fill="#eef1f6" transform="rotate(-4 60 45)"/>
+<rect x="31" y="25" width="70" height="48" rx="4" fill="#ffffff"/>
+</g>"##
+        )
+    } else {
+        String::new()
+    };
     format!(
         r##"<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
 <defs>
 <linearGradient id="front" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{front_top}"/><stop offset="1" stop-color="{front_bottom}"/></linearGradient>
 </defs>
 <path fill="{back}" d="M15 32a10 10 0 0 1 10-10h21c3.600 0 6.400 1.300 8.800 4l3.400 3.800c2 2.200 4.300 3.200 7.300 3.200H103a10 10 0 0 1 10 10v53a10 10 0 0 1-10 10H25a10 10 0 0 1-10-10z"/>
+{papers}
 <path fill="url(#front)" d="M15 54a10 10 0 0 1 10-10h78a10 10 0 0 1 10 10v42a10 10 0 0 1-10 10H25a10 10 0 0 1-10-10z"/>
 <path fill="none" stroke="{light}" stroke-width="1.500" stroke-linecap="round" d="M24 44.750h80"/>
 {glyph}
@@ -212,22 +225,27 @@ fn cache_dir() -> PathBuf {
 }
 
 thread_local! {
-    static ICONS: RefCell<HashMap<(Kind, Color), gio::Icon>> = RefCell::new(HashMap::new());
+    static ICONS: RefCell<HashMap<(Kind, Color, bool), gio::Icon>> = RefCell::new(HashMap::new());
 }
 
-/// The icon of a folder of this kind in this colour. The drawings are written under the user's
-/// cache the first time they are needed, since an icon is looked up from a file.
-pub fn icon(kind: Kind, color: Color) -> gio::Icon {
+/// The icon of a folder of this kind in this colour, with papers in it when it is `full`. The
+/// drawings are written under the user's cache the first time they are needed, since an icon is
+/// looked up from a file.
+pub fn icon(kind: Kind, color: Color, full: bool) -> gio::Icon {
     ICONS.with(|icons| {
         icons
             .borrow_mut()
-            .entry((kind, color))
+            .entry((kind, color, full))
             .or_insert_with(|| {
-                let file =
-                    cache_dir().join(format!("{}-{}-v{VERSION}.svg", kind.name(), color.id()));
+                let file = cache_dir().join(format!(
+                    "{}-{}{}-v{VERSION}.svg",
+                    kind.name(),
+                    color.id(),
+                    if full { "-full" } else { "" }
+                ));
                 if !file.exists() {
                     let _ = std::fs::create_dir_all(cache_dir());
-                    let _ = std::fs::write(&file, drawing(kind, color));
+                    let _ = std::fs::write(&file, drawing(kind, color, full));
                 }
                 gio::FileIcon::new(&gio::File::for_path(file)).upcast()
             })
@@ -253,13 +271,23 @@ mod tests {
     ];
 
     #[test]
+    fn only_a_full_folder_has_papers_in_it() {
+        let full = drawing(Kind::Plain, Color::Blue, true);
+        let empty = drawing(Kind::Plain, Color::Blue, false);
+        assert!(full.contains("<rect"));
+        assert!(!empty.contains("<rect"));
+        // The papers stand behind the front: drawn before it.
+        assert!(full.find("<rect").unwrap() < full.find("url(#front)\"").unwrap());
+    }
+
+    #[test]
     fn every_kind_has_a_name_of_its_own_and_a_wellformed_drawing() {
         let mut names: Vec<_> = ALL.iter().map(|k| k.name()).collect();
         names.sort_unstable();
         names.dedup();
         assert_eq!(names.len(), ALL.len());
         for kind in ALL {
-            let svg = drawing(kind, Color::Teal);
+            let svg = drawing(kind, Color::Teal, true);
             assert!(svg.contains("</svg>"), "{kind:?}");
             assert_eq!(svg.matches("<g ").count(), svg.matches("</g>").count());
             // A plain folder has no glyph; every other one has.
@@ -271,7 +299,7 @@ mod tests {
     fn every_colour_draws_and_is_known_by_its_id() {
         for color in Color::ALL {
             assert_eq!(Color::from_id(color.id()), Some(color));
-            let svg = drawing(Kind::Documents, color);
+            let svg = drawing(Kind::Documents, color, false);
             assert!(svg.contains(&color.shade(0.69)));
             assert!(!svg.contains("NaN"));
         }

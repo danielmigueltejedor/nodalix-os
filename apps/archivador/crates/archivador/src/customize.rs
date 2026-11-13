@@ -120,7 +120,7 @@ pub fn present(parent: &impl IsA<gtk::Widget>, path: PathBuf, changed: impl Fn()
         button.set_tooltip_text(Some(tr(color.title())));
         let image = gtk::Image::new();
         image.set_pixel_size(40);
-        icons::show_icon(&image, &folders::icon(Kind::Plain, color));
+        icons::show_icon(&image, &folders::icon(Kind::Plain, color, false));
         button.set_child(Some(&image));
         let apply = apply.clone();
         let path = path.clone();
