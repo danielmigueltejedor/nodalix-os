@@ -48,8 +48,27 @@ fn heading(text: &str) -> gtk::ListBoxRow {
     row
 }
 
-pub fn present(app: &gtk::Application) {
+/// Takes the window to a page by its id.
+type Select = Rc<dyn Fn(&str)>;
+
+thread_local! {
+    /// Takes the open window to a page. Set while a window exists, so a second launch
+    /// (`nodalix-settings wifi`, the `open-page` action) can ask the one that is open.
+    static SELECT: RefCell<Option<Select>> = const { RefCell::new(None) };
+}
+
+/// Opens Settings, on `page` when one is asked for. If a window is open already it is the one
+/// that goes to the page and comes forward: there is one Settings window per session.
+pub fn present(app: &gtk::Application, page: Option<&Page>) {
     if let Some(window) = app.active_window() {
+        if let Some(page) = page {
+            // Take the handler out of the cell before calling it: it selects a row, and a
+            // row's handler must not find the cell borrowed.
+            let select = SELECT.with(|cell| cell.borrow().clone());
+            if let Some(select) = select {
+                select(page.id);
+            }
+        }
         window.present();
         return;
     }
@@ -168,6 +187,22 @@ pub fn present(app: &gtk::Application) {
             }
         });
     }
+    let select: Select = {
+        let list = list.clone();
+        Rc::new(move |id: &str| {
+            for i in 0.. {
+                let Some(row) = list.row_at_index(i) else {
+                    break;
+                };
+                if row.widget_name() == id {
+                    list.select_row(Some(&row));
+                    break;
+                }
+            }
+        })
+    };
+    SELECT.with(|cell| *cell.borrow_mut() = Some(select.clone()));
+    window.connect_destroy(|_| SELECT.with(|cell| *cell.borrow_mut() = None));
     if let Some(first) = list.row_at_index(0) {
         list.select_row(Some(&first));
     }
@@ -195,19 +230,12 @@ pub fn present(app: &gtk::Application) {
     toasts.set_child(Some(&split));
     window.set_content(Some(&toasts));
 
-    // For screenshots and tests: open on another page.
-    if let Some(id) = std::env::var("NODALIX_SETTINGS_PAGE")
+    // The page asked for, or for screenshots and tests `NODALIX_SETTINGS_PAGE=updates`.
+    let env_page = std::env::var("NODALIX_SETTINGS_PAGE")
         .ok()
-        .and_then(|id| pages::find(&id))
-    {
-        for i in 0.. {
-            let Some(row) = list.row_at_index(i) else {
-                break;
-            };
-            if row.widget_name() == id.id {
-                list.select_row(Some(&row));
-            }
-        }
+        .and_then(|id| pages::resolve(&id));
+    if let Some(page) = page.or(env_page) {
+        select(page.id);
     }
 
     window.present();

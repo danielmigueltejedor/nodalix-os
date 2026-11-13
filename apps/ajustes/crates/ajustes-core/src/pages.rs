@@ -127,6 +127,72 @@ pub fn find(id: &str) -> Option<&'static Page> {
     all().find(|p| p.id == id)
 }
 
+/// The page a name from the command line opens. It takes the page ids and the names of the
+/// GNOME Control Center panels (`gnome-control-center wifi`, `org.gnome.Settings` links), so the
+/// Shell, the notifications and the network indicator keep working when this app takes over.
+/// `None` for a name nobody knows: the caller opens the first page.
+pub fn resolve(name: &str) -> Option<&'static Page> {
+    let name = name.trim().to_ascii_lowercase();
+    if let Some(page) = find(&name) {
+        return Some(page);
+    }
+    let id = match name.as_str() {
+        "background" | "backgrounds" | "wallpaper" | "ubuntu" => "appearance",
+        "wi-fi" | "wireless" => "wifi",
+        "wwan" | "mobile" | "ethernet" | "vpn" | "proxy" | "connectivity" => "network",
+        "displays" | "screen" | "night-light" => "display",
+        "audio" => "sound",
+        "battery" | "power-saving" => "power",
+        "keyboard-shortcuts" | "shortcuts" | "input" | "region-input" => "keyboard",
+        "touchpad" | "pointing" | "wacom" | "mouse-and-touchpad" => "mouse",
+        "printer" | "printing" => "printers",
+        "lock"
+        | "location"
+        | "camera"
+        | "microphone"
+        | "diagnostics"
+        | "usb"
+        | "thunderbolt"
+        | "security"
+        | "privacy-and-security" => "privacy",
+        "default-apps" | "removable-media" | "apps" | "search" => "applications",
+        "universal-access" | "a11y" => "accessibility",
+        "date-time" | "time" | "date" | "clock" => "datetime",
+        "info-overview" | "info" | "system" | "details" => "about",
+        "language" | "locale" | "region-language" | "formats" => "region",
+        "user-accounts" | "accounts" => "users",
+        "goa" | "online" | "account" => "online-accounts",
+        "share" | "remote-desktop" => "sharing",
+        "storage-cloud" | "disks" => "storage",
+        "workspaces" | "windows" | "multi-tasking" => "multitasking",
+        "update" | "software-updates" => "updates",
+        "notification" => "notifications",
+        _ => return None,
+    };
+    find(id)
+}
+
+/// The page asked for on a command line (without the program name). It understands
+/// `--page <name>`, `--page=<name>`, `-p <name>` and a bare `<name>`, as
+/// `gnome-control-center` does; other options and the extra arguments a panel takes
+/// (`wifi connect-hidden-network`) are ignored. `None` when it names no page.
+pub fn from_args<S: AsRef<str>>(args: &[S]) -> Option<&'static Page> {
+    let mut args = args.iter().map(AsRef::as_ref);
+    while let Some(arg) = args.next() {
+        let name = if let Some(name) = arg.strip_prefix("--page=") {
+            name
+        } else if arg == "--page" || arg == "-p" {
+            args.next()?
+        } else if arg.starts_with('-') {
+            continue;
+        } else {
+            arg
+        };
+        return resolve(name);
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -161,5 +227,83 @@ mod tests {
     fn the_native_pages_come_first() {
         assert_eq!(SECTIONS[0].1[0].id, "appearance");
         assert!(SECTIONS[0].1.iter().all(|p| p.kind == Kind::Native));
+    }
+
+    #[test]
+    fn resolves_page_ids_and_gnome_panel_names() {
+        let id = |name| resolve(name).map(|p| p.id);
+        for page in all() {
+            assert_eq!(id(page.id), Some(page.id));
+        }
+        assert_eq!(id("WiFi"), Some("wifi"));
+        assert_eq!(id("background"), Some("appearance"));
+        assert_eq!(id("universal-access"), Some("accessibility"));
+        assert_eq!(id("info-overview"), Some("about"));
+        assert_eq!(id("search"), Some("applications"));
+        assert_eq!(id(" Bluetooth "), Some("bluetooth"));
+        assert_eq!(id("no-such-panel"), None);
+        assert_eq!(id(""), None);
+    }
+
+    #[test]
+    fn every_alias_lands_on_a_page() {
+        // `resolve` finds the page with `find(id)`, so an alias that names no page would show
+        // up as `None` here. The names the Shell and the GNOME desktop files use:
+        for name in [
+            "wifi",
+            "network",
+            "bluetooth",
+            "display",
+            "sound",
+            "power",
+            "keyboard",
+            "mouse",
+            "printers",
+            "color",
+            "privacy",
+            "applications",
+            "notifications",
+            "search",
+            "multitasking",
+            "datetime",
+            "about",
+            "users",
+            "online-accounts",
+            "sharing",
+            "region",
+            "background",
+            "wwan",
+            "usb",
+            "thunderbolt",
+            "lock",
+            "location",
+            "camera",
+            "microphone",
+            "default-apps",
+            "removable-media",
+            "universal-access",
+            "info-overview",
+            "diagnostics",
+            "connectivity",
+            "wacom",
+            "ubuntu",
+        ] {
+            assert!(resolve(name).is_some(), "{name} opens nothing");
+        }
+    }
+
+    #[test]
+    fn reads_the_page_from_a_command_line() {
+        let id = |args: &[&str]| from_args(args).map(|p| p.id);
+        assert_eq!(id(&["wifi"]), Some("wifi"));
+        assert_eq!(id(&["--page", "bluetooth"]), Some("bluetooth"));
+        assert_eq!(id(&["--page=power"]), Some("power"));
+        assert_eq!(id(&["-p", "sound"]), Some("sound"));
+        assert_eq!(id(&["--verbose", "network", "wifi"]), Some("network"));
+        assert_eq!(id(&["wifi", "connect-hidden-network"]), Some("wifi"));
+        assert_eq!(id(&["nonsense"]), None);
+        assert_eq!(id(&["--page"]), None);
+        assert_eq!(id(&["--verbose"]), None);
+        assert_eq!(id(&[]), None);
     }
 }
