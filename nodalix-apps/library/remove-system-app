@@ -8,6 +8,7 @@ import sys
 
 PROTECTED = {'base', 'base-devel', 'glibc', 'filesystem', 'bash', 'systemd', 'pacman',
              'polkit', 'gnome-shell', 'mutter', 'gdm', 'gnome-session', 'nautilus',
+             'nodalix-ajustes', 'nodalix-archivador', 'nodalix-monitor',
              'gnome-settings-daemon', 'networkmanager'}
 
 

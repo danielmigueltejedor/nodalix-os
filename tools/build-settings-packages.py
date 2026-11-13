@@ -84,20 +84,22 @@ def main():
     ap.add_argument('--output',type=Path,default=ROOT/'dist/native-settings')
     ap.add_argument('--control-center-source')
     ap.add_argument('--hanabi-source')
+    ap.add_argument('--skip-control-center',action='store_true',help='do not build nodalix-control-center (GNOME Settings): Ajustes replaces it from 0.6.0')
     ap.add_argument('--collection',type=Path,default=ROOT/'gnome/settings/animated')
     ap.add_argument('--prepare-only',action='store_true')
     args=ap.parse_args();out=args.output.resolve();out.mkdir(parents=True,exist_ok=True)
     cache=out/'cache';cache.mkdir(exist_ok=True)
-    cc=checkout(args.control_center_source,cache,'control-center','https://github.com/GNOME/gnome-control-center.git',CC_REV)
+    cc=None if args.skip_control_center else checkout(args.control_center_source,cache,'control-center','https://github.com/GNOME/gnome-control-center.git',CC_REV)
     hanabi=checkout(args.hanabi_source,cache,'hanabi','https://github.com/jeffshee/gnome-ext-hanabi.git',HANABI_REV)
     with tempfile.TemporaryDirectory(dir=out) as temp:
         stage=Path(temp)
-        export(cc,stage/'control-center')
-        for name,url,pin in [('gvc','https://gitlab.gnome.org/GNOME/libgnome-volume-control.git','d2442f455844e5292cb4a74ffc66ecc8d7595a9f'),('libgxdp','https://gitlab.gnome.org/GNOME/libgxdp.git','df896e3412b749947bc6f62a91a1aac8e6b6d19b'),('blueprint-compiler','https://gitlab.gnome.org/jwestman/blueprint-compiler.git','8eca521ae720655c837fd1885940ed91f7517e6f')]:
-            source=checkout(str(cc/'subprojects'/name),cache,name,url,pin)
-            export(source,stage/'control-center/subprojects'/name)
+        if cc is not None:
+            export(cc,stage/'control-center')
+            for name,url,pin in [('gvc','https://gitlab.gnome.org/GNOME/libgnome-volume-control.git','d2442f455844e5292cb4a74ffc66ecc8d7595a9f'),('libgxdp','https://gitlab.gnome.org/GNOME/libgxdp.git','df896e3412b749947bc6f62a91a1aac8e6b6d19b'),('blueprint-compiler','https://gitlab.gnome.org/jwestman/blueprint-compiler.git','8eca521ae720655c837fd1885940ed91f7517e6f')]:
+                source=checkout(str(cc/'subprojects'/name),cache,name,url,pin)
+                export(source,stage/'control-center/subprojects'/name)
         export(hanabi,stage/'hanabi')
-        cc_archive=out/'control-center-51.0.tar.zst';archive(stage,cc_archive,['control-center'])
+        if cc is not None:cc_archive=out/'control-center-51.0.tar.zst';archive(stage,cc_archive,['control-center'])
         hanabi_archive=out/'hanabi-b18e041.tar.zst';archive(stage,hanabi_archive,['hanabi'])
         videos=json.loads((ROOT/'gnome/settings/animated-collection.json').read_text())
         (stage/'collection').mkdir();(stage/'previews').mkdir();(stage/'stills').mkdir()
@@ -119,9 +121,9 @@ def main():
             run(['ffmpeg','-hide_banner','-loglevel','error','-ss','1','-i',video,'-frames:v','1','-q:v','2','-y',stage/'stills'/(video.stem+'.jpg')])
         collection=out/'nodalix-animated-collection.tar.zst';archive(stage,collection,['collection','previews','stills'])
         settings=out/f'nodalix-settings-{VERSION}.tar.zst';archive(ROOT,settings,['gnome/settings','docs/images/nodalix-logo.png'])
-        changes=out/'nodalix-control-center-51.0.0.tar.zst';archive(ROOT,changes,['gnome/control-center'])
+        if cc is not None:changes=out/'nodalix-control-center-51.0.0.tar.zst';archive(ROOT,changes,['gnome/control-center'])
         renderer=out/f'nodalix-video-wallpapers-{VERSION}.tar.zst';archive(ROOT,renderer,['gnome/settings/animated-collection.json','gnome/lib/window-coverage.js','packaging/nodalix-video-wallpapers/gnome51.patch','packaging/nodalix-video-wallpapers/pnpm-lock.yaml','packaging/nodalix-video-wallpapers/90-nodalix-hanabi.gschema.override'])
-        dirs=[recipe('nodalix-settings',out,[settings]),recipe('nodalix-control-center',out,[cc_archive,changes]),recipe('nodalix-video-wallpapers',out,[hanabi_archive,renderer,collection])]
+        dirs=[recipe('nodalix-settings',out,[settings]),*([recipe('nodalix-control-center',out,[cc_archive,changes])] if cc is not None else []),recipe('nodalix-video-wallpapers',out,[hanabi_archive,renderer,collection])]
     if not args.prepare_only:
         for folder in dirs:
             run(['makepkg','-f','--nodeps','--noconfirm'],cwd=folder)

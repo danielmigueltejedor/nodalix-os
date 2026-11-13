@@ -56,8 +56,15 @@ class IsoPolicyTests(unittest.TestCase):
         sys.path.insert(0, str(ROOT / 'tools'))
         from versioning import to_pkgver
         definition = json.loads((ROOT / 'release/components.json').read_text())
+        recipes = {}
+        for recipe in (ROOT / 'packaging').glob('*/PKGBUILD'):
+            text = recipe.read_text()
+            split = re.search(r'^pkgname=\(([^)]*)\)', text, re.M)
+            for name in (split[1].split() if split else [recipe.parent.name]):
+                recipes[name] = text
         for component in definition['components']:
-            text = (ROOT / 'packaging' / component['package'] / 'PKGBUILD').read_text()
+            # A split package (nodalix-native-apps) builds several components from one recipe.
+            text = recipes[component['package']]
             actual = re.search(r'^pkgver=(.+)$', text, re.M)[1].strip('\"\'')
             self.assertEqual(actual, to_pkgver(component['version']), component['package'])
 

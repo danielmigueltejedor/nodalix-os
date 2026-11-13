@@ -9,7 +9,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 ARCH = ROOT / 'gnome/archivador'
 NDL = ROOT / 'gnome/control-center/ndl'
-PKGBUILD = ROOT / 'packaging/nodalix-archivador/PKGBUILD'
 
 # The upstream text apply.py anchors on, reduced to what the anchors need.
 FIXTURE = {
@@ -117,29 +116,12 @@ class ArchivadorTests(unittest.TestCase):
         self.assertNotIn('Inter', css)
         self.assertNotRegex(css, r'(?m)^\s*overflow\s*:')
 
-    def test_sources_are_pinned_and_libgxdp_matches_the_nautilus_wrap(self):
-        tool = (ROOT / 'tools/build-archivador-package.py').read_text()
-        self.assertRegex(tool, r"NAUTILUS_REV = '[0-9a-f]{40}'")
-        self.assertRegex(tool, r"LIBGXDP_REV = '[0-9a-f]{40}'")
-        self.assertIn('Nautilus pins a different libgxdp', tool)
-
-    def test_package_is_a_drop_in_for_nautilus_but_opt_in(self):
-        text = PKGBUILD.read_text()
-        self.assertIn('provides=("nautilus=51.1" "libnautilus-extension=51.1")', text)
-        self.assertIn('conflicts=("nautilus" "libnautilus-extension")', text)
-        self.assertIn('"libnautilus-extension=51.1"', text)
-        # Without `replaces`, a system update never swaps the file manager on its own.
-        self.assertNotIn('replaces=', text)
-        self.assertIn('pkgver=51.1.0', text)
-        # Arch's stack does not ship SELinux: meson fails if the feature is enabled and libselinux is absent.
-        self.assertIn('-Dselinux=disabled', text)
-        self.assertNotIn('libselinux', text)
-
-    def test_release_script_builds_it(self):
+    def test_release_script_no_longer_builds_the_nautilus_based_one(self):
+        # From 0.6.0 the nodalix-archivador of the release is the Rust app in apps/archivador, built
+        # with the other native apps. This Nautilus-based recipe is kept only until it is removed.
         script = (ROOT / 'tools/build-packages.sh').read_text()
-        self.assertIn('build-archivador-package.py', script)
-        # Kept out of the set the install jobs put on one system: it conflicts with nautilus.
-        self.assertNotIn('dist/native-archivador" -mindepth', script)
+        self.assertNotIn('build-archivador-package.py', script)
+        self.assertIn('nodalix-native-apps', script)
 
 
 if __name__ == '__main__':

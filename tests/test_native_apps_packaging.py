@@ -31,7 +31,7 @@ class NativeAppsPackagingTests(unittest.TestCase):
         cases = {
             "ajustes": ("gnome-control-center", "nodalix-control-center", "gnome-control-center", "org.gnome.Settings.desktop"),
             "monitor": ("gnome-system-monitor", "gnome-system-monitor", "gnome-system-monitor", "org.gnome.SystemMonitor.desktop"),
-            "archivador": ("nautilus", "nautilus", "nautilus", None),
+            "archivador": ("nautilus", "nautilus", "nautilus", "org.gnome.Nautilus.desktop"),
         }
         for app, (provided, replaced, command, desktop) in cases.items():
             body = package_function(f"nodalix-{app}")
@@ -60,10 +60,11 @@ class NativeAppsPackagingTests(unittest.TestCase):
             self.assertIn("_licenses", package_function(f"nodalix-{app}"))
         self.assertIn("LICENSE-NDL", PKGBUILD)
 
-    def test_build_script_builds_it_apart_from_the_release_set(self):
+    def test_build_script_builds_it_into_the_release_set(self):
         script = (ROOT / "tools/build-packages.sh").read_text(encoding="utf-8")
         self.assertIn('makepkg_one "$native_dir"', script)
-        self.assertIn('dist/native-apps', script)
+        self.assertIn('native_dir="$workdir/nodalix-native-apps"', script)
+        self.assertIn("--skip-control-center", script)
         self.assertIn("rust", (ROOT / "tools/ci-build-gnome.sh").read_text(encoding="utf-8").split())
 
 

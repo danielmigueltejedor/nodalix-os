@@ -157,7 +157,7 @@ makepkg_one() {
 
 if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
   if [[ ${NODALIX_SKIP_NATIVE_BUILD:-0} != 1 ]]; then
-    python3 "$root/tools/build-settings-packages.py" --output "$root/dist/native-settings"
+    python3 "$root/tools/build-settings-packages.py" --skip-control-center --output "$root/dist/native-settings"
   fi
   find "$root/dist/native-settings" -mindepth 2 -maxdepth 2 -type f -name "*.pkg.tar.zst" ! -name "*-debug-*" -exec cp {} "$outdir/" \;
   makepkg_one "$updater_dir"
@@ -193,24 +193,10 @@ if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
   fi
   makepkg_one "$store_dir"
   if [[ ${NODALIX_SKIP_NATIVE_BUILD:-0} != 1 ]]; then
-    # Archivador (Nautilus with the NDL layer) is built from a pinned Nautilus tree. Installing the
-    # stock package first pulls in every runtime library it links, as the Arch package declares them.
-    if [[ ${NODALIX_CI_CONTAINER:-} == 1 ]]; then
-      sudo pacman -S --needed --noconfirm nautilus gobject-introspection blueprint-compiler \
-        gettext desktop-file-utils appstream libxml2 python glib2-devel json-glib
-    fi
-    python3 "$root/tools/build-archivador-package.py" --output "$root/dist/native-archivador"
-    # Built and kept apart on purpose: it conflicts with nautilus, and the clean-install, upgrade and
-    # signed-repository jobs install every package of $outdir together. It joins the release set when
-    # Archivador becomes the default file manager (docs/archivador.md).
-    # The native apps (Settings, System Monitor, Archivador in Rust) are built here, apart from the
-    # release set, for the same reason: they replace nodalix-control-center and nautilus. They join
-    # the release set in the 0.6.0 switch (docs/preparation-0.6.0.md).
-    # They are built under dist/build-aside, not under $workdir: everything below $workdir is
-    # copied into the release set.
-    aside="$root/dist/build-aside"
-    rm -rf "$aside"
-    native_dir="$aside/nodalix-native-apps"
+    # The native apps (Settings, System Monitor, Archivador: Rust on the Nodalia Design Language)
+    # replace nodalix-control-center and nautilus. Brújula, the browser, is built from a pinned
+    # release commit. Both are part of the release set from 0.6.0 (docs/preparation-0.6.0.md).
+    native_dir="$workdir/nodalix-native-apps"
     mkdir -p "$native_dir"
     cp "$root/packaging/nodalix-native-apps/PKGBUILD" "$native_dir/"
     tar --zstd -C "$root" -cf "$native_dir/nodalix-native-apps-$pkgver.tar.zst" \
@@ -218,16 +204,10 @@ if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
       apps gnome/control-center/ndl/LICENSE
     inject_sha256 "$native_dir/PKGBUILD" "$native_dir/nodalix-native-apps-$pkgver.tar.zst"
     makepkg_one "$native_dir"
-    mkdir -p "$root/dist/native-apps"
-    find "$native_dir" -maxdepth 1 -type f -name '*.pkg.tar.zst' ! -name '*-debug-*' -exec cp {} "$root/dist/native-apps/" \;
-    # Brújula (the browser, in Rust) is pinned to a release commit like the Store. Also kept apart
-    # until the 0.6.0 switch.
-    brujula_dir="$aside/nodalix-brujula"
+    brujula_dir="$workdir/nodalix-brujula"
     mkdir -p "$brujula_dir"
     cp "$root/packaging/nodalix-brujula/PKGBUILD" "$brujula_dir/"
     makepkg_one "$brujula_dir"
-    mkdir -p "$root/dist/native-apps"
-    find "$brujula_dir" -maxdepth 1 -type f -name '*.pkg.tar.zst' ! -name '*-debug-*' -exec cp {} "$root/dist/native-apps/" \;
   fi
   makepkg_one "$keyring_dir"
   makepkg_one "$release_dir"

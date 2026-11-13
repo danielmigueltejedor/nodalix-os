@@ -25,12 +25,10 @@ class BrujulaPackagingTests(unittest.TestCase):
             self.assertIn(f"{kind}=dev.danielmiguelt.Brujula.desktop", PKGBUILD)
         self.assertIn("/etc/xdg/gnome-mimeapps.list", PKGBUILD)
 
-    def test_the_build_script_builds_it_apart_from_the_release_set(self):
+    def test_the_build_script_builds_it_into_the_release_set(self):
         script = (ROOT / "tools/build-packages.sh").read_text(encoding="utf-8")
         self.assertIn('makepkg_one "$brujula_dir"', script)
-        # Nothing under $workdir is copied into the release set, so the aside builds live elsewhere.
-        self.assertIn('aside="$root/dist/build-aside"', script)
-        self.assertNotIn('"$workdir/nodalix-native-apps"', script)
+        self.assertIn('brujula_dir="$workdir/nodalix-brujula"', script)
 
 
 if __name__ == "__main__":

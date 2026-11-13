@@ -5,11 +5,11 @@ cambiar de una a otra y qué se comprueba antes de publicar.
 
 | App nueva | Paquete | Sustituye a | Estado |
 | --- | --- | --- | --- |
-| Ajustes | `nodalix-ajustes` | `nodalix-control-center` (GNOME Settings) | Construye aparte (`dist/native-apps`) |
-| Monitor del sistema | `nodalix-monitor` | `gnome-system-monitor` | Construye aparte |
-| Archivador | `nodalix-archivador` (Rust) | `nautilus` y el Archivador de 0.5 | Construye aparte |
+| Ajustes | `nodalix-ajustes` | `nodalix-control-center` (GNOME Settings) | En el conjunto de la release |
+| Monitor del sistema | `nodalix-monitor` | `gnome-system-monitor` | En el conjunto de la release |
+| Archivador | `nodalix-archivador` (Rust) | `nautilus` y el Archivador de 0.5 | En el conjunto de la release |
 | Tienda | `nodalix-store` 0.6.0 | `bazaar` | En el conjunto de la release |
-| Brújula | `nodalix-brujula` | `epiphany` (si estuviera) | Falta la 0.2.0 |
+| Brújula | `nodalix-brujula` | `brujula` sin fijar (si estuviera) | 0.2.0, en el conjunto de la release |
 
 Los tres primeros salen de un solo `PKGBUILD` dividido (`packaging/nodalix-native-apps/`), que compila el espacio de
 trabajo de `apps/` una vez desde `Cargo.lock`. Cada paquete declara `provides`/`conflicts`/`replaces` del paquete de

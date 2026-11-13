@@ -1,4 +1,11 @@
 <div align="center">
+  <a href="https://getnodalia.com">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="./docs/images/nodalia-wordmark-white.svg">
+      <img src="./docs/images/nodalia-wordmark-black.svg" width="140" alt="Nodalia">
+    </picture>
+  </a>
+  <br><br>
   <img src="./docs/images/nodalix-readme-logo.svg" width="192" height="192" alt="Nodalix OS">
   <h1>Nodalix OS</h1>
   <p><strong>An integrated Arch Linux desktop built around GNOME Shell and Mutter.</strong></p>

@@ -7,7 +7,7 @@
 #   tools/preview-0.6.0.sh install            compila e instala las tres apps en ~/.local
 #   tools/preview-0.6.0.sh default-browser on|off   Brújula como navegador predeterminado
 #   tools/preview-0.6.0.sh uninstall          lo quita todo y restaura el navegador
-#   tools/preview-0.6.0.sh archivador         construye el paquete de Archivador (sin instalarlo)
+#   tools/preview-0.6.0.sh archivador         (ya viene en el paquete de la release)
 #   tools/preview-0.6.0.sh store              construye la Tienda con NDL (sin instalarla)
 #
 # Archivador y la Tienda reemplazan paquetes del sistema (nautilus, nodalix-store 0.5.0), así que
@@ -151,18 +151,8 @@ uninstall() {
 }
 
 archivador() {
-  need makepkg "sudo pacman -S base-devel"
-  local out="$root/dist/native-archivador"
-  python3 "$root/tools/build-archivador-package.py" --output "$out"
-  (cd "$out" && ls -1 *.pkg.tar.zst 2>/dev/null || find . -name '*.pkg.tar.zst')
-  cat <<EOF
-
-Archivador sustituye a nautilus (conflicts/provides). Para probarlo:
-  sudo pacman -U <el .pkg.tar.zst de arriba>     # pacman pregunta si reemplaza nautilus: responde que sí
-  nautilus -q; nautilus
-Vuelta atrás:
-  sudo pacman -S nautilus                        # reemplaza nodalix-archivador por el de Arch
-EOF
+  echo "Archivador ya no se construye aparte: viene en el paquete nodalix-archivador de la release (apps/archivador)."
+  echo "Para probarlo antes de publicar, instala el .pkg.tar.zst de nodalix-archivador que genera el CI."
 }
 
 store() {
