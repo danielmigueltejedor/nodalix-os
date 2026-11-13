@@ -1,6 +1,6 @@
 //! Online accounts, from GNOME Online Accounts: the accounts that are set up, whether one needs
 //! attention, and removing one. Adding an account is the provider's own sign-in, which stays in
-//! the previous panel.
+//! the sign-in window of GNOME's online accounts library.
 
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -76,6 +76,52 @@ fn icon_for(kind: &str) -> String {
     }
 }
 
+/// The program that signs in to Google, Microsoft and the others: the sign-in is a browser flow
+/// that only GNOME's online accounts library can run, and that library ships its own window.
+const ADD_ACCOUNT: &str = "gnome-online-accounts-gtk";
+
+/// The full path of `name` in the directories of `path` (a `PATH` value), if it is there and
+/// can be run.
+fn find_program(name: &str, path: &std::ffi::OsStr) -> Option<std::path::PathBuf> {
+    use std::os::unix::fs::PermissionsExt;
+    std::env::split_paths(path)
+        .map(|dir| dir.join(name))
+        .find(|candidate| {
+            std::fs::metadata(candidate)
+                .map(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
+                .unwrap_or(false)
+        })
+}
+
+/// "Add an account", when the system has the program that does it. Without it the row is not
+/// shown: a button that does nothing is worse than none.
+fn add_account_group(toasts: &ndl::ToastOverlay) -> Option<ndl::PreferencesGroup> {
+    let program = find_program(ADD_ACCOUNT, &std::env::var_os("PATH")?)?;
+    let row = ndl::ActionRow::builder()
+        .title(tr("Add an account"))
+        .subtitle(tr("Sign in to Google, Nextcloud, Microsoft and others"))
+        .build();
+    row.set_activatable(true);
+    row.add_suffix(&gtk::Image::from_icon_name("go-next-symbolic"));
+    let toasts = toasts.clone();
+    row.connect_activated(
+        move |_| match std::process::Command::new(&program).spawn() {
+            // A child that is never waited for stays a zombie after it exits. A short-lived thread
+            // waits for it, so the GTK thread never does.
+            Ok(mut child) => {
+                std::thread::spawn(move || {
+                    let _ = child.wait();
+                });
+            }
+            Err(error) => toasts.add_toast(ndl::Toast::new(&format!(
+                "{}: {error}",
+                tr("Could not open the sign-in window")
+            ))),
+        },
+    );
+    gs::group("", rows![Some(row)])
+}
+
 pub fn build(toasts: &ndl::ToastOverlay) -> gtk::ScrolledWindow {
     let content = column();
     let group = ndl::PreferencesGroup::builder()
@@ -86,14 +132,7 @@ pub fn build(toasts: &ndl::ToastOverlay) -> gtk::ScrolledWindow {
         .build();
     group.add(&placeholder);
     content.append(&group);
-    if let Some(more) = gs::group(
-        "",
-        rows![Some(gs::legacy_link(
-            tr("Add an account"),
-            tr("Sign in to Google, Nextcloud, Microsoft and others"),
-            "online-accounts",
-        ))],
-    ) {
+    if let Some(more) = add_account_group(toasts) {
         content.append(&more);
     }
 
@@ -184,4 +223,25 @@ pub fn build(toasts: &ndl::ToastOverlay) -> gtk::ScrolledWindow {
         }
     });
     scroller(&content)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+
+    #[test]
+    fn finds_a_program_in_the_path_only_when_it_can_be_run() {
+        let dir = std::env::temp_dir().join(format!("ajustes-find-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let tool = dir.join("a-tool");
+        std::fs::write(&tool, "#!/bin/sh\n").unwrap();
+        let path = std::env::join_paths([std::path::Path::new("/nonexistent"), &dir]).unwrap();
+        // Not executable yet.
+        assert_eq!(find_program("a-tool", &path), None);
+        std::fs::set_permissions(&tool, std::fs::Permissions::from_mode(0o755)).unwrap();
+        assert_eq!(find_program("a-tool", &path), Some(tool.clone()));
+        assert_eq!(find_program("another-tool", &path), None);
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }

@@ -1,7 +1,6 @@
 //! Nodalix Settings.
 
 mod i18n;
-mod legacy;
 mod pages;
 mod window;
 

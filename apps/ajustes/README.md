@@ -14,10 +14,9 @@ Nodalix has been shipping with its own pages.
 | LocalSend | Native: a client of the same session service (`GetLocalSend`, `SetLocalSend*`); name, receive folder, auto-accept and auto-disable options, nearby devices with favourites. |
 | About | Native. |
 | Network (internet status, wired adapters, VPN, proxy, and the IPv4 address and name servers of a saved connection through `nmcli connection modify`), Wi-Fi, Bluetooth (BlueZ), Sharing, Sound, Power, Keyboard, Mouse and touchpad, Notifications, Multitasking, Privacy and security, Accessibility, Date and time, Backgrounds (still pictures and the animated gallery through the session service), Displays (screens read from mutter, Night Light), Printers (CUPS, `lpstat`), Online accounts (GNOME Online Accounts), Color (colord), Cloud storage (rclone, see below), Apps (default apps, installed apps), Users (your name, picture and password, and other accounts: add, change type, remove; through AccountsService, with polkit asking for an administrator's password; the password is hashed with `openssl passwd -6`, read from standard input, and only the hash goes to the service), Region and language (AccountsService + `org.gnome.system.locale`) | Native: GSettings keys through one set of row helpers (`pages/gs.rs`, which skips a key the system does not have), plus D-Bus for what is not a setting (Wi-Fi through NetworkManager, power mode and battery, time zone and NTP, device name) and `pactl` for sound. Keyboard (layouts, compose key and shortcuts), Printers (find on the network, add by address, remove) and Color (assign and import profiles) are native too. |
-| What still opens the previous GNOME panel (from inside a native page) | Adding an online account (the sign-in for Google or Microsoft is a browser flow that only GNOME's own library can run). |
+| Adding an online account | Opens `gnome-online-accounts-gtk`, the sign-in window of GNOME's online accounts library (the sign-in for Google or Microsoft is a browser flow that only that library can run). The row is shown only when the program is installed. No page calls `gnome-control-center`: it is not installed with Nodalix OS. |
 
-Still to port from the previous Settings, in the order they are used most: animated backgrounds
-(inside Appearance), LocalSend, storage, then the GNOME panels.
+Every page is native. Enterprise Wi-Fi (a login, not a password) is not supported yet.
 
 ## Layout
 
