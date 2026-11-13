@@ -152,7 +152,7 @@
       "id": "brujula",
       "name": "Brújula web browser",
       "package": "nodalix-brujula",
-      "version": "0.6.0",
+      "version": "0.7.0",
       "required": true,
       "restart": "none"
     },
