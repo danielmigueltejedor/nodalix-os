@@ -7,140 +7,45 @@ use crate::pages::{self, Page};
 /// Every result id starts with this, then the page id: `nodalix-storage`.
 pub const RESULT_PREFIX: &str = "nodalix-";
 
-/// Per page: its name in both languages, then the words to find it by (both languages, no
-/// accents needed). A search term matches the start of a word.
-const WORDS: &[(&str, &str, &str)] = &[
-    (
-        "appearance",
-        "Appearance Apariencia",
-        "style theme dark light mode colour color accent background wallpaper wallpapers animated desktop lock screen estilo tema oscuro claro modo acento fondo fondos animados escritorio pantalla bloqueo",
-    ),
-    (
-        "updates",
-        "Updates Actualizaciones",
-        "update upgrade automatic software system actualizar automaticas sistema novedades",
-    ),
-    (
-        "network",
-        "Network Red",
-        "internet ethernet wired vpn proxy dns ip address conexion cable direccion",
-    ),
-    (
-        "wifi",
-        "Wi-Fi",
-        "wifi wireless network hotspot wlan inalambrica red",
-    ),
-    (
-        "bluetooth",
-        "Bluetooth",
-        "devices pairing headphones dispositivos emparejar auriculares",
-    ),
-    (
-        "sharing",
-        "Sharing Compartir",
-        "remote desktop file media device name escritorio remoto archivos nombre dispositivo",
-    ),
-    (
-        "localsend",
-        "LocalSend",
-        "send files nearby share enviar archivos cercanos compartir",
-    ),
-    (
-        "online-accounts",
-        "Online accounts, Cuentas en linea",
-        "google microsoft nextcloud cloud sign in cuentas nube",
-    ),
-    (
-        "cloud",
-        "Cloud storage Almacenamiento en la nube",
-        "drive onedrive dropbox icloud rclone nube",
-    ),
-    (
-        "display",
-        "Displays Pantallas",
-        "screen monitor resolution refresh rate night light scale orientation brightness pantalla resolucion frecuencia luz nocturna escala brillo",
-    ),
-    (
-        "sound",
-        "Sound Sonido",
-        "audio volume output input speakers microphone alerts volumen salida entrada altavoces microfono alertas",
-    ),
-    (
-        "power",
-        "Power Energia",
-        "battery saving suspend blank profile performance bateria ahorro suspension rendimiento perfil",
-    ),
-    (
-        "keyboard",
-        "Keyboard Teclado",
-        "layout shortcuts compose key input distribucion atajos tecla",
-    ),
-    (
-        "mouse",
-        "Mouse and touchpad Raton y panel tactil",
-        "pointer speed tap click scroll natural puntero velocidad",
-    ),
-    (
-        "printers",
-        "Printers Impresoras",
-        "printing printer impresion impresora",
-    ),
-    (
-        "color",
-        "Color",
-        "profiles calibration icc perfiles calibracion",
-    ),
-    (
-        "notifications",
-        "Notifications Notificaciones",
-        "do not disturb lock screen no molestar",
-    ),
-    (
-        "multitasking",
-        "Multitasking Multitarea",
-        "hot corner workspaces windows esquina activa areas trabajo ventanas",
-    ),
-    (
-        "storage",
-        "Storage Almacenamiento",
-        "disk space free large files documents big trash cache purge clean disco espacio libre archivos grandes documentos papelera limpiar",
-    ),
-    (
-        "applications",
-        "Apps Applications Aplicaciones",
-        "default installed search web browser mail predeterminadas instaladas navegador correo busqueda",
-    ),
-    (
-        "privacy",
-        "Privacy and security Privacidad y seguridad",
-        "lock screen location camera microphone usb thunderbolt diagnostics history bloqueo ubicacion camara microfono diagnostico historial",
-    ),
-    (
-        "accessibility",
-        "Accessibility Accesibilidad",
-        "universal access text size contrast zoom screen reader tamano texto lector pantalla",
-    ),
-    (
-        "datetime",
-        "Date and time Fecha y hora",
-        "time zone clock automatic 24 hour zona horaria reloj formato",
-    ),
-    (
-        "region",
-        "Region and language Region e idioma",
-        "formats locale lengua formatos",
-    ),
-    (
-        "users",
-        "Users Usuarios",
-        "accounts password name picture photo administrator cuentas contrasena nombre foto administrador",
-    ),
-    (
-        "about",
-        "About Acerca de",
-        "system version nodalix os device name memory processor kernel disk diagnostics info sistema nombre dispositivo memoria procesador nucleo informacion diagnostico",
-    ),
-];
+/// Per page, one line: its id, its name in both languages, then the words to find it by
+/// (both languages, no accents needed), separated by `|`. A search term matches the start of
+/// a word.
+const WORDS: &str = "\
+appearance | Appearance Apariencia | style theme dark light mode colour color accent background wallpaper wallpapers animated desktop lock screen estilo tema oscuro claro modo acento fondo fondos animados escritorio pantalla bloqueo
+updates | Updates Actualizaciones | update upgrade automatic software system actualizar automaticas sistema novedades
+network | Network Red | internet ethernet wired vpn proxy dns ip address conexion cable direccion
+wifi | Wi-Fi | wifi wireless network hotspot wlan inalambrica red
+bluetooth | Bluetooth | devices pairing headphones dispositivos emparejar auriculares
+sharing | Sharing Compartir | remote desktop file media device name escritorio remoto archivos nombre dispositivo
+localsend | LocalSend | send files nearby share enviar archivos cercanos compartir
+online-accounts | Online accounts, Cuentas en linea | google microsoft nextcloud cloud sign in cuentas nube
+cloud | Cloud storage Almacenamiento en la nube | drive onedrive dropbox icloud rclone nube
+display | Displays Pantallas | screen monitor resolution refresh rate night light scale orientation brightness pantalla resolucion frecuencia luz nocturna escala brillo
+sound | Sound Sonido | audio volume output input speakers microphone alerts volumen salida entrada altavoces microfono alertas
+power | Power Energia | battery saving suspend blank profile performance bateria ahorro suspension rendimiento perfil
+keyboard | Keyboard Teclado | layout shortcuts compose key input distribucion atajos tecla
+mouse | Mouse and touchpad Raton y panel tactil | pointer speed tap click scroll natural puntero velocidad
+printers | Printers Impresoras | printing printer impresion impresora
+color | Color | profiles calibration icc perfiles calibracion
+notifications | Notifications Notificaciones | do not disturb lock screen no molestar
+multitasking | Multitasking Multitarea | hot corner workspaces windows esquina activa areas trabajo ventanas
+storage | Storage Almacenamiento | disk space free large files documents big trash cache purge clean disco espacio libre archivos grandes documentos papelera limpiar
+applications | Apps Applications Aplicaciones | default installed search web browser mail predeterminadas instaladas navegador correo busqueda
+privacy | Privacy and security Privacidad y seguridad | lock screen location camera microphone usb thunderbolt diagnostics history bloqueo ubicacion camara microfono diagnostico historial
+accessibility | Accessibility Accesibilidad | universal access text size contrast zoom screen reader tamano texto lector pantalla
+datetime | Date and time Fecha y hora | time zone clock automatic 24 hour zona horaria reloj formato
+region | Region and language Region e idioma | formats locale lengua formatos
+users | Users Usuarios | accounts password name picture photo administrator cuentas contrasena nombre foto administrador
+about | About Acerca de | system version nodalix os device name memory processor kernel disk diagnostics info sistema nombre dispositivo memoria procesador nucleo informacion diagnostico
+";
+
+/// The search words of every page: `(id, names, words)`.
+fn entries() -> impl Iterator<Item = (&'static str, &'static str, &'static str)> {
+    WORDS.lines().filter_map(|line| {
+        let mut fields = line.split('|').map(str::trim);
+        Some((fields.next()?, fields.next()?, fields.next()?))
+    })
+}
 
 /// Lower case, accents removed, anything that is not a letter or a digit a space.
 pub fn fold(text: &str) -> String {
@@ -189,7 +94,7 @@ pub fn find<S: AsRef<str>>(search: &[S]) -> Vec<&'static Page> {
     }
     let mut found: Vec<(u8, usize, &'static Page)> = Vec::new();
     for (position, page) in pages::all().enumerate() {
-        let Some((_, names, words)) = WORDS.iter().find(|(id, ..)| *id == page.id) else {
+        let Some((_, names, words)) = entries().find(|(id, ..)| *id == page.id) else {
             continue;
         };
         let rank = if every_term_starts_a_word(&terms, names) {
@@ -227,12 +132,12 @@ mod tests {
     fn every_page_has_words_and_every_entry_is_a_page() {
         for page in pages::all() {
             assert!(
-                WORDS.iter().any(|(id, ..)| *id == page.id),
+                entries().any(|(id, ..)| id == page.id),
                 "{} has no search words",
                 page.id
             );
         }
-        for (id, ..) in WORDS {
+        for (id, ..) in entries() {
             assert!(pages::find(id).is_some(), "{id} is not a page");
         }
     }
