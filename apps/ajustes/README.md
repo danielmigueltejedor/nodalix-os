@@ -33,6 +33,24 @@ translation), build its widget in `crates/ajustes/src/pages/`, add it to the sta
 `NODALIX_SETTINGS_PAGE=updates` (any page id) opens the app on that page, for screenshots and
 tests.
 
+## Opening a page
+
+`nodalix-settings` takes the command line of `gnome-control-center`, so what launches that (the
+Shell, notifications, the network indicator, desktop files) keeps working when this app takes
+its place:
+
+- `nodalix-settings wifi`, `nodalix-settings --page wifi`, `nodalix-settings --page=wifi` and
+  `nodalix-settings -p wifi` open the Wi-Fi page. The names are the page ids and the names of
+  the GNOME panels (`pages::resolve`: `background`, `universal-access`, `info-overview`,
+  `default-apps`, `wwan`, `usb`, ...). A name nobody knows opens the first page, with no error;
+  options and the extra arguments of a panel (`wifi connect-hidden-network`) are ignored.
+- There is one window per session (application id `os.nodalix.Settings`). A second launch takes
+  the open window to that page and brings it forward.
+- The `open-page` action of the application, with the page name as a string, does the same from
+  D-Bus: `gapplication action os.nodalix.Settings open-page "'wifi'"`. To start the app by
+  D-Bus activation (`gio launch` with `DBusActivatable=true`, `gapplication` on a closed app)
+  install `data/os.nodalix.Settings.service` in `/usr/share/dbus-1/services/`.
+
 See `../README.md` for how to build and test the native apps.
 
 ## Cloud storage

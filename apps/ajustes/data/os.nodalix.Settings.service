@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=os.nodalix.Settings
+Exec=/usr/bin/nodalix-settings --gapplication-service

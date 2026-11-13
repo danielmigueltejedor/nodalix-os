@@ -5,7 +5,7 @@ mod legacy;
 mod pages;
 mod window;
 
-use nodalia_gtk::gtk::{self, glib, prelude::*};
+use nodalia_gtk::gtk::{self, gio, glib, prelude::*};
 
 const APP_ID: &str = "os.nodalix.Settings";
 const STYLE: &str = include_str!("style.css");
@@ -42,8 +42,37 @@ fn keep_panics() {
 
 fn main() -> glib::ExitCode {
     keep_panics();
-    let app = gtk::Application::builder().application_id(APP_ID).build();
-    app.connect_startup(|_| nodalix_ui::init(STYLE));
-    app.connect_activate(window::present);
+    let app = gtk::Application::builder()
+        .application_id(APP_ID)
+        .flags(gio::ApplicationFlags::HANDLES_COMMAND_LINE)
+        .build();
+    app.connect_startup(|app| {
+        nodalix_ui::init(STYLE);
+        // `gapplication action os.nodalix.Settings open-page "'wifi'"`, and what a desktop
+        // file's actions and `gio launch` use: the name of a page, or of a GNOME panel.
+        let open = gio::SimpleAction::new("open-page", Some(glib::VariantTy::STRING));
+        let handle = app.downgrade();
+        open.connect_activate(move |_, name| {
+            let Some(app) = handle.upgrade() else { return };
+            let page = name
+                .and_then(|name| name.str())
+                .and_then(ajustes_core::pages::resolve);
+            window::present(&app, page);
+        });
+        app.add_action(&open);
+    });
+    // `nodalix-settings wifi`, `nodalix-settings --page wifi`: the command line of
+    // `gnome-control-center`, so what launches that keeps working. A name that is no page opens
+    // the first one, without an error. A second launch is passed to the first one.
+    app.connect_command_line(|app, line| {
+        let args: Vec<String> = line
+            .arguments()
+            .iter()
+            .skip(1)
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect();
+        window::present(app, ajustes_core::pages::from_args(&args));
+        glib::ExitCode::SUCCESS
+    });
     app.run()
 }
