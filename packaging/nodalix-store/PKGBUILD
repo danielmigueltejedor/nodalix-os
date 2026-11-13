@@ -1,9 +1,9 @@
 pkgname=nodalix-store
 pkgver=0.5.0
-pkgrel=3
+pkgrel=4
 # Nodalix Store is built from danielmigueltejedor/tienda,
 # pinned to an exact commit like every other external Nodalix source.
-_store_commit=58fc8712834d0940a0d0f858435dfa93ddc82497
+_store_commit=24999fc0ff7ae5e68e5b596dee02d1b3d1fc6dca
 pkgdesc='Nodalix Store: the default app store of Nodalix OS (Flatpak and official packages through NXPM)'
 arch=('x86_64')
 url='https://github.com/danielmigueltejedor/tienda'
@@ -12,14 +12,14 @@ depends=('nodalix-nxpm' 'gtk4' 'libadwaita' 'libdex' 'flatpak' 'libxmlb' 'libyam
          'json-glib' 'glycin' 'glycin-gtk4' 'webkitgtk-6.0' 'libsecret' 'libproxy'
          'malcontent' 'gtksourceview5' 'md4c' 'appstream' 'dbus')
 # Store is a maintained Nodalix fork of Bazaar and owns overlapping paths
-# (libbge, bazaar.mo, bge-demo). Declare the conflict so pacman replaces the
+# (libbge, bge-demo). Declare the conflict so pacman replaces the
 # upstream package inside the same transaction instead of aborting on file ownership.
 conflicts=('bazaar')
 replaces=('bazaar')
 makedepends=('meson' 'ninja' 'vala' 'blueprint-compiler' 'gettext' 'libxml2' 'desktop-file-utils'
              'python' 'python-babel' 'perl' 'glib2-devel')
 source=("tienda-$_store_commit.tar.gz::https://codeload.github.com/danielmigueltejedor/tienda/tar.gz/$_store_commit")
-sha256sums=('8a8bf4470621f5d15170c62d9c74581b31bd2d3c945a466ebf083bd927009cee')
+sha256sums=('8c41eb0441d9a262d532276424327c25e2d9830816c2da7e7a6934a2382b3637')
 
 build() {
     cd "$srcdir/tienda-$_store_commit"
