@@ -52,7 +52,10 @@ class NativeAppsPackagingTests(unittest.TestCase):
 
     def test_archivador_is_the_default_file_manager(self):
         body = package_function("nodalix-archivador")
-        self.assertIn("gnome-mimeapps.list", body)
+        self.assertIn("/etc/xdg/mimeapps.list", body)
+        # gnome-session owns /usr/share/applications/gnome-mimeapps.list: shipping it breaks installs.
+        self.assertNotIn('"$pkgdir/usr/share/applications/gnome-mimeapps.list"', body)
+        self.assertNotIn("libnautilus-extension", body.split("conflicts=")[1].split("\n")[0])
         self.assertIn("inode/directory=os.nodalix.Archivador.desktop", body)
         self.assertIn("org.gnome.Nautilus.desktop", body)
         # The hidden Nautilus alias must not claim any MIME type.
