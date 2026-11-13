@@ -1,8 +1,8 @@
 <div align="center">
   <a href="https://getnodalia.com">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="./docs/images/nodalia-wordmark-white.svg">
-      <img src="./docs/images/nodalia-wordmark-black.svg" width="140" alt="Nodalia">
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/danielmigueltejedor/nodalia-web/main/assets/brand/nodalia-wordmark-white.svg">
+      <img src="https://raw.githubusercontent.com/danielmigueltejedor/nodalia-web/main/assets/brand/nodalia-wordmark-black.svg" width="150" alt="Nodalia">
     </picture>
   </a>
   <br><br>
