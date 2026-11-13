@@ -51,7 +51,6 @@ const ES: &[(&str, &str)] = &[
     ("There are no other accounts", "No hay otras cuentas"),
     ("Make administrator", "Hacer administrador"),
     ("Make standard", "Hacer estándar"),
-    ("Remove account", "Quitar la cuenta"),
     ("Remove the account of", "¿Quitar la cuenta de"),
     (
         "The person will no longer be able to sign in. You can keep their files or delete them too.",
@@ -78,7 +77,6 @@ const ES: &[(&str, &str)] = &[
     ("Repeat the password", "Repite la contraseña"),
     ("Change password", "Cambiar contraseña"),
     ("Password changed", "Contraseña cambiada"),
-    ("Add an account", "Añadir una cuenta"),
     (
         "Can install software and change the settings of the computer",
         "Puede instalar programas y cambiar los ajustes del equipo",
