@@ -21,7 +21,7 @@ pub const LIMIT: usize = 200;
 /// the newest [`LIMIT`] are looked at.
 pub fn entries(items: impl IntoIterator<Item = Item>) -> Vec<Entry> {
     let mut items: Vec<Item> = items.into_iter().collect();
-    items.sort_by(|a, b| b.visited.cmp(&a.visited));
+    items.sort_by_key(|item| std::cmp::Reverse(item.visited));
     let mut seen: HashSet<PathBuf> = HashSet::new();
     let mut out = Vec::new();
     for item in items {
