@@ -1,4 +1,5 @@
 import Gio from 'gi://Gio';
+import GLib from 'gi://GLib';
 import St from 'gi://St';
 import * as Main from 'resource:///org/gnome/shell/ui/main.js';
 
@@ -42,13 +43,39 @@ export function get_component_style(style, avail_styles = 3) {
     return get_background_style();
 }
 
+// One switch between the light and the dark style fires up to four signals (the setting, the
+// shell's own copy of it, the theme reloading and the session mode), and every component of the
+// extension listens to all of them. Redoing the blur each time inside the one frame that is
+// already restyling the whole shell is what froze the screen. Instead each component waits for
+// the signals to settle, then redraws once, and the components take turns a few frames apart.
+const SETTLE_MS = 80;
+const STAGGER_MS = 45;
+const STAGGER_SLOTS = 6;
+let next_slot = 0;
+
 export function connect_system_style_changes(connections, callback) {
+    const delay = SETTLE_MS + (next_slot++ % STAGGER_SLOTS) * STAGGER_MS;
+    let pending = 0;
+    const queue = () => {
+        if (pending)
+            return;
+        pending = GLib.timeout_add(GLib.PRIORITY_LOW, delay, () => {
+            pending = 0;
+            callback();
+            return GLib.SOURCE_REMOVE;
+        });
+    };
+    connections.on_disconnect(() => {
+        if (pending)
+            GLib.source_remove(pending);
+        pending = 0;
+    });
     connections.connect(
         interface_settings,
         ['changed::color-scheme', 'changed::gtk-theme'],
-        callback
+        queue
     );
-    connections.connect(St.Settings.get(), 'notify::color-scheme', callback);
-    connections.connect(St.ThemeContext.get_for_stage(global.stage), 'changed', callback);
-    connections.connect(Main.sessionMode, 'updated', callback);
+    connections.connect(St.Settings.get(), 'notify::color-scheme', queue);
+    connections.connect(St.ThemeContext.get_for_stage(global.stage), 'changed', queue);
+    connections.connect(Main.sessionMode, 'updated', queue);
 }

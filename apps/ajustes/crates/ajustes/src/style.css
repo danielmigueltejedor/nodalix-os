@@ -84,3 +84,9 @@
   border-radius: 999px;
   background-color: var(--ndl-color-surface-sunken);
 }
+
+/* The sidebar answers a click, not the pointer passing over it: no tint on hover. The page that
+ * is open keeps NDL's inverted mark. */
+.navigation-sidebar > row:hover:not(:selected) {
+  background-color: transparent;
+}
