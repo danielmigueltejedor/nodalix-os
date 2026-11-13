@@ -98,6 +98,8 @@ pub fn icon_for(key: &str) -> Option<&'static str> {
         ("send-events", "input-touchpad-symbolic"),
         ("accel", "view-refresh-symbolic"),
         ("speed", "media-seek-forward-symbolic"),
+        ("cursor-size", "format-text-larger-symbolic"),
+        ("cursor-blink", "input-keyboard-symbolic"),
         ("cursor", "input-mouse-symbolic"),
         ("typing", "input-keyboard-symbolic"),
         ("repeat", "media-playlist-repeat-symbolic"),
@@ -117,8 +119,7 @@ pub fn icon_for(key: &str) -> Option<&'static str> {
         ("hot-corner", "view-fullscreen-symbolic"),
         ("edge-tiling", "view-dual-symbolic"),
         ("animation", "media-playback-start-symbolic"),
-        ("cursor-blink", "input-keyboard-symbolic"),
-        ("high-contrast", "display-brightness-symbolic"),
+        ("high-contrast", "preferences-color-symbolic"),
         ("large-text", "font-x-generic-symbolic"),
         ("overlay-scrolling", "input-mouse-symbolic"),
     ];
