@@ -9,6 +9,7 @@ use archivador_core::entry::Entry;
 use ndl::gtk::{self, gio, glib, prelude::*};
 use nodalia_gtk as ndl;
 
+use crate::fileicons;
 use crate::folders::{self, Kind};
 
 const SCHEMA: &str = "org.gnome.desktop.interface";
@@ -74,45 +75,82 @@ fn folder_kind(path: &std::path::Path) -> Kind {
         .map_or(Kind::Plain, |(_, kind)| *kind)
 }
 
-/// The picture the file carries as its own: the icon GNOME's file managers keep in the file's
-/// `metadata::custom-icon`, as Nodalix's Applications folder does for each of its apps.
-fn custom_icon(entry: &Entry) -> Option<gio::Icon> {
-    const KEY: &str = "metadata::custom-icon";
-    let info = gio::File::for_path(&entry.path)
-        .query_info(KEY, gio::FileQueryInfoFlags::NONE, gio::Cancellable::NONE)
-        .ok()?;
-    let value = info.attribute_string(KEY)?;
-    let file = if value.starts_with('/') {
-        gio::File::for_path(value.as_str())
-    } else if value.starts_with("file:") {
-        gio::File::for_uri(&value)
-    } else {
-        return None;
-    };
-    file.query_exists(gio::Cancellable::NONE)
-        .then(|| gio::FileIcon::new(&file).upcast())
+const CUSTOM_ICON: &str = "metadata::custom-icon";
+/// The colour the user gave a folder, by the name in [`folders::Color::id`]; empty when none.
+pub const FOLDER_COLOR: &str = "metadata::nodalix-folder-color";
+
+/// What the file carries as its own, kept in its metadata: a picture, as GNOME's file managers
+/// keep it in `metadata::custom-icon` (and Nodalix's Applications folder does for each app), and
+/// for a folder the colour it was given.
+struct Own {
+    icon: Option<gio::Icon>,
+    color: Option<folders::Color>,
 }
 
-/// The names to try for this file, most specific first.
+fn own(entry: &Entry) -> Own {
+    let attributes = format!("{CUSTOM_ICON},{FOLDER_COLOR}");
+    let Ok(info) = gio::File::for_path(&entry.path).query_info(
+        &attributes,
+        gio::FileQueryInfoFlags::NONE,
+        gio::Cancellable::NONE,
+    ) else {
+        return Own {
+            icon: None,
+            color: None,
+        };
+    };
+    let icon = info.attribute_string(CUSTOM_ICON).and_then(|value| {
+        let file = if value.starts_with('/') {
+            gio::File::for_path(value.as_str())
+        } else if value.starts_with("file:") {
+            gio::File::for_uri(&value)
+        } else {
+            return None;
+        };
+        file.query_exists(gio::Cancellable::NONE)
+            .then(|| gio::FileIcon::new(&file).upcast())
+    });
+    let color = info
+        .attribute_string(FOLDER_COLOR)
+        .and_then(|id| folders::Color::from_id(&id));
+    Own { icon, color }
+}
+
+/// The icon to draw for this file or folder.
 pub fn icon_for(entry: &Entry) -> gio::Icon {
+    let own = own(entry);
     if entry.is_dir {
         let kind = folder_kind(&entry.path);
         // The Applications folder carries a picture made from the theme's blue folder; a folder
-        // the user gave a picture of their own keeps it. The rest are Nodalia's.
-        let own = (kind != Kind::Applications)
-            .then(|| custom_icon(entry))
-            .flatten();
-        return own.unwrap_or_else(|| folders::icon(kind));
+        // the user gave a picture of their own keeps it. The rest are Nodalia's, in the colour
+        // they were given.
+        let picture = if kind == Kind::Applications {
+            None
+        } else {
+            own.icon
+        };
+        return picture
+            .unwrap_or_else(|| folders::icon(kind, own.color.unwrap_or(folders::Color::Teal)));
     }
-    if let Some(icon) = custom_icon(entry) {
+    if let Some(icon) = own.icon {
         return icon;
     }
     let (content_type, _) = gio::content_type_guess(Some(&entry.name), None::<&[u8]>);
-    gio::content_type_get_icon(&content_type)
+    fileicons::icon(&entry.name, &content_type)
+}
+
+/// The colour this folder was given, if any.
+pub fn own_color(entry: &Entry) -> Option<folders::Color> {
+    own(entry).color
 }
 
 /// Shows the file's own icon, in colour, at the size the image asks for.
 pub fn show(image: &gtk::Image, entry: &Entry) {
+    show_icon(image, &icon_for(entry));
+}
+
+/// Shows this icon, in colour, at the size the image asks for.
+pub fn show_icon(image: &gtk::Image, icon: &gio::Icon) {
     let size = match image.pixel_size() {
         n if n > 0 => n,
         _ => 48,
@@ -120,7 +158,7 @@ pub fn show(image: &gtk::Image, entry: &Entry) {
     let scale = image.scale_factor().max(1);
     let icon = THEME.with(|theme| {
         theme.lookup_by_gicon(
-            &icon_for(entry),
+            icon,
             size,
             scale,
             image.direction(),

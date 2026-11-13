@@ -13,7 +13,7 @@ use ndl::gtk::{gio, glib, prelude::*};
 use nodalia_gtk as ndl;
 
 /// Bump when a drawing changes, so a copy cached by an older version is not reused.
-const VERSION: u32 = 2;
+const VERSION: u32 = 3;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Kind {
@@ -81,35 +81,130 @@ impl Kind {
     }
 }
 
-/// The glyph's colour: a deep shade of the folder's own teal, so it reads as pressed into the
-/// front rather than laid on it in white.
-const TINT: &str = "#0b6a76";
+/// The colours a folder can be given. The first is Nodalia's own.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Color {
+    Teal,
+    Blue,
+    Violet,
+    Pink,
+    Red,
+    Orange,
+    Yellow,
+    Green,
+    Graphite,
+}
+
+impl Color {
+    pub const ALL: [Color; 9] = [
+        Color::Teal,
+        Color::Blue,
+        Color::Violet,
+        Color::Pink,
+        Color::Red,
+        Color::Orange,
+        Color::Yellow,
+        Color::Green,
+        Color::Graphite,
+    ];
+
+    /// What is kept in the folder's `metadata::nodalix-folder-color`.
+    pub fn id(self) -> &'static str {
+        match self {
+            Color::Teal => "teal",
+            Color::Blue => "blue",
+            Color::Violet => "violet",
+            Color::Pink => "pink",
+            Color::Red => "red",
+            Color::Orange => "orange",
+            Color::Yellow => "yellow",
+            Color::Green => "green",
+            Color::Graphite => "graphite",
+        }
+    }
+
+    pub fn from_id(id: &str) -> Option<Color> {
+        Color::ALL.into_iter().find(|c| c.id() == id)
+    }
+
+    pub fn title(self) -> &'static str {
+        match self {
+            Color::Teal => "Teal",
+            Color::Blue => "Blue",
+            Color::Violet => "Violet",
+            Color::Pink => "Pink",
+            Color::Red => "Red",
+            Color::Orange => "Orange",
+            Color::Yellow => "Yellow",
+            Color::Green => "Green",
+            Color::Graphite => "Graphite",
+        }
+    }
+
+    /// Hue in degrees, and how saturated the colour is.
+    fn hue(self) -> (f32, f32) {
+        match self {
+            Color::Teal => (187.0, 0.60),
+            Color::Blue => (214.0, 0.72),
+            Color::Violet => (257.0, 0.62),
+            Color::Pink => (330.0, 0.62),
+            Color::Red => (356.0, 0.66),
+            Color::Orange => (24.0, 0.80),
+            Color::Yellow => (43.0, 0.88),
+            Color::Green => (143.0, 0.48),
+            Color::Graphite => (222.0, 0.10),
+        }
+    }
+
+    /// The colour at this lightness (0 to 1), as `#rrggbb`.
+    fn shade(self, lightness: f32) -> String {
+        let (hue, saturation) = self.hue();
+        let chroma = (1.0 - (2.0 * lightness - 1.0).abs()) * saturation;
+        let x = chroma * (1.0 - ((hue / 60.0) % 2.0 - 1.0).abs());
+        let m = lightness - chroma / 2.0;
+        let (r, g, b) = match (hue / 60.0) as u32 {
+            0 => (chroma, x, 0.0),
+            1 => (x, chroma, 0.0),
+            2 => (0.0, chroma, x),
+            3 => (0.0, x, chroma),
+            4 => (x, 0.0, chroma),
+            _ => (chroma, 0.0, x),
+        };
+        let byte = |v: f32| ((v + m) * 255.0).round().clamp(0.0, 255.0) as u8;
+        format!("#{:02x}{:02x}{:02x}", byte(r), byte(g), byte(b))
+    }
+}
 
 /// The drawing, on a 128 px grid: a soft shadow, the back of the folder with its tab, the front
-/// in a lighter teal with a bright edge along its top, and the glyph in the middle of the front,
-/// tinted darker than the front with a faint light edge under it.
-fn drawing(kind: Kind) -> String {
+/// lighter with a bright edge along its top, and the glyph in the middle of the front, in a deep
+/// shade of the folder's own colour with a faint light edge under it, as if pressed into it.
+fn drawing(kind: Kind, color: Color) -> String {
+    let tint = color.shade(0.30);
     let glyph = kind.glyph().map_or(String::new(), |g| {
-        let tinted = g.replace("#fff", TINT);
+        let tinted = g.replace("#fff", &tint);
         let lit = g.replace("#fff", "#ffffff");
         format!(
-            r##"<g transform="translate(43 56.5) scale(1.75)" fill="none" stroke="#ffffff" stroke-opacity="0.45" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.9">{lit}</g>
-<g transform="translate(43 54.5) scale(1.75)" fill="none" stroke="{TINT}" stroke-opacity="0.92" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">{tinted}</g>"##
+            r##"<g transform="translate(43 56.5) scale(1.75)" fill="none" stroke="#ffffff" stroke-opacity="0.5" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.9">{lit}</g>
+<g transform="translate(43 54.5) scale(1.75)" fill="none" stroke="{tint}" stroke-opacity="0.9" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">{tinted}</g>"##
         )
     });
+    let (back_top, back_bottom) = (color.shade(0.46), color.shade(0.34));
+    let (front_top, front_mid, front_bottom) =
+        (color.shade(0.76), color.shade(0.64), color.shade(0.55));
+    let edge = color.shade(0.22);
     format!(
         r##"<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
 <defs>
-<linearGradient id="back" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b8794"/><stop offset="1" stop-color="#065a64"/></linearGradient>
-<linearGradient id="front" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5fe0ea"/><stop offset="0.55" stop-color="#25bccb"/><stop offset="1" stop-color="#10a0b0"/></linearGradient>
-<filter id="soft" x="-20%" y="-40%" width="140%" height="180%"><feGaussianBlur stdDeviation="3.2"/></filter>
+<linearGradient id="back" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{back_top}"/><stop offset="1" stop-color="{back_bottom}"/></linearGradient>
+<linearGradient id="front" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{front_top}"/><stop offset="0.5" stop-color="{front_mid}"/><stop offset="1" stop-color="{front_bottom}"/></linearGradient>
+<filter id="soft" x="-20%" y="-40%" width="140%" height="180%"><feGaussianBlur stdDeviation="3"/></filter>
 </defs>
-<rect x="14" y="104" width="100" height="12" rx="6" fill="#03353b" opacity="0.32" filter="url(#soft)"/>
+<rect x="16" y="106" width="96" height="10" rx="5" fill="{edge}" opacity="0.38" filter="url(#soft)"/>
 <path fill="url(#back)" d="M10 28a8 8 0 0 1 8-8h27a8 8 0 0 1 5.8 2.5L58 32h52a8 8 0 0 1 8 8v62a8 8 0 0 1-8 8H18a8 8 0 0 1-8-8z"/>
-<path fill="#ffffff" fill-opacity="0.16" d="M12 38h104v6H12z"/>
+<path fill="#ffffff" fill-opacity="0.2" d="M12 37h104v7H12z"/>
 <path fill="url(#front)" d="M10 50a8 8 0 0 1 8-8h92a8 8 0 0 1 8 8v52a8 8 0 0 1-8 8H18a8 8 0 0 1-8-8z"/>
-<path fill="none" stroke="#ffffff" stroke-opacity="0.55" stroke-width="1.6" stroke-linecap="round" d="M17 43.2h94"/>
-<path fill="none" stroke="#04505a" stroke-opacity="0.25" stroke-width="1.2" d="M10.6 101.5a7.4 7.4 0 0 0 7.4 7.4h92a7.4 7.4 0 0 0 7.4-7.4"/>
+<path fill="none" stroke="#ffffff" stroke-opacity="0.6" stroke-width="1.6" stroke-linecap="round" d="M17 43.2h94"/>
+<path fill="none" stroke="{edge}" stroke-opacity="0.22" stroke-width="1.2" d="M10.6 101.5a7.4 7.4 0 0 0 7.4 7.4h92a7.4 7.4 0 0 0 7.4-7.4"/>
 {glyph}
 </svg>
 "##
@@ -124,21 +219,22 @@ fn cache_dir() -> PathBuf {
 }
 
 thread_local! {
-    static ICONS: RefCell<HashMap<Kind, gio::Icon>> = RefCell::new(HashMap::new());
+    static ICONS: RefCell<HashMap<(Kind, Color), gio::Icon>> = RefCell::new(HashMap::new());
 }
 
-/// The icon of a folder of this kind. The drawings are written under the user's cache the first
-/// time they are needed, since an icon is looked up from a file.
-pub fn icon(kind: Kind) -> gio::Icon {
+/// The icon of a folder of this kind in this colour. The drawings are written under the user's
+/// cache the first time they are needed, since an icon is looked up from a file.
+pub fn icon(kind: Kind, color: Color) -> gio::Icon {
     ICONS.with(|icons| {
         icons
             .borrow_mut()
-            .entry(kind)
+            .entry((kind, color))
             .or_insert_with(|| {
-                let file = cache_dir().join(format!("{}-v{VERSION}.svg", kind.name()));
+                let file =
+                    cache_dir().join(format!("{}-{}-v{VERSION}.svg", kind.name(), color.id()));
                 if !file.exists() {
                     let _ = std::fs::create_dir_all(cache_dir());
-                    let _ = std::fs::write(&file, drawing(kind));
+                    let _ = std::fs::write(&file, drawing(kind, color));
                 }
                 gio::FileIcon::new(&gio::File::for_path(file)).upcast()
             })
@@ -170,11 +266,43 @@ mod tests {
         names.dedup();
         assert_eq!(names.len(), ALL.len());
         for kind in ALL {
-            let svg = drawing(kind);
+            let svg = drawing(kind, Color::Teal);
             assert!(svg.contains("</svg>"), "{kind:?}");
             assert_eq!(svg.matches("<g ").count(), svg.matches("</g>").count());
             // A plain folder has no glyph; every other one has.
             assert_eq!(kind.glyph().is_none(), kind == Kind::Plain, "{kind:?}");
         }
+    }
+
+    #[test]
+    fn every_colour_draws_and_is_known_by_its_id() {
+        for color in Color::ALL {
+            assert_eq!(Color::from_id(color.id()), Some(color));
+            let svg = drawing(Kind::Documents, color);
+            assert!(svg.contains(&color.shade(0.64)));
+            assert!(!svg.contains("NaN"));
+        }
+        assert_eq!(Color::from_id("magenta"), None);
+        let mut ids: Vec<_> = Color::ALL.iter().map(|c| c.id()).collect();
+        ids.sort_unstable();
+        ids.dedup();
+        assert_eq!(ids.len(), Color::ALL.len());
+    }
+
+    #[test]
+    fn shades_are_hex_and_lighter_means_lighter() {
+        let dark = Color::Blue.shade(0.2);
+        let light = Color::Blue.shade(0.8);
+        assert_eq!(dark.len(), 7);
+        assert!(dark.starts_with('#'));
+        assert!(u32::from_str_radix(&dark[1..], 16).is_ok());
+        let sum = |c: &str| {
+            (1..7)
+                .step_by(2)
+                .map(|i| u32::from_str_radix(&c[i..i + 2], 16).unwrap())
+                .sum::<u32>()
+        };
+        assert!(sum(&light) > sum(&dark));
+        assert_eq!(Color::Teal.shade(1.0), "#ffffff");
     }
 }

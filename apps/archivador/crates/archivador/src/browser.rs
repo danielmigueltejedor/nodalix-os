@@ -17,6 +17,7 @@ use ndl::gtk::{self, gdk, gio, glib, prelude::*};
 use nodalia_gtk as ndl;
 
 use crate::columns::{Columns, Options};
+use crate::customize;
 use crate::dialogs;
 use crate::i18n::{fmt, items, tr};
 use crate::items::{self as look, ContextMenu, Hooks, SPRING};
@@ -1124,6 +1125,13 @@ impl Browser {
             }
             menu.append_section(None, &edit);
             let share = gio::Menu::new();
+            if self.selected_folder().is_some() {
+                share.append_item(&item(
+                    tr("Customize folder…"),
+                    "win.customize-folder",
+                    "preferences-color-symbolic",
+                ));
+            }
             share.append_item(&item(
                 tr("Send with LocalSend…"),
                 "win.send",
@@ -1253,6 +1261,16 @@ impl Browser {
         });
         self.action("new-folder", Self::new_folder);
         self.action("favorite", Self::toggle_favorite);
+        self.action("customize-folder", |t| {
+            if let Some(folder) = t.selected_folder() {
+                let this = t.weak();
+                customize::present(&t.window, folder, move || {
+                    if let Some(this) = this.upgrade() {
+                        this.reload();
+                    }
+                });
+            }
+        });
         self.action("connect-server", Self::ask_server);
         self.action("rename", Self::rename);
         self.action("copy", |t| t.to_clipboard(Mode::Copy));

@@ -195,3 +195,15 @@ ndl-dialog .ndl-alert-buttons {
 ndl-dialog .ndl-alert-text entry {
   margin-top: var(--ndl-space-sm);
 }
+
+/* The colours a folder can be given: the one it has is ringed. */
+.archivador-swatch {
+  padding: var(--ndl-space-xs);
+  border-radius: var(--ndl-radius-md);
+}
+
+.archivador-swatch-current {
+  background-color: var(--ndl-color-selection-bg);
+  outline: var(--ndl-border-width-thin) solid var(--ndl-color-accent-default);
+  outline-offset: -1px;
+}

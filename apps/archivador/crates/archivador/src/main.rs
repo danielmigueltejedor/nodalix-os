@@ -2,7 +2,9 @@
 
 mod browser;
 mod columns;
+mod customize;
 mod dialogs;
+mod fileicons;
 mod folders;
 mod i18n;
 mod icons;
