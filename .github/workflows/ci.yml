@@ -28,7 +28,7 @@ jobs:
   validate:
     runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
       - name: Install native test dependencies
@@ -51,7 +51,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 55
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
       - name: Reuse candidate with identical release sources
@@ -60,7 +60,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           SOURCE_RUN: ${{ inputs.candidate_run }}
         run: python3 tools/ci-reuse-artifacts.py packages "$SOURCE_RUN" dist/packages
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         if: inputs.candidate_run == ''
         with:
           name: nodalix-kernel
@@ -68,7 +68,7 @@ jobs:
       - name: Build all GNOME candidate packages from pinned sources
         if: inputs.candidate_run == ''
         run: docker run --rm -e NODALIX_CI_CONTAINER=1 -v "$PWD":/src -w /src archlinux:latest bash tools/ci-build-gnome.sh
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: nodalix-0.4.0-candidate
           path: dist/packages/*
@@ -79,16 +79,16 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: nodalix-0.4.0-candidate
           path: dist/packages
       - name: Test original 0.2.4 to GNOME upgrade with real pacman
         run: docker run --rm -e NODALIX_CI_CONTAINER=1 -v "$PWD":/src -w /src archlinux:latest bash -c "bash tools/ci-migrate-024.sh && bash tools/ci-boot-migrated.sh"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: nodalix-migration-evidence
@@ -98,14 +98,14 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: nodalix-0.4.0-candidate
           path: dist/packages
       - name: Clean install and real GDM boot
         run: docker run --rm -e NODALIX_CI_CONTAINER=1 -e NODALIX_CI_FRESH=1 -v "$PWD":/src -w /src archlinux:latest bash -c "bash tools/ci-clean-install.sh && bash tools/ci-boot-migrated.sh"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: nodalix-clean-install-evidence
@@ -118,10 +118,10 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 70
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: nodalix-0.4.0-candidate
           path: dist/packages
@@ -136,12 +136,12 @@ jobs:
         run: |
           python3 tools/ci-reuse-artifacts.py iso "$SOURCE_RUN" dist/iso-output
           docker run --rm -e NODALIX_CI_CONTAINER=1 -v "$PWD":/src -w /src archlinux:latest bash -c 'pacman -Syu --noconfirm python libarchive qemu-system-x86 qemu-hw-display-virtio-gpu qemu-hw-display-virtio-vga && python tools/ci-boot-iso.py dist/iso-output/*.iso'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: nodalix-iso-boot-evidence
           path: dist/iso-evidence/boot.log
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: nodalix-0.4.0-installable-iso
           path: dist/iso-output/*
@@ -153,11 +153,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: nodalix-0.4.0-candidate
           path: dist/packages
@@ -168,16 +168,16 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 180
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: nodalix-0.4.0-candidate
           path: dist/packages
       - name: Upgrade every published earlier release with real pacman
         run: docker run --rm -e NODALIX_CI_CONTAINER=1 -v "$PWD":/src -w /src archlinux:latest bash -c 'pacman -Syu --noconfirm python && python tools/ci-upgrade-history.py'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: nodalix-upgrade-history-evidence

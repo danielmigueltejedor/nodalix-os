@@ -1,0 +1,10 @@
+[package]
+name = "monitor-core"
+description = "Reads /proc and the mount table for the Nodalix system monitor. No GTK."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+libc = "0.2"

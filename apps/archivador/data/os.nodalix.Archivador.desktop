@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Name=Files
+Name[es]=Archivos
+GenericName=File Manager
+GenericName[es]=Gestor de archivos
+Comment=Browse and organise your files
+Comment[es]=Explora y organiza tus archivos
+Exec=nodalix-archivador %U
+Icon=os.nodalix.Archivador
+Terminal=false
+Categories=Utility;Core;GTK;FileManager;
+Keywords=files;folders;directory;trash;share;archivos;carpetas;papelera;compartir;
+MimeType=inode/directory;
+StartupNotify=true
+StartupWMClass=os.nodalix.Archivador

@@ -1,0 +1,80 @@
+/* Settings' own pieces. Colours and sizes come from NDL's tokens; nothing is a literal. */
+.settings-logo {
+  min-height: 96px;
+}
+
+.settings-os-name {
+  font-size: 18pt;
+  font-weight: var(--ndl-font-weight-semibold);
+}
+
+.settings-log {
+  font-family: monospace;
+  font-size: var(--ndl-font-size-small);
+  background-color: var(--ndl-color-surface-sunken);
+  border-radius: var(--ndl-radius-lg);
+  padding: var(--ndl-space-md);
+}
+
+.settings-banner {
+  background-color: var(--ndl-color-status-warning-bg);
+  color: var(--ndl-color-status-warning-fg);
+  border-radius: var(--ndl-radius-lg);
+  padding: var(--ndl-space-md) var(--ndl-space-lg);
+}
+
+/* A picture in a gallery: rounded, with a check when it is the one in use. */
+.settings-tile {
+  padding: 0;
+  border-radius: var(--ndl-radius-lg);
+}
+
+.settings-tile-picture {
+  border-radius: var(--ndl-radius-lg);
+  background-color: var(--ndl-color-surface-sunken);
+}
+
+.settings-tile-check {
+  background-color: var(--ndl-color-accent-default);
+  color: var(--ndl-color-text-on-accent);
+  border-radius: 999px;
+  padding: 3px;
+}
+
+/* Style cards: a small picture of what each choice looks like. */
+.settings-card {
+  padding: var(--ndl-space-sm);
+  border-radius: var(--ndl-radius-lg);
+}
+
+.settings-card:checked {
+  background-color: var(--ndl-color-accent-subtle);
+  box-shadow: inset 0 0 0 2px var(--ndl-color-accent-default);
+}
+
+.settings-preview {
+  border-radius: var(--ndl-radius-md);
+  border: 1px solid var(--ndl-color-border-subtle);
+}
+
+/* Accent swatches. Their colours are the desktop's accent palette, which is data, not NDL's
+   theme: appearance.rs adds them when the page is built. */
+.settings-swatch {
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0;
+  border-radius: 999px;
+  color: white;
+}
+
+.settings-swatch .settings-swatch-check {
+  opacity: 0;
+}
+
+.settings-swatch:checked .settings-swatch-check {
+  opacity: 1;
+}
+
+.numeric {
+  font-feature-settings: "tnum";
+}
