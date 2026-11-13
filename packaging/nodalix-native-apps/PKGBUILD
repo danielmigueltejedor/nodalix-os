@@ -56,6 +56,9 @@ package_nodalix-ajustes() {
   install -Dm755 "$srcdir/target/release/nodalix-settings" "$pkgdir/usr/bin/nodalix-settings"
   install -Dm644 "$srcdir/apps/ajustes/data/os.nodalix.Settings.desktop" \
     "$pkgdir/usr/share/applications/os.nodalix.Settings.desktop"
+  # Cold start by D-Bus activation (gapplication, `nodalix-settings` asked by name).
+  install -Dm644 "$srcdir/apps/ajustes/data/os.nodalix.Settings.service" \
+    "$pkgdir/usr/share/dbus-1/services/os.nodalix.Settings.service"
   # Shell, notifications and the network and Bluetooth indicators open Settings by the
   # GNOME desktop id and command name.
   _launcher gnome-control-center nodalix-settings
