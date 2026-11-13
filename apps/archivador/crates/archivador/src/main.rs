@@ -2,13 +2,18 @@
 
 mod browser;
 mod columns;
+mod customize;
 mod dialogs;
+mod external;
+mod fileicons;
+mod folders;
 mod i18n;
 mod icons;
 mod items;
 mod object;
 mod properties;
 mod share;
+mod thumbnailers;
 mod thumbs;
 mod transfer;
 
@@ -46,18 +51,27 @@ const ACCELS: &[(&str, &[&str])] = &[
     ("win.view::grid", &["<Ctrl>2"]),
     ("win.view::columns", &["<Ctrl>3"]),
     ("win.close", &["<Ctrl>w"]),
+    ("win.preferences", &["<Ctrl>comma"]),
 ];
 
 fn main() -> glib::ExitCode {
     let app = gtk::Application::builder()
         .application_id(APP_ID)
-        .flags(gio::ApplicationFlags::HANDLES_OPEN)
+        .flags(gio::ApplicationFlags::HANDLES_OPEN | gio::ApplicationFlags::HANDLES_COMMAND_LINE)
         .build();
+    // Started by D-Bus for a call, or left without windows, Archivador waits a little before it
+    // quits, so the next "show in folder" does not have to start it again.
+    app.set_inactivity_timeout(10_000);
     app.connect_startup(|app| {
         nodalix_ui::init(STYLE);
+        // A drag should start as soon as the pointer means it, not after a long pull.
+        if let Some(settings) = gtk::Settings::default() {
+            settings.set_gtk_dnd_drag_threshold(4);
+        }
         for (action, keys) in ACCELS {
             app.set_accels_for_action(action, keys);
         }
+        external::serve(app);
     });
     app.connect_activate(|app| {
         if let Some(window) = app.active_window() {
@@ -66,7 +80,11 @@ fn main() -> glib::ExitCode {
             Browser::new(app, home()).present();
         }
     });
-    // `nodalix-archivador /some/folder`, or a file: its folder opens with the file selected.
+    // `nodalix-archivador /some/folder`, `--select file`, `--new-window`, `--quit`: the
+    // command line Nautilus took.
+    app.connect_command_line(external::command_line);
+    // Opened through D-Bus activation of the app itself (a launcher with files): folders open,
+    // a file opens its folder with the file selected.
     app.connect_open(|app, files, _| {
         for file in files {
             let Some(path) = file.path() else { continue };

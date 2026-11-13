@@ -203,6 +203,19 @@ if [[ ${NODALIX_SKIP_MAKEPKG:-0} != 1 ]]; then
     # Built and kept apart on purpose: it conflicts with nautilus, and the clean-install, upgrade and
     # signed-repository jobs install every package of $outdir together. It joins the release set when
     # Archivador becomes the default file manager (docs/archivador.md).
+    # The native apps (Settings, System Monitor, Archivador in Rust) are built here, apart from the
+    # release set, for the same reason: they replace nodalix-control-center and nautilus. They join
+    # the release set in the 0.6.0 switch (docs/preparation-0.6.0.md).
+    native_dir="$workdir/nodalix-native-apps"
+    mkdir -p "$native_dir"
+    cp "$root/packaging/nodalix-native-apps/PKGBUILD" "$native_dir/"
+    tar --zstd -C "$root" -cf "$native_dir/nodalix-native-apps-$pkgver.tar.zst" \
+      --exclude='apps/target' --transform='s,^gnome/control-center/ndl/,ndl/,' \
+      apps gnome/control-center/ndl/LICENSE
+    inject_sha256 "$native_dir/PKGBUILD" "$native_dir/nodalix-native-apps-$pkgver.tar.zst"
+    makepkg_one "$native_dir"
+    mkdir -p "$root/dist/native-apps"
+    find "$native_dir" -maxdepth 1 -type f -name '*.pkg.tar.zst' ! -name '*-debug-*' -exec cp {} "$root/dist/native-apps/" \;
   fi
   makepkg_one "$keyring_dir"
   makepkg_one "$release_dir"

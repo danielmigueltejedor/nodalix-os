@@ -14,13 +14,40 @@ pub enum View {
     Columns,
 }
 
+/// How Archivador is drawn, when the user does not want the system's choice.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Appearance {
+    /// Follow the system.
+    #[default]
+    System,
+    Light,
+    Dark,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
     pub view: View,
     pub sort: SortKey,
     pub descending: bool,
     pub show_hidden: bool,
+    pub appearance: Appearance,
+    /// Whether the file system (`/`) is listed among the devices in the sidebar.
+    pub show_root: bool,
+}
+
+impl Default for Settings {
+    fn default() -> Self {
+        Self {
+            view: View::default(),
+            sort: SortKey::default(),
+            descending: false,
+            show_hidden: false,
+            appearance: Appearance::default(),
+            show_root: true,
+        }
+    }
 }
 
 impl Settings {
@@ -46,8 +73,25 @@ mod tests {
             sort: SortKey::Size,
             descending: true,
             show_hidden: true,
+            appearance: Appearance::Dark,
+            show_root: false,
         };
         assert_eq!(Settings::parse(&settings.to_text()), settings);
+    }
+
+    #[test]
+    fn the_file_system_is_listed_unless_the_user_says_otherwise() {
+        assert!(Settings::default().show_root);
+        assert!(Settings::parse(r#"{"view":"grid"}"#).show_root);
+        assert!(!Settings::parse(r#"{"show_root":false}"#).show_root);
+        assert_eq!(
+            Settings::parse(r#"{"appearance":"light"}"#).appearance,
+            Appearance::Light
+        );
+        assert_eq!(
+            Settings::parse(r#"{"appearance":"neon"}"#),
+            Settings::default()
+        );
     }
 
     #[test]

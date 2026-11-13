@@ -60,6 +60,12 @@
   border-top: var(--ndl-border-width-thin) solid var(--ndl-color-border-subtle);
 }
 
+/* A heading in the sidebar is not something to point at. */
+.archivador-heading,
+.archivador-heading:hover {
+  background-color: transparent;
+}
+
 /* The eject button on a drive in the sidebar: quiet until the row is hovered. */
 .archivador-eject {
   min-height: 0;
@@ -109,6 +115,42 @@
   color: var(--ndl-color-text-primary);
 }
 
+/* The box drawn around what a drag over the empty part picks up: rounded, and in the accent. */
+.archivador-files rubberband,
+.archivador-columns rubberband {
+  border: var(--ndl-border-width-thin) solid var(--ndl-color-accent-default);
+  border-radius: var(--ndl-radius-md);
+  background-color: var(--ndl-color-selection-bg);
+}
+
+.archivador-files.archivador-on-file rubberband {
+  opacity: 0;
+}
+
+/* A folder a drag is over, in the list and in the sidebar. */
+.archivador-files > row:drop(active),
+.archivador-files > child:drop(active),
+.archivador-drop-target {
+  background-color: var(--ndl-color-selection-bg);
+  outline: var(--ndl-border-width-thin) solid var(--ndl-color-accent-default);
+  outline-offset: -1px;
+  border-radius: var(--ndl-radius-md);
+}
+
+/* What follows the pointer while files are dragged. */
+.archivador-drag {
+  padding: var(--ndl-space-xs);
+}
+
+.archivador-drag-badge {
+  min-width: 20px;
+  min-height: 20px;
+  border-radius: var(--ndl-radius-full);
+  background-color: var(--ndl-color-accent-default);
+  color: var(--ndl-color-text-on-accent);
+  font-weight: 600;
+}
+
 /* The columns view: a hairline between columns, and a quiet choice in the ones on the way. */
 .archivador-column {
   border-right: var(--ndl-border-width-thin) solid var(--ndl-color-border-subtle);
@@ -152,4 +194,16 @@ ndl-dialog .ndl-alert-buttons {
 
 ndl-dialog .ndl-alert-text entry {
   margin-top: var(--ndl-space-sm);
+}
+
+/* The colours a folder can be given: the one it has is ringed. */
+.archivador-swatch {
+  padding: var(--ndl-space-xs);
+  border-radius: var(--ndl-radius-md);
+}
+
+.archivador-swatch-current {
+  background-color: var(--ndl-color-selection-bg);
+  outline: var(--ndl-border-width-thin) solid var(--ndl-color-accent-default);
+  outline-offset: -1px;
 }

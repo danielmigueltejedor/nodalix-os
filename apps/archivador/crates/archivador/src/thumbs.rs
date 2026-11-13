@@ -1,4 +1,5 @@
-//! Thumbnails of images, made off the main thread and remembered while the app runs.
+//! Thumbnails, made off the main thread and remembered while the app runs: images are decoded
+//! here, everything else (videos, PDFs…) comes from the system's thumbnailers.
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -9,6 +10,8 @@ use archivador_core::entry::Entry;
 use ndl::gtk::gdk_pixbuf::Pixbuf;
 use ndl::gtk::{gdk, gio, glib};
 use nodalia_gtk as ndl;
+
+use crate::thumbnailers;
 
 /// Past this size a file is not worth decoding just to draw a thumbnail.
 const LARGEST: u64 = 40_000_000;
@@ -25,9 +28,21 @@ thread_local! {
     static CACHE: RefCell<(Vec<Key>, HashMap<Key, gdk::Texture>)> = RefCell::default();
 }
 
+fn decodable(entry: &Entry) -> bool {
+    entry.size <= LARGEST && EXTENSIONS.contains(&entry.extension().as_str())
+}
+
+fn content_type(entry: &Entry) -> String {
+    gio::content_type_guess(Some(&entry.name), None::<&[u8]>)
+        .0
+        .to_string()
+}
+
 /// Whether a thumbnail can be made for this file.
 pub fn wanted(entry: &Entry) -> bool {
-    !entry.is_dir && entry.size <= LARGEST && EXTENSIONS.contains(&entry.extension().as_str())
+    !entry.is_dir
+        && entry.size > 0
+        && (decodable(entry) || thumbnailers::handles(&content_type(entry)))
 }
 
 fn key(entry: &Entry, size: i32) -> Key {
@@ -52,10 +67,16 @@ pub fn load(entry: &Entry, size: i32, ready: impl FnOnce(gdk::Texture) + 'static
     }
     let key = key(entry, size);
     let path = entry.path.clone();
+    let decode = decodable(entry);
+    let content_type = content_type(entry);
+    let mtime = key.1;
     glib::spawn_future_local(async move {
         // The decoder runs on a worker; only bytes cross back, since pixbufs stay where they
         // were made.
         let png = gio::spawn_blocking(move || {
+            if !decode {
+                return thumbnailers::thumbnail(&path, &content_type, mtime, size);
+            }
             let pixbuf = Pixbuf::from_file_at_scale(&path, size, size, true).ok()?;
             let pixbuf = pixbuf.apply_embedded_orientation().unwrap_or(pixbuf);
             pixbuf.save_to_bufferv("png", &[]).ok()
