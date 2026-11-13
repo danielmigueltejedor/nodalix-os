@@ -13,7 +13,7 @@ use ndl::gtk::{gio, glib, prelude::*};
 use nodalia_gtk as ndl;
 
 /// Bump when a drawing changes, so a copy cached by an older version is not reused.
-const VERSION: u32 = 4;
+const VERSION: u32 = 5;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Kind {
@@ -195,9 +195,9 @@ fn drawing(kind: Kind, color: Color) -> String {
 <defs>
 <linearGradient id="front" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{front_top}"/><stop offset="1" stop-color="{front_bottom}"/></linearGradient>
 </defs>
-<path fill="{back}" d="M10 34a10 10 0 0 1 10-10h23.500c3.600 0 6.400 1.300 8.800 4l3.400 3.800c2 2.200 4.300 3.200 7.300 3.200H108a10 10 0 0 1 10 10v51a10 10 0 0 1-10 10H20a10 10 0 0 1-10-10z"/>
-<path fill="url(#front)" d="M10 55a10 10 0 0 1 10-10h88a10 10 0 0 1 10 10v41a10 10 0 0 1-10 10H20a10 10 0 0 1-10-10z"/>
-<path fill="none" stroke="{light}" stroke-width="1.500" stroke-linecap="round" d="M19 45.750h90"/>
+<path fill="{back}" d="M15 32a10 10 0 0 1 10-10h21c3.600 0 6.400 1.300 8.800 4l3.400 3.800c2 2.200 4.300 3.200 7.300 3.200H103a10 10 0 0 1 10 10v53a10 10 0 0 1-10 10H25a10 10 0 0 1-10-10z"/>
+<path fill="url(#front)" d="M15 54a10 10 0 0 1 10-10h78a10 10 0 0 1 10 10v42a10 10 0 0 1-10 10H25a10 10 0 0 1-10-10z"/>
+<path fill="none" stroke="{light}" stroke-width="1.500" stroke-linecap="round" d="M24 44.750h80"/>
 {glyph}
 </svg>
 "##

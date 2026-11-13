@@ -10,7 +10,7 @@ use ndl::gtk::{gio, glib, prelude::*};
 use nodalia_gtk as ndl;
 
 /// Bump when a drawing changes, so a copy cached by an older version is not reused.
-const VERSION: u32 = 2;
+const VERSION: u32 = 3;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Category {
@@ -252,18 +252,18 @@ fn drawing(category: Category, badge: Option<&str>) -> String {
     let glyph = match category.glyph() {
         "" => String::new(),
         glyph => format!(
-            r##"<g transform="translate(42 {glyph_y}) scale(1.850)" fill="none" stroke="{color}" stroke-width="1.800" stroke-linecap="round" stroke-linejoin="round">{glyph}</g>"##
+            r##"<g transform="translate(41.800 {glyph_y}) scale(1.850)" fill="none" stroke="{color}" stroke-width="1.800" stroke-linecap="round" stroke-linejoin="round">{glyph}</g>"##
         ),
     };
     let label = badge.map_or(String::new(), |text| {
         format!(
-            r##"<text x="64.600" y="107" text-anchor="middle" font-family="Adwaita Sans, Inter, Cantarell, sans-serif" font-size="12.500" font-weight="700" letter-spacing="1.200" fill="{color}">{text}</text>"##
+            r##"<text x="64.600" y="106.500" text-anchor="middle" font-family="Adwaita Sans, Inter, Cantarell, sans-serif" font-size="12.500" font-weight="700" letter-spacing="1.200" fill="{color}">{text}</text>"##
         )
     });
     format!(
         r##"<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-<path fill="#ffffff" stroke="#cdd3de" stroke-width="1.500" stroke-linejoin="round" d="M35 9h37l29 29v72a9 9 0 0 1-9 9H35a9 9 0 0 1-9-9V18a9 9 0 0 1 9-9z"/>
-<path fill="#eceff4" stroke="#cdd3de" stroke-width="1.500" stroke-linejoin="round" d="M72 9v20a9 9 0 0 0 9 9h20z"/>
+<path fill="#ffffff" stroke="#cdd3de" stroke-width="1.500" stroke-linejoin="round" d="M29 10h53l26 26v73a9 9 0 0 1-9 9H29a9 9 0 0 1-9-9V19a9 9 0 0 1 9-9z"/>
+<path fill="#eceff4" stroke="#cdd3de" stroke-width="1.500" stroke-linejoin="round" d="M82 10v17a9 9 0 0 0 9 9h17z"/>
 {glyph}
 {label}
 </svg>
