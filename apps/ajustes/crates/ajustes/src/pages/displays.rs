@@ -711,17 +711,44 @@ fn draw(
         let _ = cr.stroke();
         cr.set_source_rgba(r, g, b, 0.9);
         cr.set_font_size((rh * 0.38).clamp(12.0, 34.0));
-        let label = if l.primary {
-            format!("{} ★", i + 1)
-        } else {
-            (i + 1).to_string()
-        };
+        // The number, and a star drawn as a shape when this is the main screen: the font cairo
+        // picks for plain text has no star, which showed up as an empty box.
+        let label = (i + 1).to_string();
+        let size = (rh * 0.38).clamp(12.0, 34.0);
         if let Ok(extents) = cr.text_extents(&label) {
+            let star_width = if l.primary { size * 1.1 } else { 0.0 };
+            let left = rx + (rw - extents.width() - star_width) / 2.0;
             cr.move_to(
-                rx + (rw - extents.width()) / 2.0 - extents.x_bearing(),
+                left - extents.x_bearing(),
                 ry + (rh - extents.height()) / 2.0 - extents.y_bearing(),
             );
             let _ = cr.show_text(&label);
+            if l.primary {
+                let centre = (
+                    left + extents.width() + size * 0.65,
+                    ry + rh / 2.0 - size * 0.05,
+                );
+                for point in 0..10 {
+                    let radius = if point % 2 == 0 {
+                        size * 0.5
+                    } else {
+                        size * 0.22
+                    };
+                    let angle = -std::f64::consts::FRAC_PI_2
+                        + f64::from(point) * std::f64::consts::PI / 5.0;
+                    let (x, y) = (
+                        centre.0 + radius * angle.cos(),
+                        centre.1 + radius * angle.sin(),
+                    );
+                    if point == 0 {
+                        cr.move_to(x, y);
+                    } else {
+                        cr.line_to(x, y);
+                    }
+                }
+                cr.close_path();
+                let _ = cr.fill();
+            }
         }
     }
 }

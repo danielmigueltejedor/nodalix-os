@@ -6,16 +6,16 @@
 :root {
   --ndl-font-family-ui: "Adwaita Sans", Cantarell, sans-serif;
   --ndl-font-family-display: "Adwaita Sans", Cantarell, sans-serif;
-  --ndl-font-size-caption: 8.25pt;
-  --ndl-font-size-small: 9pt;
-  --ndl-font-size-body: 9.75pt;
-  --ndl-font-size-large: 11.25pt;
-  --ndl-font-size-title: 13.5pt;
+  --ndl-font-size-caption: 9pt;
+  --ndl-font-size-small: 10pt;
+  --ndl-font-size-body: 10.5pt;
+  --ndl-font-size-large: 12pt;
+  --ndl-font-size-title: 14.25pt;
   --ndl-font-size-headline: 18pt;
   --ndl-font-size-display: 24pt;
 }
 
-.ndl-micro { font-size: 7.875pt; }
+.ndl-micro { font-size: 8.25pt; }
 .ndl-view-title { font-size: 33pt; }
 .ndl-about .title-1 { font-size: 24pt; }
 
@@ -31,4 +31,30 @@ headerbar button.ndl-chip:checked {
   background-color: var(--ndl-color-text-primary);
   border-color: var(--ndl-color-text-primary);
   color: var(--ndl-color-surface-window);
+}
+
+/* A button inside a row sits on the raised surface, which in the dark schemes is the very colour
+ * of NDL's control background, so it would read as bare text. Lift it one step. */
+row button:not(.flat):not(.suggested-action):not(.destructive-action):not(:checked) {
+  background-color: var(--ndl-color-control-bg-hover);
+}
+
+row button:not(.flat):not(.suggested-action):not(.destructive-action):not(:checked):hover {
+  background-color: var(--ndl-color-control-bg-pressed);
+}
+
+/* GTK draws a shaded strip where a scrolled window has more content (undershoot) and where it
+ * bounces at an end (overshoot). Over NDL's flat surfaces both read as a stray line, so none is
+ * drawn. */
+scrolledwindow > undershoot.top,
+scrolledwindow > undershoot.bottom,
+scrolledwindow > overshoot.top,
+scrolledwindow > overshoot.bottom {
+  background-image: none;
+  background-color: transparent;
+}
+
+/* Icons in rows and sidebars a step larger than GTK's default, to match the larger text. */
+row image {
+  -gtk-icon-size: 20px;
 }

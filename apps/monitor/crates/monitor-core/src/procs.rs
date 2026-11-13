@@ -34,6 +34,22 @@ pub struct Stat {
     pub threads: u32,
 }
 
+/// The kernel keeps 15 bytes of a process name, so a longer one arrives cut. The command's own
+/// file name is the whole of it when it starts with what is left.
+pub fn full_name(comm: &str, cmdline: &str) -> String {
+    if comm.len() >= 15 {
+        let program = cmdline
+            .split_whitespace()
+            .next()
+            .and_then(|first| first.rsplit('/').next())
+            .unwrap_or("");
+        if program.len() > comm.len() && program.starts_with(comm) {
+            return program.to_owned();
+        }
+    }
+    comm.to_owned()
+}
+
 /// Parses `/proc/<pid>/stat`. The name sits in parentheses and may itself contain spaces and
 /// parentheses, so the last `)` ends it.
 pub fn parse_stat(text: &str, page_size: u64) -> Option<Stat> {
@@ -134,7 +150,7 @@ pub fn read_all() -> Vec<Process> {
             .unwrap_or_default();
         out.push(Process {
             pid,
-            name: st.name,
+            name: full_name(&st.name, &cmdline),
             state: st.state,
             uid,
             cpu_ticks: st.cpu_ticks,
@@ -271,6 +287,23 @@ mod tests {
     // pid (comm) state ppid pgrp session tty tpgid flags minflt cminflt majflt cmajflt utime stime
     // cutime cstime priority nice num_threads itrealvalue starttime vsize rss ...
     const STAT: &str = "1234 (my (odd) app) S 1 1234 1234 0 -1 4194560 100 0 0 0 150 50 0 0 20 0 7 0 5000 123456789 2500 18446744073709551615";
+
+    #[test]
+    fn a_name_cut_at_fifteen_bytes_is_completed_from_the_command() {
+        assert_eq!(
+            full_name(
+                "gnome-shell-cal",
+                "/usr/lib/gnome-shell-calendar-server --x"
+            ),
+            "gnome-shell-calendar-server"
+        );
+        // A short name, or one the command does not continue, is left alone.
+        assert_eq!(full_name("bash", "/usr/bin/bash"), "bash");
+        assert_eq!(
+            full_name("exactly15chars!", "/usr/bin/other-thing"),
+            "exactly15chars!"
+        );
+    }
 
     #[test]
     fn parses_a_name_with_spaces_and_parentheses() {

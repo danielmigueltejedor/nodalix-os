@@ -6,6 +6,7 @@ use ndl::gtk;
 use nodalia_gtk as ndl;
 
 mod icons;
+mod icons_settings;
 
 const BASE: &str = include_str!("base.css");
 

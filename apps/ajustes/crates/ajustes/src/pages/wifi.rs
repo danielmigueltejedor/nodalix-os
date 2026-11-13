@@ -58,6 +58,7 @@ pub struct WifiPage {
     bus: Rc<bus::SystemRefresh>,
     status: ndl::ActionRow,
     status_icon: gtk::Image,
+    turn_on: gtk::Button,
     radio: ndl::SwitchRow,
     networks: ndl::PreferencesGroup,
     rows: RefCell<Vec<ndl::ActionRow>>,
@@ -253,6 +254,11 @@ impl WifiPage {
         radio.set_sensitive(false);
         let status_icon = themed(&OFFLINE);
         status.add_prefix(&status_icon);
+        let turn_on = gtk::Button::with_label(tr("Turn on"));
+        turn_on.add_css_class("suggested-action");
+        turn_on.set_valign(gtk::Align::Center);
+        turn_on.set_visible(false);
+        status.add_suffix(&turn_on);
         let top = ndl::PreferencesGroup::new();
         top.add(&radio);
         top.add(&status);
@@ -288,6 +294,7 @@ impl WifiPage {
             bus: Rc::default(),
             status,
             status_icon,
+            turn_on,
             radio,
             networks,
             rows: RefCell::new(Vec::new()),
@@ -314,6 +321,13 @@ impl WifiPage {
                 glib::spawn_future_local(async move {
                     page.set_radio(on).await;
                 });
+            });
+        }
+        {
+            let page2 = page.clone();
+            page.turn_on.connect_clicked(move |_| {
+                let page = page2.clone();
+                glib::spawn_future_local(async move { page.set_radio(true).await });
             });
         }
         {
@@ -413,8 +427,13 @@ impl WifiPage {
                 (true, true, None) => tr("Not connected"),
                 (true, true, Some(_)) => tr("Connected"),
             });
-        self.status
-            .set_subtitle(reading.active.as_deref().unwrap_or(""));
+        let off = has_device && !reading.enabled;
+        self.turn_on.set_visible(off);
+        self.status.set_subtitle(if off {
+            tr("Turn it on to see and join the networks around.")
+        } else {
+            reading.active.as_deref().unwrap_or("")
+        });
         let names: &[&str] = if reading.active.is_some() {
             &ONLINE
         } else {

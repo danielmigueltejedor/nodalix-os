@@ -14,6 +14,37 @@ const SYSTEM: &str = "emblem-system-symbolic";
 /// A program that is not an installed application.
 const PROGRAM: &str = "application-x-executable-symbolic";
 
+/// A shell or other program that lives in a terminal.
+const TERMINAL: &str = "utilities-terminal-symbolic";
+/// A service: something the system runs on its own, for no one in particular.
+const SERVICE: &str = "system-run-symbolic";
+
+/// The icon of a process no application owns, by what kind of program it looks like.
+pub fn generic(name: &str, cmdline: &str, user: &str) -> &'static str {
+    if cmdline.is_empty() {
+        return SYSTEM;
+    }
+    let program = cmdline
+        .split_whitespace()
+        .next()
+        .and_then(|first| first.rsplit('/').next())
+        .unwrap_or(name)
+        .trim_start_matches('-');
+    if matches!(
+        program,
+        "bash" | "zsh" | "fish" | "sh" | "dash" | "nu" | "tmux" | "screen" | "sudo" | "ssh"
+    ) {
+        return TERMINAL;
+    }
+    // Daemons by convention end in `d` (systemd, dbus-daemon, sshd), and the system's own users
+    // run services, not what a person opened.
+    if user == "root" || program.ends_with('d') && program.len() > 3 || program.ends_with("daemon")
+    {
+        return SERVICE;
+    }
+    PROGRAM
+}
+
 /// The names a process may be known by among desktop files, most likely first: the command's
 /// file name, then the process name, each also without a `-bin` / `.real` style suffix.
 pub fn candidates(name: &str, cmdline: &str) -> Vec<String> {
@@ -105,12 +136,7 @@ pub fn for_row(row: &Row) -> gio::Icon {
             .find_map(|c| apps.get(c).cloned())
     });
     let icon = icon.unwrap_or_else(|| {
-        gio::ThemedIcon::new(if row.cmdline.is_empty() {
-            SYSTEM
-        } else {
-            PROGRAM
-        })
-        .upcast()
+        gio::ThemedIcon::new(generic(&row.name, &row.cmdline, &row.user)).upcast()
     });
     FOUND.with(|f| f.borrow_mut().insert(row.name.clone(), icon.clone()));
     icon
@@ -135,6 +161,17 @@ mod tests {
             "/usr/bin/python3 -u /usr/bin/nodalix-updater --x",
         );
         assert_eq!(c[0], "nodalix-updater");
+    }
+
+    #[test]
+    fn a_process_without_an_application_gets_the_icon_of_its_kind() {
+        assert_eq!(generic("kworker/0:1", "", "root"), SYSTEM);
+        assert_eq!(generic("bash", "-bash", "daniel"), TERMINAL);
+        assert_eq!(generic("sshd", "/usr/bin/sshd -D", "daniel"), SERVICE);
+        assert_eq!(generic("Xorg", "/usr/lib/Xorg", "root"), SERVICE);
+        assert_eq!(generic("mytool", "/opt/mytool/mytool", "daniel"), PROGRAM);
+        // A word that merely ends in `d` and is short is a program, not a daemon.
+        assert_eq!(generic("od", "/usr/bin/od", "daniel"), PROGRAM);
     }
 
     #[test]

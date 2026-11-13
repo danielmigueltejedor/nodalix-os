@@ -49,12 +49,9 @@ pub fn build(toasts: &ndl::ToastOverlay) -> gtk::ScrolledWindow {
     name.set_sensitive(false);
     let network = ndl::ActionRow::builder().title(tr("Network name")).build();
     network.add_prefix(&gtk::Image::from_icon_name("network-workgroup-symbolic"));
-    let hint = ndl::ActionRow::builder()
-        .title(tr("The name other devices see on the network"))
-        .build();
+    group.set_description(Some(tr("The name other devices see on the network")));
     group.add(&name);
     group.add(&network);
-    group.add(&hint);
     content.append(&group);
 
     let saved = Rc::new(RefCell::new(String::new()));
@@ -63,7 +60,7 @@ pub fn build(toasts: &ndl::ToastOverlay) -> gtk::ScrolledWindow {
     glib::spawn_future_local(async move {
         let Some(proxy) = bus::proxy(gio::BusType::System, HOSTNAME, HOSTNAME_PATH, HOSTNAME).await
         else {
-            hint.set_title(tr("The name service is not available."));
+            group.set_description(Some(tr("The name service is not available.")));
             return;
         };
         let sync = {
@@ -76,28 +73,56 @@ pub fn build(toasts: &ndl::ToastOverlay) -> gtk::ScrolledWindow {
                 loading.clone(),
             );
             move || {
-                let pretty = bus::string_property(&proxy, "PrettyHostname").unwrap_or_default();
-                let host = bus::string_property(&proxy, "Hostname").unwrap_or_default();
-                let shown = if pretty.is_empty() {
-                    host.clone()
-                } else {
-                    pretty
-                };
-                loading.set(true);
-                if *saved.borrow() != shown {
-                    name.set_text(&shown);
-                    *saved.borrow_mut() = shown;
-                }
-                network.set_subtitle(&host);
-                name.set_sensitive(true);
-                apply.set_sensitive(false);
-                loading.set(false);
+                let (proxy, name, network, apply, saved, loading) = (
+                    proxy.clone(),
+                    name.clone(),
+                    network.clone(),
+                    apply.clone(),
+                    saved.clone(),
+                    loading.clone(),
+                );
+                // Read now from the service: the proxy's cache is emptied whenever `hostnamed`
+                // exits for being idle, which left the name blank.
+                glib::spawn_future_local(async move {
+                    let all =
+                        bus::properties(&proxy.connection(), HOSTNAME, HOSTNAME_PATH, HOSTNAME)
+                            .await
+                            .unwrap_or_default();
+                    let text = |key: &str| {
+                        all.get(key)
+                            .and_then(|v| v.str().map(str::to_owned))
+                            .unwrap_or_default()
+                    };
+                    let pretty = text("PrettyHostname");
+                    let host = text("Hostname");
+                    let shown = if pretty.is_empty() {
+                        host.clone()
+                    } else {
+                        pretty
+                    };
+                    if shown.is_empty() {
+                        return;
+                    }
+                    loading.set(true);
+                    if *saved.borrow() != shown {
+                        name.set_text(&shown);
+                        *saved.borrow_mut() = shown;
+                    }
+                    network.set_subtitle(&host);
+                    name.set_sensitive(true);
+                    apply.set_sensitive(false);
+                    loading.set(false);
+                });
             }
         };
         sync();
         bus::on_change(&proxy, {
-            let sync = sync.clone();
-            move || sync()
+            let (sync, proxy) = (sync.clone(), proxy.clone());
+            move || {
+                if proxy.name_owner().is_some() {
+                    sync();
+                }
+            }
         });
         {
             let (saved, loading, apply) = (saved.clone(), loading.clone(), apply.clone());

@@ -2,6 +2,7 @@
 import importlib.machinery
 import importlib.util
 import json
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -85,9 +86,11 @@ class CompleteReleaseTests(unittest.TestCase):
         desktop = (ROOT / 'integrations/assets/com.nodalix.iCloudAccess.desktop').read_text()
         self.assertIn('Icon=icloud-apple-official', desktop)
         self.assertNotIn('/home/daniel', desktop)
-        launcher = (ROOT / 'packaging/nodalix-artcraft-launcher/PKGBUILD').read_text()
-        self.assertIn('storytold/craft-launcher', launcher)
-        self.assertNotIn('"SKIP"', launcher)
+        self.assertFalse((ROOT / 'packaging/nodalix-artcraft-launcher').exists())
+        release = (ROOT / 'packaging/nodalix-release/PKGBUILD').read_text()
+        depends = re.search(r'^depends=\((.*)\)$', release, re.M).group(1)
+        self.assertNotIn('nodalix-artcraft-launcher', depends)
+        self.assertIn('replaces=("nodalix-artcraft-launcher")', release)
 
 
 if __name__ == '__main__':

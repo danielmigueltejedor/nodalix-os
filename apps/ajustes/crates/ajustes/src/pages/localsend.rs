@@ -119,6 +119,10 @@ impl LocalSendPage {
             "preferences-system-time-symbolic",
         ));
         alias.add_prefix(&gtk::Image::from_icon_name("computer-symbolic"));
+        // Until the service answers, show this computer's own name instead of an empty box.
+        if let Ok(host) = std::fs::read_to_string("/proc/sys/kernel/hostname") {
+            alias.set_text(host.trim());
+        }
         folder.add_prefix(&gtk::Image::from_icon_name("folder-download-symbolic"));
         config.add(&minutes);
         // The whole group is one box so it can be switched off while GLocalSend is missing.

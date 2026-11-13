@@ -100,6 +100,11 @@ export class DesktopModules {
     }
 
     async reconcile() {
+        // Loading modules blocks the shell's main loop: the login cover gets its
+        // frame first (it hides the loading anyway).
+        await Transition.whenFirstFrame();
+        if (this.stopped)
+            return;
         this.requested = false;
         const desired = this.selectedModules();
         for (const [uuid, record] of [...records].reverse()) {
@@ -121,6 +126,7 @@ export class DesktopModules {
 
     async enable(uuid) {
         let record;
+        const started = Date.now();
         try {
             const dir = moduleDirectory(uuid);
             if (!dir)
@@ -147,6 +153,7 @@ export class DesktopModules {
             record.state = ExtensionState.ACTIVE;
             this.extensionManager.emit('extension-state-changed', record);
             console.info(`Nodalix Shell module active: ${uuid}`);
+            Transition.trace(`module ${uuid} ready in ${Date.now() - started} ms`);
         } catch (error) {
             if (records.has(uuid))
                 this.disable(record);

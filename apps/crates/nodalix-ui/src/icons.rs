@@ -14,26 +14,28 @@ use nodalia_gtk as ndl;
 const THEME: &str = "Nodalia";
 
 /// A folder, to which some of the icons add a small picture.
-const FOLDER: &str = "M3.5 18.5v-12A1.5 1.5 0 0 1 5 5h4l2 2.5h8A1.5 1.5 0 0 1 20.5 9v9.5A1.5 1.5 0 0 1 19 20H5a1.5 1.5 0 0 1-1.5-1.5z";
+pub(crate) const FOLDER: &str = "M3.5 18.5v-12A1.5 1.5 0 0 1 5 5h4l2 2.5h8A1.5 1.5 0 0 1 20.5 9v9.5A1.5 1.5 0 0 1 19 20H5a1.5 1.5 0 0 1-1.5-1.5z";
 
 /// One piece of a drawing.
-enum Part {
+pub(crate) enum Part {
     /// A line, an outline.
     Line(&'static str),
     /// A shape filled with the foreground colour.
     Solid(&'static str),
+    /// A line drawn faintly: the part of a gauge that is not reached.
+    Faint(&'static str),
     /// A circle: centre x, centre y, radius.
     Circle(f32, f32, f32),
     /// A rounded rectangle: x, y, width, height, corner radius.
     Rect(f32, f32, f32, f32, f32),
 }
 
-use Part::{Circle, Line, Rect, Solid};
+use Part::{Circle, Faint, Line, Rect, Solid};
 
 const STROKE: &str =
     r#"stroke="rgb(0,0,0)" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round""#;
 
-fn svg(parts: &[Part]) -> String {
+pub(crate) fn svg(parts: &[Part]) -> String {
     let mut out = String::from(
         r#"<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">"#,
     );
@@ -41,6 +43,9 @@ fn svg(parts: &[Part]) -> String {
         match part {
             Line(d) => out.push_str(&format!(
                 r#"<path class="transparent-fill foreground-stroke" fill="none" {STROKE} d="{d}"/>"#
+            )),
+            Faint(d) => out.push_str(&format!(
+                r#"<path class="transparent-fill foreground-stroke" fill="none" {STROKE} stroke-opacity="0.3" d="{d}"/>"#
             )),
             Solid(d) => out.push_str(&format!(
                 r#"<path class="foreground-fill foreground-stroke" fill="rgb(0,0,0)" {STROKE} d="{d}"/>"#
@@ -64,12 +69,13 @@ fn drawings() -> Vec<(&'static str, String)> {
         parts.extend(extra.iter().map(|p| match p {
             Line(d) => Line(d),
             Solid(d) => Solid(d),
+            Faint(d) => Faint(d),
             Circle(a, b, c) => Circle(*a, *b, *c),
             Rect(a, b, c, d, e) => Rect(*a, *b, *c, *d, *e),
         }));
         svg(&parts)
     };
-    vec![
+    let mut all = vec![
         // The places and the files.
         ("computer-symbolic", svg(&[Rect(3.0, 4.0, 18.0, 12.0, 2.0), Line("M8 20h8M12 16v4")])),
         ("user-desktop-symbolic", svg(&[Rect(3.0, 4.0, 18.0, 14.0, 2.0), Line("M3 8.5h18M8.5 21h7")])),
@@ -110,7 +116,9 @@ fn drawings() -> Vec<(&'static str, String)> {
         ("preferences-system-privacy-symbolic", svg(&[Rect(4.5, 10.5, 15.0, 10.0, 2.0), Line("M8 10.5V7a4 4 0 0 1 8 0v3.5")])),
         ("preferences-system-sharing-symbolic", svg(&[Circle(6.0, 12.0, 2.5), Circle(18.0, 6.0, 2.5), Circle(18.0, 18.0, 2.5), Line("M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6")])),
         ("software-update-available-symbolic", svg(&[Line("M12 3v12M7 11l5 5 5-5M5 20h14")])),
-    ]
+    ];
+    all.extend(crate::icons_settings::drawings());
+    all
 }
 
 fn folder() -> PathBuf {
