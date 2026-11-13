@@ -38,7 +38,8 @@ impl Entry {
         }
     }
 
-    pub(crate) fn at(path: PathBuf) -> Option<Self> {
+    /// The entry for the file or folder at `path`, if there is one.
+    pub fn at(path: PathBuf) -> Option<Self> {
         let name = path.file_name()?.to_string_lossy().into_owned();
         let link = path.symlink_metadata().ok()?;
         let is_link = link.file_type().is_symlink();

@@ -8,6 +8,7 @@ pub mod cloud;
 pub mod entry;
 pub mod format;
 pub mod history;
+pub mod launch;
 pub mod localsend;
 pub mod names;
 pub mod ops;

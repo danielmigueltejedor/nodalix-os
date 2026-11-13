@@ -30,8 +30,8 @@ use crate::transfer;
 /// The sidebar row a drag is over, and the timer that opens it.
 type Hover = Option<(gtk::ListBoxRow, Option<glib::SourceId>)>;
 
-const TRASH: &str = "trash:///";
-const RECENT: &str = "recent:///";
+pub const TRASH: &str = "trash:///";
+pub const RECENT: &str = "recent:///";
 /// What a sidebar row's name holds when it is not a folder: the question to ask for a server.
 const CONNECT: &str = "action:connect-server";
 /// What a row's name starts with when it is a server that is not mounted: its address follows.
@@ -424,6 +424,21 @@ impl Browser {
     pub fn select_after_load(&self, paths: Vec<PathBuf>) {
         self.state.borrow_mut().select = paths;
         self.reload();
+    }
+
+    /// The token of the launch that asked for this window, so the desktop gives it the focus.
+    pub fn set_startup_id(&self, id: &str) {
+        if !id.is_empty() {
+            self.window.set_startup_id(id);
+        }
+    }
+
+    /// Opens the properties of these files or folders over the window.
+    pub fn show_properties(&self, paths: &[PathBuf]) {
+        let entries: Vec<Entry> = paths.iter().filter_map(|p| Entry::at(p.clone())).collect();
+        if !entries.is_empty() {
+            properties::present(&self.window, entries);
+        }
     }
 
     fn weak(self: &Rc<Self>) -> Weak<Self> {
@@ -1765,17 +1780,35 @@ impl Browser {
             }
         }
         if let Some(position) = first {
-            match view {
-                View::List => self
-                    .list_view
-                    .scroll_to(position, gtk::ListScrollFlags::FOCUS, None),
-                View::Grid => self
-                    .grid_view
-                    .scroll_to(position, gtk::ListScrollFlags::FOCUS, None),
-                View::Columns => {
-                    self.columns_view
-                        .scroll_to(position, gtk::ListScrollFlags::FOCUS, None)
+            let target: gtk::Widget = match view {
+                View::List => self.list_view.clone().upcast(),
+                View::Grid => self.grid_view.clone().upcast(),
+                View::Columns => self.columns_view.clone().upcast(),
+            };
+            let scroll = move |widget: &gtk::Widget| {
+                if let Some(list) = widget.downcast_ref::<gtk::ListView>() {
+                    list.scroll_to(position, gtk::ListScrollFlags::FOCUS, None);
+                } else if let Some(grid) = widget.downcast_ref::<gtk::GridView>() {
+                    grid.scroll_to(position, gtk::ListScrollFlags::FOCUS, None);
                 }
+            };
+            if target.is_mapped() {
+                scroll(&target);
+            } else {
+                // A window that is not on screen yet has no size to scroll in: scroll once it
+                // is shown, as when another program opens a folder with a file selected.
+                let handler: Rc<Cell<Option<glib::SignalHandlerId>>> = Rc::new(Cell::new(None));
+                let id = {
+                    let handler = handler.clone();
+                    target.connect_map(move |widget| {
+                        let widget = widget.clone();
+                        if let Some(id) = handler.take() {
+                            widget.disconnect(id);
+                        }
+                        glib::idle_add_local_once(move || scroll(&widget));
+                    })
+                };
+                handler.set(Some(id));
             }
         }
 
