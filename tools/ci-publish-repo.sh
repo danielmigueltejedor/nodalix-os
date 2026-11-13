@@ -50,7 +50,7 @@ cat > "$site/index.html" <<'HTML'
 <meta charset="utf-8">
 <title>Nodalix OS package repository</title>
 <p>This is the signed pacman repository of Nodalix OS. It is meant for pacman, not for browsers:
-<code>Server = https://danielmigueltejedor.github.io/nodalix-os/$arch</code></p>
+<code>Server = https://getnodalia.github.io/nodalix-os/$arch</code></p>
 HTML
 touch "$site/.nojekyll"
 echo "Repository ready in $site ($(du -sh -- "$site" | cut -f1))"

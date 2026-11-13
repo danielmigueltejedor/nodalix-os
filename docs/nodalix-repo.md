@@ -16,7 +16,7 @@ la firma y comprueba que una base de datos manipulada se rechaza.
 
 ## Cómo se publica
 
-El repositorio vive en GitHub Pages: `https://danielmigueltejedor.github.io/nodalix-os/x86_64`.
+El repositorio vive en GitHub Pages: `https://getnodalia.github.io/nodalix-os/x86_64`.
 Lo publica el workflow **Publish pacman repository**, que solo se ejecuta a mano
 (`workflow_dispatch`) indicando el id de una ejecución de CI cuyos paquetes
 (`nodalix-0.4.0-candidate`) hayan pasado todas las pruebas. `tools/ci-publish-repo.sh`:

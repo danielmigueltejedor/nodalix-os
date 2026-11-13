@@ -109,7 +109,7 @@ def catalog(home):
                         "summary": "Música",
                         "kind": "nodalix-apps",
                         "manager": "vinilo",
-                        "repo": "danielmigueltejedor/vinilo",
+                        "repo": "getnodalia/vinilo",
                     },
                     {"id": "Bad Slug", "repo": "x/y", "asset": "a.AppImage"},
                     {"id": "noasset", "repo": "x/y", "asset": "a.zip"},

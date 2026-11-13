@@ -1,6 +1,6 @@
 [Unit]
 Description=Enlace móvil de Nodalix (proveedor iOS)
-Documentation=https://github.com/danielmigueltejedor/nodalix-os
+Documentation=https://github.com/getnodalia/nodalix-os
 After=bluetooth.target graphical-session.target dbus.socket
 Wants=bluetooth.target
 Requires=dbus.socket

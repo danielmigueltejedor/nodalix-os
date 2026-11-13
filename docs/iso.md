@@ -23,7 +23,7 @@ partes, conservando todos los paquetes y el firmware. La herramienta incluida
 las descarga, reconstruye la ISO y verifica tanto cada parte como la imagen completa:
 
 ```sh
-curl -fL https://github.com/danielmigueltejedor/nodalix-os/releases/download/0.3.0/nodalix-download-iso.py -o nodalix-download-iso.py
+curl -fL https://github.com/getnodalia/nodalix-os/releases/download/0.3.0/nodalix-download-iso.py -o nodalix-download-iso.py
 python3 nodalix-download-iso.py --version 0.3.0
 ```
 

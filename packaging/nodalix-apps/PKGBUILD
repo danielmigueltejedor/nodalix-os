@@ -1,9 +1,9 @@
 pkgname=nodalix-apps
-pkgver=0.6.0
+pkgver=0.6.1
 pkgrel=1
 pkgdesc="Nodalix official applications manager"
 arch=("any")
-url="https://github.com/danielmigueltejedor/nodalix-os"
+url="https://github.com/getnodalia/nodalix-os"
 license=("GPL-3.0-or-later")
 
 depends=(

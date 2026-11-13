@@ -1,5 +1,5 @@
 {
-  "repository": "danielmigueltejedor/nodalix-os",
+  "repository": "getnodalia/nodalix-os",
   "channel": "stable",
   "channel_explicit": false,
   "manifest_asset": "nodalix-manifest.json",
