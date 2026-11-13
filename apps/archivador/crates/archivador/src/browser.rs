@@ -2077,6 +2077,12 @@ impl Browser {
         self.trash_icon.replace(Some(icon));
         self.sidebar.append(&row);
 
+        // The cloud accounts Settings has set up. They are read first: a folder pinned from one of
+        // them is shown with that service's icon, not with a star.
+        let accounts = std::fs::read_to_string(glib::user_config_dir().join("nodalix/cloud.json"))
+            .map(|text| cloud::parse(&text))
+            .unwrap_or_default();
+
         // The folders the user pinned.
         let pinned: Vec<Bookmark> = load_bookmarks()
             .into_iter()
@@ -2086,11 +2092,10 @@ impl Browser {
             self.sidebar.append(&Self::heading(tr("Favorites")));
         }
         for bookmark in &pinned {
-            let (row, _) = self.sidebar_row(
-                &bookmark.label,
-                "starred-symbolic",
-                &bookmark.path.to_string_lossy(),
-            );
+            let icon = cloud::provider_of(&accounts, &crate::home(), &bookmark.path)
+                .map_or("starred-symbolic", cloud::Provider::icon);
+            let (row, _) =
+                self.sidebar_row(&bookmark.label, icon, &bookmark.path.to_string_lossy());
             self.add_unpin(&row, &bookmark.path);
             self.sidebar.append(&row);
         }
@@ -2169,10 +2174,6 @@ impl Browser {
         );
         self.sidebar.append(&row);
 
-        // The cloud accounts Settings has set up.
-        let accounts = std::fs::read_to_string(glib::user_config_dir().join("nodalix/cloud.json"))
-            .map(|text| cloud::parse(&text))
-            .unwrap_or_default();
         if !accounts.is_empty() {
             self.sidebar.append(&Self::heading(tr("Cloud")));
         }
