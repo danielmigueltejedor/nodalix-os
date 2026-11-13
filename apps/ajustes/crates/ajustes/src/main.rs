@@ -17,8 +17,24 @@ fn keep_panics() {
     std::panic::set_hook(Box::new(move |info| {
         let text = format!("{info}\n{}\n", std::backtrace::Backtrace::force_capture());
         let folder = glib::user_cache_dir().join("nodalix");
-        if std::fs::create_dir_all(&folder).is_ok() {
-            let _ = std::fs::write(folder.join("settings-crash.log"), &text);
+        use std::io::Write;
+        use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
+        // Private to the user: a backtrace can name paths and values.
+        if std::fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(&folder)
+            .is_ok()
+        {
+            if let Ok(mut file) = std::fs::OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .mode(0o600)
+                .open(folder.join("settings-crash.log"))
+            {
+                let _ = file.write_all(text.as_bytes());
+            }
         }
         previous(info);
     }));

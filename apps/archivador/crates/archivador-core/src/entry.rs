@@ -18,11 +18,13 @@ pub struct Entry {
     pub is_link: bool,
     pub size: u64,
     pub modified: Option<SystemTime>,
+    /// The folder's `.hidden` file names it.
+    pub listed_hidden: bool,
 }
 
 impl Entry {
     pub fn is_hidden(&self) -> bool {
-        self.name.starts_with('.')
+        self.listed_hidden || self.name.starts_with('.')
     }
 
     /// The extension without its dot, lower case; empty for folders and names without one.
@@ -52,16 +54,26 @@ impl Entry {
             is_link,
             size: if meta.is_dir() { 0 } else { meta.len() },
             modified: meta.modified().ok(),
+            listed_hidden: false,
             path,
         })
     }
 }
 
 /// Reads a folder. Entries that vanish while it is read are left out.
+///
+/// Names in the folder's `.hidden` file (one per line, the way GNOME's file managers read it) are
+/// marked as hidden, so the aliases Nodalix keeps for old folder names do not show up twice.
 pub fn read_dir(path: &Path) -> io::Result<Vec<Entry>> {
+    let hidden = std::fs::read_to_string(path.join(".hidden")).unwrap_or_default();
+    let hidden: Vec<&str> = hidden.lines().map(str::trim).collect();
     Ok(std::fs::read_dir(path)?
         .filter_map(Result::ok)
         .filter_map(|e| Entry::at(e.path()))
+        .map(|mut entry| {
+            entry.listed_hidden = hidden.contains(&entry.name.as_str());
+            entry
+        })
         .collect())
 }
 
@@ -113,12 +125,34 @@ mod tests {
             is_link: false,
             size,
             modified: Some(SystemTime::UNIX_EPOCH + Duration::from_secs(secs)),
+            listed_hidden: false,
         }
     }
 
     fn sorted(mut v: Vec<Entry>, key: SortKey, desc: bool) -> Vec<String> {
         v.sort_by(|a, b| compare(a, b, key, desc));
         v.into_iter().map(|e| e.name).collect()
+    }
+
+    #[test]
+    fn the_hidden_file_hides_what_it_names() {
+        let dir = std::env::temp_dir().join(format!("archivador-hidden-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("Aplicaciones")).unwrap();
+        std::os::unix::fs::symlink("Aplicaciones", dir.join("Applications")).unwrap();
+        std::fs::write(dir.join(".hidden"), "Applications\n  \nAbsent\n").unwrap();
+        let entries = read_dir(&dir).unwrap();
+        let shown: Vec<&str> = entries
+            .iter()
+            .filter(|e| matches(e, false, ""))
+            .map(|e| e.name.as_str())
+            .collect();
+        assert_eq!(shown, ["Aplicaciones"]);
+        // Showing hidden files shows it again.
+        assert!(entries
+            .iter()
+            .any(|e| matches(e, true, "") && e.name == "Applications"));
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]

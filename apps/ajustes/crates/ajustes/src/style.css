@@ -78,3 +78,15 @@
 .numeric {
   font-feature-settings: "tnum";
 }
+
+/* The user's picture, round. */
+.settings-avatar {
+  border-radius: 999px;
+  background-color: var(--ndl-color-surface-sunken);
+}
+
+/* The section titles in the sidebar are not buttons: the pointer passing over one shows nothing.
+ * The pages, which are, keep NDL's hover tint. */
+.navigation-sidebar > row:not(.activatable):hover {
+  background-color: transparent;
+}

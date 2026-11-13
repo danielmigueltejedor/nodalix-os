@@ -72,6 +72,11 @@
   opacity: 1;
 }
 
+/* An account in the cloud that is not mounted. */
+.archivador-offline {
+  opacity: 0.6;
+}
+
 /* The properties dialog. */
 .archivador-properties {
   padding: var(--ndl-space-xl);

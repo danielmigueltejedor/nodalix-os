@@ -52,6 +52,28 @@ pub fn standard(home: &Path, user_dirs: &str, exists: impl Fn(&Path) -> bool) ->
     places
 }
 
+/// The Applications folder, which is one of Nodalix's own places. `layout` is the text of
+/// `~/.local/state/nodalix/layout/paths.json`, where Nodalix's layout service records which of
+/// `Aplicaciones` and `Applications` is the real one (the other is a link to it); without it the
+/// first of the two that exists is taken.
+pub fn applications(home: &Path, layout: &str, exists: impl Fn(&Path) -> bool) -> Option<Place> {
+    let recorded = serde_json::from_str::<serde_json::Value>(layout)
+        .ok()
+        .and_then(|v| v.get("applications")?.as_str().map(PathBuf::from))
+        .filter(|p| p.parent() == Some(home) && exists(p));
+    let path = recorded.or_else(|| {
+        ["Aplicaciones", "Applications"]
+            .iter()
+            .map(|name| home.join(name))
+            .find(|p| exists(p))
+    })?;
+    Some(Place {
+        title: "Applications",
+        icon: "view-app-grid-symbolic",
+        path,
+    })
+}
+
 /// `XDG_<key>_DIR="$HOME/Music"` in `user-dirs.dirs`.
 fn user_dir(text: &str, key: &str, home: &Path) -> Option<PathBuf> {
     let prefix = format!("XDG_{key}_DIR=");
@@ -138,6 +160,23 @@ mod tests {
                 ("Videos", "/home/a/Videos"),
             ]
         );
+    }
+
+    #[test]
+    fn the_applications_folder_is_the_recorded_one_or_the_first_that_exists() {
+        let home = Path::new("/home/a");
+        let layout = r#"{"applications": "/home/a/Applications"}"#;
+        let place = applications(home, layout, |_| true).unwrap();
+        assert_eq!(place.path, Path::new("/home/a/Applications"));
+        let place = applications(home, "", |_| true).unwrap();
+        assert_eq!(place.path, Path::new("/home/a/Aplicaciones"));
+        let place = applications(home, "", |p| p.ends_with("Applications")).unwrap();
+        assert_eq!(place.path, Path::new("/home/a/Applications"));
+        // A record that points outside the home folder, or at nothing, is not trusted.
+        let elsewhere = r#"{"applications": "/etc"}"#;
+        let place = applications(home, elsewhere, |p| p.ends_with("Aplicaciones")).unwrap();
+        assert_eq!(place.path, Path::new("/home/a/Aplicaciones"));
+        assert!(applications(home, "", |_| false).is_none());
     }
 
     #[test]

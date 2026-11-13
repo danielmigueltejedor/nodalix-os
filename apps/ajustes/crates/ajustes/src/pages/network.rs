@@ -1,5 +1,6 @@
 //! Network: whether there is internet, and the wired adapters with their address and a switch to
-//! connect or disconnect each. VPN, proxy and addresses stay in the previous panel.
+//! connect or disconnect each, the VPN connections and the proxy. Addresses and DNS stay in the
+//! previous panel.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -11,7 +12,7 @@ use nodalia_gtk::{
 };
 
 use super::nm::{DEVICE, IP4_CONFIG, NM, NM_PATH};
-use super::{bus, column, gs, scroller};
+use super::{addresses, bus, column, proxy, scroller, vpn};
 use crate::i18n::tr;
 
 const POLL_SECONDS: u32 = 5;
@@ -35,6 +36,9 @@ pub struct NetworkPage {
     toasts: RefCell<Option<ndl::ToastOverlay>>,
     bus: Rc<bus::SystemRefresh>,
     internet: ndl::ActionRow,
+    internet_icon: gtk::Image,
+    vpn: Rc<vpn::VpnGroup>,
+    addresses: Rc<addresses::AddressGroup>,
     wired: ndl::PreferencesGroup,
     rows: RefCell<Vec<ndl::ActionRow>>,
     shown: RefCell<Vec<Adapter>>,
@@ -95,6 +99,21 @@ async fn read(connection: &gio::DBusConnection) -> Option<Reading> {
     })
 }
 
+/// Icons for a connectivity state, each list tried in order: a theme may lack some names.
+fn connectivity_icons(state: u32) -> &'static [&'static str] {
+    match state {
+        4 => &[
+            "network-transmit-receive-symbolic",
+            "network-wired-symbolic",
+        ],
+        3 | 2 => &["network-error-symbolic", "network-wired-symbolic"],
+        _ => &[
+            "network-offline-symbolic",
+            "network-wired-disconnected-symbolic",
+        ],
+    }
+}
+
 fn connectivity_text(state: u32) -> &'static str {
     match state {
         4 => tr("Connected to the internet"),
@@ -122,6 +141,8 @@ impl NetworkPage {
         let internet = ndl::ActionRow::builder()
             .title(tr("Looking for the network…"))
             .build();
+        let internet_icon = gtk::Image::from_icon_name("network-offline-symbolic");
+        internet.add_prefix(&internet_icon);
         top.add(&internet);
         content.append(&top);
 
@@ -129,19 +150,22 @@ impl NetworkPage {
         wired.set_visible(false);
         content.append(&wired);
 
-        let more = ndl::PreferencesGroup::new();
-        more.add(&gs::legacy_link(
-            tr("Advanced settings"),
-            tr("VPN, proxy and addresses"),
-            "network",
-        ));
-        content.append(&more);
+        let vpn = vpn::VpnGroup::new();
+        content.append(&vpn.group);
+        for group in proxy::groups() {
+            content.append(&group);
+        }
+        let addresses = addresses::AddressGroup::new();
+        content.append(&addresses.group);
 
         let page = Rc::new(Self {
             widget: scroller(&content),
             toasts: RefCell::new(None),
             bus: Rc::default(),
             internet,
+            internet_icon,
+            vpn,
+            addresses,
             wired,
             rows: RefCell::new(Vec::new()),
             shown: RefCell::new(Vec::new()),
@@ -164,6 +188,8 @@ impl NetworkPage {
 
     pub fn set_toasts(&self, toasts: &ndl::ToastOverlay) {
         *self.toasts.borrow_mut() = Some(toasts.clone());
+        self.vpn.set_toasts(toasts);
+        self.addresses.set_toasts(toasts);
     }
 
     fn toast(&self, text: &str) {
@@ -173,6 +199,7 @@ impl NetworkPage {
     }
 
     pub fn refresh(self: &Rc<Self>) {
+        self.vpn.refresh();
         let page = self.clone();
         self.bus.run(move |connection, guard| async move {
             let reading = match &connection {
@@ -194,6 +221,10 @@ impl NetworkPage {
     fn show(self: &Rc<Self>, reading: Reading) {
         self.internet
             .set_title(connectivity_text(reading.connectivity));
+        self.internet_icon
+            .set_from_gicon(&gio::ThemedIcon::from_names(connectivity_icons(
+                reading.connectivity,
+            )));
         self.wired.set_visible(!reading.adapters.is_empty());
         if *self.shown.borrow() == reading.adapters {
             return;
@@ -289,8 +320,8 @@ mod tests {
             "Could not connect",
             "Cable unplugged",
             "Wired",
-            "Advanced settings",
-            "VPN, proxy and addresses",
+            "Addresses and DNS",
+            "Set the IP address and name servers of a connection",
             "Looking for the network…",
         ] {
             assert!(crate::i18n::has_translation(text), "{text}");

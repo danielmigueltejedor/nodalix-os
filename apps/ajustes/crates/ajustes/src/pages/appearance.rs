@@ -1,6 +1,8 @@
 //! Appearance: colour scheme, accent, text size and animations, all GNOME settings the shell
 //! and the apps already read.
 
+use std::{cell::Cell, rc::Rc};
+
 use nodalia_gtk::{
     self as ndl, gtk,
     gtk::{gio, glib, prelude::*},
@@ -30,6 +32,41 @@ const ACCENTS: [(&str, &str); 9] = [
     ("Purple", "purple"),
     ("Slate", "slate"),
 ];
+
+/// How long a click is left to be drawn before the setting it asks for is written. Writing a
+/// style setting makes every app (and the shell) restyle at once, which can hold a frame for a
+/// while, so the control is marked first and the system follows in the background.
+const MARK_FIRST: std::time::Duration = std::time::Duration::from_millis(60);
+
+/// A setting written a moment after the click, once the click is on screen. Clicks made in the
+/// meantime replace the pending value, so only the last one is written.
+#[derive(Clone, Default)]
+struct Later {
+    wanted: Rc<Cell<Option<&'static str>>>,
+}
+
+impl Later {
+    /// Ask for `value`; it is written after the control has been drawn as chosen.
+    fn set(&self, settings: &gio::Settings, key: &'static str, value: &'static str) {
+        let queued = self.wanted.replace(Some(value)).is_some();
+        if queued {
+            return;
+        }
+        let (settings, wanted) = (settings.clone(), self.wanted.clone());
+        glib::timeout_add_local_once(MARK_FIRST, move || {
+            if let Some(value) = wanted.take() {
+                if settings.string(key) != value {
+                    let _ = settings.set_string(key, value);
+                }
+            }
+        });
+    }
+
+    /// A write is on its way: the control already shows what it will be.
+    fn pending(&self) -> bool {
+        self.wanted.get().is_some()
+    }
+}
 
 /// Index of `value` in a table, or 0.
 pub fn index_of(table: &[(&str, &str)], value: &str) -> u32 {
@@ -121,11 +158,12 @@ fn style_cards(settings: &gio::Settings) -> gtk::Box {
     let current =
         |settings: &gio::Settings| index_of(&SCHEMES, &settings.string("color-scheme")) as usize;
     buttons[current(settings)].set_active(true);
+    let later = Later::default();
     for (button, (_, value)) in buttons.iter().zip(SCHEMES) {
-        let settings = settings.clone();
+        let (settings, later) = (settings.clone(), later.clone());
         button.connect_toggled(move |b| {
-            if b.is_active() && settings.string("color-scheme") != value {
-                let _ = settings.set_string("color-scheme", value);
+            if b.is_active() {
+                later.set(&settings, "color-scheme", value);
             }
         });
         cards.append(button);
@@ -133,6 +171,9 @@ fn style_cards(settings: &gio::Settings) -> gtk::Box {
     {
         let buttons = buttons.clone();
         settings.connect_changed(Some("color-scheme"), move |settings, _| {
+            if later.pending() {
+                return;
+            }
             let wanted = current(settings);
             if !buttons[wanted].is_active() {
                 buttons[wanted].set_active(true);
@@ -166,11 +207,12 @@ fn accent_swatches(settings: &gio::Settings) -> gtk::Box {
     let current =
         |settings: &gio::Settings| index_of(&ACCENTS, &settings.string("accent-color")) as usize;
     buttons[current(settings)].set_active(true);
+    let later = Later::default();
     for (button, (_, value)) in buttons.iter().zip(ACCENTS) {
-        let settings = settings.clone();
+        let (settings, later) = (settings.clone(), later.clone());
         button.connect_toggled(move |b| {
-            if b.is_active() && settings.string("accent-color") != value {
-                let _ = settings.set_string("accent-color", value);
+            if b.is_active() {
+                later.set(&settings, "accent-color", value);
             }
         });
         swatches.append(button);
@@ -178,6 +220,9 @@ fn accent_swatches(settings: &gio::Settings) -> gtk::Box {
     {
         let buttons = buttons.clone();
         settings.connect_changed(Some("accent-color"), move |settings, _| {
+            if later.pending() {
+                return;
+            }
             let wanted = current(settings);
             if !buttons[wanted].is_active() {
                 buttons[wanted].set_active(true);

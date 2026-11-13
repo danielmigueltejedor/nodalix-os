@@ -66,6 +66,7 @@ pub const SECTIONS: &[(&str, &[Page])] = &[
                 "network-transmit-receive-symbolic",
             ),
             native("online-accounts", "Online accounts", "goa-panel-symbolic"),
+            native("cloud", "Cloud storage", "folder-remote-symbolic"),
         ],
     ),
     (
@@ -89,6 +90,7 @@ pub const SECTIONS: &[(&str, &[Page])] = &[
                 "preferences-system-notifications-symbolic",
             ),
             native("multitasking", "Multitasking", "view-grid-symbolic"),
+            native("storage", "Storage", "drive-harddisk-symbolic"),
             native("applications", "Apps", "view-app-grid-symbolic"),
             native(
                 "privacy",

@@ -3,6 +3,7 @@
 //! The window (`archivador`) only draws this and forwards what the user does.
 
 pub mod clipboard;
+pub mod cloud;
 pub mod entry;
 pub mod format;
 pub mod history;

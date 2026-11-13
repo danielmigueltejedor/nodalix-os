@@ -63,8 +63,30 @@ fn folder_icon_name(path: &std::path::Path) -> &'static str {
         .map_or("folder", |(_, name)| name)
 }
 
+/// The picture the file carries as its own: the icon GNOME's file managers keep in the file's
+/// `metadata::custom-icon`, as Nodalix's Applications folder does for each of its apps.
+fn custom_icon(entry: &Entry) -> Option<gio::Icon> {
+    const KEY: &str = "metadata::custom-icon";
+    let info = gio::File::for_path(&entry.path)
+        .query_info(KEY, gio::FileQueryInfoFlags::NONE, gio::Cancellable::NONE)
+        .ok()?;
+    let value = info.attribute_string(KEY)?;
+    let file = if value.starts_with('/') {
+        gio::File::for_path(value.as_str())
+    } else if value.starts_with("file:") {
+        gio::File::for_uri(&value)
+    } else {
+        return None;
+    };
+    file.query_exists(gio::Cancellable::NONE)
+        .then(|| gio::FileIcon::new(&file).upcast())
+}
+
 /// The names to try for this file, most specific first.
 pub fn icon_for(entry: &Entry) -> gio::Icon {
+    if let Some(icon) = custom_icon(entry) {
+        return icon;
+    }
     if entry.is_dir {
         return gio::ThemedIcon::from_names(&[folder_icon_name(&entry.path), "folder"]).upcast();
     }
@@ -89,28 +111,4 @@ pub fn show(image: &gtk::Image, entry: &Entry) {
         )
     });
     image.set_paintable(Some(&icon));
-}
-
-/// The columns view's glyph, which no icon theme has: three columns, drawn like the NDL icons.
-const COLUMNS_GLYPH: &str = r#"<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><rect class="transparent-fill foreground-stroke" fill="none" stroke="rgb(0,0,0)" stroke-width="2.25" stroke-linejoin="round" x="3.5" y="4.5" width="17" height="15" rx="2"/><path class="transparent-fill foreground-stroke" fill="none" stroke="rgb(0,0,0)" stroke-width="2.25" stroke-linecap="round" d="M9.2 4.5v15M14.8 4.5v15"/></svg>"#;
-
-/// An image of that glyph, in the colour of the text around it.
-pub fn columns_glyph() -> gtk::Image {
-    let path = glib::user_cache_dir()
-        .join("nodalix")
-        .join("archivador")
-        .join("view-columns-symbolic.svg");
-    let written = path.exists()
-        || path
-            .parent()
-            .is_some_and(|dir| std::fs::create_dir_all(dir).is_ok())
-            && std::fs::write(&path, COLUMNS_GLYPH).is_ok();
-    if written {
-        let icon = gtk::IconPaintable::for_file(&gio::File::for_path(&path), 16, 1);
-        let image = gtk::Image::from_paintable(Some(&icon));
-        image.set_pixel_size(16);
-        image
-    } else {
-        gtk::Image::from_icon_name("view-dual-symbolic")
-    }
 }

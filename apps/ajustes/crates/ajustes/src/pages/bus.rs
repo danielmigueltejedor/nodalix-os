@@ -154,6 +154,30 @@ pub async fn call_slow(
     .await
 }
 
+/// Like `call`, for a method that needs the person's authorisation: polkit may ask for the
+/// password of an administrator, so the call waits for as long as that takes (two minutes).
+pub async fn call_authorised(
+    connection: &gio::DBusConnection,
+    name: &str,
+    path: &str,
+    interface: &str,
+    method: &str,
+    parameters: Option<&glib::Variant>,
+) -> Result<glib::Variant, glib::Error> {
+    connection
+        .call_future(
+            Some(name),
+            path,
+            interface,
+            method,
+            parameters,
+            None,
+            gio::DBusCallFlags::ALLOW_INTERACTIVE_AUTHORIZATION,
+            120_000,
+        )
+        .await
+}
+
 async fn call_for(
     connection: &gio::DBusConnection,
     name: &str,

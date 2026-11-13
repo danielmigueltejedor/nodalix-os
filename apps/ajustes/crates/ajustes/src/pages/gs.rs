@@ -70,8 +70,16 @@ pub fn icon_for(key: &str) -> Option<&'static str> {
         ("visual-bell", "display-brightness-symbolic"),
         ("automatic-timezone", "find-location-symbolic"),
         ("show-banners", "preferences-system-notifications-symbolic"),
+        ("sleep-inactive-ac", "ac-adapter-symbolic"),
         ("battery", "battery-symbolic"),
         ("power-saver", "battery-symbolic"),
+        ("num-workspaces", "view-grid-symbolic"),
+        ("dynamic-workspaces", "list-add-symbolic"),
+        ("workspaces-only-on-primary", "video-display-symbolic"),
+        ("current-workspace-only", "window-new-symbolic"),
+        ("repeat-interval", "view-refresh-symbolic"),
+        ("natural-scroll", "go-down-symbolic"),
+        ("double-click", "input-mouse-symbolic"),
         ("remember-app-usage", "view-app-grid-symbolic"),
         ("remove-old-temp", "edit-clear-all-symbolic"),
         ("remove-old-trash", "user-trash-symbolic"),
@@ -83,17 +91,19 @@ pub fn icon_for(key: &str) -> Option<&'static str> {
         ("idle-dim", "display-brightness-symbolic"),
         ("idle", "preferences-system-time-symbolic"),
         ("power-button", "system-shutdown-symbolic"),
-        ("sleep", "system-suspend-symbolic"),
+        ("sleep", "weather-clear-night-symbolic"),
         ("tap", "input-touchpad-symbolic"),
         ("click", "input-touchpad-symbolic"),
         ("scroll", "input-touchpad-symbolic"),
         ("send-events", "input-touchpad-symbolic"),
-        ("accel", "input-mouse-symbolic"),
-        ("speed", "input-mouse-symbolic"),
+        ("accel", "view-refresh-symbolic"),
+        ("speed", "media-seek-forward-symbolic"),
+        ("cursor-size", "format-text-larger-symbolic"),
+        ("cursor-blink", "input-keyboard-symbolic"),
         ("cursor", "input-mouse-symbolic"),
         ("typing", "input-keyboard-symbolic"),
-        ("repeat", "input-keyboard-symbolic"),
-        ("delay", "input-keyboard-symbolic"),
+        ("repeat", "media-playlist-repeat-symbolic"),
+        ("delay", "alarm-symbolic"),
         ("event-sounds", "audio-volume-high-symbolic"),
         ("old-files", "user-trash-symbolic"),
         ("recent", "document-open-recent-symbolic"),
@@ -109,9 +119,8 @@ pub fn icon_for(key: &str) -> Option<&'static str> {
         ("hot-corner", "view-fullscreen-symbolic"),
         ("edge-tiling", "view-dual-symbolic"),
         ("animation", "media-playback-start-symbolic"),
-        ("cursor-blink", "input-keyboard-symbolic"),
-        ("high-contrast", "display-brightness-symbolic"),
-        ("large-text", "format-text-larger-symbolic"),
+        ("high-contrast", "preferences-color-symbolic"),
+        ("large-text", "font-x-generic-symbolic"),
         ("overlay-scrolling", "input-mouse-symbolic"),
     ];
     ICONS
@@ -374,6 +383,24 @@ mod tests {
         assert_eq!(
             icon_for("lock-enabled"),
             Some("system-lock-screen-symbolic")
+        );
+        // Neighbouring rows of a page do not share an icon.
+        let keys = [
+            "num-workspaces",
+            "dynamic-workspaces",
+            "workspaces-only-on-primary",
+            "current-workspace-only",
+        ];
+        let icons: std::collections::HashSet<_> = keys.iter().filter_map(|k| icon_for(k)).collect();
+        assert_eq!(icons.len(), keys.len());
+        let typing: std::collections::HashSet<_> = ["repeat", "delay", "repeat-interval"]
+            .iter()
+            .filter_map(|k| icon_for(k))
+            .collect();
+        assert_eq!(typing.len(), 3);
+        assert_eq!(
+            icon_for("sleep-inactive-ac-type"),
+            Some("ac-adapter-symbolic")
         );
         assert_eq!(icon_for("something-unknown"), None);
     }

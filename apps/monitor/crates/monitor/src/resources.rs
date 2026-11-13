@@ -16,7 +16,7 @@ pub struct ResourceView {
     cpu_value: gtk::Label,
     cpu_graph: Graph,
     cores_label: gtk::Label,
-    core_grid: gtk::FlowBox,
+    core_grid: gtk::Grid,
     /// One bar per online core, by core number; follows cores coming and going.
     core_bars: RefCell<Vec<(u32, gtk::ProgressBar)>>,
     mem_value: gtk::Label,
@@ -29,6 +29,10 @@ pub struct ResourceView {
     up_value: gtk::Label,
     down_graph: Graph,
     up_graph: Graph,
+    read_value: gtk::Label,
+    write_value: gtk::Label,
+    read_graph: Graph,
+    write_graph: Graph,
     rate_history: RefCell<(VecDeque<f64>, VecDeque<f64>)>,
 }
 
@@ -85,15 +89,13 @@ impl ResourceView {
         let (cpu_card, _) = card(tr("CPU"), model.as_deref());
         let cpu_value = big_value();
         let cpu_graph = Graph::new("monitor-graph-accent", 1.0);
+        cpu_graph.area.set_content_height(96);
         cpu_card.append(&cpu_value);
         cpu_card.append(&cpu_graph.area);
         let cores_label = dim();
         cpu_card.append(&cores_label);
-        let grid = gtk::FlowBox::new();
-        grid.set_selection_mode(gtk::SelectionMode::None);
-        grid.set_min_children_per_line(2);
-        grid.set_max_children_per_line(16);
-        grid.set_homogeneous(true);
+        let grid = gtk::Grid::new();
+        grid.set_column_homogeneous(true);
         grid.set_column_spacing(12);
         grid.set_row_spacing(6);
         cpu_card.append(&grid);
@@ -102,6 +104,7 @@ impl ResourceView {
         let mem_value = big_value();
         let mem_detail = dim();
         let mem_graph = Graph::new("monitor-graph-success", 1.0);
+        mem_graph.area.set_content_height(64);
         mem_card.append(&mem_value);
         mem_card.append(&mem_detail);
         mem_card.append(&mem_graph.area);
@@ -109,6 +112,7 @@ impl ResourceView {
         let swap_value = big_value();
         let swap_detail = dim();
         let swap_graph = Graph::new("monitor-graph-warning", 1.0);
+        swap_graph.area.set_content_height(64);
         swap_card.append(&swap_value);
         swap_card.append(&swap_detail);
         swap_card.append(&swap_graph.area);
@@ -117,13 +121,29 @@ impl ResourceView {
         let down_value = dim();
         let up_value = dim();
         let down_graph = Graph::new("monitor-graph-info", 1.0);
+        down_graph.area.set_content_height(80);
         let up_graph = Graph::new("monitor-graph-warning", 1.0);
+        up_graph.area.set_content_height(80);
         let stack = gtk::Overlay::new();
         stack.set_child(Some(&down_graph.area));
         stack.add_overlay(&up_graph.area);
         net_card.append(&down_value);
         net_card.append(&up_value);
         net_card.append(&stack);
+
+        let (disk_card, _) = card(tr("Disk"), None);
+        let read_value = dim();
+        let write_value = dim();
+        let read_graph = Graph::new("monitor-graph-info", 1.0);
+        read_graph.area.set_content_height(80);
+        let write_graph = Graph::new("monitor-graph-warning", 1.0);
+        write_graph.area.set_content_height(80);
+        let disk_stack = gtk::Overlay::new();
+        disk_stack.set_child(Some(&read_graph.area));
+        disk_stack.add_overlay(&write_graph.area);
+        disk_card.append(&read_value);
+        disk_card.append(&write_value);
+        disk_card.append(&disk_stack);
 
         let content = gtk::Box::new(gtk::Orientation::Vertical, 12);
         content.set_margin_start(8);
@@ -135,7 +155,11 @@ impl ResourceView {
         pair.append(&mem_card);
         pair.append(&swap_card);
         content.append(&pair);
-        content.append(&net_card);
+        let io = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+        io.set_homogeneous(true);
+        io.append(&net_card);
+        io.append(&disk_card);
+        content.append(&io);
         let widget = gtk::ScrolledWindow::builder()
             .child(&content)
             .vexpand(true)
@@ -158,6 +182,10 @@ impl ResourceView {
             up_value,
             down_graph,
             up_graph,
+            read_value,
+            write_value,
+            read_graph,
+            write_graph,
             rate_history: RefCell::new((VecDeque::new(), VecDeque::new())),
         }
     }
@@ -170,12 +198,12 @@ impl ResourceView {
             bars.len() == cores.len() && bars.iter().zip(cores).all(|((a, _), (b, _))| a == b);
         if !same {
             for (_, bar) in bars.drain(..) {
-                // The bar sits in a cell that sits in the grid's own child.
-                if let Some(slot) = bar.parent().and_then(|cell| cell.parent()) {
-                    self.core_grid.remove(&slot);
+                if let Some(cell) = bar.parent() {
+                    self.core_grid.remove(&cell);
                 }
             }
-            for (id, _) in cores {
+            let columns = core_columns(cores.len());
+            for (index, (id, _)) in cores.iter().enumerate() {
                 let cell = gtk::Box::new(gtk::Orientation::Horizontal, 8);
                 let number = gtk::Label::new(Some(&(id + 1).to_string()));
                 number.add_css_class("dim-label");
@@ -189,7 +217,13 @@ impl ResourceView {
                 bar.set_tooltip_text(Some(&format!("{} {}", tr("CPU"), id + 1)));
                 cell.append(&number);
                 cell.append(&bar);
-                self.core_grid.append(&cell);
+                self.core_grid.attach(
+                    &cell,
+                    (index % columns) as i32,
+                    (index / columns) as i32,
+                    1,
+                    1,
+                );
                 bars.push((*id, bar));
             }
             self.cores_label
@@ -245,12 +279,49 @@ impl ResourceView {
             .max(100.0 * 1024.0);
         self.down_graph.set_max(top);
         self.up_graph.set_max(top);
+
+        self.read_value.set_text(&format!(
+            "{}  {}/s",
+            tr("Read"),
+            format_bytes(s.disk.0 as u64)
+        ));
+        self.write_value.set_text(&format!(
+            "{}  {}/s",
+            tr("Write"),
+            format_bytes(s.disk.1 as u64)
+        ));
+        self.read_graph.push(s.disk.0);
+        self.write_graph.push(s.disk.1);
+        let top = self
+            .read_graph
+            .peak()
+            .max(self.write_graph.peak())
+            .max(1024.0 * 1024.0);
+        self.read_graph.set_max(top);
+        self.write_graph.set_max(top);
     }
+}
+
+/// How many bars go on a row: as many rows as eight columns need, then the columns that spread
+/// the cores evenly over them, so twelve cores are two rows of six and not five and five and two.
+fn core_columns(cores: usize) -> usize {
+    let rows = cores.div_ceil(8).max(1);
+    cores.div_ceil(rows).max(1)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_cores_fill_even_rows() {
+        assert_eq!(core_columns(0), 1);
+        assert_eq!(core_columns(4), 4);
+        assert_eq!(core_columns(8), 8);
+        assert_eq!(core_columns(12), 6);
+        assert_eq!(core_columns(16), 8);
+        assert_eq!(core_columns(20), 7);
+    }
 
     #[test]
     fn the_detail_says_how_much_of_the_total_is_used() {
