@@ -433,4 +433,3 @@ def _published_digest(url: str, name: str, opener) -> str:
         if match and Path(match.group(2)).name == name:
             return match.group(1).lower()
     raise NxpmError("failed", "The release does not list a checksum for this AppImage.")
-
