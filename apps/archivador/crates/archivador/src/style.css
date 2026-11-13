@@ -183,7 +183,13 @@
 }
 
 .archivador-tile {
-  padding: var(--ndl-space-md);
+  padding: var(--ndl-space-sm);
+}
+
+/* A gap between the tiles, so there is empty ground between them to start a selection box on
+ * or to hold on to when scrolling: the tiles alone filled the whole view. */
+gridview.archivador-files > child {
+  margin: var(--ndl-space-sm);
 }
 
 .archivador-meta {

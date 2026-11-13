@@ -826,7 +826,17 @@ impl Browser {
                 }
             })
         };
+        let press: Rc<dyn Fn(u32)> = {
+            let this = self.weak();
+            Rc::new(move |position| {
+                let Some(this) = this.upgrade() else { return };
+                if !this.selection.is_selected(position) {
+                    this.selection.select_item(position, true);
+                }
+            })
+        };
         let hooks = Hooks {
+            press,
             menu,
             drag_paths,
             drop_into,
