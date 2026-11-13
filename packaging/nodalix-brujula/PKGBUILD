@@ -1,0 +1,49 @@
+# Brújula, the Nodalix web browser (Rust, WebKit, Nodalia Design Language), built from
+# danielmigueltejedor/brujula pinned to an exact release commit like every other external
+# Nodalix source.
+pkgname=nodalix-brujula
+pkgver=0.2.0
+pkgrel=1
+_brujula_commit=4f42d39a044a62498261de95c7e0274d42de5770
+pkgdesc='Brújula: the default web browser of Nodalix OS (WebKit, vertical tabs, ad blocker, passwords)'
+arch=('x86_64')
+url='https://github.com/danielmigueltejedor/brujula'
+license=('GPL-3.0-or-later')
+depends=('gtk4' 'webkitgtk-6.0' 'libsoup3' 'hicolor-icon-theme')
+makedepends=('cargo' 'pkgconf')
+provides=('brujula' 'webbrowser')
+conflicts=('brujula')
+replaces=('brujula')
+source=("brujula-$_brujula_commit.tar.gz::https://codeload.github.com/danielmigueltejedor/brujula/tar.gz/$_brujula_commit")
+sha256sums=('c93c7b6799add997dbbfd5d3bce174264cf3c530f47a83f387375e2e6ffe8f0f')
+
+prepare() {
+  cd "$srcdir/brujula-$_brujula_commit"
+  export RUSTUP_TOOLCHAIN=stable
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+  cd "$srcdir/brujula-$_brujula_commit"
+  export RUSTUP_TOOLCHAIN=stable CARGO_TARGET_DIR="$srcdir/target"
+  cargo build --frozen --release -p brujula
+}
+
+package() {
+  cd "$srcdir/brujula-$_brujula_commit"
+  install -Dm755 "$srcdir/target/release/brujula" "$pkgdir/usr/bin/brujula"
+  install -Dm644 packaging/dev.danielmiguelt.Brujula.desktop \
+    "$pkgdir/usr/share/applications/dev.danielmiguelt.Brujula.desktop"
+  install -Dm644 packaging/icons/dev.danielmiguelt.Brujula.svg \
+    "$pkgdir/usr/share/icons/hicolor/scalable/apps/dev.danielmiguelt.Brujula.svg"
+  # Default browser. The session is XDG_CURRENT_DESKTOP=GNOME; this file sits in the config
+  # directory so it does not clash with gnome-mimeapps.list in the data directory.
+  install -Dm644 /dev/stdin "$pkgdir/etc/xdg/gnome-mimeapps.list" <<'MIME'
+[Default Applications]
+text/html=dev.danielmiguelt.Brujula.desktop
+application/xhtml+xml=dev.danielmiguelt.Brujula.desktop
+x-scheme-handler/http=dev.danielmiguelt.Brujula.desktop
+x-scheme-handler/https=dev.danielmiguelt.Brujula.desktop
+MIME
+  install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/COPYING"
+}

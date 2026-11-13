@@ -1,6 +1,6 @@
 # Rebuild and validate this fork for every Nodalix and GNOME update.
 pkgname=nodalix-gnome-shell
-pkgver=0.5.2
+pkgver=0.6.0
 pkgrel=1
 _gnomever=51.1
 _upstream_commit=33da06854e229c256afd5872fedd83c28cbfa176
