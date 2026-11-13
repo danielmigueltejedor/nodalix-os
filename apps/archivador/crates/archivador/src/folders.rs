@@ -13,7 +13,7 @@ use ndl::gtk::{gio, glib, prelude::*};
 use nodalia_gtk as ndl;
 
 /// Bump when a drawing changes, so a copy cached by an older version is not reused.
-const VERSION: u32 = 8;
+const VERSION: u32 = 9;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Kind {
@@ -145,15 +145,15 @@ impl Color {
     /// the dozen, and nine loud colours side by side would shout.
     fn hue(self) -> (f32, f32) {
         match self {
-            Color::Teal => (187.0, 0.52),
-            Color::Blue => (214.0, 0.64),
-            Color::Violet => (257.0, 0.52),
-            Color::Pink => (332.0, 0.54),
-            Color::Red => (358.0, 0.60),
-            Color::Orange => (24.0, 0.72),
-            Color::Yellow => (42.0, 0.80),
-            Color::Green => (146.0, 0.40),
-            Color::Graphite => (220.0, 0.09),
+            Color::Teal => (187.0, 0.46),
+            Color::Blue => (214.0, 0.56),
+            Color::Violet => (257.0, 0.44),
+            Color::Pink => (332.0, 0.46),
+            Color::Red => (358.0, 0.52),
+            Color::Orange => (24.0, 0.62),
+            Color::Yellow => (42.0, 0.66),
+            Color::Green => (146.0, 0.34),
+            Color::Graphite => (220.0, 0.08),
         }
     }
 
@@ -176,41 +176,31 @@ impl Color {
     }
 }
 
-/// The drawing, on a 128 px grid, flat and in two tones of one colour: the back of the folder
-/// with its tab, the front a lighter tone with a hairline of light along its top, and the glyph in
-/// the middle of the front in a deep tone. No shadows and no gloss: the shape does the work. A
-/// folder that holds something shows two sheets of paper standing in it, above the front.
+/// The drawing, on a 128 px grid, as flat as Adwaita's folders and quieter than ours were: the
+/// back of the folder with its tab and the front in front of it, two tones of one soft colour,
+/// and the glyph drawn on the front in a thin line only a little darker than the front itself.
+/// No gradients, no highlights and no shadows. A folder that holds something shows a sheet of
+/// paper standing in it, above the front.
 fn drawing(kind: Kind, color: Color, full: bool) -> String {
-    let ink = color.shade(0.36);
+    let back = color.shade(0.50);
+    let front = color.shade(0.64);
+    let ink = color.shade(0.42);
     let glyph = kind.glyph().map_or(String::new(), |g| {
         let filled = g.replace("#fff", &ink);
         format!(
-            r##"<g transform="translate(46 57) scale(1.5)" fill="none" stroke="{ink}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{filled}</g>"##
+            r##"<g transform="translate(47 56) scale(1.4)" fill="none" stroke="{ink}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">{filled}</g>"##
         )
     });
-    let back = color.shade(0.47);
-    let (front_top, front_bottom) = (color.shade(0.69), color.shade(0.63));
-    let light = color.shade(0.78);
-    let papers = if full {
-        let edge = color.shade(0.40);
-        format!(
-            r##"<g stroke="{edge}" stroke-opacity="0.45" stroke-width="1.300">
-<rect x="24" y="21" width="72" height="48" rx="4" fill="#eef1f6" transform="rotate(-4 60 45)"/>
-<rect x="31" y="25" width="70" height="48" rx="4" fill="#ffffff"/>
-</g>"##
-        )
+    let paper = if full {
+        r##"<rect x="26" y="24" width="76" height="46" rx="5" fill="#f2f4f8"/>
+"##
     } else {
-        String::new()
+        ""
     };
     format!(
         r##"<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-<defs>
-<linearGradient id="front" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{front_top}"/><stop offset="1" stop-color="{front_bottom}"/></linearGradient>
-</defs>
-<path fill="{back}" d="M15 32a10 10 0 0 1 10-10h21c3.600 0 6.400 1.300 8.800 4l3.400 3.800c2 2.200 4.300 3.200 7.300 3.200H103a10 10 0 0 1 10 10v53a10 10 0 0 1-10 10H25a10 10 0 0 1-10-10z"/>
-{papers}
-<path fill="url(#front)" d="M15 54a10 10 0 0 1 10-10h78a10 10 0 0 1 10 10v42a10 10 0 0 1-10 10H25a10 10 0 0 1-10-10z"/>
-<path fill="none" stroke="{light}" stroke-width="1.500" stroke-linecap="round" d="M24 44.750h80"/>
+<path fill="{back}" d="M14 34a10 10 0 0 1 10-10h22a10 10 0 0 1 7.600 3.500l3.800 4.400a10 10 0 0 0 7.600 3.500H104a10 10 0 0 1 10 10v47a10 10 0 0 1-10 10H24a10 10 0 0 1-10-10z"/>
+{paper}<path fill="{front}" d="M14 54a10 10 0 0 1 10-10h80a10 10 0 0 1 10 10v42a10 10 0 0 1-10 10H24a10 10 0 0 1-10-10z"/>
 {glyph}
 </svg>
 "##
@@ -276,8 +266,9 @@ mod tests {
         let empty = drawing(Kind::Plain, Color::Blue, false);
         assert!(full.contains("<rect"));
         assert!(!empty.contains("<rect"));
-        // The papers stand behind the front: drawn before it.
-        assert!(full.find("<rect").unwrap() < full.find("url(#front)\"").unwrap());
+        // The paper stands behind the front: drawn before it.
+        let front = Color::Blue.shade(0.64);
+        assert!(full.find("<rect").unwrap() < full.find(&format!("fill=\"{front}\"")).unwrap());
     }
 
     #[test]
@@ -300,7 +291,7 @@ mod tests {
         for color in Color::ALL {
             assert_eq!(Color::from_id(color.id()), Some(color));
             let svg = drawing(Kind::Documents, color, false);
-            assert!(svg.contains(&color.shade(0.69)));
+            assert!(svg.contains(&color.shade(0.64)));
             assert!(!svg.contains("NaN"));
         }
         assert_eq!(Color::from_id("magenta"), None);
