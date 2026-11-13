@@ -1,47 +1,14 @@
 //! The pages of Settings, in the order the sidebar shows them.
 
-/// How a page is provided.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Kind {
-    /// Built into this app.
-    Native,
-    /// Still the GNOME Control Center panel with this name, opened in its own window until it is
-    /// ported.
-    Legacy(&'static str),
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Page {
     pub id: &'static str,
     pub title: &'static str,
     pub icon: &'static str,
-    pub kind: Kind,
 }
 
 const fn native(id: &'static str, title: &'static str, icon: &'static str) -> Page {
-    Page {
-        id,
-        title,
-        icon,
-        kind: Kind::Native,
-    }
-}
-
-/// A page that opens the previous panel. Every page is native now; this stays for a page that
-/// is added before it is ported.
-#[allow(dead_code)]
-const fn legacy(
-    id: &'static str,
-    title: &'static str,
-    icon: &'static str,
-    panel: &'static str,
-) -> Page {
-    Page {
-        id,
-        title,
-        icon,
-        kind: Kind::Legacy(panel),
-    }
+    Page { id, title, icon }
 }
 
 /// Sections of the sidebar: a title (empty for none) and its pages.
@@ -206,27 +173,14 @@ mod tests {
 
     #[test]
     fn finds_by_id() {
-        assert_eq!(find("about").map(|p| p.kind), Some(Kind::Native));
-        assert_eq!(find("printers").map(|p| p.kind), Some(Kind::Native));
+        assert_eq!(find("about").map(|p| p.id), Some("about"));
+        assert_eq!(find("printers").map(|p| p.id), Some("printers"));
         assert!(find("nope").is_none());
     }
 
     #[test]
-    fn panels_are_plain_names_a_command_line_can_take() {
-        for page in all() {
-            if let Kind::Legacy(panel) = page.kind {
-                assert!(
-                    panel.chars().all(|c| c.is_ascii_lowercase() || c == '-'),
-                    "{panel} is not a panel name"
-                );
-            }
-        }
-    }
-
-    #[test]
-    fn the_native_pages_come_first() {
+    fn the_first_page_is_appearance() {
         assert_eq!(SECTIONS[0].1[0].id, "appearance");
-        assert!(SECTIONS[0].1.iter().all(|p| p.kind == Kind::Native));
     }
 
     #[test]

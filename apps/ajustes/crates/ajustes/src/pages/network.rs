@@ -1,6 +1,6 @@
 //! Network: whether there is internet, and the wired adapters with their address and a switch to
-//! connect or disconnect each, the VPN connections and the proxy. Addresses and DNS stay in the
-//! previous panel.
+//! connect or disconnect each, the VPN connections, the proxy, and the address and name servers of
+//! a saved connection.
 
 use std::cell::RefCell;
 use std::rc::Rc;
