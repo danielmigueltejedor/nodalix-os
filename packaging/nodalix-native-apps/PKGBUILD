@@ -1,0 +1,123 @@
+# The native Nodalix apps (apps/ in this repository), built once and split into one package per
+# app: building the shared GTK bindings three times would triple the compile time.
+#
+#   nodalix-ajustes     Settings; takes the place of GNOME Settings (nodalix-control-center)
+#   nodalix-monitor     System Monitor; takes the place of GNOME System Monitor
+#   nodalix-archivador  Files; takes the place of Nautilus
+#
+# Each one provides the GNOME package it replaces, so nothing that depends on those by name is
+# removed, and ships the small compatibility files other software still calls them by.
+pkgbase=nodalix-native-apps
+pkgname=(nodalix-ajustes nodalix-monitor nodalix-archivador)
+pkgver=0.6.0
+pkgrel=1
+pkgdesc="Native Nodalix apps on the Nodalia Design Language"
+arch=("x86_64")
+url="https://github.com/danielmigueltejedor/nodalix-os"
+license=("GPL-3.0-or-later" "MIT")
+makedepends=("rust" "pkgconf" "gtk4" "pango" "cairo" "glib2")
+source=("nodalix-native-apps-$pkgver.tar.zst")
+sha256sums=("SKIP")
+# The Rust code is built from the lock file, not from whatever is newest.
+options=("!lto")
+
+prepare() {
+  cd "$srcdir/apps"
+  cargo fetch --locked
+}
+
+build() {
+  cd "$srcdir/apps"
+  export CARGO_TARGET_DIR="$srcdir/target"
+  cargo build --frozen --release -p nodalix-settings -p nodalix-monitor -p nodalix-archivador
+}
+
+_licenses() {
+  # The NDL style sheets compiled into the apps are MIT-licensed.
+  install -Dm644 "$srcdir/ndl/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE-NDL"
+}
+
+_launcher() { # name target: a command other software still calls by its GNOME name
+  install -d "$pkgdir/usr/bin"
+  printf '#!/bin/sh\nexec %s "$@"\n' "$2" > "$pkgdir/usr/bin/$1"
+  chmod 755 "$pkgdir/usr/bin/$1"
+}
+
+package_nodalix-ajustes() {
+  pkgdesc="Nodalix Settings: the system settings app, on the Nodalia Design Language"
+  depends=("gtk4" "pango" "cairo" "glib2" "nodalix-settings>=0.5.2" "gnome-settings-daemon"
+           "networkmanager" "bluez" "power-profiles-daemon" "accountsservice" "polkit"
+           "colord" "cups" "upower" "udisks2" "gsettings-desktop-schemas" "xdg-utils")
+  optdepends=("rclone: cloud storage" "ffmpeg: video wallpaper thumbnails")
+  provides=("gnome-control-center=51.0")
+  conflicts=("nodalix-control-center" "gnome-control-center")
+  replaces=("nodalix-control-center")
+  install -Dm755 "$srcdir/target/release/nodalix-settings" "$pkgdir/usr/bin/nodalix-settings"
+  install -Dm644 "$srcdir/apps/ajustes/data/os.nodalix.Settings.desktop" \
+    "$pkgdir/usr/share/applications/os.nodalix.Settings.desktop"
+  # Shell, notifications and the network and Bluetooth indicators open Settings by the
+  # GNOME desktop id and command name.
+  _launcher gnome-control-center nodalix-settings
+  sed -e '/^Name\|^Comment\|^Keywords\|^GenericName\|^StartupWMClass/d' \
+      -e 's|^Exec=.*|Exec=nodalix-settings %U|' \
+      -e 's|^\[Desktop Entry\]|[Desktop Entry]\nName=Settings\nNoDisplay=true|' \
+      "$srcdir/apps/ajustes/data/os.nodalix.Settings.desktop" \
+    > "$pkgdir/usr/share/applications/org.gnome.Settings.desktop"
+  _licenses
+}
+
+package_nodalix-monitor() {
+  pkgdesc="Nodalix System Monitor: processes, resources and file systems, on NDL"
+  depends=("gtk4" "pango" "cairo" "glib2")
+  provides=("gnome-system-monitor=51.0")
+  conflicts=("gnome-system-monitor")
+  replaces=("gnome-system-monitor")
+  install -Dm755 "$srcdir/target/release/nodalix-monitor" "$pkgdir/usr/bin/nodalix-monitor"
+  install -Dm644 "$srcdir/apps/monitor/data/os.nodalix.Monitor.desktop" \
+    "$pkgdir/usr/share/applications/os.nodalix.Monitor.desktop"
+  _launcher gnome-system-monitor nodalix-monitor
+  sed -e '/^Name\|^Comment\|^Keywords\|^GenericName\|^StartupWMClass/d' \
+      -e 's|^Exec=.*|Exec=nodalix-monitor|' \
+      -e 's|^\[Desktop Entry\]|[Desktop Entry]\nName=System Monitor\nNoDisplay=true|' \
+      "$srcdir/apps/monitor/data/os.nodalix.Monitor.desktop" \
+    > "$pkgdir/usr/share/applications/org.gnome.SystemMonitor.desktop"
+  _licenses
+}
+
+package_nodalix-archivador() {
+  pkgdesc="Archivador: the Nodalix file manager, on the Nodalia Design Language"
+  depends=("gtk4" "pango" "cairo" "glib2" "gvfs" "shared-mime-info" "xdg-utils" "udisks2")
+  optdepends=("ffmpegthumbnailer: video thumbnails" "gvfs-mtp: phones" "gvfs-smb: network shares"
+              "nodalix-gnome: LocalSend sharing")
+  # Replaces the Nautilus-based Archivador of 0.5.x and Nautilus itself. Programs that ask for
+  # the file manager by name (nautilus, libnautilus-extension) keep finding one.
+  provides=("nautilus=51.1")
+  conflicts=("nautilus" "libnautilus-extension")
+  replaces=("nautilus")
+  install -Dm755 "$srcdir/target/release/nodalix-archivador" "$pkgdir/usr/bin/nodalix-archivador"
+  install -Dm644 "$srcdir/apps/archivador/data/os.nodalix.Archivador.desktop" \
+    "$pkgdir/usr/share/applications/os.nodalix.Archivador.desktop"
+  _launcher nautilus nodalix-archivador
+  # Software that asks for Nautilus by desktop id (dock favourites, saved defaults) still gets
+  # Archivador. Hidden, and without MimeType, so it never competes as a handler.
+  sed -e '/^Name\|^Comment\|^Keywords\|^GenericName\|^StartupWMClass\|^MimeType/d' \
+      -e 's|^Exec=.*|Exec=nodalix-archivador %U|' \
+      -e 's|^\[Desktop Entry\]|[Desktop Entry]\nName=Files\nNoDisplay=true|' \
+      "$srcdir/apps/archivador/data/os.nodalix.Archivador.desktop" \
+    > "$pkgdir/usr/share/applications/org.gnome.Nautilus.desktop"
+  # Default file manager. The session is XDG_CURRENT_DESKTOP=GNOME, so gnome-mimeapps.list is
+  # read before the generic mimeapps.list that other packages (the Store) ship.
+  install -Dm644 /dev/stdin "$pkgdir/usr/share/applications/gnome-mimeapps.list" <<'MIME'
+[Default Applications]
+inode/directory=os.nodalix.Archivador.desktop
+x-directory/normal=os.nodalix.Archivador.desktop
+application/x-gnome-saved-search=os.nodalix.Archivador.desktop
+MIME
+  # "Show in folder" in browsers, chat and game clients is a call on this bus name.
+  install -Dm644 /dev/stdin "$pkgdir/usr/share/dbus-1/services/org.freedesktop.FileManager1.service" <<'SERVICE'
+[D-BUS Service]
+Name=org.freedesktop.FileManager1
+Exec=/usr/bin/nodalix-archivador --gapplication-service
+SERVICE
+  _licenses
+}
