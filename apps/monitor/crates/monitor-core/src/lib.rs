@@ -3,6 +3,7 @@
 //! parses, so it is tested without a running system; the `read_*` functions only fetch that text.
 
 pub mod cpu;
+pub mod disk;
 pub mod fs;
 pub mod mem;
 pub mod net;

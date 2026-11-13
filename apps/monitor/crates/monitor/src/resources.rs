@@ -29,6 +29,10 @@ pub struct ResourceView {
     up_value: gtk::Label,
     down_graph: Graph,
     up_graph: Graph,
+    read_value: gtk::Label,
+    write_value: gtk::Label,
+    read_graph: Graph,
+    write_graph: Graph,
     rate_history: RefCell<(VecDeque<f64>, VecDeque<f64>)>,
 }
 
@@ -85,6 +89,7 @@ impl ResourceView {
         let (cpu_card, _) = card(tr("CPU"), model.as_deref());
         let cpu_value = big_value();
         let cpu_graph = Graph::new("monitor-graph-accent", 1.0);
+        cpu_graph.area.set_content_height(96);
         cpu_card.append(&cpu_value);
         cpu_card.append(&cpu_graph.area);
         let cores_label = dim();
@@ -99,6 +104,7 @@ impl ResourceView {
         let mem_value = big_value();
         let mem_detail = dim();
         let mem_graph = Graph::new("monitor-graph-success", 1.0);
+        mem_graph.area.set_content_height(64);
         mem_card.append(&mem_value);
         mem_card.append(&mem_detail);
         mem_card.append(&mem_graph.area);
@@ -106,6 +112,7 @@ impl ResourceView {
         let swap_value = big_value();
         let swap_detail = dim();
         let swap_graph = Graph::new("monitor-graph-warning", 1.0);
+        swap_graph.area.set_content_height(64);
         swap_card.append(&swap_value);
         swap_card.append(&swap_detail);
         swap_card.append(&swap_graph.area);
@@ -114,13 +121,29 @@ impl ResourceView {
         let down_value = dim();
         let up_value = dim();
         let down_graph = Graph::new("monitor-graph-info", 1.0);
+        down_graph.area.set_content_height(80);
         let up_graph = Graph::new("monitor-graph-warning", 1.0);
+        up_graph.area.set_content_height(80);
         let stack = gtk::Overlay::new();
         stack.set_child(Some(&down_graph.area));
         stack.add_overlay(&up_graph.area);
         net_card.append(&down_value);
         net_card.append(&up_value);
         net_card.append(&stack);
+
+        let (disk_card, _) = card(tr("Disk"), None);
+        let read_value = dim();
+        let write_value = dim();
+        let read_graph = Graph::new("monitor-graph-info", 1.0);
+        read_graph.area.set_content_height(80);
+        let write_graph = Graph::new("monitor-graph-warning", 1.0);
+        write_graph.area.set_content_height(80);
+        let disk_stack = gtk::Overlay::new();
+        disk_stack.set_child(Some(&read_graph.area));
+        disk_stack.add_overlay(&write_graph.area);
+        disk_card.append(&read_value);
+        disk_card.append(&write_value);
+        disk_card.append(&disk_stack);
 
         let content = gtk::Box::new(gtk::Orientation::Vertical, 12);
         content.set_margin_start(8);
@@ -132,7 +155,11 @@ impl ResourceView {
         pair.append(&mem_card);
         pair.append(&swap_card);
         content.append(&pair);
-        content.append(&net_card);
+        let io = gtk::Box::new(gtk::Orientation::Horizontal, 12);
+        io.set_homogeneous(true);
+        io.append(&net_card);
+        io.append(&disk_card);
+        content.append(&io);
         let widget = gtk::ScrolledWindow::builder()
             .child(&content)
             .vexpand(true)
@@ -155,6 +182,10 @@ impl ResourceView {
             up_value,
             down_graph,
             up_graph,
+            read_value,
+            write_value,
+            read_graph,
+            write_graph,
             rate_history: RefCell::new((VecDeque::new(), VecDeque::new())),
         }
     }
@@ -248,6 +279,26 @@ impl ResourceView {
             .max(100.0 * 1024.0);
         self.down_graph.set_max(top);
         self.up_graph.set_max(top);
+
+        self.read_value.set_text(&format!(
+            "{}  {}/s",
+            tr("Read"),
+            format_bytes(s.disk.0 as u64)
+        ));
+        self.write_value.set_text(&format!(
+            "{}  {}/s",
+            tr("Write"),
+            format_bytes(s.disk.1 as u64)
+        ));
+        self.read_graph.push(s.disk.0);
+        self.write_graph.push(s.disk.1);
+        let top = self
+            .read_graph
+            .peak()
+            .max(self.write_graph.peak())
+            .max(1024.0 * 1024.0);
+        self.read_graph.set_max(top);
+        self.write_graph.set_max(top);
     }
 }
 

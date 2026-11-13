@@ -5,6 +5,7 @@ use std::collections::{HashMap, VecDeque};
 use std::time::Instant;
 
 use monitor_core::cpu::{self, CpuSample};
+use monitor_core::disk::{self, Disks};
 use monitor_core::mem::{self, Memory};
 use monitor_core::net::{self, Interfaces};
 use monitor_core::procs::{self, Process};
@@ -19,6 +20,8 @@ pub struct Snapshot {
     pub memory: Memory,
     /// Bytes per second, download then upload.
     pub net: (f64, f64),
+    /// Bytes per second, read then written, over every whole disk.
+    pub disk: (f64, f64),
     /// Every process with its CPU percentage of one core.
     pub processes: Vec<(Process, f64)>,
 }
@@ -28,6 +31,7 @@ pub struct Sampler {
     last_at: Option<Instant>,
     cpu: Option<CpuSample>,
     net: Option<Interfaces>,
+    disk: Option<Disks>,
     /// CPU ticks of the previous reading, by pid and start time: a reused pid is a new process.
     ticks: HashMap<(u32, u64), u64>,
 }
@@ -82,6 +86,13 @@ impl Sampler {
         };
         self.net = net_now;
 
+        let disk_now = disk::read();
+        let disk_rate = match (&self.disk, &disk_now) {
+            (Some(before), Some(now)) => disk::rate(before, now, seconds),
+            _ => (0.0, 0.0),
+        };
+        self.disk = disk_now;
+
         let all = if show_processes {
             procs::read_all()
         } else {
@@ -109,6 +120,7 @@ impl Sampler {
             cores,
             memory: mem::read().unwrap_or_default(),
             net: rate,
+            disk: disk_rate,
             processes,
         }
     }
@@ -135,6 +147,7 @@ mod tests {
         let first = s.sample(true);
         assert_eq!(first.cpu_total, 0.0);
         assert_eq!(first.net, (0.0, 0.0));
+        assert_eq!(first.disk, (0.0, 0.0));
         assert!(first.processes.iter().all(|(_, pct)| *pct == 0.0));
         assert!(first.memory.total > 0);
         std::thread::sleep(std::time::Duration::from_millis(50));

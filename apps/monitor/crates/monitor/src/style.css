@@ -11,6 +11,14 @@
   font-family: var(--ndl-font-family-display);
 }
 
+.monitor-tile { padding: var(--ndl-space-md) var(--ndl-space-lg); }
+
+.monitor-tile-value {
+  font-size: 13.5pt;
+  font-weight: var(--ndl-font-weight-semibold);
+  font-family: var(--ndl-font-family-display);
+}
+
 .monitor-graph-accent { color: var(--ndl-color-accent-default); }
 .monitor-graph-success { color: var(--ndl-color-status-success-fg); }
 .monitor-graph-warning { color: var(--ndl-color-status-warning-fg); }
