@@ -48,7 +48,8 @@ class AppImageBackend:
     def list_installed(self) -> list[Package]:
         packages = []
         for key, record in load_catalog().get("apps", {}).items():
-            if isinstance(record, dict):
+            # Nodalia applications are listed, updated and removed by their own source.
+            if isinstance(record, dict) and record.get("origin") != "nodalia":
                 packages.append(self._package(str(key), record))
         return packages
 
