@@ -2,6 +2,7 @@
 
 mod i18n;
 mod pages;
+mod search_provider;
 mod window;
 
 use nodalia_gtk::gtk::{self, gio, glib, prelude::*};
@@ -41,6 +42,10 @@ fn keep_panics() {
 
 fn main() -> glib::ExitCode {
     keep_panics();
+    // The Shell's search of Settings: a small process with no window and no GTK.
+    if std::env::args().nth(1).as_deref() == Some("--search-provider") {
+        return search_provider::run();
+    }
     let app = gtk::Application::builder()
         .application_id(APP_ID)
         .flags(gio::ApplicationFlags::HANDLES_COMMAND_LINE)
