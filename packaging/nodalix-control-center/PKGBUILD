@@ -1,6 +1,6 @@
 pkgname=nodalix-control-center
 pkgver=51.0.0
-pkgrel=19
+pkgrel=20
 pkgdesc="GNOME Settings with native Nodalix updates and animated backgrounds"
 arch=("x86_64")
 url="https://github.com/danielmigueltejedor/nodalix-os"
@@ -29,6 +29,10 @@ package() {
   rm -r "$pkgdir/usr/share/gnome-control-center/keybindings"
   rm "$pkgdir/usr/share/pkgconfig/gnome-keybindings.pc"
   rm "$pkgdir/usr/share/gettext/its/gnome-keybindings.its" "$pkgdir/usr/share/gettext/its/gnome-keybindings.loc"
+  # The vendored blueprint-compiler subproject is only a build tool, but Meson installs it too.
+  # Left in, it owns files of Arch's blueprint-compiler, which the Store and Archivador need to
+  # build, and pacman then refuses to install that package.
+  rm -rf "$pkgdir"/usr/lib/python*/site-packages/blueprintcompiler "$pkgdir/usr/bin/blueprint-compiler"
   # The NDL style sheets compiled into Settings are MIT-licensed.
   install -Dm644 "$srcdir/gnome/control-center/ndl/LICENSE" "$pkgdir/usr/share/licenses/$pkgname/LICENSE-NDL"
 }
