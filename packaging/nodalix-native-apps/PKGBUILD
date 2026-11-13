@@ -48,7 +48,8 @@ package_nodalix-ajustes() {
   depends=("gtk4" "pango" "cairo" "glib2" "nodalix-settings>=0.5.2" "gnome-settings-daemon"
            "networkmanager" "bluez" "power-profiles-daemon" "accountsservice" "polkit"
            "colord" "cups" "upower" "udisks2" "gsettings-desktop-schemas" "xdg-utils")
-  optdepends=("rclone: cloud storage" "ffmpeg: video wallpaper thumbnails")
+  optdepends=("rclone: cloud storage" "ffmpeg: video wallpaper thumbnails"
+              "gnome-online-accounts-gtk: add Google and Microsoft accounts")
   provides=("gnome-control-center=51.0")
   conflicts=("nodalix-control-center" "gnome-control-center")
   replaces=("nodalix-control-center")
@@ -86,8 +87,9 @@ package_nodalix-monitor() {
 
 package_nodalix-archivador() {
   pkgdesc="Archivador: the Nodalix file manager, on the Nodalia Design Language"
-  depends=("gtk4" "pango" "cairo" "glib2" "gvfs" "shared-mime-info" "xdg-utils" "udisks2")
-  optdepends=("ffmpegthumbnailer: video thumbnails" "gvfs-mtp: phones" "gvfs-smb: network shares"
+  depends=("gtk4" "pango" "cairo" "glib2" "gvfs" "shared-mime-info" "xdg-utils" "udisks2"
+           "bubblewrap")
+  optdepends=("ffmpegthumbnailer: video thumbnails" "papers: PDF thumbnails" "gvfs-mtp: phones" "gvfs-smb: network shares"
               "nodalix-gnome: LocalSend sharing")
   # Replaces the Nautilus-based Archivador of 0.5.x and Nautilus itself. Programs that ask for
   # the file manager by name (nautilus, libnautilus-extension) keep finding one.

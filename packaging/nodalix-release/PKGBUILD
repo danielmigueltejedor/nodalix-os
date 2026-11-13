@@ -1,11 +1,11 @@
 pkgname=nodalix-release
-pkgver=0.5.2
+pkgver=0.6.0
 pkgrel=1
 pkgdesc="Nodalix release identity and core component set"
 arch=("any")
 url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
-depends=("nodalix-apps" "nodalix-gnome" "nodalix-integrations" "nodalix-updater" "nodalix-nxpm" "nodalix-store" "nodalix-keyring" "nodalix-phone-link" "nodalix-fluent-emoji" "nodalix-wallpapers" "nodalix-cursor-theme")
+depends=("nodalix-apps" "nodalix-gnome" "nodalix-integrations" "nodalix-updater" "nodalix-nxpm" "nodalix-store" "nodalix-brujula" "nodalix-keyring" "nodalix-phone-link" "nodalix-fluent-emoji" "nodalix-wallpapers" "nodalix-cursor-theme")
 # The ArtCraft launcher is no longer part of Nodalix OS: replacing it removes it on update.
 conflicts=("nodalix-artcraft-launcher")
 replaces=("nodalix-artcraft-launcher")

@@ -1,7 +1,8 @@
 nodalix-gnome-shell
 mutter
 gnome-session
-nodalix-control-center
+nodalix-ajustes
+nodalix-monitor
 nodalix-settings
 nodalix-video-wallpapers
 gnome-settings-daemon
@@ -11,8 +12,8 @@ gnome-keyring
 gnome-console
 gnome-text-editor
 gdm
-nautilus
-nautilus-python
+nodalix-archivador
+nodalix-brujula
 gnome-online-accounts
 gnome-calendar
 sushi

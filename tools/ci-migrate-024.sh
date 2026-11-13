@@ -68,7 +68,7 @@ version=$(tr -d '[:space:]' < /src/VERSION)
 grep -qx "VERSION_ID=\"$version\"" /etc/nodalix-release
 [[ $(cat /run/nodalix-updater/reboot-required) == "$version" ]]
 [[ $(readlink /etc/systemd/system/display-manager.service) == /usr/lib/systemd/system/gdm.service ]]
-pacman -Q nodalix-gnome nodalix-settings nodalix-control-center nodalix-integrations nodalix-video-wallpapers nodalix-ofono
+pacman -Q nodalix-gnome nodalix-settings nodalix-ajustes nodalix-archivador nodalix-brujula nodalix-integrations nodalix-video-wallpapers nodalix-ofono
 ! pacman -Qq | grep -E '^(hypr|quickshell|greetd|nodalix-shell$|nodalix-greeter-theme$|nodalix-hymission$|nodalix-wallpaper-engine$|xdg-desktop-portal-hyprland$)'
 ! [[ -e /usr/share/wayland-sessions/hyprland.desktop ]]
 ! [[ -e /etc/xdg/quickshell ]]

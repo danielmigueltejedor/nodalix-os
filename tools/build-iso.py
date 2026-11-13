@@ -216,7 +216,7 @@ def prepare(assets: Path, work: Path) -> tuple[Path, str]:
     desktop = [
         package
         for package in desktop
-        if (not package.startswith("nodalix-") or package in {"nodalix-control-center", "nodalix-settings", "nodalix-video-wallpapers"}) and package not in {
+        if (not package.startswith("nodalix-") or package in {"nodalix-ajustes", "nodalix-monitor", "nodalix-archivador", "nodalix-brujula", "nodalix-settings", "nodalix-video-wallpapers"}) and package not in {
             "noto-fonts",
             "noto-fonts-cjk",
             "noto-fonts-emoji",
@@ -244,7 +244,10 @@ def prepare(assets: Path, work: Path) -> tuple[Path, str]:
         "nodalix-gnome",
         "nodalix-gnome-shell",
         "nodalix-settings",
-        "nodalix-control-center",
+        "nodalix-ajustes",
+        "nodalix-monitor",
+        "nodalix-archivador",
+        "nodalix-brujula",
         "nodalix-video-wallpapers",
         "nodalix-integrations",
         "nodalix-wallpapers",

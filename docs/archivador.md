@@ -4,6 +4,11 @@
 > `nodalia-gtk`, igual que Ajustes y el Monitor: ver [`apps/archivador/`](../apps/archivador/README.md).
 > Lo que sigue describe la primera versión, un Nautilus parcheado, que sigue en el repositorio
 > hasta que la app nueva sea el gestor predeterminado y se retire.
+>
+> **0.6.0:** la app en Rust es el gestor predeterminado y el paquete `nodalix-archivador` sale de
+> `packaging/nodalix-native-apps/`. La receta y el constructor del Nautilus parcheado
+> (`packaging/nodalix-archivador/`, `tools/build-archivador-package.py`) se han retirado; `gnome/archivador/`
+> queda solo como referencia y se quitará en 0.6.1.
 
 Archivador es el gestor de archivos de Nodalix OS: Nautilus 51.1 con el lenguaje de diseño
 de Nodalia ([NDL](ndl.md)). Vive en este repositorio (`gnome/archivador/`) porque forma parte

@@ -7,7 +7,7 @@ pacman -S --needed --noconfirm base-devel git sudo meson ninja glib2-devel gobje
   nodejs pnpm gnome-control-center gnome-shell gnome-session gdm adwaita-icon-theme \
   archiso python-gobject tar zstd gtk-update-icon-cache ell bluez python-dbus mobile-broadband-provider-info \
   librsvg xorg-xcursorgen asciidoc bash-completion evolution-data-server gi-docgen \
-  gnome-keybindings python-docutils sassc rust pkgconf gtk4 pango cairo
+  gnome-keybindings python-docutils sassc rust pkgconf gtk4 pango cairo webkitgtk-6.0 libsoup3
 useradd -m builder
 echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 mkdir -p /src/dist
