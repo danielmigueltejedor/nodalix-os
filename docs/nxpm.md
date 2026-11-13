@@ -17,6 +17,7 @@ La interfaz `os.nodalix.Nxpm1` ofrece:
 | `ApiVersion` | | `u` |
 | `ListSources` | | `aa{sv}` |
 | `ListInstalled` | `s` fuente, vacía para todas | `aa{sv}` |
+| `ListCatalog` | `s` fuente (hoy solo `nodalia`) | `aa{sv}` |
 | `Search` | `s` texto | `aa{sv}` |
 | `GetDetails` | `s` id | `a{sv}` |
 | `ListUpdates` | | `aa{sv}` |
@@ -39,8 +40,11 @@ Los identificadores válidos son:
 - `flatpak:system:runtime/org.freedesktop.Platform/x86_64/24.08`
 - `pacman:nombre`
 - `appimage:Nombre`
+- `nodalia:brujula`
 
 Cualquier otro texto se rechaza antes de tocar el sistema.
+
+La versión 2 de la API añadió `ListCatalog` y la fuente `nodalia`; nada de la versión 1 cambió.
 
 ## Estados
 
@@ -82,6 +86,15 @@ Las actualizaciones oficiales de pacman (`UpgradeSystem` / `privileged-remove`) 
 Un `.deb` se abre como archivo `ar`, se desempaqueta `data.tar` y se ignoran los scripts de `control.tar`. No se llama a `dpkg`. Los bits setuid se quitan. El programa queda en un AppDir con un `AppRun` propio. `appimagetool`, si está en el `PATH`, genera además el AppImage; esta instalación de desarrollo no lo tiene, así que el resultado comprobado es el AppDir.
 
 No todos los paquetes Debian pueden funcionar: sus bibliotecas no se instalan en el sistema. NXPM no promete compatibilidad con cualquier `.deb` o `.rpm`. El formato RPM no tiene extractor.
+
+## Aplicaciones de Nodalia
+
+La fuente `nodalia` ofrece las aplicaciones de la suite Nodalia para instalarlas y actualizarlas desde la Tienda sin ir a la web. Su catálogo es `nxpm/share/nodalia-apps.json` (instalado en `/usr/share/nodalix/nodalia-apps.json`; la variable `NXPM_NODALIA_CATALOG` apunta a otro, para pruebas). Cada entrada tiene `id` (minúsculas, cifras y guiones), `name`, `summary`, `repo` (`propietario/repositorio` de GitHub), `icon` (nombre del tema de iconos) y un `kind`:
+
+- `appimage`: la release más reciente del repositorio publica un `.AppImage` (`asset` es un patrón, p. ej. `Brujula-*-x86_64.AppImage`) y, opcionalmente, un fichero de sumas (`checksums`, p. ej. `SHA256SUMS`). NXPM lo descarga por HTTPS, comprueba que es un AppImage Type-2 y, si hay sumas, su SHA-256 (si el fichero de sumas se anuncia pero falta, no instala). Lo deja en `~/Applications/<id>.AppImage`, crea la entrada de menú con el icono del catálogo y apunta la versión instalada. Actualizar repite la descarga cuando la release cambia; quitar borra el archivo y la entrada.
+- `nodalix-apps`: aplicaciones que Nodalix OS ya instala con `nodalix-apps` bajo `~/.local/opt/nodalix/apps` (Vinilo). NXPM lee la versión instalada de `current/version`, pregunta a GitHub por la última release y, para instalar o actualizar, ejecuta `nodalix-apps update <manager>`. Quitarlas se hace desde la biblioteca de aplicaciones.
+
+`Search` y `ListCatalog` no usan la red: muestran la última versión conocida si ya se consultó. La última release se consulta al pedir `GetDetails` o `ListUpdates` (y por tanto en `nxpm check`) y se recuerda una hora. Sin red, la comprobación de actualizaciones no da error: no ofrece nada. Las aplicaciones de Nodalia no aparecen además como AppImages sueltos.
 
 ## Permisos Flatpak
 

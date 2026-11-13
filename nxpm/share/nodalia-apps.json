@@ -1,0 +1,23 @@
+{
+  "apps": [
+    {
+      "id": "brujula",
+      "name": "Brújula",
+      "summary": "El navegador de Nodalix: WebKit, pestañas verticales, bloqueador de anuncios y contraseñas.",
+      "kind": "appimage",
+      "repo": "getnodalia/brujula",
+      "asset": "Brujula-*-x86_64.AppImage",
+      "checksums": "SHA256SUMS",
+      "icon": "dev.danielmiguelt.Brujula"
+    },
+    {
+      "id": "vinilo",
+      "name": "Vinilo",
+      "summary": "El reproductor de música de Nodalia.",
+      "kind": "nodalix-apps",
+      "manager": "vinilo",
+      "repo": "danielmigueltejedor/vinilo",
+      "icon": "dev.danielmiguelt.Vinilo"
+    }
+  ]
+}

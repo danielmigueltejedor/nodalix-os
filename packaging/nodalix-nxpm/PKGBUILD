@@ -28,5 +28,6 @@ package() {
     "$pkgdir/usr/share/dbus-1/services/os.nodalix.Nxpm.service"
   install -Dm644 "$srcdir/nxpm/share/nxpm-check.service" "$pkgdir/usr/lib/systemd/user/nxpm-check.service"
   install -Dm644 "$srcdir/nxpm/share/nxpm-check.timer" "$pkgdir/usr/lib/systemd/user/nxpm-check.timer"
+  install -Dm644 "$srcdir/nxpm/share/nodalia-apps.json" "$pkgdir/usr/share/nodalix/nodalia-apps.json"
   install -Dm644 "$srcdir/docs/nxpm.md" "$pkgdir/usr/share/doc/nodalix-nxpm/nxpm.md"
 }
