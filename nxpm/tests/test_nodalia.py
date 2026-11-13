@@ -314,3 +314,49 @@ def test_the_engine_installs_and_lists_the_catalogue(home, catalog):
         engine.install("nodalia:brujula", "flatpak")
     with pytest.raises(NxpmError):
         engine.list_catalog("flatpak")
+
+
+def test_a_checksum_file_can_sit_beside_each_appimage(home):
+    path = home / "per-asset.json"
+    path.write_text(
+        json.dumps(
+            {
+                "apps": [
+                    {
+                        "id": "vortia",
+                        "name": "Vortia",
+                        "repo": "getnodalia/vortia",
+                        "asset": "Vortia-*-linux-x86_64.AppImage",
+                        "checksums": "{asset}.sha256",
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    name = "Vortia-0.7.0-linux-x86_64.AppImage"
+    base = "https://github.com/getnodalia/vortia/releases/download/v0.7.0/"
+
+    class Vortia:
+        def __init__(self):
+            self.calls = []
+
+        def open(self, request, timeout=30):
+            url = request.full_url
+            self.calls.append(url)
+            if "api.github.com" in url:
+                assets = [
+                    {"name": "Vortia-0.7.0-macos-arm64.dmg.sha256", "browser_download_url": base + "Vortia-0.7.0-macos-arm64.dmg.sha256"},
+                    {"name": name, "size": len(APPIMAGE), "browser_download_url": base + name},
+                    {"name": name + ".sha256", "browser_download_url": base + name + ".sha256"},
+                ]
+                return Body(json.dumps({"tag_name": "v0.7.0", "assets": assets}).encode())
+            if url.endswith(".sha256"):
+                return Body(f"{DIGEST}  {name}\n".encode())
+            return Body(APPIMAGE)
+
+    opener = Vortia()
+    backend = NodaliaBackend(catalog=path, opener=opener)
+    run(backend, "nodalia:vortia", "install")
+    assert base + name + ".sha256" in opener.calls
+    assert [p for p in backend.list_installed() if p.name == "Vortia"]

@@ -382,7 +382,7 @@ def _latest_release(entry: dict, opener) -> dict | None:
     if entry["kind"] == "nodalix-apps":
         return {"version": version, "sums_url": "", "name": "", "url": "", "size": 0} if version else None
     image = None
-    sums_url = ""
+    links: dict[str, str] = {}
     for asset in payload.get("assets") or []:
         if not isinstance(asset, dict):
             continue
@@ -390,15 +390,19 @@ def _latest_release(entry: dict, opener) -> dict | None:
         link = str(asset.get("browser_download_url") or "")
         if not _https_asset(link):
             continue
+        links[name] = link
         if image is None and fnmatch.fnmatch(name, entry["asset"]):
             image = {"name": name, "url": link, "size": int(asset.get("size") or 0)}
-        elif entry["checksums"] and name == entry["checksums"]:
-            sums_url = link
     if not version or image is None:
         return None
-    if entry["checksums"] and not sums_url:
-        # A checksum file was promised and is missing: do not install unchecked.
-        return None
+    sums_url = ""
+    if entry["checksums"]:
+        # "{asset}.sha256" names the checksum that sits beside each AppImage.
+        sums_name = entry["checksums"].replace("{asset}", image["name"])
+        sums_url = links.get(sums_name, "")
+        if not sums_url:
+            # A checksum file was promised and is missing: do not install unchecked.
+            return None
     return {"version": version, "sums_url": sums_url, **image}
 
 

@@ -11,6 +11,36 @@
       "icon": "dev.danielmiguelt.Brujula"
     },
     {
+      "id": "vortia",
+      "name": "Vortia",
+      "summary": "Simulación de fluidos (CFD) con OpenFOAM integrado.",
+      "kind": "appimage",
+      "repo": "getnodalia/vortia",
+      "asset": "Vortia-*-linux-x86_64.AppImage",
+      "checksums": "{asset}.sha256",
+      "icon": "vortia"
+    },
+    {
+      "id": "forja",
+      "name": "Forja",
+      "summary": "Diseño técnico y modelado paramétrico.",
+      "kind": "appimage",
+      "repo": "getnodalia/forja",
+      "asset": "forja-*-linux-x86_64.AppImage",
+      "checksums": "SHA256SUMS.txt",
+      "icon": "dev.danielmiguelt.Forja"
+    },
+    {
+      "id": "lienzo",
+      "name": "Lienzo",
+      "summary": "Creatividad: dibujo y edición de imágenes.",
+      "kind": "appimage",
+      "repo": "getnodalia/lienzo",
+      "asset": "lienzo-*-linux-x86_64.AppImage",
+      "checksums": "SHA256SUMS",
+      "icon": "dev.danielmiguelt.Lienzo"
+    },
+    {
       "id": "vinilo",
       "name": "Vinilo",
       "summary": "El reproductor de música de Nodalia.",
