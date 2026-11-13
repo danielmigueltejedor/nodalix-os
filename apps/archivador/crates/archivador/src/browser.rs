@@ -113,10 +113,14 @@ fn trash() -> Trash {
 /// A press on a file is the start of a drag, and the list would draw a selection box for as long
 /// as it takes the drag to begin, and leave it there afterwards. Only a press on the empty part
 /// is meant to draw one, so the box is hidden for the others.
-fn hide_rubberband_on_files(view: &impl IsA<gtk::Widget>) {
+///
+/// A press on the empty part also clears the selection, as in every file manager, unless Ctrl or
+/// Shift is held (they add to it): the list leaves what was selected as it was.
+fn hide_rubberband_on_files(view: &impl IsA<gtk::Widget>, selection: &gtk::MultiSelection) {
     let press = gtk::GestureClick::new();
     press.set_propagation_phase(gtk::PropagationPhase::Capture);
-    press.connect_pressed(|gesture, _, x, y| {
+    let selection = selection.clone();
+    press.connect_pressed(move |gesture, _, x, y| {
         let Some(view) = gesture.widget() else { return };
         let mut node = view.pick(x, y, gtk::PickFlags::DEFAULT);
         let mut on_file = false;
@@ -134,6 +138,10 @@ fn hide_rubberband_on_files(view: &impl IsA<gtk::Widget>) {
             view.add_css_class("archivador-on-file");
         } else {
             view.remove_css_class("archivador-on-file");
+            let extend = gdk::ModifierType::CONTROL_MASK | gdk::ModifierType::SHIFT_MASK;
+            if !gesture.current_event_state().intersects(extend) {
+                selection.unselect_all();
+            }
         }
     });
     view.add_controller(press);
@@ -883,8 +891,8 @@ impl Browser {
             drop_into,
             open_folder,
         };
-        hide_rubberband_on_files(&self.list_view);
-        hide_rubberband_on_files(&self.grid_view);
+        hide_rubberband_on_files(&self.list_view, &self.selection);
+        hide_rubberband_on_files(&self.grid_view, &self.selection);
         self.list_view
             .set_factory(Some(&look::list_factory(hooks.clone())));
         self.grid_view

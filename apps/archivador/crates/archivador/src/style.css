@@ -115,7 +115,11 @@
 }
 
 .archivador-files > row:selected,
-.archivador-files > child:selected {
+.archivador-files > child:selected,
+/* While a box is drawn, what it touches is marked the same way as what is selected, so it can be
+ * told before the button is let go. */
+.archivador-files > row:active,
+.archivador-files > child:active {
   background-color: var(--ndl-color-selection-bg);
   color: var(--ndl-color-text-primary);
   /* An outline in the accent, so what is selected stands out while a box is drawn around it or
