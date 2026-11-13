@@ -117,6 +117,32 @@ impl Account {
     }
 }
 
+/// The service a folder belongs to, if it is an account's mount or something inside one, so a
+/// folder pinned from the cloud can show that service's icon. A folder in `~/Nube` named after a
+/// service counts too, for a mount that Settings does not list.
+pub fn provider_of(accounts: &[Account], home: &Path, path: &Path) -> Option<Provider> {
+    if let Some(account) = accounts
+        .iter()
+        .find(|a| path.starts_with(a.mount_point(home)))
+    {
+        return Some(account.provider);
+    }
+    let name = path
+        .strip_prefix(home.join(FOLDER))
+        .ok()?
+        .components()
+        .next()?;
+    let name = name.as_os_str().to_string_lossy().to_lowercase();
+    [
+        Provider::Drive,
+        Provider::Onedrive,
+        Provider::Dropbox,
+        Provider::Iclouddrive,
+    ]
+    .into_iter()
+    .find(|p| name == p.title().to_lowercase())
+}
+
 /// Whether `path` is a mount point, going by the text of `/proc/self/mountinfo`.
 pub fn is_mounted(mountinfo: &str, path: &Path) -> bool {
     mountinfo
@@ -153,6 +179,19 @@ fn unescape(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_folder_in_the_cloud_is_known_by_its_service() {
+        let home = Path::new("/home/u");
+        let accounts = parse(r#"[{"id":"a1","provider":"dropbox","name":"Work"}]"#);
+        let of = |p: &str| provider_of(&accounts, home, Path::new(p));
+        assert_eq!(of("/home/u/Nube/Work"), Some(Provider::Dropbox));
+        assert_eq!(of("/home/u/Nube/Work/Photos"), Some(Provider::Dropbox));
+        assert_eq!(of("/home/u/Nube/iCloud Drive"), Some(Provider::Iclouddrive));
+        assert_eq!(of("/home/u/Nube/onedrive/x"), Some(Provider::Onedrive));
+        assert_eq!(of("/home/u/Documents"), None);
+        assert_eq!(of("/home/u/Nube/Other"), None);
+    }
 
     #[test]
     fn reads_the_accounts_settings_writes() {

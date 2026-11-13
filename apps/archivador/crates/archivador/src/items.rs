@@ -42,6 +42,10 @@ pub struct Hooks {
     pub drop_into: Rc<dyn Fn(u32, Vec<std::path::PathBuf>, bool) -> bool>,
     /// Go into the folder at this position, because a drag rested on it.
     pub open_folder: Rc<dyn Fn(u32)>,
+    /// A press on the file at this position, and whether Ctrl or Shift is held: select it if it is
+    /// not selected already, and remember what is selected, which the list is about to collapse
+    /// to this file, so that a drag that follows can still carry all of it.
+    pub press: Rc<dyn Fn(u32, bool)>,
 }
 
 /// How long a drag has to rest on a folder before the window goes into it.
@@ -69,6 +73,21 @@ fn drag_icon(drag: &gdk::Drag, entry: &Entry, count: usize) {
 /// Lets the file be dragged out, and a folder take what is dropped on it, or open when a drag
 /// rests on it.
 fn attach_drag_and_drop(item: &gtk::ListItem, widget: &gtk::Widget, hooks: &Hooks) {
+    // The list selects on release when the file can be dragged, so the file stayed unmarked for
+    // as long as the button was held. Selecting on the press shows it at once, and the drag then
+    // carries it. Ctrl and Shift are left to the list: they extend a selection.
+    let press = gtk::GestureClick::builder().button(1).build();
+    press.set_propagation_phase(gtk::PropagationPhase::Capture);
+    let (position, select) = (item.clone(), hooks.press.clone());
+    press.connect_pressed(move |gesture, _, _, _| {
+        let extend = gdk::ModifierType::CONTROL_MASK | gdk::ModifierType::SHIFT_MASK;
+        select(
+            position.position(),
+            gesture.current_event_state().intersects(extend),
+        );
+    });
+    widget.add_controller(press);
+
     let source = gtk::DragSource::new();
     source.set_actions(gdk::DragAction::COPY | gdk::DragAction::MOVE);
     let count = Rc::new(std::cell::Cell::new(1));
@@ -278,8 +297,8 @@ pub fn grid_factory(hooks: Hooks) -> gtk::SignalListItemFactory {
         name.set_wrap_mode(gtk::pango::WrapMode::WordChar);
         name.set_lines(2);
         name.set_ellipsize(gtk::pango::EllipsizeMode::End);
-        name.set_max_width_chars(14);
-        name.set_width_chars(14);
+        name.set_max_width_chars(12);
+        name.set_width_chars(12);
         name.set_justify(gtk::Justification::Center);
         tile.append(&icon);
         tile.append(&name);

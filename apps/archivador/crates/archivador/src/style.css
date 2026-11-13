@@ -60,6 +60,11 @@
   border-top: var(--ndl-border-width-thin) solid var(--ndl-color-border-subtle);
 }
 
+/* The names in the sidebar, a little larger than the files'. The headings keep their size. */
+.navigation-sidebar > row:not(.archivador-heading) label {
+  font-size: 1.08em;
+}
+
 /* A heading in the sidebar is not something to point at. */
 .archivador-heading,
 .archivador-heading:hover {
@@ -110,9 +115,17 @@
 }
 
 .archivador-files > row:selected,
-.archivador-files > child:selected {
+.archivador-files > child:selected,
+/* While a box is drawn, what it touches is marked the same way as what is selected, so it can be
+ * told before the button is let go. */
+.archivador-files > row:active,
+.archivador-files > child:active {
   background-color: var(--ndl-color-selection-bg);
   color: var(--ndl-color-text-primary);
+  /* An outline in the accent, so what is selected stands out while a box is drawn around it or
+   * a drag is on, and not only once the button is let go. */
+  outline: var(--ndl-border-width-thin) solid var(--ndl-color-accent-default);
+  outline-offset: -1px;
 }
 
 /* The box drawn around what a drag over the empty part picks up: rounded, an outline in the
@@ -178,12 +191,24 @@
 }
 
 .archivador-tile {
-  padding: var(--ndl-space-md);
+  padding: var(--ndl-space-sm);
+}
+
+/* A gap between the tiles, so there is empty ground between them to start a selection box on
+ * or to hold on to when scrolling: the tiles alone filled the whole view. */
+gridview.archivador-files > child {
+  margin: var(--ndl-space-sm);
 }
 
 .archivador-meta {
   color: var(--ndl-color-text-secondary);
   font-feature-settings: "tnum";
+}
+
+/* The names of the rows in Preferences took the colour of the system's dark theme, not of the
+ * light style chosen here, and were white on white. They say what colour they are. */
+ndl-dialog .ndl-row .title {
+  color: var(--ndl-color-text-primary);
 }
 
 /* The sheet gives an alert no padding of its own. */

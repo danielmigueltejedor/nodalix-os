@@ -101,6 +101,9 @@ pub struct Browser {
     syncing: Cell<bool>,
     /// The cloud accounts in the sidebar, as Settings listed them.
     clouds: RefCell<Vec<cloud::Account>>,
+    /// What was selected when the button went down on a file, before the list could narrow it to
+    /// that file. A drag that starts on one of these carries all of them.
+    pressed: RefCell<Vec<PathBuf>>,
 }
 
 fn trash() -> Trash {
@@ -110,10 +113,14 @@ fn trash() -> Trash {
 /// A press on a file is the start of a drag, and the list would draw a selection box for as long
 /// as it takes the drag to begin, and leave it there afterwards. Only a press on the empty part
 /// is meant to draw one, so the box is hidden for the others.
-fn hide_rubberband_on_files(view: &impl IsA<gtk::Widget>) {
+///
+/// A press on the empty part also clears the selection, as in every file manager, unless Ctrl or
+/// Shift is held (they add to it): the list leaves what was selected as it was.
+fn hide_rubberband_on_files(view: &impl IsA<gtk::Widget>, selection: &gtk::MultiSelection) {
     let press = gtk::GestureClick::new();
     press.set_propagation_phase(gtk::PropagationPhase::Capture);
-    press.connect_pressed(|gesture, _, x, y| {
+    let selection = selection.clone();
+    press.connect_pressed(move |gesture, _, x, y| {
         let Some(view) = gesture.widget() else { return };
         let mut node = view.pick(x, y, gtk::PickFlags::DEFAULT);
         let mut on_file = false;
@@ -131,6 +138,10 @@ fn hide_rubberband_on_files(view: &impl IsA<gtk::Widget>) {
             view.add_css_class("archivador-on-file");
         } else {
             view.remove_css_class("archivador-on-file");
+            let extend = gdk::ModifierType::CONTROL_MASK | gdk::ModifierType::SHIFT_MASK;
+            if !gesture.current_event_state().intersects(extend) {
+                selection.unselect_all();
+            }
         }
     });
     view.add_controller(press);
@@ -190,6 +201,11 @@ fn recent_entries() -> Vec<Entry> {
         .into_iter()
         .filter_map(|info| {
             let path = gio::File::for_uri(&info.uri()).path()?;
+            // A share or a phone reached through GVfs: looking at it can take as long as the
+            // network does, with the window waiting, so it is not listed.
+            if path.components().any(|c| c.as_os_str() == "gvfs") {
+                return None;
+            }
             let visited = u64::try_from(info.visited().to_unix())
                 .ok()
                 .map(|secs| std::time::UNIX_EPOCH + Duration::from_secs(secs));
@@ -402,6 +418,7 @@ impl Browser {
             reload_queued: Cell::new(false),
             syncing: Cell::new(false),
             clouds: RefCell::new(Vec::new()),
+            pressed: RefCell::new(Vec::new()),
         });
         this.build();
         this.load();
@@ -795,6 +812,31 @@ impl Browser {
                 let Some(this) = this.upgrade() else {
                     return Vec::new();
                 };
+                // The list narrows the selection to the file pressed when the button goes down. A
+                // drag that starts on a file that was one of several selected carries them all,
+                // and puts the selection back as it was.
+                let before = this.pressed.borrow().clone();
+                let grabbed = this
+                    .store
+                    .item(position)
+                    .and_downcast::<FileObject>()
+                    .map(|f| f.entry().path);
+                if before.len() > 1 && grabbed.is_some_and(|p| before.contains(&p)) {
+                    if this.selected().len() != before.len() {
+                        this.selection.unselect_all();
+                        for i in 0..this.store.n_items() {
+                            let there = this
+                                .store
+                                .item(i)
+                                .and_downcast::<FileObject>()
+                                .is_some_and(|f| before.contains(&f.entry().path));
+                            if there {
+                                this.selection.select_item(i, false);
+                            }
+                        }
+                    }
+                    return before;
+                }
                 if !this.selection.is_selected(position) {
                     this.selection.select_item(position, true);
                 }
@@ -826,14 +868,31 @@ impl Browser {
                 }
             })
         };
+        let press: Rc<dyn Fn(u32, bool)> = {
+            let this = self.weak();
+            Rc::new(move |position, extend| {
+                let Some(this) = this.upgrade() else { return };
+                if extend {
+                    // Ctrl and Shift change the selection themselves; nothing to keep.
+                    this.pressed.borrow_mut().clear();
+                    return;
+                }
+                if !this.selection.is_selected(position) {
+                    this.selection.select_item(position, true);
+                }
+                let kept = this.selected().into_iter().map(|e| e.path).collect();
+                this.pressed.replace(kept);
+            })
+        };
         let hooks = Hooks {
+            press,
             menu,
             drag_paths,
             drop_into,
             open_folder,
         };
-        hide_rubberband_on_files(&self.list_view);
-        hide_rubberband_on_files(&self.grid_view);
+        hide_rubberband_on_files(&self.list_view, &self.selection);
+        hide_rubberband_on_files(&self.grid_view, &self.selection);
         self.list_view
             .set_factory(Some(&look::list_factory(hooks.clone())));
         self.grid_view
@@ -2007,7 +2066,7 @@ impl Browser {
         row.set_widget_name(path);
         let content = gtk::Box::new(gtk::Orientation::Horizontal, 12);
         let image = gtk::Image::from_icon_name(icon);
-        image.set_pixel_size(20);
+        image.set_pixel_size(22);
         content.append(&image);
         let label = gtk::Label::new(Some(title));
         label.set_xalign(0.0);
@@ -2062,6 +2121,12 @@ impl Browser {
         self.trash_icon.replace(Some(icon));
         self.sidebar.append(&row);
 
+        // The cloud accounts Settings has set up. They are read first: a folder pinned from one of
+        // them is shown with that service's icon, not with a star.
+        let accounts = std::fs::read_to_string(glib::user_config_dir().join("nodalix/cloud.json"))
+            .map(|text| cloud::parse(&text))
+            .unwrap_or_default();
+
         // The folders the user pinned.
         let pinned: Vec<Bookmark> = load_bookmarks()
             .into_iter()
@@ -2071,11 +2136,10 @@ impl Browser {
             self.sidebar.append(&Self::heading(tr("Favorites")));
         }
         for bookmark in &pinned {
-            let (row, _) = self.sidebar_row(
-                &bookmark.label,
-                "starred-symbolic",
-                &bookmark.path.to_string_lossy(),
-            );
+            let icon = cloud::provider_of(&accounts, &crate::home(), &bookmark.path)
+                .map_or("starred-symbolic", cloud::Provider::icon);
+            let (row, _) =
+                self.sidebar_row(&bookmark.label, icon, &bookmark.path.to_string_lossy());
             self.add_unpin(&row, &bookmark.path);
             self.sidebar.append(&row);
         }
@@ -2154,10 +2218,6 @@ impl Browser {
         );
         self.sidebar.append(&row);
 
-        // The cloud accounts Settings has set up.
-        let accounts = std::fs::read_to_string(glib::user_config_dir().join("nodalix/cloud.json"))
-            .map(|text| cloud::parse(&text))
-            .unwrap_or_default();
         if !accounts.is_empty() {
             self.sidebar.append(&Self::heading(tr("Cloud")));
         }
@@ -2380,7 +2440,7 @@ impl Browser {
 
     fn new_folder(self: &Rc<Self>) {
         let dir = self.current_dir();
-        if is_trash(&dir) {
+        if is_virtual(&dir) {
             return;
         }
         let proposal = names::unique_path(&dir, tr("Untitled folder"));
@@ -2453,7 +2513,7 @@ impl Browser {
 
     fn paste(self: &Rc<Self>) {
         let dir = self.current_dir();
-        if is_trash(&dir) {
+        if is_virtual(&dir) {
             return;
         }
         let this = self.weak();
