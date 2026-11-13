@@ -3,10 +3,12 @@
 mod disks;
 mod graph;
 mod i18n;
+mod icons;
 mod process_object;
 mod processes;
 mod resources;
 mod sampler;
+mod summary;
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -18,9 +20,10 @@ use nodalia_gtk as ndl;
 
 use crate::disks::DiskView;
 use crate::i18n::tr;
-use crate::processes::ProcessView;
+use crate::processes::{Copy, ProcessView};
 use crate::resources::ResourceView;
 use crate::sampler::Sampler;
+use crate::summary::Summary;
 
 const APP_ID: &str = "os.nodalix.Monitor";
 const STYLE: &str = include_str!("style.css");
@@ -49,21 +52,27 @@ fn build_window(app: &gtk::Application) {
     }
     let window = ndl::ApplicationWindow::new(app);
     window.set_title(Some(tr("System Monitor")));
-    window.set_default_size(960, 680);
-    window.set_icon_name(Some("utilities-system-monitor"));
+    window.set_default_size(960, 720);
+    window.set_icon_name(Some("os.nodalix.Monitor"));
 
     let sampler = Rc::new(RefCell::new(Sampler::default()));
     let first = sampler.borrow_mut().sample(true);
     let procs = ProcessView::new();
     let resources = ResourceView::new();
     let disks = DiskView::new();
+    let summary = Summary::new();
+    // The first reading has no earlier one to compare with, so it shows no rates: the graphs
+    // take their first point from the reading a moment later (see below).
     procs.update(&first);
-    resources.update(&first);
 
     let stack = gtk::Stack::new();
     stack.set_transition_type(gtk::StackTransitionType::Crossfade);
-    stack.add_named(&procs.widget, Some("processes"));
+    // Resources come first: the app opens on graphs.
     stack.add_named(&resources.widget, Some("resources"));
+    let process_page = gtk::Box::new(gtk::Orientation::Vertical, 0);
+    process_page.append(&summary.widget);
+    process_page.append(&procs.widget);
+    stack.add_named(&process_page, Some("processes"));
     stack.add_named(&disks.widget, Some("disks"));
 
     let toasts = ndl::ToastOverlay::new();
@@ -71,13 +80,13 @@ fn build_window(app: &gtk::Application) {
     let header = ndl::HeaderBar::new();
 
     let tabs = gtk::Box::new(gtk::Orientation::Horizontal, 6);
-    let c_procs = chip(tr("Processes"), None);
-    let c_res = chip(tr("Resources"), Some(&c_procs));
-    let c_disks = chip(tr("File systems"), Some(&c_procs));
-    c_procs.set_active(true);
+    let c_res = chip(tr("Resources"), None);
+    let c_procs = chip(tr("Processes"), Some(&c_res));
+    let c_disks = chip(tr("File systems"), Some(&c_res));
+    c_res.set_active(true);
     for (button, page) in [
-        (&c_procs, "processes"),
         (&c_res, "resources"),
+        (&c_procs, "processes"),
         (&c_disks, "disks"),
     ] {
         tabs.append(button);
@@ -147,11 +156,53 @@ fn build_window(app: &gtk::Application) {
         window.add_action(&action);
         action
     };
+    let a_term = signal_action("term", Signal::Terminate);
     let a_kill = signal_action("kill", Signal::Kill);
     let a_stop = signal_action("stop", Signal::Stop);
     let a_cont = signal_action("cont", Signal::Continue);
-    for a in [&a_kill, &a_stop, &a_cont] {
+    let copy_action = |name: &str, what: Copy| {
+        let action = gio::SimpleAction::new(name, None);
+        let procs = procs.clone();
+        action.connect_activate(move |_, _| procs.copy_selected(what));
+        window.add_action(&action);
+        action
+    };
+    let a_copy_pid = copy_action("copy-pid", Copy::Pid);
+    let a_copy_command = copy_action("copy-command", Copy::Command);
+    let process_actions = [a_term, a_kill, a_stop, a_cont, a_copy_pid, a_copy_command];
+    for a in &process_actions {
         a.set_enabled(false);
+    }
+    // What a right click on a process offers.
+    {
+        let context = gio::Menu::new();
+        let signals = gio::Menu::new();
+        for (label, action, icon) in [
+            (
+                tr("End process"),
+                "win.term",
+                "media-playback-stop-symbolic",
+            ),
+            (tr("Force quit"), "win.kill", "process-stop-symbolic"),
+            (tr("Stop"), "win.stop", "media-playback-pause-symbolic"),
+            (tr("Continue"), "win.cont", "media-playback-start-symbolic"),
+        ] {
+            signals.append_item(&ndl::menu_item(label, action, icon));
+        }
+        context.append_section(None, &signals);
+        let copy = gio::Menu::new();
+        copy.append_item(&ndl::menu_item(
+            tr("Copy ID"),
+            "win.copy-pid",
+            "edit-copy-symbolic",
+        ));
+        copy.append_item(&ndl::menu_item(
+            tr("Copy command"),
+            "win.copy-command",
+            "edit-copy-symbolic",
+        ));
+        context.append_section(None, &copy);
+        procs.set_context_menu(context.upcast_ref());
     }
     {
         let (procs, toasts) = (procs.clone(), toasts.clone());
@@ -161,6 +212,8 @@ fn build_window(app: &gtk::Application) {
             Err(msg) => toasts.add_toast(ndl::Toast::new(&msg)),
         });
     }
+    let end_button = end.clone();
+    let end_initial = end.clone();
     let process_table_ready = Rc::new(Cell::new(true));
     let process_selected = Rc::new(Cell::new(false));
     let update_process_actions = {
@@ -169,7 +222,7 @@ fn build_window(app: &gtk::Application) {
         move || {
             let enabled = ready.get() && selected.get();
             end.set_sensitive(enabled);
-            for action in [&a_kill, &a_stop, &a_cont] {
+            for action in &process_actions {
                 action.set_enabled(enabled);
             }
         }
@@ -185,7 +238,9 @@ fn build_window(app: &gtk::Application) {
     {
         let ready = process_table_ready.clone();
         let update = update_process_actions.clone();
-        stack.connect_notify_local(Some("visible-child-name"), move |_, _| {
+        stack.connect_notify_local(Some("visible-child-name"), move |stack, _| {
+            // Ending a process makes sense only next to the table of processes.
+            end_button.set_visible(stack.visible_child_name().as_deref() == Some("processes"));
             ready.set(false);
             update();
         });
@@ -195,7 +250,7 @@ fn build_window(app: &gtk::Application) {
         let parent = window.clone();
         about.connect_activate(move |_, _| {
             ndl::AboutDialog::builder()
-                .application_icon("utilities-system-monitor")
+                .application_icon("os.nodalix.Monitor")
                 .application_name(tr("System Monitor"))
                 .developer_name("Nodalix")
                 .version(env!("CARGO_PKG_VERSION"))
@@ -227,31 +282,37 @@ fn build_window(app: &gtk::Application) {
 
     // For screenshots and tests: open on another page.
     match std::env::var("NODALIX_MONITOR_PAGE").as_deref() {
-        Ok("resources") => c_res.set_active(true),
+        Ok("processes") => c_procs.set_active(true),
         Ok("disks") => c_disks.set_active(true),
         _ => {}
     }
+    // Ending a process makes sense only next to the table of processes.
+    end_initial.set_visible(stack.visible_child_name().as_deref() == Some("processes"));
 
     toolbar.add_top_bar(&header);
     toolbar.set_content(Some(&stack));
     toasts.set_child(Some(&toolbar));
     window.set_content(Some(&toasts));
 
-    // One reading per second feeds every view; the disks are re-read every ten.
+    // One reading per second feeds every view; the disks are re-read every ten. The first
+    // reading after the window opens comes a moment early, so the graphs start with a real value
+    // instead of waiting a second for one.
     let tick = Rc::new(RefCell::new(0u32));
-    {
-        let (sampler, procs, resources, disks, stack) = (
+    let refresh = {
+        let (sampler, procs, resources, summary, disks, stack) = (
             sampler.clone(),
             procs.clone(),
             Rc::new(resources),
+            Rc::new(summary),
             disks.clone(),
             stack.clone(),
         );
-        glib::timeout_add_local(Duration::from_secs(1), move || {
+        Rc::new(move || {
             let page = stack.visible_child_name();
             let show_processes = page.as_deref() == Some("processes");
             let snapshot = sampler.borrow_mut().sample(show_processes);
             resources.update(&snapshot);
+            summary.update(&snapshot);
             match page.as_deref() {
                 Some("disks") => {
                     let mut n = tick.borrow_mut();
@@ -267,8 +328,15 @@ fn build_window(app: &gtk::Application) {
                 }
                 _ => {}
             }
-            glib::ControlFlow::Continue
-        });
+        })
+    };
+    {
+        let refresh = refresh.clone();
+        glib::timeout_add_local_once(Duration::from_millis(300), move || refresh());
     }
+    glib::timeout_add_local(Duration::from_secs(1), move || {
+        refresh();
+        glib::ControlFlow::Continue
+    });
     window.present();
 }

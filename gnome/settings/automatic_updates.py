@@ -36,7 +36,7 @@ def write_state(path,state):
     fd,name=tempfile.mkstemp(prefix='.automatic-',dir=path.parent)
     try:
         with os.fdopen(fd,'w') as output:json.dump(state,output)
-        os.chmod(name,0o644)
+        os.chmod(name,0o644)  # NOSONAR: the desktop UI reads this root-owned state unprivileged
         os.replace(name,path)
     finally:Path(name).unlink(missing_ok=True)
 

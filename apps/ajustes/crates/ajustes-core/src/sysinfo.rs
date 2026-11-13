@@ -35,6 +35,9 @@ pub fn nodalix_version(release: &str) -> Option<String> {
     (plain && version != "0.0.0").then_some(version)
 }
 
+/// What the system is called, whatever its base distribution says about itself.
+pub const OS_NAME: &str = "Nodalix OS";
+
 pub struct Info {
     pub hostname: String,
     pub os_name: String,
@@ -63,19 +66,13 @@ fn uname() -> (String, String) {
 
 pub fn read() -> Info {
     let (kernel, arch) = uname();
-    let os = std::fs::read_to_string("/etc/os-release")
-        .map(|t| parse_env_file(&t))
-        .unwrap_or_default();
     let hostname = std::fs::read_to_string("/proc/sys/kernel/hostname")
         .map(|h| h.trim().to_string())
         .unwrap_or_default();
     Info {
         hostname,
-        os_name: os
-            .get("PRETTY_NAME")
-            .or_else(|| os.get("NAME"))
-            .cloned()
-            .unwrap_or_else(|| "Nodalix".into()),
+        // Not `/etc/os-release`: that file still says Arch Linux (or the base it was built on).
+        os_name: OS_NAME.to_owned(),
         nodalix_version: std::fs::read_to_string("/etc/nodalix-release")
             .ok()
             .and_then(|t| nodalix_version(&t)),
@@ -127,6 +124,6 @@ mod tests {
         let info = read();
         assert!(!info.kernel.is_empty());
         assert!(info.memory.is_some_and(|m| m > 0));
-        assert!(!info.os_name.is_empty());
+        assert_eq!(info.os_name, "Nodalix OS");
     }
 }

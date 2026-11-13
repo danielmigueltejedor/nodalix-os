@@ -1,7 +1,37 @@
 pub mod about;
+pub mod accessibility;
+pub mod accounts;
+pub mod addresses;
 pub mod appearance;
+pub mod applications;
+pub mod backgrounds;
+pub mod bluetooth;
+pub mod bus;
+pub mod cloud;
+pub mod cmd;
+pub mod color;
+pub mod datetime;
+pub mod displays;
+pub mod gs;
+pub mod keyboard;
 pub mod localsend;
+pub mod multitasking;
+pub mod network;
+pub mod nm;
+pub mod notifications;
+pub mod pointing;
+pub mod power;
+pub mod printers;
+pub mod privacy;
+pub mod proxy;
+pub mod region;
+pub mod sharing;
+pub mod sound;
+pub mod storage;
 pub mod updates;
+pub mod users;
+pub mod vpn;
+pub mod wifi;
 
 use nodalia_gtk::{self as ndl, gtk, gtk::prelude::*};
 

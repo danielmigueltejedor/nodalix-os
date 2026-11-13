@@ -5,12 +5,16 @@ use std::sync::OnceLock;
 use ndl::gtk;
 use nodalia_gtk as ndl;
 
+mod icons;
+mod icons_settings;
+
 const BASE: &str = include_str!("base.css");
 
 /// Installs NDL, then Nodalix's base style, then the app's own CSS, all above NDL's sheets. Call
 /// once from the application's `startup`.
 pub fn init(app_css: &str) {
     ndl::init();
+    icons::install();
     let Some(display) = gtk::gdk::Display::default() else {
         return;
     };

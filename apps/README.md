@@ -8,6 +8,7 @@ no libadwaita), so that every core app looks and behaves the same.
 | --- | --- | --- |
 | System Monitor | `monitor/` | GNOME System Monitor |
 | Settings | `ajustes/` | GNOME Control Center |
+| Files (Archivador) | `archivador/` | Nautilus |
 
 `crates/nodalix-ui` is what they share. One Cargo workspace (this directory) holds them all, so
 there is one lock file and one NDL revision: `nodalia-gtk` is pinned to an exact commit in
@@ -19,6 +20,7 @@ cargo test --workspace            # needs GTK 4.20 or newer
 cargo clippy --workspace --all-targets -- -D warnings
 cargo run -p nodalix-monitor
 cargo run -p nodalix-settings
+cargo run -p nodalix-archivador
 ```
 
 Nodalix uses the system font (Adwaita Sans) and ships no other. `crates/nodalix-ui/src/base.css`

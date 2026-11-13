@@ -40,7 +40,7 @@
       "id": "store",
       "name": "Nodalix Store",
       "package": "nodalix-store",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "required": true,
       "restart": "none"
     },
@@ -171,14 +171,6 @@
       "version": "1.0.0",
       "required": true,
       "restart": "system"
-    },
-    {
-      "id": "artcraft-launcher",
-      "name": "ArtCraft Launcher",
-      "package": "nodalix-artcraft-launcher",
-      "version": "0.2.1",
-      "required": true,
-      "restart": "none"
     }
   ]
 }

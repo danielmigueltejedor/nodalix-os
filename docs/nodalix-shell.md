@@ -40,33 +40,39 @@ de terceros se adapten a una actualización imprevista de GNOME.
 
 ### Transición del acceso a la sesión (0.6.0)
 
-GNOME Shell avisa a GDM dos veces: `RegisterSession` antes de dibujar su primer
-fotograma y `RegisterDisplay` al terminar el arranque. El acceso (greeter) sigue
-vivo después de ambos avisos y la pantalla no cambia a la sesión hasta que el
-greeter termina (logind marca entonces la sesión como activa). Hasta ese
-momento todo lo que la sesión dibuja queda oculto; después se ve un negro hasta
-el primer fotograma y una animación de arranque que ya terminó. Nodalix Shell lo
-corrige en `gnome/nodalix-shell/transition.js`:
+Medido en hardware real (GDM en modo depuración): en cuanto se acepta la
+contraseña, GDM salta al VT de la sesión nueva y la pantalla queda en negro
+hasta que la Shell pinta su primer fotograma (unos 2 s). El greeter sigue vivo
+como proceso unos segundos más, pero ya no se ve. GNOME Shell avisa a GDM dos
+veces: `RegisterSession` al construir la interfaz y `RegisterDisplay` al
+terminar el arranque; ninguno cambia la pantalla. Nodalix Shell actúa en
+`gnome/nodalix-shell/transition.js`:
 
-1. **Retiene el registro en GDM** hasta que la cubierta se ha pintado (hasta
-   100 ms de espera si la sesión aún no puede pintar). Si algo se atasca, el
-   registro se envía igualmente a los 3 s y la cubierta se retira a los 15 s:
-   un inicio de sesión nunca se queda esperando.
-2. **El primer fotograma es el fondo del acceso**, con el mismo desenfoque y
+1. **El primer fotograma es el fondo del acceso**, con el mismo desenfoque y
    brillo que el greeter (`/var/lib/nodalix/login/background.jpg`, o el fondo
-   de respaldo), en lugar del gris oscuro del sistema.
-3. **La cubierta tapa el arranque y se mantiene hasta que la pantalla es de la
-   sesión.** La animación de arranque de GNOME y la carga de los módulos corren
-   debajo, sin esperas. El desblur no empieza hasta que se cumplen a la vez
-   tres condiciones, cada una con un tope: el escritorio está completo (módulos
-   habilitados, 1,5 s), la cubierta se ha pintado y logind marca la sesión como
-   activa (5 s; se mide con `session active` en el diario). Entonces la
-   cubierta se muestra 400 ms y el desenfoque y el oscurecimiento se animan hasta
-   cero durante 650 ms. Si una condición no se cumple antes de su tope, el
-   desblur empieza igualmente al vencer ese tope.
-4. Hanabi (fondo de vídeo) espera a que termine el arranque de la Shell (ya no a
-   que acabe el desblur): se carga mientras la cubierta lo oculta, y no compite
-   con la animación de arranque.
+   de respaldo), en lugar del gris oscuro del sistema. El registro en GDM se
+   retiene hasta 100 ms por si la sesión aún no puede pintar; si algo se
+   atasca, se envía igualmente a los 3 s y la cubierta se retira a los 15 s:
+   un inicio de sesión nunca se queda esperando.
+2. **Los módulos del escritorio esperan a ese primer fotograma** (tope de
+   1,5 s). Se cargan en el bucle principal de la Shell y, si fueran antes,
+   retrasarían la imagen; así se cargan debajo de la cubierta, que ya se ve.
+3. **La cubierta tapa el arranque.** La animación de arranque de GNOME y la
+   carga de los módulos corren debajo. El desblur no empieza hasta que se
+   cumplen a la vez tres condiciones, cada una con un tope: el escritorio está
+   completo (módulos habilitados, 3 s), la cubierta se ha pintado y logind
+   marca la sesión como activa (5 s; en la práctica ya lo está, y se mide con
+   `session already active` en el diario). Entonces la cubierta se muestra
+   400 ms y el desenfoque y el oscurecimiento se animan hasta cero durante
+   650 ms. Si una condición no se cumple antes de su tope, el desblur empieza
+   igualmente al vencer ese tope.
+4. Hanabi (fondo de vídeo) espera a que termine el arranque de la Shell: se
+   carga mientras la cubierta lo oculta, y no compite con la animación de
+   arranque.
+
+Lo que la sesión no puede tapar es el negro anterior a su primer fotograma
+(el arranque de `gnome-session` y de la Shell, ~1 s cada tramo en el PC de
+pruebas). Para acortarlo, el diario también anota cuándo carga cada módulo.
 
 `NODALIX_LOGIN_TRANSITION=0` en el entorno de la sesión (por ejemplo en
 `~/.config/environment.d/`) lo desactiva y restaura el comportamiento de

@@ -27,6 +27,9 @@ const fn native(id: &'static str, title: &'static str, icon: &'static str) -> Pa
     }
 }
 
+/// A page that opens the previous panel. Every page is native now; this stays for a page that
+/// is added before it is ported.
+#[allow(dead_code)]
 const fn legacy(
     id: &'static str,
     title: &'static str,
@@ -53,96 +56,63 @@ pub const SECTIONS: &[(&str, &[Page])] = &[
     (
         "Connections",
         &[
-            legacy(
-                "network",
-                "Network",
-                "network-workgroup-symbolic",
-                "network",
-            ),
-            legacy("wifi", "Wi-Fi", "network-wireless-symbolic", "wifi"),
-            legacy("bluetooth", "Bluetooth", "bluetooth-symbolic", "bluetooth"),
-            legacy("sharing", "Sharing", "emblem-shared-symbolic", "sharing"),
+            native("network", "Network", "network-workgroup-symbolic"),
+            native("wifi", "Wi-Fi", "network-wireless-symbolic"),
+            native("bluetooth", "Bluetooth", "bluetooth-symbolic"),
+            native("sharing", "Sharing", "preferences-system-sharing-symbolic"),
             native(
                 "localsend",
                 "LocalSend",
                 "network-transmit-receive-symbolic",
             ),
-            legacy(
-                "online-accounts",
-                "Online accounts",
-                "goa-panel-symbolic",
-                "online-accounts",
-            ),
+            native("online-accounts", "Online accounts", "goa-panel-symbolic"),
+            native("cloud", "Cloud storage", "folder-remote-symbolic"),
         ],
     ),
     (
         "Devices",
         &[
-            legacy("display", "Displays", "video-display-symbolic", "display"),
-            legacy("sound", "Sound", "audio-volume-high-symbolic", "sound"),
-            legacy("power", "Power", "battery-symbolic", "power"),
-            legacy(
-                "keyboard",
-                "Keyboard",
-                "input-keyboard-symbolic",
-                "keyboard",
-            ),
-            legacy(
-                "mouse",
-                "Mouse and touchpad",
-                "input-mouse-symbolic",
-                "mouse",
-            ),
-            legacy("printers", "Printers", "printer-symbolic", "printers"),
-            legacy("color", "Color", "preferences-color-symbolic", "color"),
+            native("display", "Displays", "video-display-symbolic"),
+            native("sound", "Sound", "audio-volume-high-symbolic"),
+            native("power", "Power", "battery-symbolic"),
+            native("keyboard", "Keyboard", "input-keyboard-symbolic"),
+            native("mouse", "Mouse and touchpad", "input-mouse-symbolic"),
+            native("printers", "Printers", "printer-symbolic"),
+            native("color", "Color", "preferences-color-symbolic"),
         ],
     ),
     (
         "System",
         &[
-            legacy(
+            native(
                 "notifications",
                 "Notifications",
-                "notification-symbolic",
-                "notifications",
+                "preferences-system-notifications-symbolic",
             ),
-            legacy(
-                "multitasking",
-                "Multitasking",
-                "view-grid-symbolic",
-                "multitasking",
-            ),
-            legacy(
-                "applications",
-                "Apps",
-                "view-app-grid-symbolic",
-                "applications",
-            ),
-            legacy(
+            native("multitasking", "Multitasking", "view-grid-symbolic"),
+            native("storage", "Storage", "drive-harddisk-symbolic"),
+            native("applications", "Apps", "view-app-grid-symbolic"),
+            native(
                 "privacy",
                 "Privacy and security",
                 "preferences-system-privacy-symbolic",
-                "privacy",
             ),
-            legacy(
+            native(
                 "accessibility",
                 "Accessibility",
                 "preferences-desktop-accessibility-symbolic",
-                "universal-access",
             ),
-            legacy(
+            native(
                 "datetime",
                 "Date and time",
                 "preferences-system-time-symbolic",
-                "datetime",
             ),
-            legacy(
+            native(
                 "region",
                 "Region and language",
                 "preferences-desktop-locale-symbolic",
-                "system",
             ),
-            legacy("users", "Users", "system-users-symbolic", "users"),
+            native("users", "Users", "system-users-symbolic"),
             native("about", "About", "help-about-symbolic"),
         ],
     ),
@@ -171,7 +141,7 @@ mod tests {
     #[test]
     fn finds_by_id() {
         assert_eq!(find("about").map(|p| p.kind), Some(Kind::Native));
-        assert_eq!(find("wifi").map(|p| p.kind), Some(Kind::Legacy("wifi")));
+        assert_eq!(find("printers").map(|p| p.kind), Some(Kind::Native));
         assert!(find("nope").is_none());
     }
 

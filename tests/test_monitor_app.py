@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APPS = ROOT / "apps"
 APP = APPS / "monitor"
 SETTINGS = APPS / "ajustes"
+FILES = APPS / "archivador"
 
 
 class MonitorAppTests(unittest.TestCase):
@@ -16,7 +17,7 @@ class MonitorAppTests(unittest.TestCase):
         manifest = (APPS / "Cargo.toml").read_text()
         match = re.search(r'nodalia-gtk\s*=\s*\{[^}]*rev\s*=\s*"([0-9a-f]{40})"', manifest)
         self.assertIsNotNone(match, "nodalia-gtk must be a git dependency with a full commit rev")
-        for crate in (APP / "crates/monitor", SETTINGS / "crates/ajustes"):
+        for crate in (APP / "crates/monitor", SETTINGS / "crates/ajustes", FILES / "crates/archivador"):
             self.assertIn("nodalia-gtk.workspace = true", (crate / "Cargo.toml").read_text())
 
     def test_the_lock_file_is_committed_and_pins_the_same_commit(self):
@@ -28,6 +29,7 @@ class MonitorAppTests(unittest.TestCase):
         sheets = [
             APP / "crates/monitor/src/style.css",
             SETTINGS / "crates/ajustes/src/style.css",
+            FILES / "crates/archivador/src/style.css",
             APPS / "crates/nodalix-ui/src/base.css",
         ]
         for sheet in sheets:

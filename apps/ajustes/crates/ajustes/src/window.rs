@@ -1,11 +1,21 @@
 //! The window: a sidebar of pages beside the page that is open.
 
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
+
 use ajustes_core::pages::{self, Kind, Page};
 use nodalia_gtk::{self as ndl, gtk, gtk::prelude::*};
 
 use crate::i18n::tr;
 use crate::legacy;
-use crate::pages::{about, appearance, localsend::LocalSendPage, updates::UpdatesPage};
+use crate::pages::{
+    about, accessibility, accounts, appearance, applications, bluetooth::BluetoothPage, cloud,
+    color, datetime, displays, keyboard, localsend::LocalSendPage, multitasking,
+    network::NetworkPage, notifications, pointing, power, printers, privacy, region, sharing,
+    sound, storage, updates::UpdatesPage, users, wifi::WifiPage,
+};
+
+/// Builds a page when it is first shown.
+type Factory = Box<dyn FnOnce() -> gtk::Widget>;
 
 fn sidebar_row(page: &Page) -> gtk::ListBoxRow {
     let row = gtk::ListBoxRow::new();
@@ -45,28 +55,90 @@ pub fn present(app: &gtk::Application) {
     }
     let window = ndl::ApplicationWindow::new(app);
     window.set_title(Some(tr("Settings")));
-    window.set_default_size(1000, 700);
-    window.set_icon_name(Some("preferences-system"));
+    // `NODALIX_SETTINGS_SIZE=1000x1400` opens a taller window, to see a whole page in one picture.
+    let (width, height) = std::env::var("NODALIX_SETTINGS_SIZE")
+        .ok()
+        .and_then(|v| {
+            let (w, h) = v.split_once('x')?;
+            Some((w.parse().ok()?, h.parse().ok()?))
+        })
+        .unwrap_or((1000, 700));
+    window.set_default_size(width, height);
+    window.set_icon_name(Some("os.nodalix.Settings"));
 
     let toasts = ndl::ToastOverlay::new();
-    let updates = UpdatesPage::new();
-    updates.set_toasts(&toasts);
-    let localsend = LocalSendPage::new();
-    localsend.set_toasts(&toasts);
 
-    // The content area: one stack child per page.
+    // The content area: one stack child per page. A page is built the first time it is shown, so
+    // opening Settings costs one page, and the pages nobody opened never poll a service, never
+    // hold widgets that GTK restyles on a light/dark switch and never take memory.
     let stack = gtk::Stack::new();
     stack.set_transition_type(gtk::StackTransitionType::Crossfade);
-    stack.add_named(&appearance::build(), Some("appearance"));
-    stack.add_named(&updates.widget, Some("updates"));
-    stack.add_named(&localsend.widget, Some("localsend"));
-    stack.add_named(&about::build(), Some("about"));
-    for page in pages::all() {
-        if let Kind::Legacy(panel) = page.kind {
-            stack.add_named(
-                &legacy::page(tr(page.title), page.icon, panel),
-                Some(page.id),
-            );
+    let factories: Rc<RefCell<HashMap<&'static str, Factory>>> = Rc::default();
+    {
+        let add = |id: &'static str, factory: Factory| {
+            factories.borrow_mut().insert(id, factory);
+        };
+        macro_rules! lazy {
+            ($id:expr, $toasts:ident => $page:expr) => {{
+                let $toasts = toasts.clone();
+                add($id, Box::new(move || $page.upcast::<gtk::Widget>()));
+            }};
+        }
+        lazy!("appearance", t => appearance::build(&t));
+        lazy!("updates", t => {
+            let page = UpdatesPage::new();
+            page.set_toasts(&t);
+            page.widget.clone()
+        });
+        lazy!("localsend", t => {
+            let page = LocalSendPage::new();
+            page.set_toasts(&t);
+            page.widget.clone()
+        });
+        lazy!("about", _t => about::build());
+        lazy!("wifi", t => {
+            let page = WifiPage::new();
+            page.set_toasts(&t);
+            page.widget.clone()
+        });
+        lazy!("network", t => {
+            let page = NetworkPage::new();
+            page.set_toasts(&t);
+            page.widget.clone()
+        });
+        lazy!("bluetooth", t => {
+            let page = BluetoothPage::new();
+            page.set_toasts(&t);
+            page.widget.clone()
+        });
+        lazy!("sharing", t => sharing::build(&t));
+        lazy!("sound", _t => sound::build());
+        lazy!("power", _t => power::build());
+        lazy!("keyboard", t => keyboard::build(&t));
+        lazy!("mouse", _t => pointing::build());
+        lazy!("notifications", _t => notifications::build());
+        lazy!("multitasking", _t => multitasking::build());
+        lazy!("privacy", _t => privacy::build());
+        lazy!("accessibility", _t => accessibility::build());
+        lazy!("applications", _t => applications::build());
+        lazy!("region", t => region::build(&t));
+        lazy!("users", t => users::build(&t));
+        lazy!("display", t => displays::build(&t));
+        lazy!("printers", t => printers::build(&t));
+        lazy!("online-accounts", t => accounts::build(&t));
+        lazy!("cloud", t => cloud::build(&t));
+        lazy!("storage", t => storage::build(&t));
+        lazy!("color", t => color::build(&t));
+        lazy!("datetime", t => datetime::build(&t));
+        for page in pages::all() {
+            if let Kind::Legacy(panel) = page.kind {
+                add(
+                    page.id,
+                    Box::new(move || {
+                        legacy::page(tr(page.title), page.icon, panel).upcast::<gtk::Widget>()
+                    }),
+                );
+            }
         }
     }
 
@@ -82,11 +154,15 @@ pub fn present(app: &gtk::Application) {
         }
     }
     {
-        let (stack, title) = (stack.clone(), title.clone());
+        let (stack, title, factories) = (stack.clone(), title.clone(), factories.clone());
         list.connect_row_selected(move |_, row| {
             let Some(row) = row else { return };
             let id = row.widget_name();
             if let Some(page) = pages::find(&id) {
+                let factory = factories.borrow_mut().remove(page.id);
+                if let Some(factory) = factory {
+                    stack.add_named(&factory(), Some(page.id));
+                }
                 stack.set_visible_child_name(page.id);
                 title.set_title(tr(page.title));
             }

@@ -4,7 +4,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use monitor_core::format_bytes;
-use monitor_core::fs::{self, Mount};
+use monitor_core::fs::{self, Kind, Mount};
 use nodalia_gtk::gtk::{self, gio, glib, prelude::*};
 use nodalia_gtk::ActionRow;
 
@@ -46,22 +46,41 @@ impl DiskView {
             .title(mount.mount_point.clone())
             .subtitle(format!("{} · {}", mount.device, mount.fs_type))
             .build();
-        let bar = gtk::ProgressBar::new();
-        bar.set_fraction(mount.fraction());
-        bar.set_valign(gtk::Align::Center);
-        bar.set_size_request(160, -1);
-        let text = gtk::Label::new(Some(&format!(
-            "{} {} · {} {}",
-            tr("Used"),
-            format_bytes(mount.used()),
-            tr("Free"),
-            format_bytes(mount.free)
-        )));
-        text.add_css_class("dim-label");
-        text.set_valign(gtk::Align::Center);
+        let icon = gtk::Image::from_icon_name(match mount.kind() {
+            Kind::Disk => "drive-harddisk-symbolic",
+            Kind::Removable => "drive-removable-media-symbolic",
+            Kind::Network => "folder-remote-symbolic",
+        });
+        icon.set_pixel_size(20);
+        row.add_prefix(&icon);
         let side = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-        side.append(&text);
-        side.append(&bar);
+        if mount.has_size() {
+            let bar = gtk::ProgressBar::new();
+            bar.set_fraction(mount.fraction());
+            bar.set_valign(gtk::Align::Center);
+            bar.set_size_request(160, -1);
+            let text = gtk::Label::new(Some(&format!(
+                "{} {} · {} {}",
+                tr("Used"),
+                format_bytes(mount.used()),
+                tr("Free"),
+                format_bytes(mount.free)
+            )));
+            text.add_css_class("dim-label");
+            text.set_valign(gtk::Align::Center);
+            side.append(&text);
+            side.append(&bar);
+        } else {
+            // No limit is known: say what is used and leave the bar out.
+            let text = gtk::Label::new(Some(&format!(
+                "{} {} · {}",
+                tr("Used"),
+                format_bytes(mount.used()),
+                tr("No size limit")
+            )));
+            text.add_css_class("dim-label");
+            side.append(&text);
+        }
         row.add_suffix(&side);
         row
     }

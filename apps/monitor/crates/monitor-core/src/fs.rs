@@ -11,7 +11,42 @@ pub struct Mount {
     pub free: u64,
 }
 
+/// Beyond this a file system is reporting no real limit (a FUSE mount without a quota says it
+/// has exabytes), and showing the figure would only mislead.
+const UNBOUNDED: u64 = 1 << 50;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Kind {
+    /// A disk or partition of this computer.
+    Disk,
+    /// A USB stick, card or other medium that comes and goes.
+    Removable,
+    /// Another computer's or a service's files.
+    Network,
+}
+
 impl Mount {
+    pub fn kind(&self) -> Kind {
+        let network = self.fs_type.starts_with("nfs")
+            || self.fs_type.starts_with("cifs")
+            || self.fs_type.starts_with("smb")
+            || self.fs_type.starts_with("fuse") && !self.device.starts_with('/');
+        if network {
+            Kind::Network
+        } else if self.mount_point.starts_with("/run/media/")
+            || self.mount_point.starts_with("/media/")
+        {
+            Kind::Removable
+        } else {
+            Kind::Disk
+        }
+    }
+
+    /// Whether the size is a real one worth a bar.
+    pub fn has_size(&self) -> bool {
+        self.total < UNBOUNDED
+    }
+
     pub fn used(&self) -> u64 {
         self.total.saturating_sub(self.free)
     }
@@ -155,6 +190,36 @@ mod tests {
         assert_eq!(unescape("a\\040b\\011c"), "a b\tc");
         assert_eq!(unescape("plain"), "plain");
         assert_eq!(unescape("trail\\04"), "trail\\04");
+    }
+
+    fn mount(device: &str, mount_point: &str, fs_type: &str, total: u64) -> Mount {
+        Mount {
+            device: device.into(),
+            mount_point: mount_point.into(),
+            fs_type: fs_type.into(),
+            total,
+            free: total,
+        }
+    }
+
+    #[test]
+    fn a_mount_is_a_disk_a_medium_or_someone_elses_files() {
+        assert_eq!(mount("/dev/sda1", "/", "ext4", 1).kind(), Kind::Disk);
+        assert_eq!(
+            mount("/dev/sdb1", "/run/media/u/STICK", "vfat", 1).kind(),
+            Kind::Removable
+        );
+        assert_eq!(mount("srv:/x", "/srv", "nfs4", 1).kind(), Kind::Network);
+        assert_eq!(
+            mount("nodalix-drive:", "/home/u/Nube/Drive", "fuse.rclone", 1).kind(),
+            Kind::Network
+        );
+    }
+
+    #[test]
+    fn a_size_of_exabytes_is_not_a_size() {
+        assert!(mount("/dev/sda1", "/", "ext4", 2 << 40).has_size());
+        assert!(!mount("x:", "/m", "fuse.rclone", 1 << 60).has_size());
     }
 
     #[test]

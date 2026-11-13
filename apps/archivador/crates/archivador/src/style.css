@@ -1,0 +1,155 @@
+/* Archivador's own pieces. Colours and sizes come from NDL's tokens; nothing is a literal. */
+
+/* The path bar: segments of the path, the last one being where you are. */
+.archivador-pathbar {
+  background-color: var(--ndl-color-control-bg);
+  border-radius: var(--ndl-radius-md);
+  padding: 2px;
+}
+
+.archivador-pathbar button {
+  background: none;
+  border: none;
+  box-shadow: none;
+  min-height: 0;
+  padding: var(--ndl-space-xs) var(--ndl-space-sm);
+  color: var(--ndl-color-text-secondary);
+}
+
+.archivador-pathbar button:hover {
+  background-color: var(--ndl-color-control-bg-hover);
+  color: var(--ndl-color-text-primary);
+}
+
+.archivador-pathbar button.current {
+  color: var(--ndl-color-text-primary);
+  font-weight: var(--ndl-font-weight-semibold);
+}
+
+.archivador-pathbar image {
+  color: var(--ndl-color-text-tertiary);
+  -gtk-icon-size: 12px;
+}
+
+/* The strip of column titles above the list. */
+.archivador-columns {
+  padding: 0 calc(var(--ndl-space-md) + var(--ndl-space-sm));
+  border-bottom: var(--ndl-border-width-thin) solid var(--ndl-color-border-subtle);
+}
+
+.archivador-columns button {
+  min-height: 0;
+  padding: var(--ndl-space-xs) 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--ndl-color-text-secondary);
+  font-size: var(--ndl-font-size-small);
+  font-weight: var(--ndl-font-weight-semibold);
+}
+
+.archivador-columns button:hover {
+  color: var(--ndl-color-text-primary);
+}
+
+/* The line under the files. */
+.archivador-status {
+  padding: var(--ndl-space-sm) var(--ndl-space-lg);
+  color: var(--ndl-color-text-secondary);
+  font-size: var(--ndl-font-size-small);
+  border-top: var(--ndl-border-width-thin) solid var(--ndl-color-border-subtle);
+}
+
+/* The eject button on a drive in the sidebar: quiet until the row is hovered. */
+.archivador-eject {
+  min-height: 0;
+  min-width: 0;
+  padding: var(--ndl-space-xs);
+  opacity: 0.6;
+}
+
+.archivador-eject:hover {
+  opacity: 1;
+}
+
+/* An account in the cloud that is not mounted. */
+.archivador-offline {
+  opacity: 0.6;
+}
+
+/* The properties dialog. */
+.archivador-properties {
+  padding: var(--ndl-space-xl);
+}
+
+/* A thumbnail: the picture itself, with softened corners. */
+.archivador-thumb {
+  border-radius: var(--ndl-radius-sm);
+}
+
+/* The files. */
+.archivador-files {
+  background-color: transparent;
+}
+
+.archivador-files > row,
+.archivador-files > child {
+  border-radius: var(--ndl-radius-md);
+  margin: 1px var(--ndl-space-sm);
+}
+
+.archivador-files > row:hover,
+.archivador-files > child:hover {
+  background-color: var(--ndl-color-control-bg-hover);
+}
+
+.archivador-files > row:selected,
+.archivador-files > child:selected {
+  background-color: var(--ndl-color-selection-bg);
+  color: var(--ndl-color-text-primary);
+}
+
+/* The columns view: a hairline between columns, and a quiet choice in the ones on the way. */
+.archivador-column {
+  border-right: var(--ndl-border-width-thin) solid var(--ndl-color-border-subtle);
+}
+
+.archivador-trail > row:selected,
+.archivador-trail > child:selected {
+  background-color: var(--ndl-color-selection-bg-inactive);
+}
+
+.archivador-arrow {
+  color: var(--ndl-color-text-tertiary);
+  -gtk-icon-size: 12px;
+}
+
+.archivador-card {
+  padding: var(--ndl-space-xl) var(--ndl-space-lg);
+}
+
+.archivador-row {
+  padding: var(--ndl-space-xs) var(--ndl-space-md);
+}
+
+.archivador-tile {
+  padding: var(--ndl-space-md);
+}
+
+.archivador-meta {
+  color: var(--ndl-color-text-secondary);
+  font-feature-settings: "tnum";
+}
+
+/* The sheet gives an alert no padding of its own. */
+ndl-dialog .ndl-alert-text {
+  padding: var(--ndl-space-xl) var(--ndl-space-xl) var(--ndl-space-lg);
+}
+
+ndl-dialog .ndl-alert-buttons {
+  padding: 0 var(--ndl-space-xl) var(--ndl-space-xl);
+}
+
+ndl-dialog .ndl-alert-text entry {
+  margin-top: var(--ndl-space-sm);
+}

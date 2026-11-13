@@ -4,10 +4,19 @@ version = 4
 
 [[package]]
 name = "ajustes-core"
-version = "0.1.0"
+version = "0.6.0"
 dependencies = [
  "libc",
  "monitor-core",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "archivador-core"
+version = "0.6.0"
+dependencies = [
+ "libc",
  "serde",
  "serde_json",
 ]
@@ -431,7 +440,7 @@ dependencies = [
 
 [[package]]
 name = "monitor-core"
-version = "0.1.0"
+version = "0.6.0"
 dependencies = [
  "libc",
 ]
@@ -439,15 +448,24 @@ dependencies = [
 [[package]]
 name = "nodalia-gtk"
 version = "0.1.0-alpha.1"
-source = "git+https://github.com/danielmigueltejedor/nodalia-design?rev=58724b0258c5f3258bbbe7bdd81b9d3801096be0#58724b0258c5f3258bbbe7bdd81b9d3801096be0"
+source = "git+https://github.com/danielmigueltejedor/nodalia-design?rev=6bc095f2e37a11076f6b122917b71fddf4984f83#6bc095f2e37a11076f6b122917b71fddf4984f83"
 dependencies = [
  "gtk4",
  "pango",
 ]
 
 [[package]]
+name = "nodalix-archivador"
+version = "0.6.0"
+dependencies = [
+ "archivador-core",
+ "nodalia-gtk",
+ "nodalix-ui",
+]
+
+[[package]]
 name = "nodalix-monitor"
-version = "0.1.0"
+version = "0.6.0"
 dependencies = [
  "monitor-core",
  "nodalia-gtk",
@@ -456,7 +474,7 @@ dependencies = [
 
 [[package]]
 name = "nodalix-settings"
-version = "0.1.0"
+version = "0.6.0"
 dependencies = [
  "ajustes-core",
  "monitor-core",
@@ -466,7 +484,7 @@ dependencies = [
 
 [[package]]
 name = "nodalix-ui"
-version = "0.1.0"
+version = "0.6.0"
 dependencies = [
  "nodalia-gtk",
 ]
