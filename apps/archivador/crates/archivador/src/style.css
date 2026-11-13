@@ -115,12 +115,15 @@
   color: var(--ndl-color-text-primary);
 }
 
-/* The box drawn around what a drag over the empty part picks up: rounded, and in the accent. */
+/* The box drawn around what a drag over the empty part picks up: rounded, an outline in the
+   accent and a fill that is only a tint of it, so the icons underneath stay readable. The
+   selection colour is solid and would hide them. */
 .archivador-files rubberband,
 .archivador-columns rubberband {
   border: var(--ndl-border-width-thin) solid var(--ndl-color-accent-default);
   border-radius: var(--ndl-radius-md);
-  background-color: var(--ndl-color-selection-bg);
+  background-color: alpha(var(--ndl-color-accent-default), 0.16);
+  background-color: color-mix(in srgb, var(--ndl-color-accent-default) 16%, transparent);
 }
 
 .archivador-files.archivador-on-file rubberband {
