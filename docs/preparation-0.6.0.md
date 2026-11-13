@@ -9,7 +9,7 @@ cambiar de una a otra y qué se comprueba antes de publicar.
 | Monitor del sistema | `nodalix-monitor` | `gnome-system-monitor` | En el conjunto de la release |
 | Archivador | `nodalix-archivador` (Rust) | `nautilus` y el Archivador de 0.5 | En el conjunto de la release |
 | Tienda | `nodalix-store` 0.6.0 | `bazaar` | En el conjunto de la release |
-| Brújula | `nodalix-brujula` | `brujula` sin fijar (si estuviera) | 0.2.0, en el conjunto de la release |
+| Brújula | `nodalix-brujula` | `brujula` sin fijar (si estuviera) | 0.3.0, en el conjunto de la release |
 
 Los tres primeros salen de un solo `PKGBUILD` dividido (`packaging/nodalix-native-apps/`), que compila el espacio de
 trabajo de `apps/` una vez desde `Cargo.lock`. Cada paquete declara `provides`/`conflicts`/`replaces` del paquete de
@@ -55,4 +55,4 @@ usando para llamarlo: `/usr/bin/gnome-control-center`, `org.gnome.Settings.deskt
 
 ## Brújula 0.2.0
 
-`packaging/nodalix-brujula/PKGBUILD` empaqueta la etiqueta v0.2.0 (commit 4f42d39) con checksum real, como la Tienda. Se construye aparte (`dist/build-aside`, `dist/native-apps`) hasta el PR de cambio, donde entra en el conjunto de la release y en `components.json`. Reemplaza a `brujula` y deja `text/html` y `http(s)` apuntando a Brújula mediante `/etc/xdg/gnome-mimeapps.list`, para no chocar con el `gnome-mimeapps.list` de Archivador.
+`packaging/nodalix-brujula/PKGBUILD` empaqueta la etiqueta v0.3.0 (commit 920957b) con checksum real, como la Tienda. Se construye aparte (`dist/build-aside`, `dist/native-apps`) hasta el PR de cambio, donde entra en el conjunto de la release y en `components.json`. Reemplaza a `brujula` y deja `text/html` y `http(s)` apuntando a Brújula mediante `/etc/xdg/gnome-mimeapps.list`, para no chocar con el `gnome-mimeapps.list` de Archivador.

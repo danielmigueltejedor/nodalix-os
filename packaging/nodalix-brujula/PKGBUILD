@@ -2,9 +2,9 @@
 # danielmigueltejedor/brujula pinned to an exact release commit like every other external
 # Nodalix source.
 pkgname=nodalix-brujula
-pkgver=0.2.0
+pkgver=0.3.0
 pkgrel=1
-_brujula_commit=4f42d39a044a62498261de95c7e0274d42de5770
+_brujula_commit=920957b25a7d5e3263046028689e997abd38a4b2
 pkgdesc='Brújula: the default web browser of Nodalix OS (WebKit, vertical tabs, ad blocker, passwords)'
 arch=('x86_64')
 url='https://github.com/danielmigueltejedor/brujula'
@@ -15,7 +15,7 @@ provides=('brujula' 'webbrowser')
 conflicts=('brujula')
 replaces=('brujula')
 source=("brujula-$_brujula_commit.tar.gz::https://codeload.github.com/danielmigueltejedor/brujula/tar.gz/$_brujula_commit")
-sha256sums=('c93c7b6799add997dbbfd5d3bce174264cf3c530f47a83f387375e2e6ffe8f0f')
+sha256sums=('327245118791593c063ae597393fd34d721481141a9334e580e4338e8d8f01bf')
 
 prepare() {
   cd "$srcdir/brujula-$_brujula_commit"
