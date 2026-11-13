@@ -46,7 +46,7 @@
       "summary": "El reproductor de música de Nodalia.",
       "kind": "nodalix-apps",
       "manager": "vinilo",
-      "repo": "getnodalia/vinilo",
+      "repo": "danielmigueltejedor/vinilo",
       "icon": "dev.danielmiguelt.Vinilo"
     }
   ]

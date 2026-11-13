@@ -199,7 +199,7 @@ def build(tag: str, output: Path) -> None:
 
     repository = os.environ.get(
         "GITHUB_REPOSITORY",
-        "getnodalia/nodalix-os",
+        "danielmigueltejedor/nodalix-os",
     )
     repository_url = f"https://github.com/{repository}"
 

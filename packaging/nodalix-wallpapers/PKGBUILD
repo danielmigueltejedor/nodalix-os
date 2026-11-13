@@ -5,7 +5,7 @@ options=("!strip")
 pkgdesc="Curated original-resolution wallpapers for Nodalix"
 arch=('any')
 makedepends=("python")
-url="https://github.com/getnodalia/nodalix-os"
+url="https://github.com/danielmigueltejedor/nodalix-os"
 license=('custom:Unsplash')
 source=(
   'nodalix-abstract-wave.jpg'

@@ -3,7 +3,7 @@ pkgver=51.0.0
 pkgrel=20
 pkgdesc="GNOME Settings with native Nodalix updates and animated backgrounds"
 arch=("x86_64")
-url="https://github.com/getnodalia/nodalix-os"
+url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-2.0-or-later" "GPL-3.0-or-later" "MIT")
 provides=("gnome-control-center=51.0")
 conflicts=("gnome-control-center")

@@ -188,30 +188,6 @@ class ChannelSelectionTests(unittest.TestCase):
             ):
                 self.assertEqual(UPDATER.load_config()["channel"], "stable")
 
-    def test_config_naming_the_old_repository_follows_the_move_to_getnodalia(self) -> None:
-        for old in ("danielmigueltejedor/nodalix-os", "DanielMiguelTejedor/Nodalix-OS"):
-            with self.subTest(old=old), tempfile.TemporaryDirectory() as directory:
-                config_path = Path(directory) / "updater.json"
-                config_path.write_text(json.dumps({"repository": old, "channel": "stable"}))
-                with (
-                    mock.patch.object(UPDATER, "CONFIG_PATH", config_path),
-                    mock.patch.object(UPDATER, "current_version", return_value="0.6.0"),
-                ):
-                    self.assertEqual(UPDATER.load_config()["repository"], "getnodalia/nodalix-os")
-
-    def test_other_repositories_are_left_alone(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            config_path = Path(directory) / "updater.json"
-            config_path.write_text(json.dumps({"repository": "owner/repo"}))
-            with (
-                mock.patch.object(UPDATER, "CONFIG_PATH", config_path),
-                mock.patch.object(UPDATER, "current_version", return_value="0.6.0"),
-            ):
-                self.assertEqual(UPDATER.load_config()["repository"], "owner/repo")
-
-    def test_default_repository_is_the_organisation_one(self) -> None:
-        self.assertEqual(UPDATER.DEFAULT_CONFIG["repository"], "getnodalia/nodalix-os")
-
     def test_private_repo_downloads_use_api_asset_url(self) -> None:
         asset = {
             "url": "https://api.github.com/repos/owner/repo/releases/assets/1",

@@ -1,9 +1,9 @@
 pkgname=nodalix-integrations
-pkgver=0.6.1
+pkgver=0.6.0
 pkgrel=1
 pkgdesc="Nodalix desktop services independent of the compositor"
 arch=("any")
-url="https://github.com/getnodalia/nodalix-os"
+url="https://github.com/danielmigueltejedor/nodalix-os"
 license=("GPL-3.0-or-later")
 depends=("python" "python-gobject" "python-xlib" "evolution-data-server" "xdg-user-dirs" "rclone" "fuse3" "openssl" "fish" "vdirsyncer" "gtk3" "desktop-file-utils" "zram-generator")
 optdepends=("gamemode: automatic performance requests for Steam games" "power-profiles-daemon: GNOME performance profile holds while gaming" "openlogi: optional Logitech device agent")

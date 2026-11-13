@@ -2,22 +2,20 @@
 # danielmigueltejedor/brujula pinned to an exact release commit like every other external
 # Nodalix source.
 pkgname=nodalix-brujula
-pkgver=0.6.0
+pkgver=0.3.0
 pkgrel=1
-_brujula_commit=fd0850730c54fbfa0a883bdb6bf1a5fb9c4f57ea
+_brujula_commit=920957b25a7d5e3263046028689e997abd38a4b2
 pkgdesc='Brújula: the default web browser of Nodalix OS (WebKit, vertical tabs, ad blocker, passwords)'
 arch=('x86_64')
 url='https://github.com/danielmigueltejedor/brujula'
 license=('GPL-3.0-or-later')
-depends=('gtk4' 'webkitgtk-6.0' 'libsoup3' 'hicolor-icon-theme' 'dbus' 'systemd-libs')
-makedepends=('cargo' 'git' 'pkgconf')
-optdepends=('libsecret: save the keys of the AI assistant and unlock passwords with the system keyring'
-            'bluez: passkeys with the phone (QR code and Bluetooth)')
+depends=('gtk4' 'webkitgtk-6.0' 'libsoup3' 'hicolor-icon-theme')
+makedepends=('cargo' 'pkgconf')
 provides=('brujula' 'webbrowser')
 conflicts=('brujula')
 replaces=('brujula')
 source=("brujula-$_brujula_commit.tar.gz::https://codeload.github.com/danielmigueltejedor/brujula/tar.gz/$_brujula_commit")
-sha256sums=('d7e3de70f61d81ea6b3d6898560bfa9dbea54015fcf7c29928c6dea1f363018b')
+sha256sums=('327245118791593c063ae597393fd34d721481141a9334e580e4338e8d8f01bf')
 
 prepare() {
   cd "$srcdir/brujula-$_brujula_commit"

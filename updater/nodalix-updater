@@ -35,15 +35,11 @@ PACMAN_LOCK_PATH = Path(os.environ.get(
     "/var/lib/pacman/db.lck",
 ))
 DEFAULT_CONFIG = {
-    "repository": "getnodalia/nodalix-os",
+    "repository": "danielmigueltejedor/nodalix-os",
     "channel": "stable",
     "manifest_asset": "nodalix-manifest.json",
     "require_signature": False,
 }
-# The project moved to the getnodalia organisation. Installations whose /etc/nodalix/updater.json
-# (kept by pacman as a backup file) still names the old repository are pointed at the new one, so a
-# check never depends on GitHub redirecting api.github.com for the old name.
-MOVED_REPOSITORIES = {"danielmigueltejedor/nodalix-os": "getnodalia/nodalix-os"}
 VALID_CHANNELS = ("stable", "beta")
 CHANNEL_ALIASES = {"rc": "beta"}
 UA = "Nodalix-Updater/0.3"
@@ -257,7 +253,6 @@ def load_config() -> dict:
     repository = str(config.get("repository", ""))
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
         raise ManifestError("invalid GitHub repository")
-    config["repository"] = MOVED_REPOSITORIES.get(repository.lower(), repository)
     config["channel"] = normalize_channel(config.get("channel", "stable"))
     # Beta installations created before channels were explicit shipped a
     # stable value and could therefore never discover the next beta. Keep an

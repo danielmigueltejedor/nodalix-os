@@ -1,12 +1,12 @@
 # Rebuild and validate this fork for every Nodalix and GNOME update.
 pkgname=nodalix-gnome-shell
-pkgver=0.6.1
+pkgver=0.6.0
 pkgrel=1
 _gnomever=51.1
 _upstream_commit=33da06854e229c256afd5872fedd83c28cbfa176
 pkgdesc="Nodalix-maintained GNOME Shell 51.1 with bundled desktop modules"
 arch=('x86_64')
-url='https://github.com/getnodalia/nodalix-os'
+url='https://github.com/danielmigueltejedor/nodalix-os'
 license=('GPL-3.0-or-later')
 depends=(
   'accountsservice' 'at-spi2-core' 'bash' 'cairo' 'dconf' 'gcr-4'

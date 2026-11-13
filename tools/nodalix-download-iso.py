@@ -3,7 +3,7 @@
 import argparse, hashlib, json, os, re, stat, tempfile, urllib.parse, urllib.request
 from pathlib import Path
 
-REPOSITORY='getnodalia/nodalix-os'
+REPOSITORY='danielmigueltejedor/nodalix-os'
 
 def valid_file(row):
     name=row.get('asset','')

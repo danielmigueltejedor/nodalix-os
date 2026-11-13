@@ -1,9 +1,9 @@
 pkgname=nodalix-updater
-pkgver=0.6.1
+pkgver=0.6.0
 pkgrel=1
 pkgdesc="Nodalix GitHub Releases update service"
 arch=('any')
-url="https://github.com/getnodalia/nodalix-os"
+url="https://github.com/danielmigueltejedor/nodalix-os"
 license=('GPL-3.0-or-later')
 depends=('python' 'python-gobject' 'pacman' 'polkit' 'minisign' 'timeshift' 'rsync' 'btrfs-progs')
 backup=('etc/nodalix/updater.json')

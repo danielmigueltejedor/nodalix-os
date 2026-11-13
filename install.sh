@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo="${NODALIX_REPOSITORY:-getnodalia/nodalix-os}"
+repo="${NODALIX_REPOSITORY:-danielmigueltejedor/nodalix-os}"
 channel="${NODALIX_CHANNEL:-stable}"
 
 say() { printf '\033[1;36m::\033[0m %s\n' "$*"; }
