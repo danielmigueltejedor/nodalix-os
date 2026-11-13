@@ -22,6 +22,16 @@ pub enum Provider {
 }
 
 impl Provider {
+    /// The icon the service is known by, drawn by `nodalix-ui`.
+    pub fn icon(self) -> &'static str {
+        match self {
+            Provider::Drive => "nodalix-cloud-drive-symbolic",
+            Provider::Onedrive => "nodalix-cloud-onedrive-symbolic",
+            Provider::Dropbox => "nodalix-cloud-dropbox-symbolic",
+            Provider::Iclouddrive => "nodalix-cloud-icloud-symbolic",
+        }
+    }
+
     pub fn title(self) -> &'static str {
         match self {
             Provider::Drive => "Google Drive",

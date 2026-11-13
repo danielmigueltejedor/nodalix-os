@@ -84,6 +84,7 @@ fn drawings() -> Vec<(&'static str, String)> {
         ("folder-pictures-symbolic", folder(&[Line("M8 17.2l3-3.7 2.4 2.7 1.6-1.7 2 2.7z")])),
         ("folder-videos-symbolic", folder(&[Line("M10.5 11.5v5.2l4.4-2.6z")])),
         ("drive-removable-media-symbolic", svg(&[Rect(7.0, 8.0, 10.0, 13.0, 2.0), Line("M9.5 8V3h5v5M10.5 13h.01M13.5 13h.01")])),
+        ("network-server-symbolic", svg(&[Rect(3.5, 4.0, 17.0, 6.5, 2.0), Rect(3.5, 13.5, 17.0, 6.5, 2.0), Line("M7.5 7.25h.01M7.5 16.75h.01")])),
         ("media-eject-symbolic", svg(&[Line("M12 5 5.5 13h13z"), Line("M5.5 18h13")])),
         ("user-trash-full-symbolic", svg(&[Line("M4 7h16M9 7V4h6v3"), Solid("M6 7l1 13h10l1-13z")])),
         // Actions.
@@ -94,6 +95,11 @@ fn drawings() -> Vec<(&'static str, String)> {
         ("process-stop-symbolic", svg(&[Circle(12.0, 12.0, 9.0), Line("M9 9l6 6M15 9l-6 6")])),
         ("view-columns-symbolic", svg(&[Rect(3.5, 4.5, 17.0, 15.0, 2.0), Line("M9.2 4.5v15M14.8 4.5v15")])),
         ("view-app-grid-symbolic", svg(&[Rect(4.0, 4.0, 6.0, 6.0, 1.5), Rect(14.0, 4.0, 6.0, 6.0, 1.5), Rect(4.0, 14.0, 6.0, 6.0, 1.5), Rect(14.0, 14.0, 6.0, 6.0, 1.5)])),
+        // The cloud services, by the mark each is known by, drawn as plain outlines.
+        ("nodalix-cloud-drive-symbolic", svg(&[Line("M8.5 3.5h7l6 10.5-3.5 6h-12L2.5 14z"), Line("M15.5 3.5 9 14.5h12.5M9 14.5 6 20")])),
+        ("nodalix-cloud-onedrive-symbolic", svg(&[Line("M7 18.5a4.5 4.5 0 0 1-.6-8.95A6 6 0 0 1 18 10.5a4 4 0 0 1-.5 8z")])),
+        ("nodalix-cloud-dropbox-symbolic", svg(&[Line("M7 4l5 3.25L7 10.5 2 7.25zM17 4l5 3.25-5 3.25-5-3.25zM7 10.5l5 3.25L7 17 2 13.75zM17 10.5l5 3.25L17 17l-5-3.25zM7 18.5l5 3 5-3")])),
+        ("nodalix-cloud-icloud-symbolic", svg(&[Line("M7 18.5a4.5 4.5 0 0 1-.6-8.95A6 6 0 0 1 18 10.5a4 4 0 0 1-.5 8z"), Line("M12 16.5v-5M9.7 13.7l2.3-2.3 2.3 2.3")])),
         // Settings.
         ("applications-graphics-symbolic", svg(&[Line("M12 21.5a9.5 9.5 0 1 1 9.5-9.5c0 3-2 4-4.5 4h-2a2 2 0 0 0-1.4 3.4 2 2 0 0 1-1.6 2.1z"), Line("M7.5 11.5h.01M10.5 7.5h.01M15.5 8h.01")])),
         ("preferences-color-symbolic", svg(&[Line("M12 3s6.5 6.4 6.5 11a6.5 6.5 0 0 1-13 0C5.5 9.4 12 3 12 3z")])),

@@ -174,7 +174,7 @@ fn absolute(path: &Path) -> io::Result<PathBuf> {
 }
 
 /// The spec's `Path=` value: the path with every byte but unreserved ones and `/` as `%XX`.
-fn encode_path(path: &Path) -> String {
+pub(crate) fn encode_path(path: &Path) -> String {
     use std::os::unix::ffi::OsStrExt;
     let mut out = String::new();
     for &byte in path.as_os_str().as_bytes() {
@@ -187,7 +187,7 @@ fn encode_path(path: &Path) -> String {
     out
 }
 
-fn decode_path(text: &str) -> PathBuf {
+pub(crate) fn decode_path(text: &str) -> PathBuf {
     use std::os::unix::ffi::OsStringExt;
     let bytes = text.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
