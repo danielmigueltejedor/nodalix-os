@@ -87,6 +87,15 @@ class Engine:
             packages.extend(self.backends[name].list_installed())
         return packages
 
+    def list_catalog(self, source: str) -> list[Package]:
+        """Everything a curated source offers, installed or not."""
+
+        names = self._selected(source)
+        backend = self.backends[names[0]]
+        if not hasattr(backend, "list_catalog"):
+            raise NxpmError("unsupported", "That source has no catalogue to list.")
+        return backend.list_catalog()
+
     def list_updates(self) -> list[Package]:
         packages: list[Package] = []
         for name in self.config.active_sources():
@@ -207,7 +216,7 @@ class Engine:
                 "authorization-required",
                 "Installing or updating one official package would leave the system partly updated. Use a full system update.",
             )
-        if parsed_source not in {"flatpak", "appimage"}:
+        if parsed_source not in {"flatpak", "appimage", "nodalia"}:
             raise NxpmError("unsupported", "That software source cannot be changed.")
         backend = self._backend(parsed_source)
 
@@ -261,6 +270,10 @@ def build_engine(config: Config | None = None) -> Engine:
         from nxpm.backends.appimage import AppImageBackend
 
         backends["appimage"] = AppImageBackend()
+    if loaded.sources["nodalia"].enabled and loaded.sources["nodalia"].implemented:
+        from nxpm.backends.nodalia import NodaliaBackend
+
+        backends["nodalia"] = NodaliaBackend()
     for name, spec in loaded.sources.items():
         if spec.enabled and not spec.implemented:
             log.warning("%s was requested but stays disabled: %s", name, spec.reason)

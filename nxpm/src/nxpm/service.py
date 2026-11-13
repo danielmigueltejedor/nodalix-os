@@ -169,6 +169,13 @@ class NxpmObject:
                     raise dbus_error(exc) from exc
 
             @dbus.service.method(IFACE, in_signature="s", out_signature="aa{sv}")
+            def ListCatalog(self, source):
+                try:
+                    return variant_list(_package_rows(self.engine.list_catalog(str(source))))
+                except NxpmError as exc:
+                    raise dbus_error(exc) from exc
+
+            @dbus.service.method(IFACE, in_signature="s", out_signature="aa{sv}")
             def Search(self, query):
                 try:
                     return variant_list(_package_rows(self.engine.search(str(query))))
