@@ -102,11 +102,23 @@ fn thumbnail_file(video: &Path) -> Option<PathBuf> {
 /// `ffmpeg` or it cannot read the video.
 async fn make_thumbnail(video: PathBuf) -> Option<PathBuf> {
     let target = thumbnail_file(&video)?;
-    if target.is_file() {
+    let temporary = target.with_extension("part.jpg");
+    // Files are touched off the main loop: this runs while the page is being drawn.
+    let already = {
+        let target = target.clone();
+        gio::spawn_blocking(move || {
+            if target.is_file() {
+                return Some(true);
+            }
+            std::fs::create_dir_all(target.parent()?).ok()?;
+            Some(false)
+        })
+        .await
+        .ok()??
+    };
+    if already {
         return Some(target);
     }
-    std::fs::create_dir_all(target.parent()?).ok()?;
-    let temporary = target.with_extension("part.jpg");
     let (input, output) = (
         video.to_string_lossy().into_owned(),
         temporary.to_string_lossy().into_owned(),
@@ -137,12 +149,20 @@ async fn make_thumbnail(video: PathBuf) -> Option<PathBuf> {
             None,
         )
         .await;
-        if result.ok && std::fs::metadata(&temporary).is_ok_and(|m| m.len() > 0) {
-            std::fs::rename(&temporary, &target).ok()?;
-            return Some(target);
+        if result.ok {
+            let (from, to) = (temporary.clone(), target.clone());
+            let moved = gio::spawn_blocking(move || {
+                std::fs::metadata(&from).is_ok_and(|m| m.len() > 0)
+                    && std::fs::rename(&from, &to).is_ok()
+            })
+            .await
+            .unwrap_or(false);
+            if moved {
+                return Some(target);
+            }
         }
     }
-    let _ = std::fs::remove_file(&temporary);
+    let _ = gio::spawn_blocking(move || std::fs::remove_file(&temporary)).await;
     None
 }
 

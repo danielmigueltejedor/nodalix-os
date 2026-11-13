@@ -341,12 +341,15 @@ impl Page {
         )
         .await;
         capture(&["rclone", "config", "delete", &account.remote()], None).await;
-        let _ = std::fs::remove_file(env_file(&account.id));
-        let rest: Vec<Account> = read_accounts()
-            .into_iter()
-            .filter(|a| a.id != account.id)
-            .collect();
-        if write_accounts(&rest).is_err() {
+        let id = account.id.clone();
+        let saved = gio::spawn_blocking(move || {
+            let _ = std::fs::remove_file(env_file(&id));
+            let rest: Vec<Account> = read_accounts().into_iter().filter(|a| a.id != id).collect();
+            write_accounts(&rest).is_ok()
+        })
+        .await
+        .unwrap_or(false);
+        if !saved {
             self.toast(tr("Could not save the list"));
         }
         self.reload().await;
