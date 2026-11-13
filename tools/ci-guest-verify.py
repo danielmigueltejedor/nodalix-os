@@ -234,7 +234,7 @@ while time.monotonic()<deadline:
         layout=json.loads((state_home/'layout/paths.json').read_text())
         folder=Path(layout['applications'])
         registry=json.loads((state_home/'applications/registry.json').read_text())
-        if folder.is_dir() and (folder/registry['org.gnome.Settings.desktop']['filename']).is_file():break
+        if folder.is_dir() and (folder/registry['os.nodalix.Settings.desktop']['filename']).is_file():break
     except (OSError,ValueError,KeyError):
         pass
     time.sleep(.5)

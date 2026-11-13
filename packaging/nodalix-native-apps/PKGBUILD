@@ -59,6 +59,12 @@ package_nodalix-ajustes() {
   # Cold start by D-Bus activation (gapplication, `nodalix-settings` asked by name).
   install -Dm644 "$srcdir/apps/ajustes/data/os.nodalix.Settings.service" \
     "$pkgdir/usr/share/dbus-1/services/os.nodalix.Settings.service"
+  # The Shell's overview search finds Settings pages through this provider (same bus name and
+  # path as GNOME Settings, started on demand as `nodalix-settings --search-provider`).
+  install -Dm644 "$srcdir/apps/ajustes/data/org.gnome.Settings.search-provider.ini" \
+    "$pkgdir/usr/share/gnome-shell/search-providers/org.gnome.Settings.search-provider.ini"
+  install -Dm644 "$srcdir/apps/ajustes/data/org.gnome.Settings.SearchProvider.service" \
+    "$pkgdir/usr/share/dbus-1/services/org.gnome.Settings.SearchProvider.service"
   # Shell, notifications and the network and Bluetooth indicators open Settings by the
   # GNOME desktop id and command name.
   _launcher gnome-control-center nodalix-settings
