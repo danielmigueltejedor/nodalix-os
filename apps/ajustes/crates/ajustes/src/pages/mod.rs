@@ -1,6 +1,7 @@
 pub mod about;
 pub mod accessibility;
 pub mod accounts;
+pub mod addresses;
 pub mod appearance;
 pub mod applications;
 pub mod backgrounds;

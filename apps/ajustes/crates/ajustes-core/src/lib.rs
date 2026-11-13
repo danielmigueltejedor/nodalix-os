@@ -1,6 +1,7 @@
 //! What Nodalix Settings knows, without GTK. Every parser takes text, so it is tested without a
 //! running system.
 
+pub mod addresses;
 pub mod apps;
 pub mod audio;
 pub mod bluetooth;

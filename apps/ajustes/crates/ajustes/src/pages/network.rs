@@ -12,7 +12,7 @@ use nodalia_gtk::{
 };
 
 use super::nm::{DEVICE, IP4_CONFIG, NM, NM_PATH};
-use super::{bus, column, gs, proxy, scroller, vpn};
+use super::{addresses, bus, column, proxy, scroller, vpn};
 use crate::i18n::tr;
 
 const POLL_SECONDS: u32 = 5;
@@ -38,6 +38,7 @@ pub struct NetworkPage {
     internet: ndl::ActionRow,
     internet_icon: gtk::Image,
     vpn: Rc<vpn::VpnGroup>,
+    addresses: Rc<addresses::AddressGroup>,
     wired: ndl::PreferencesGroup,
     rows: RefCell<Vec<ndl::ActionRow>>,
     shown: RefCell<Vec<Adapter>>,
@@ -154,13 +155,8 @@ impl NetworkPage {
         for group in proxy::groups() {
             content.append(&group);
         }
-        let more = ndl::PreferencesGroup::new();
-        more.add(&gs::legacy_link(
-            tr("Addresses and DNS"),
-            tr("Set the IP address and name servers of a connection"),
-            "network",
-        ));
-        content.append(&more);
+        let addresses = addresses::AddressGroup::new();
+        content.append(&addresses.group);
 
         let page = Rc::new(Self {
             widget: scroller(&content),
@@ -169,6 +165,7 @@ impl NetworkPage {
             internet,
             internet_icon,
             vpn,
+            addresses,
             wired,
             rows: RefCell::new(Vec::new()),
             shown: RefCell::new(Vec::new()),
@@ -192,6 +189,7 @@ impl NetworkPage {
     pub fn set_toasts(&self, toasts: &ndl::ToastOverlay) {
         *self.toasts.borrow_mut() = Some(toasts.clone());
         self.vpn.set_toasts(toasts);
+        self.addresses.set_toasts(toasts);
     }
 
     fn toast(&self, text: &str) {

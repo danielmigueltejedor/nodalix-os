@@ -616,6 +616,23 @@ const ES: &[(&str, &str)] = &[
     ("The storage tool is not available", "La herramienta de almacenamiento no está disponible"),
     ("The storage tool gave no answer", "La herramienta de almacenamiento no respondió"),
     ("There are so many files that the figures are a minimum.", "Hay tantos archivos que las cifras son un mínimo."),
+    ("The IP address and name servers of a saved connection", "La dirección IP y los servidores de nombres de una conexión guardada"),
+    ("Connection", "Conexión"),
+    ("IPv4", "IPv4"),
+    ("Address", "Dirección"),
+    ("Mask or prefix length", "Máscara o longitud del prefijo"),
+    ("Gateway", "Puerta de enlace"),
+    ("Also use the name servers of the network", "Usar también los servidores de nombres de la red"),
+    ("Name servers", "Servidores de nombres"),
+    ("The connection restarts to apply the change", "La conexión se reinicia para aplicar el cambio"),
+    ("Saved. It will apply the next time the connection starts", "Guardado. Se aplicará la próxima vez que se inicie la conexión"),
+    ("Applied", "Aplicado"),
+    ("Automatic (DHCP)", "Automática (DHCP)"),
+    ("Link-local only", "Solo enlace local"),
+    ("That is not an IPv4 address", "Eso no es una dirección IPv4"),
+    ("The mask must be a length such as 24 or a mask such as 255.255.255.0", "La máscara debe ser una longitud como 24 o una máscara como 255.255.255.0"),
+    ("The gateway is not an IPv4 address", "La puerta de enlace no es una dirección IPv4"),
+    ("The name servers must be addresses, separated by spaces or commas", "Los servidores de nombres deben ser direcciones separadas por espacios o comas"),
 ];
 
 /// The text in the user's language.
