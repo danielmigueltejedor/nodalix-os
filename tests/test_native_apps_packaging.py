@@ -42,6 +42,9 @@ class NativeAppsPackagingTests(unittest.TestCase):
             if desktop:
                 self.assertIn(desktop, body)
 
+    def test_settings_can_be_started_by_d_bus_activation(self):
+        self.assertIn("os.nodalix.Settings.service", package_function("nodalix-ajustes"))
+
     def test_archivador_answers_show_in_folder(self):
         body = package_function("nodalix-archivador")
         self.assertIn("org.freedesktop.FileManager1.service", body)
