@@ -1,4 +1,4 @@
-//! The folder icons: Nodalia's own, a teal folder with an NDL glyph tinted into its front, drawn here
+//! The folder icons: Nodalia's own, a flat teal folder with an NDL glyph tinted into its front, drawn here
 //! because NDL itself only has symbolic glyphs and the system's coloured folders (Adwaita's
 //! blue ones) would not belong to it.
 //!
@@ -13,7 +13,7 @@ use ndl::gtk::{gio, glib, prelude::*};
 use nodalia_gtk as ndl;
 
 /// Bump when a drawing changes, so a copy cached by an older version is not reused.
-const VERSION: u32 = 3;
+const VERSION: u32 = 4;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Kind {
@@ -141,18 +141,19 @@ impl Color {
         }
     }
 
-    /// Hue in degrees, and how saturated the colour is.
+    /// Hue in degrees, and how saturated the colour is. They are kept soft: a folder is seen by
+    /// the dozen, and nine loud colours side by side would shout.
     fn hue(self) -> (f32, f32) {
         match self {
-            Color::Teal => (187.0, 0.60),
-            Color::Blue => (214.0, 0.72),
-            Color::Violet => (257.0, 0.62),
-            Color::Pink => (330.0, 0.62),
-            Color::Red => (356.0, 0.66),
-            Color::Orange => (24.0, 0.80),
-            Color::Yellow => (43.0, 0.88),
-            Color::Green => (143.0, 0.48),
-            Color::Graphite => (222.0, 0.10),
+            Color::Teal => (187.0, 0.52),
+            Color::Blue => (214.0, 0.64),
+            Color::Violet => (257.0, 0.52),
+            Color::Pink => (332.0, 0.54),
+            Color::Red => (358.0, 0.60),
+            Color::Orange => (24.0, 0.72),
+            Color::Yellow => (42.0, 0.80),
+            Color::Green => (146.0, 0.40),
+            Color::Graphite => (220.0, 0.09),
         }
     }
 
@@ -175,36 +176,28 @@ impl Color {
     }
 }
 
-/// The drawing, on a 128 px grid: a soft shadow, the back of the folder with its tab, the front
-/// lighter with a bright edge along its top, and the glyph in the middle of the front, in a deep
-/// shade of the folder's own colour with a faint light edge under it, as if pressed into it.
+/// The drawing, on a 128 px grid, flat and in two tones of one colour: the back of the folder
+/// with its tab, the front a lighter tone with a hairline of light along its top, and the glyph in
+/// the middle of the front in a deep tone. No shadows and no gloss: the shape does the work.
 fn drawing(kind: Kind, color: Color) -> String {
-    let tint = color.shade(0.30);
+    let ink = color.shade(0.36);
     let glyph = kind.glyph().map_or(String::new(), |g| {
-        let tinted = g.replace("#fff", &tint);
-        let lit = g.replace("#fff", "#ffffff");
+        let filled = g.replace("#fff", &ink);
         format!(
-            r##"<g transform="translate(43 56.5) scale(1.75)" fill="none" stroke="#ffffff" stroke-opacity="0.5" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" opacity="0.9">{lit}</g>
-<g transform="translate(43 54.5) scale(1.75)" fill="none" stroke="{tint}" stroke-opacity="0.9" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">{tinted}</g>"##
+            r##"<g transform="translate(46 57) scale(1.5)" fill="none" stroke="{ink}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{filled}</g>"##
         )
     });
-    let (back_top, back_bottom) = (color.shade(0.46), color.shade(0.34));
-    let (front_top, front_mid, front_bottom) =
-        (color.shade(0.76), color.shade(0.64), color.shade(0.55));
-    let edge = color.shade(0.22);
+    let back = color.shade(0.47);
+    let (front_top, front_bottom) = (color.shade(0.69), color.shade(0.63));
+    let light = color.shade(0.78);
     format!(
         r##"<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
 <defs>
-<linearGradient id="back" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{back_top}"/><stop offset="1" stop-color="{back_bottom}"/></linearGradient>
-<linearGradient id="front" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{front_top}"/><stop offset="0.5" stop-color="{front_mid}"/><stop offset="1" stop-color="{front_bottom}"/></linearGradient>
-<filter id="soft" x="-20%" y="-40%" width="140%" height="180%"><feGaussianBlur stdDeviation="3"/></filter>
+<linearGradient id="front" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{front_top}"/><stop offset="1" stop-color="{front_bottom}"/></linearGradient>
 </defs>
-<rect x="16" y="106" width="96" height="10" rx="5" fill="{edge}" opacity="0.38" filter="url(#soft)"/>
-<path fill="url(#back)" d="M10 28a8 8 0 0 1 8-8h27a8 8 0 0 1 5.8 2.5L58 32h52a8 8 0 0 1 8 8v62a8 8 0 0 1-8 8H18a8 8 0 0 1-8-8z"/>
-<path fill="#ffffff" fill-opacity="0.2" d="M12 37h104v7H12z"/>
-<path fill="url(#front)" d="M10 50a8 8 0 0 1 8-8h92a8 8 0 0 1 8 8v52a8 8 0 0 1-8 8H18a8 8 0 0 1-8-8z"/>
-<path fill="none" stroke="#ffffff" stroke-opacity="0.6" stroke-width="1.6" stroke-linecap="round" d="M17 43.2h94"/>
-<path fill="none" stroke="{edge}" stroke-opacity="0.22" stroke-width="1.2" d="M10.6 101.5a7.4 7.4 0 0 0 7.4 7.4h92a7.4 7.4 0 0 0 7.4-7.4"/>
+<path fill="{back}" d="M10 34a10 10 0 0 1 10-10h23.500c3.600 0 6.400 1.300 8.800 4l3.400 3.800c2 2.200 4.300 3.200 7.300 3.200H108a10 10 0 0 1 10 10v51a10 10 0 0 1-10 10H20a10 10 0 0 1-10-10z"/>
+<path fill="url(#front)" d="M10 55a10 10 0 0 1 10-10h88a10 10 0 0 1 10 10v41a10 10 0 0 1-10 10H20a10 10 0 0 1-10-10z"/>
+<path fill="none" stroke="{light}" stroke-width="1.500" stroke-linecap="round" d="M19 45.750h90"/>
 {glyph}
 </svg>
 "##
@@ -279,7 +272,7 @@ mod tests {
         for color in Color::ALL {
             assert_eq!(Color::from_id(color.id()), Some(color));
             let svg = drawing(Kind::Documents, color);
-            assert!(svg.contains(&color.shade(0.64)));
+            assert!(svg.contains(&color.shade(0.69)));
             assert!(!svg.contains("NaN"));
         }
         assert_eq!(Color::from_id("magenta"), None);
