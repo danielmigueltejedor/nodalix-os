@@ -1,6 +1,6 @@
 pkgname=nodalix-cursor-theme
 pkgver=0.5.1
-pkgrel=4
+pkgrel=5
 options=("!strip")
 pkgdesc="Capitaine Cursors with scalable GNOME and Xcursor formats"
 arch=("any")
@@ -9,10 +9,10 @@ license=("LGPL-3.0-or-later")
 depends=("adwaita-cursors" "python" "glib2")
 makedepends=("python" "librsvg" "xorg-xcursorgen")
 install=nodalix-cursor-theme.install
-_theme_commit=51616333f47915ddf3087a720d8dc9ba76d9b67d
+_theme_commit=5b76e132b2c9ccec05903f608bf71bd6e8d5a0a7
 source=("nodalix-icon-theme-$_theme_commit.tar.gz::https://codeload.github.com/danielmigueltejedor/nodalix-icon-theme/tar.gz/$_theme_commit"
         "nodalix-cursor.conf" "UPSTREAM.md" "migrate-cursor-theme" "sync-session-cursor.py" "nodalix-cursor-sync.desktop" "default.index.theme")
-sha256sums=("924f5b70359bcfc2fb03ba983b5ea35be908978c60e5232121e8f7f54504f06e"
+sha256sums=("b818f531012267befd33a7ae80f4e5aff46802ab04257925a6c4ac2036a10551"
             "940bccb9b018c6bd360f0c18ccdd8669662e02c0ade0e4e51c44578c56eecb7a"
             "61aebd040d6abdd597999f3cb6fef2ddd33074527cadeba4fbbe28eb56715c34"
             "85589b27c7ed21f831d3958189a635f56c0572bdbe38308305d8eb380785e1f9"
