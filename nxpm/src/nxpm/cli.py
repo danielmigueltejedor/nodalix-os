@@ -24,7 +24,10 @@ def main(argv: list[str] | None = None) -> int:
     privileged_remove.add_argument("package_id")
 
     installed = sub.add_parser("list", help="List installed packages")
-    installed.add_argument("--source", default="", choices=["", "flatpak", "pacman", "appimage"])
+    installed.add_argument("--source", default="", choices=["", "flatpak", "pacman", "appimage", "nodalia"])
+
+    catalog = sub.add_parser("catalog", help="List everything a curated source offers")
+    catalog.add_argument("source", choices=["nodalia"])
 
     imported = sub.add_parser("import", help="Copy an AppImage or Debian package into ~/Applications")
     imported.add_argument("kind", choices=["appimage", "deb"])
@@ -103,6 +106,8 @@ def run(args) -> int:
         return emit(args, engine.sources())
     if args.command == "list":
         return emit(args, [item.to_dict() for item in engine.list_installed(args.source)])
+    if args.command == "catalog":
+        return emit(args, [item.to_dict() for item in engine.list_catalog(args.source)])
     if args.command == "search":
         return emit(args, [item.to_dict() for item in engine.search(args.query)])
     if args.command == "show":

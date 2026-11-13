@@ -141,8 +141,12 @@ def desktop_exec_escape(value: str) -> str:
     return f'"{escaped}"'
 
 
-def write_desktop(key: str, name: str, executable: Path, comment: str) -> Path:
+_ICON = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+-]{0,120}$")
+
+
+def write_desktop(key: str, name: str, executable: Path, comment: str, icon: str = "") -> Path:
     target = confine(executable, applications_dir())
+    icon_name = icon if _ICON.match(icon or "") else "application-x-executable"
     visible = " ".join((name or key).split()) or key
     comment_text = " ".join((comment or "").split())
     exec_value = desktop_exec_escape(str(target))
@@ -151,7 +155,7 @@ def write_desktop(key: str, name: str, executable: Path, comment: str) -> Path:
         "Type=Application\n"
         f"Name={visible}\n"
         f"Exec={exec_value}\n"
-        "Icon=application-x-executable\n"
+        f"Icon={icon_name}\n"
         "Terminal=false\n"
         "Categories=Utility;\n"
         f"Comment={comment_text}\n"

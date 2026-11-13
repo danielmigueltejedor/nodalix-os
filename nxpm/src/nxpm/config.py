@@ -15,6 +15,11 @@ class SourceSpec:
 
 
 DEFAULT_SOURCES = {
+    "nodalia": SourceSpec(
+        True,
+        True,
+        "Nodalia applications published on GitHub, installed into ~/Applications and updated from their releases.",
+    ),
     "flatpak": SourceSpec(True, True, "Flatpak remotes, including Flathub."),
     "pacman": SourceSpec(True, True, "Official Arch repositories through libalpm."),
     "aur": SourceSpec(
@@ -53,7 +58,7 @@ def load_config(path: Path | None = None) -> Config:
         name: SourceSpec(spec.enabled, spec.implemented, spec.reason)
         for name, spec in DEFAULT_SOURCES.items()
     }
-    preference = ["flatpak", "pacman", "appimage"]
+    preference = ["nodalia", "flatpak", "pacman", "appimage"]
     check_updates = True
     notify = True
     location = path if path is not None else config_path()
