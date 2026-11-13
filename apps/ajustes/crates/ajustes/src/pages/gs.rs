@@ -353,18 +353,6 @@ pub fn page(groups: Vec<Option<ndl::PreferencesGroup>>) -> gtk::ScrolledWindow {
     super::scroller(&content)
 }
 
-/// A row that opens one of the previous Settings' panels, for what has no native version yet.
-pub fn legacy_link(title: &str, subtitle: &str, panel: &'static str) -> ndl::ActionRow {
-    let row = ndl::ActionRow::builder().title(title).build();
-    if !subtitle.is_empty() {
-        row.set_subtitle(subtitle);
-    }
-    row.set_activatable(true);
-    row.add_suffix(&gtk::Image::from_icon_name("go-next-symbolic"));
-    row.connect_activated(move |row| crate::legacy::open_panel(row, panel));
-    row
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -2,11 +2,10 @@
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use ajustes_core::pages::{self, Kind, Page};
+use ajustes_core::pages::{self, Page};
 use nodalia_gtk::{self as ndl, gtk, gtk::prelude::*};
 
 use crate::i18n::tr;
-use crate::legacy;
 use crate::pages::{
     about, accessibility, accounts, appearance, applications, bluetooth::BluetoothPage, cloud,
     color, datetime, displays, keyboard, localsend::LocalSendPage, multitasking,
@@ -26,11 +25,6 @@ fn sidebar_row(page: &Page) -> gtk::ListBoxRow {
     label.set_hexpand(true);
     label.set_xalign(0.0);
     content.append(&label);
-    if matches!(page.kind, Kind::Legacy(_)) {
-        let arrow = gtk::Image::from_icon_name("go-next-symbolic");
-        arrow.add_css_class("dim-label");
-        content.append(&arrow);
-    }
     row.set_child(Some(&content));
     row
 }
@@ -149,16 +143,6 @@ pub fn present(app: &gtk::Application, page: Option<&Page>) {
         lazy!("storage", t => storage::build(&t));
         lazy!("color", t => color::build(&t));
         lazy!("datetime", t => datetime::build(&t));
-        for page in pages::all() {
-            if let Kind::Legacy(panel) = page.kind {
-                add(
-                    page.id,
-                    Box::new(move || {
-                        legacy::page(tr(page.title), page.icon, panel).upcast::<gtk::Widget>()
-                    }),
-                );
-            }
-        }
     }
 
     let title = ndl::WindowTitle::new(tr("Appearance"), "");

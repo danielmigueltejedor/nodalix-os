@@ -1,6 +1,6 @@
 //! Wi-Fi, through NetworkManager's D-Bus API: switch the radio, see the networks around, connect
 //! to a saved or a new one and disconnect. Enterprise networks (a login, not a password) and
-//! forgetting a network stay in the previous panel.
+//! forgetting a network are not here yet.
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -538,7 +538,7 @@ impl WifiPage {
     }
 
     /// What a click on a network does: connect to a saved or open one, ask for the password of
-    /// a new one, or send an enterprise one to the previous panel.
+    /// a new one, or say that a network that needs a login is not supported yet.
     async fn choose(self: &Rc<Self>, point: AccessPoint) {
         if self.known.borrow().contains_key(&point.ssid) {
             let path = self.known.borrow().get(&point.ssid).cloned();
@@ -547,9 +547,8 @@ impl WifiPage {
             }
         } else if point.enterprise {
             self.toast(tr(
-                "This network needs a login. Use the previous Wi-Fi settings.",
+                "This network needs a login, which is not supported yet.",
             ));
-            crate::legacy::open_panel(&self.widget, "wifi");
         } else if point.secured {
             self.password
                 .set_title(&format!("{} {}", tr("Password for"), point.ssid));
