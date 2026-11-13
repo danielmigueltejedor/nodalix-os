@@ -32,7 +32,7 @@ usando para llamarlo: `/usr/bin/gnome-control-center`, `org.gnome.Settings.deskt
 3. `nodalix-gnome` deja de depender de `nautilus`, `nautilus-python` y `nodalix-control-center`; depende de
    `nodalix-ajustes` y `nodalix-archivador`. Se retira la extensión de LocalSend para Nautilus (la trae Archivador).
 4. `iso/installer/packages.txt` y `packaging/nodalix-release` cambian igual; también las listas de `tools/build-iso.py`.
-5. Carpetas → Archivador ya va en `gnome-mimeapps.list` del paquete `nodalix-archivador` (Daniel: cualquier app que pida el gestor de archivos abre Archivador; `org.freedesktop.FileManager1` cubre «Mostrar en carpeta»). Web → Brújula irá en el mismo fichero cuando exista el paquete, con un único dueño para no chocar. Los tipos MIME predeterminados van en `gnome-mimeapps.list`, porque la sesión
+5. Carpetas → Archivador ya va en `gnome-mimeapps.list` del paquete `nodalix-archivador` (Daniel: cualquier app que pida el gestor de archivos abre Archivador; `org.freedesktop.FileManager1` cubre «Mostrar en carpeta»). Web → Brújula va en `/etc/xdg/gnome-mimeapps.list` del paquete `nodalix-brujula` (otro directorio, sin choque de ficheros). Los tipos MIME predeterminados van en `gnome-mimeapps.list`, porque la sesión
    es `XDG_CURRENT_DESKTOP=GNOME` y `mimeapps.list` ya lo usa la Tienda.
 6. Pruebas: se retiran solo las que verifican el código de GNOME Settings y Nautilus que deja de existir (páginas
    parcheadas de Actualizaciones, galería animada, almacenamiento); la cobertura equivalente ya está en las pruebas de
@@ -52,3 +52,7 @@ usando para llamarlo: `/usr/bin/gnome-control-center`, `org.gnome.Settings.deskt
 - `nodalia-gtk` está fijado a un commit de la PR nodalia-design#26 (sin fusionar). Si se fusiona con *squash*, hay que
   volver a fijar el commit de `main`; mientras tanto, el commit solo es alcanzable mientras exista la rama de la PR.
 - Los trabajos de VM de CI tardan unos 30 minutos y cada empuje a la PR cancela el anterior: agrupar cambios.
+
+## Brújula 0.2.0
+
+`packaging/nodalix-brujula/PKGBUILD` empaqueta la etiqueta v0.2.0 (commit 4f42d39) con checksum real, como la Tienda. Se construye aparte (`dist/build-aside`, `dist/native-apps`) hasta el PR de cambio, donde entra en el conjunto de la release y en `components.json`. Reemplaza a `brujula` y deja `text/html` y `http(s)` apuntando a Brújula mediante `/etc/xdg/gnome-mimeapps.list`, para no chocar con el `gnome-mimeapps.list` de Archivador.
