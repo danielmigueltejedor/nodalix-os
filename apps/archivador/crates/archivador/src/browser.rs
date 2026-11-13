@@ -2007,7 +2007,7 @@ impl Browser {
         row.set_widget_name(path);
         let content = gtk::Box::new(gtk::Orientation::Horizontal, 12);
         let image = gtk::Image::from_icon_name(icon);
-        image.set_pixel_size(20);
+        image.set_pixel_size(22);
         content.append(&image);
         let label = gtk::Label::new(Some(title));
         label.set_xalign(0.0);

@@ -20,7 +20,9 @@ fn sidebar_row(page: &Page) -> gtk::ListBoxRow {
     let row = gtk::ListBoxRow::new();
     row.set_widget_name(page.id);
     let content = gtk::Box::new(gtk::Orientation::Horizontal, 12);
-    content.append(&gtk::Image::from_icon_name(page.icon));
+    let icon = gtk::Image::from_icon_name(page.icon);
+    icon.set_pixel_size(20);
+    content.append(&icon);
     let label = gtk::Label::new(Some(tr(page.title)));
     label.set_hexpand(true);
     label.set_xalign(0.0);

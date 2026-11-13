@@ -60,6 +60,11 @@
   border-top: var(--ndl-border-width-thin) solid var(--ndl-color-border-subtle);
 }
 
+/* The names in the sidebar, a little larger than the files'. The headings keep their size. */
+.navigation-sidebar > row:not(.archivador-heading) label {
+  font-size: 1.08em;
+}
+
 /* A heading in the sidebar is not something to point at. */
 .archivador-heading,
 .archivador-heading:hover {

@@ -85,6 +85,11 @@
   background-color: var(--ndl-color-surface-sunken);
 }
 
+/* The names of the pages in the sidebar, a little larger. The section titles keep their size. */
+.navigation-sidebar > row.activatable label {
+  font-size: 1.08em;
+}
+
 /* The section titles in the sidebar are not buttons: the pointer passing over one shows nothing.
  * The pages, which are, keep NDL's hover tint. */
 .navigation-sidebar > row:not(.activatable):hover {
