@@ -17,4 +17,5 @@ pub mod storage;
 pub mod sysinfo;
 pub mod themes;
 pub mod updates;
+pub mod users;
 pub mod wallpapers;
