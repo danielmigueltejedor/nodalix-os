@@ -11,12 +11,6 @@ function has_destroy_signal(object) {
 export const Connections = class Connections {
     constructor() {
         this.records = new Map();
-        this.cleanups = [];
-    }
-
-    /// Runs `cleanup` when everything is disconnected, for work that was queued on a handler.
-    on_disconnect(cleanup) {
-        this.cleanups.push(cleanup);
     }
 
     /// Connects the handler to one signal (returning its id) or to an array of signals (returning
@@ -67,7 +61,6 @@ export const Connections = class Connections {
 
     disconnect_all() {
         [...this.records.keys()].forEach(object => this.disconnect_all_for(object));
-        this.cleanups.splice(0).forEach(cleanup => cleanup());
     }
 
     disconnect(object, id) {
