@@ -52,6 +52,8 @@ fn main() -> glib::ExitCode {
         .build();
     app.connect_startup(|app| {
         nodalix_ui::init(STYLE);
+        // Settings decides the system's style: an old `default` becomes light.
+        pages::appearance::settle_style();
         // `gapplication action os.nodalix.Settings open-page "'wifi'"`, and what a desktop
         // file's actions and `gio launch` use: the name of a page, or of a GNOME panel.
         let open = gio::SimpleAction::new("open-page", Some(glib::VariantTy::STRING));

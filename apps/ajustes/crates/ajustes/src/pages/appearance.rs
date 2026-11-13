@@ -15,12 +15,9 @@ use crate::i18n::tr;
 
 const SCHEMA: &str = "org.gnome.desktop.interface";
 
-/// `(label, gsettings value)` for the colour scheme.
-const SCHEMES: [(&str, &str); 3] = [
-    ("Follow the system", "default"),
-    ("Light", "prefer-light"),
-    ("Dark", "prefer-dark"),
-];
+/// `(label, gsettings value)` for the colour scheme. There is no "follow the system" choice: this
+/// is where the system's style is decided, so it is always one of the two.
+const SCHEMES: [(&str, &str); 2] = [("Light", "prefer-light"), ("Dark", "prefer-dark")];
 const ACCENTS: [(&str, &str); 9] = [
     ("Blue", "blue"),
     ("Teal", "teal"),
@@ -81,6 +78,31 @@ fn schema_installed() -> bool {
     gio::SettingsSchemaSource::default().is_some_and(|s| s.lookup(SCHEMA, true).is_some())
 }
 
+/// What a stored colour scheme becomes. GNOME's `default` means "no preference", which every app
+/// draws as light, so a desktop that has it is light and is saved as such; the page no longer
+/// offers it.
+fn settled_scheme(stored: &str) -> Option<&'static str> {
+    match stored {
+        "prefer-light" | "prefer-dark" => None,
+        _ => Some("prefer-light"),
+    }
+}
+
+/// Saves a `default` colour scheme (what an older Settings could leave) as light. Call once at
+/// startup.
+pub fn settle_style() {
+    if !schema_installed() {
+        return;
+    }
+    let settings = gio::Settings::new(SCHEMA);
+    if !settings.is_writable("color-scheme") {
+        return;
+    }
+    if let Some(wanted) = settled_scheme(&settings.string("color-scheme")) {
+        let _ = settings.set_string("color-scheme", wanted);
+    }
+}
+
 /// The accent palette GNOME uses (so a swatch matches what the desktop shows) and the colours of
 /// the style previews, which must look light or dark whatever the app's own theme is. These are
 /// data, not part of NDL's theme, so they are added here and not in `style.css`.
@@ -105,8 +127,7 @@ fn palette_css() -> String {
     }
     css.push_str(
         ".settings-preview-prefer-light { background-image: linear-gradient(to bottom, #ffffff 0 18%, #f2f2f2 18% 100%); }\n\
-         .settings-preview-prefer-dark { background-image: linear-gradient(to bottom, #3a3a3e 0 18%, #242428 18% 100%); }\n\
-         .settings-preview-default { background-image: linear-gradient(105deg, #ffffff 0 18%, #f2f2f2 18% 50%, #242428 50% 100%); }\n",
+         .settings-preview-prefer-dark { background-image: linear-gradient(to bottom, #3a3a3e 0 18%, #242428 18% 100%); }\n",
     );
     css
 }
@@ -131,7 +152,7 @@ fn load_palette() {
     );
 }
 
-/// The three style choices as preview cards, like GNOME's: what each would look like.
+/// The two style choices as preview cards, like GNOME's: what each would look like.
 fn style_cards(settings: &gio::Settings) -> gtk::Box {
     let cards = gtk::Box::new(gtk::Orientation::Horizontal, 16);
     cards.set_halign(gtk::Align::Center);
@@ -459,10 +480,19 @@ mod tests {
 
     #[test]
     fn finds_the_index_of_a_value_and_falls_back_to_the_first() {
-        assert_eq!(index_of(&SCHEMES, "prefer-dark"), 2);
+        assert_eq!(index_of(&SCHEMES, "prefer-dark"), 1);
+        assert_eq!(index_of(&SCHEMES, "prefer-light"), 0);
         assert_eq!(index_of(&SCHEMES, "default"), 0);
         assert_eq!(index_of(&SCHEMES, "nonsense"), 0);
         assert_eq!(index_of(&ACCENTS, "purple"), 7);
+    }
+
+    #[test]
+    fn a_default_colour_scheme_is_saved_as_light_and_the_two_choices_are_left_alone() {
+        assert_eq!(settled_scheme("default"), Some("prefer-light"));
+        assert_eq!(settled_scheme(""), Some("prefer-light"));
+        assert_eq!(settled_scheme("prefer-light"), None);
+        assert_eq!(settled_scheme("prefer-dark"), None);
     }
 
     #[test]
