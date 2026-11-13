@@ -12,7 +12,6 @@ ConditionPathExistsGlob=|/var/lib/flatpak/exports/share/applications/ai.storytel
 ConditionPathExistsGlob=|%h/.local/share/applications/ai.storyteller.*.desktop
 ConditionPathExistsGlob=|%h/.local/share/flatpak/exports/share/applications/ai.storyteller.*.desktop
 ConditionPathExistsGlob=|%h/.config/autostart/ai.storyteller.*.desktop
-ConditionPathExists=|/usr/bin/artcraft-launcher
 
 [Service]
 Type=simple

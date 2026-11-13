@@ -48,9 +48,11 @@ class RepoPublishingTests(unittest.TestCase):
         self.assertRegex(SCRIPT, r"max_bytes=.*900")
         self.assertIn("Pages", SCRIPT)
 
-    def test_third_party_actions_are_pinned_to_major_versions(self):
-        for line in re.findall(r"uses: (\S+)", WORKFLOW_TEXT):
-            self.assertRegex(line, r"@v\d+$")
+    def test_third_party_actions_are_pinned_to_full_commits(self):
+        # A tag can be moved to other code; a full commit SHA cannot. The comment names the version.
+        for ref, rest in re.findall(r"uses: (\S+)(.*)", WORKFLOW_TEXT):
+            self.assertRegex(ref, r"@[0-9a-f]{40}$")
+            self.assertRegex(rest, r"#\s*v\d+")
 
 
 if __name__ == "__main__":
