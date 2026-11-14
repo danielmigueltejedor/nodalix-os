@@ -1,0 +1,67 @@
+name: Release from main
+
+# Releases Nodalix OS when a new version lands on main: bump VERSION and add
+# docs/release-notes/vX.Y.Z.md in the same pull request, then merge it. This tags the merge and
+# calls release.yml, which builds the packages and the ISO, validates the upgrade and publishes
+# the release with those notes. Any other push does nothing.
+#
+# Nodalix tags are the bare version (0.6.1, not v0.6.1): installed systems' updaters and the
+# signed release manifests read them, so the tag is made here rather than by Foundation's
+# release-tag, which writes vX.Y.Z. Everything else follows the shared Nodalia flow.
+on:
+  push:
+    branches: [main]
+    paths: [VERSION]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-auto
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      created: ${{ steps.tag.outputs.created }}
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Tag the version if its notes are written
+        id: tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          tag="$(python3 -c 'import sys; sys.path.insert(0, "tools"); from versioning import canonical_version, parse_version; v = canonical_version(open("VERSION").read()); parse_version(v); print(v)')"
+          echo "tag=$tag" >>"$GITHUB_OUTPUT"
+          if [[ ! -s "docs/release-notes/v$tag.md" ]]; then
+            echo "::notice::$tag has no docs/release-notes/v$tag.md: write the notes to release it."
+            exit 0
+          fi
+          scripts/check-release-notes.sh "$tag"
+          if gh api "repos/$REPO/git/ref/tags/$tag" >/dev/null 2>&1; then
+            echo "$tag is already tagged: nothing to release."
+            exit 0
+          fi
+          gh api -X POST "repos/$REPO/git/refs" -f ref="refs/tags/$tag" -f sha="$SHA" >/dev/null
+          echo "Tagged $tag at $SHA."
+          echo "created=true" >>"$GITHUB_OUTPUT"
+
+  release:
+    needs: tag
+    if: needs.tag.outputs.created == 'true'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/release.yml
+    secrets: inherit
+    with:
+      release_tag: ${{ needs.tag.outputs.tag }}

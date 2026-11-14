@@ -253,6 +253,10 @@ User settings, LocalSend favorites, certificates and phone pairing data remain i
 | **Release candidate** | `X.Y.Z-rc.N` | Final release validation |
 | **Development** | `main` | Work intended for the next release |
 
+A release is a pull request that bumps `VERSION` and adds its notes in
+`docs/release-notes/vX.Y.Z.md`; merging it tags and publishes the release
+([how](docs/release-notes/README.md)).
+
 Stable releases and their artifacts are available from [GitHub Releases](https://github.com/getnodalia/nodalix-os/releases).
 
 ## Development

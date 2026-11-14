@@ -27,7 +27,7 @@ usando para llamarlo: `/usr/bin/gnome-control-center`, `org.gnome.Settings.deskt
 
 ## El cambio (una sola PR, porque las instalaciones limpias instalan todo el conjunto a la vez)
 
-1. `VERSION`, componentes y notas de versión pasan a 0.6.0 (`release/components.json`, `docs/releases/v0.6.0.md`).
+1. `VERSION`, componentes y notas de versión pasan a 0.6.0 (`release/components.json`, `docs/release-notes/v0.6.0.md`).
 2. Los tres paquetes entran en el conjunto de la release; salen `nodalix-control-center` y el `nodalix-archivador` de 0.5.
 3. `nodalix-gnome` deja de depender de `nautilus`, `nautilus-python` y `nodalix-control-center`; depende de
    `nodalix-ajustes` y `nodalix-archivador`. Se retira la extensión de LocalSend para Nautilus (la trae Archivador).

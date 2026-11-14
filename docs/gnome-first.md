@@ -332,7 +332,7 @@ No se usa `[ids] *` y Ctrl+C convencional permanece disponible.
 |---|---|
 | `updater/legacy-installers.json`, migradores y lista de paquetes retirados | Hashes, respaldo y transición desde versiones antiguas; retirar al cerrar el soporte de upgrades 0.2.x |
 | `gnome/migration/` y pruebas de transición | Detección y archivo de configuraciones antiguas, sin ejecutar sus programas |
-| `docs/releases/`, `docs/baseline/` | Historia y evidencia de versiones publicadas; no se empaquetan |
+| `docs/release-notes/`, `docs/baseline/` | Historia y evidencia de versiones publicadas; no se empaquetan |
 | Fixture `git archive 0.2.4` de CI | Instala el overlay original para comprobar una migración real |
 | `co.hyprlab.Hylki.desktop` | Aplicación actual legítima, ajena al compositor antiguo |
 

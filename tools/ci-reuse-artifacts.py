@@ -12,7 +12,7 @@ QA_FILES = {'.github/workflows/ci.yml', 'tools/ci-boot-migrated.sh',
             '.github/workflows/release.yml', 'tools/release_iso.py',
             'tools/nodalix-download-iso.py', 'tools/finalize-release.py',
             'tests/test_release_iso_parts.py', 'docs/iso.md',
-            'docs/releases/v0.3.0.md', 'docs/migration-0.3.0.md'}
+            'docs/release-notes/v0.3.0.md', 'docs/migration-0.3.0.md'}
 REPO = os.environ.get('GITHUB_REPOSITORY', 'getnodalia/nodalix-os')
 
 def api(path):
