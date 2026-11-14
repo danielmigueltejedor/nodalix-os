@@ -19,7 +19,7 @@ replaces=('bazaar')
 makedepends=('meson' 'ninja' 'vala' 'blueprint-compiler' 'gettext' 'libxml2' 'desktop-file-utils'
              'python' 'python-babel' 'perl' 'glib2-devel')
 source=("tienda-$_store_commit.tar.gz::https://codeload.github.com/danielmigueltejedor/tienda/tar.gz/$_store_commit")
-sha256sums=('1be11d959111c405852b475435efe1bdaa01cf485b93ad432be22238b9d2e4f4')
+sha256sums=('ed07bc36a1fbc6a660d7bf83ad91cec0260e4590ccace0d7775610527b12ed0d')
 
 build() {
     cd "$srcdir/tienda-$_store_commit"
