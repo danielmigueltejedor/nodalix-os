@@ -17,6 +17,10 @@ conflicts=('brujula')
 replaces=('brujula')
 source=("brujula-$_brujula_commit.tar.gz::https://codeload.github.com/danielmigueltejedor/brujula/tar.gz/$_brujula_commit")
 sha256sums=('d13deeb3b74bdc9e0cb3b19294e64fcb3634c7b68f1449b22030158e4363369c')
+# The C code of its dependencies (SQLite and ring) is compiled by cc with makepkg's -flto and then
+# linked by lld, which cannot read those objects: undefined sqlite3_* and ring_core_* symbols.
+# The native apps (nodalix-native-apps) build without LTO for the same reason.
+options=('!lto')
 
 prepare() {
   cd "$srcdir/brujula-$_brujula_commit"
