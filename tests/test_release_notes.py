@@ -22,7 +22,7 @@ def load_release_notes():
 
 class ReleaseNotesPolicyTests(unittest.TestCase):
     def test_current_version_has_curated_release_notes(self):
-        expected = ROOT / "docs" / "releases" / f"v{VERSION}.md"
+        expected = ROOT / "docs" / "release-notes" / f"v{VERSION}.md"
         self.assertTrue(
             expected.is_file(),
             f"Missing curated release notes: {expected.relative_to(ROOT)}",
@@ -42,7 +42,7 @@ class ReleaseNotesPolicyTests(unittest.TestCase):
 
         self.assertEqual(
             path,
-            Path("docs/releases") / f"v{VERSION}.md",
+            Path("docs/release-notes") / f"v{VERSION}.md",
         )
         self.assertTrue(text.strip())
 

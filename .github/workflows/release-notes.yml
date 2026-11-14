@@ -1,0 +1,51 @@
+name: Release notes
+
+# Every version needs hand-written release notes in docs/release-notes/vX.Y.Z.md (format: the README
+# (rules: tools/release_notes.py). This workflow fails a pull request that bumps VERSION without
+# complete notes, or that adds or edits a notes file that is incomplete ("Release notes are
+# written", a required check). release.yml builds the release text from the file (the notes plus
+# the list of changes since the previous tag) when it publishes; run it by hand to refresh it.
+#
+# Releasing itself is release-auto.yml: merging the version bump with its notes tags and publishes it.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - "docs/release-notes/**"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Version whose notes to check, e.g. 0.6.1"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-notes-${{ github.event.pull_request.number || github.ref }}-${{ inputs.tag }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Release notes are written
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check the notes this change needs
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          case "$EVENT" in
+            pull_request) scripts/check-release-notes.sh --changed "$BASE" ;;
+            workflow_dispatch) scripts/check-release-notes.sh "$INPUT_TAG" ;;
+            *) scripts/check-release-notes.sh --changed HEAD^ ;;
+          esac

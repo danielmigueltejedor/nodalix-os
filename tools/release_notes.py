@@ -37,14 +37,14 @@ def fail(message: str) -> None:
 def release_notes_path(version: str) -> Path:
     version = canonical_version(version)
     parse_version(version)
-    return Path("docs/releases") / f"v{version}.md"
+    return Path("docs/release-notes") / f"v{version}.md"
 
 
 def validate(version: str) -> tuple[Path, str]:
     version = canonical_version(version)
     path = release_notes_path(version)
 
-    directory = TOOLS_DIR.parent / "docs/releases"
+    directory = TOOLS_DIR.parent / "docs/release-notes"
     source = next(
         (entry for entry in directory.iterdir()
          if entry.name == path.name and not entry.is_symlink() and entry.is_file()),
